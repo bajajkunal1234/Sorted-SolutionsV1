@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog } from 'lucide-react';
+import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog, UserX } from 'lucide-react';
 import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import NewAccountForm from '../accounts/NewAccountForm';
@@ -36,6 +36,9 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const [dismissing, setDismissing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [checkingAccount, setCheckingAccount] = useState(true);
+    const [showDenyModal, setShowDenyModal] = useState(false);
+    const [denyReason, setDenyReason] = useState('');
+    const [submittingDenial, setSubmittingDenial] = useState(false);
 
     // ── Auto-detect existing account on open (by phone number) ─────────────────
     useEffect(() => {
@@ -134,6 +137,47 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         try { await jobsAPI.delete(booking.id); onDismissed(); }
         catch (err) { alert('Failed to delete: ' + err.message); }
         finally { setDeleting(false); }
+    };
+
+    const handleDenySubmit = async () => {
+        if (!denyReason.trim()) return;
+        setSubmittingDenial(true);
+        try {
+            // 1. Create customer interaction
+            const interactionPayload = {
+                customer_id: createdCustomer?.id || null,
+                customer_name: createdCustomer?.name || cust.name || null,
+                job_id: booking.id,
+                type: 'cx-denied-service',
+                category: 'job',
+                description: `Customer Denied Service. Reason: ${denyReason}`,
+                performed_by_name: 'Admin',
+                source: 'Admin App',
+                timestamp: new Date().toISOString()
+            };
+
+            const postRes = await fetch('/api/admin/interactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(interactionPayload),
+            });
+            const postData = await postRes.json();
+            if (!postData.success) {
+                throw new Error(postData.error || 'Failed to save interaction');
+            }
+
+            // 2. Update job status to 'cancelled'
+            await jobsAPI.update(booking.id, { status: 'cancelled' });
+
+            // 3. Close modal & refresh jobs
+            onDismissed();
+        } catch (err) {
+            console.error('Error submitting denial:', err);
+            alert('Failed to record denial: ' + err.message);
+        } finally {
+            setSubmittingDenial(false);
+            setShowDenyModal(false);
+        }
     };
 
     // ── Account group resolution ────────────────────────────────────────────────
@@ -406,6 +450,24 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                     <div className="booking-review-footer-right" style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                         {renderAccountButton()}
 
+                        {accountConfirmed && (
+                            <button
+                                onClick={() => setShowDenyModal(true)}
+                                className="btn"
+                                style={{
+                                    backgroundColor: 'var(--color-danger)',
+                                    color: 'white',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    minWidth: 150,
+                                }}
+                            >
+                                <UserX size={15} /> Cx Denied Service
+                            </button>
+                        )}
+
                         <button
                             onClick={() => setShowJobForm(true)}
                             className="btn btn-success"
@@ -441,6 +503,77 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                         onCreate={handleConvertJob}
                         existingJob={jobPrefill}
                     />
+                )}
+
+                {/* Denial Reason Sub-Modal */}
+                {showDenyModal && (
+                    <div className="modal-overlay" onClick={() => setShowDenyModal(false)} style={{ zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '100%', margin: '20px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', boxShadow: 'var(--shadow-xl)' }}>
+                            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                                <h3 className="modal-title" style={{ margin: 0, fontSize: 'var(--font-size-md)', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                    <UserX size={18} style={{ color: 'var(--color-danger)' }} /> Customer Denied Service
+                                </h3>
+                                <button className="btn-icon" onClick={() => setShowDenyModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body" style={{ padding: 'var(--spacing-md)' }}>
+                                <label className="form-label" style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
+                                    Please enter the reason customer denied service:
+                                </label>
+                                <textarea
+                                    className="form-input"
+                                    value={denyReason}
+                                    onChange={e => setDenyReason(e.target.value)}
+                                    placeholder="e.g. Price too high, got repaired elsewhere, customer rescheduled externally..."
+                                    style={{
+                                        width: '100%',
+                                        height: '110px',
+                                        padding: '10px',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        fontFamily: 'inherit',
+                                        fontSize: 'var(--font-size-sm)',
+                                        resize: 'vertical',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    required
+                                />
+                            </div>
+                            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', padding: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)' }}>
+                                <button className="btn btn-secondary" onClick={() => setShowDenyModal(false)}>
+                                    Cancel
+                                </button>
+                                <button 
+                                    className="btn" 
+                                    onClick={handleDenySubmit}
+                                    disabled={!denyReason.trim() || submittingDenial}
+                                    style={{
+                                        backgroundColor: 'var(--color-danger)',
+                                        color: 'white',
+                                        border: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        cursor: (!denyReason.trim() || submittingDenial) ? 'not-allowed' : 'pointer',
+                                        opacity: (!denyReason.trim() || submittingDenial) ? 0.6 : 1
+                                    }}
+                                >
+                                    {submittingDenial ? (
+                                        <>
+                                            <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 size={14} /> Confirm Denial
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
