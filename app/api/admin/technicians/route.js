@@ -28,8 +28,13 @@ export async function GET(request) {
 export async function PATCH(request) {
     const supabase = createServerSupabase()
     try {
+        const { searchParams } = new URL(request.url)
+        const queryId = searchParams.get('id')
+
         const body = await request.json()
-        const { id, ...updates } = body
+        const id = queryId || body.id
+        const updates = { ...body }
+        delete updates.id
 
         if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
