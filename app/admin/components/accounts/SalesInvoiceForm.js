@@ -443,7 +443,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                 style={{ width: '100%' }}
                             >
                                 <option value="">— Unassigned / Select Technician —</option>
-                                {technicians.map(tech => (
+                                {technicians.filter(tech => tech.is_active !== false || tech.id === formData.technician_id).map(tech => (
                                     <option key={tech.id} value={tech.id}>
                                         {tech.name}
                                     </option>

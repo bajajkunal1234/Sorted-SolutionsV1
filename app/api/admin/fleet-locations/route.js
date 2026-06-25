@@ -25,31 +25,37 @@ export async function GET() {
         if (ids.length > 0) {
             const { data: techs } = await supabase
                 .from('technicians')
-                .select('id, name, current_session_token')
+                .select('id, name, current_session_token, is_active')
                 .in('id', ids)
             for (const t of techs || []) {
-                techMap[t.id] = { name: t.name, current_session_token: t.current_session_token }
+                techMap[t.id] = { 
+                    name: t.name, 
+                    current_session_token: t.current_session_token,
+                    is_active: t.is_active !== false
+                }
             }
         }
 
-        const enriched = (data || []).map(r => ({
-            technician_id: r.technician_id,
-            name: techMap[r.technician_id]?.name || 'Technician',
-            current_session_token: techMap[r.technician_id]?.current_session_token || null,
-            latitude: r.latitude,
-            longitude: r.longitude,
-            is_on_job: r.is_on_job,
-            tracking_source: r.tracking_source || 'web',
-            last_seen: r.updated_at,
-            is_online: r.is_online !== false,
-            location_precision: r.location_precision || 'precise',
-            ip_address: r.ip_address,
-            battery_level: r.battery_level,
-            connectivity_status: r.connectivity_status,
-            is_mocked: !!r.is_mocked,
-            // seconds since last ping
-            seconds_ago: Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000),
-        }))
+        const enriched = (data || [])
+            .filter(r => techMap[r.technician_id] && techMap[r.technician_id].is_active)
+            .map(r => ({
+                technician_id: r.technician_id,
+                name: techMap[r.technician_id]?.name || 'Technician',
+                current_session_token: techMap[r.technician_id]?.current_session_token || null,
+                latitude: r.latitude,
+                longitude: r.longitude,
+                is_on_job: r.is_on_job,
+                tracking_source: r.tracking_source || 'web',
+                last_seen: r.updated_at,
+                is_online: r.is_online !== false,
+                location_precision: r.location_precision || 'precise',
+                ip_address: r.ip_address,
+                battery_level: r.battery_level,
+                connectivity_status: r.connectivity_status,
+                is_mocked: !!r.is_mocked,
+                // seconds since last ping
+                seconds_ago: Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000),
+            }))
 
         return NextResponse.json({ success: true, data: enriched, total: enriched.length })
     } catch (err) {

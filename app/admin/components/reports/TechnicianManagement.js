@@ -299,6 +299,8 @@ function TechnicianManagement({ initialSubTab }) {
             specializations: tech.specializations || [],
             customer_card_fields: tech.customer_card_fields || { photo: true, name: true, rating: true, years_experience: true, specializations: false, bio: false },
             is_active: tech.is_active !== false,
+            date_joined: tech.date_joined || '',
+            last_working_day: tech.last_working_day || '',
         });
     };
 
@@ -344,13 +346,23 @@ function TechnicianManagement({ initialSubTab }) {
     };
 
     const handleToggleActive = async (tech) => {
+        if (tech.last_working_day) {
+            alert('Cannot make technician active because a last working day is set.');
+            return;
+        }
         try {
+            const currentActive = tech.is_active !== false;
+            const newActive = !currentActive;
             await fetch(`/api/admin/technicians?id=${tech.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_active: !tech.is_active }),
+                body: JSON.stringify({ is_active: newActive }),
             });
             fetchTechnicians();
+            if (selectedTech?.id === tech.id) {
+                setProfileDraft(prev => ({ ...prev, is_active: newActive }));
+                setSelectedTech(prev => ({ ...prev, is_active: newActive }));
+            }
         } catch (err) { alert('Failed to update status: ' + err.message); }
     };
 
@@ -615,6 +627,51 @@ function TechnicianManagement({ initialSubTab }) {
                 .admin-sticky-table tr:hover {
                     background-color: rgba(255, 255, 255, 0.015);
                 }
+                /* Toggle Switch CSS */
+                .switch-container {
+                    position: relative;
+                    display: inline-block;
+                    width: 38px;
+                    height: 20px;
+                }
+                .switch-container input {
+                    opacity: 0;
+                    width: 0;
+                    height: 0;
+                }
+                .switch-slider {
+                    position: absolute;
+                    cursor: pointer;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: #475569;
+                    transition: .3s;
+                    border-radius: 20px;
+                }
+                .switch-slider:before {
+                    position: absolute;
+                    content: "";
+                    height: 14px;
+                    width: 14px;
+                    left: 3px;
+                    bottom: 3px;
+                    background-color: white;
+                    transition: .3s;
+                    border-radius: 50%;
+                }
+                input:checked + .switch-slider {
+                    background-color: #10b981;
+                }
+                input:checked + .switch-slider:before {
+                    transform: translateX(18px);
+                }
+                input:disabled + .switch-slider {
+                    background-color: #1e293b;
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
             ` }} />
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
@@ -687,11 +744,19 @@ function TechnicianManagement({ initialSubTab }) {
                                             <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>{tech.name}</div>
                                             <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</div>
                                         </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 9999, backgroundColor: tech.is_active !== false ? '#d1fae5' : '#fee2e2', color: tech.is_active !== false ? '#059669' : '#dc2626' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
+                                            <label className="switch-container">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={tech.is_active !== false}
+                                                    disabled={!!tech.last_working_day}
+                                                    onChange={() => handleToggleActive(tech)}
+                                                />
+                                                <span className="switch-slider"></span>
+                                            </label>
+                                            <span style={{ fontSize: 10, fontWeight: 600, color: tech.is_active !== false ? '#10b981' : '#ef4444' }}>
                                                 {tech.is_active !== false ? 'Active' : 'Inactive'}
                                             </span>
-                                            {tech.rating > 0 && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {tech.rating}</span>}
                                         </div>
                                     </div>
                                 ))
@@ -790,6 +855,39 @@ function TechnicianManagement({ initialSubTab }) {
                                         />
                                     </div>
 
+                                    {/* Dates: Date Joined & Last Working Day */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>📅 Date Joined</label>
+                                            <input
+                                                type="date"
+                                                className="form-input"
+                                                value={profileDraft.date_joined || ''}
+                                                onChange={e => setProfileDraft(p => ({ ...p, date_joined: e.target.value }))}
+                                                style={{ width: '100%', padding: '8px 12px' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>🏁 Last Working Day</label>
+                                            <input
+                                                type="date"
+                                                className="form-input"
+                                                value={profileDraft.last_working_day || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setProfileDraft(p => {
+                                                        const updated = { ...p, last_working_day: val };
+                                                        if (val) {
+                                                            updated.is_active = false; // Stay inactive if last working day is set
+                                                        }
+                                                        return updated;
+                                                    });
+                                                }}
+                                                style={{ width: '100%', padding: '8px 12px' }}
+                                            />
+                                        </div>
+                                    </div>
+
                                     {/* Specializations */}
                                     <div>
                                         <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>🔧 Specializations</label>
@@ -818,10 +916,34 @@ function TechnicianManagement({ initialSubTab }) {
                                     </div>
 
                                     {/* Active toggle */}
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={profileDraft.is_active} onChange={e => setProfileDraft(p => ({ ...p, is_active: e.target.checked }))} style={{ width: 16, height: 16, accentColor: 'var(--color-primary)' }} />
-                                        <span style={{ fontSize: 13, fontWeight: 600 }}>Active (can receive jobs &amp; log in)</span>
-                                    </label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <label className="switch-container">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={profileDraft.is_active}
+                                                    disabled={!!profileDraft.last_working_day}
+                                                    onChange={e => {
+                                                        const val = e.target.checked;
+                                                        setProfileDraft(p => ({ ...p, is_active: val }));
+                                                    }}
+                                                />
+                                                <span className="switch-slider"></span>
+                                            </label>
+                                            <span style={{ fontSize: 14, fontWeight: 600, color: profileDraft.is_active ? '#10b981' : '#ef4444' }}>
+                                                Status: {profileDraft.is_active ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
+                                            {profileDraft.last_working_day ? (
+                                                <span style={{ color: '#ef4444' }}>⚠️ Locked to Inactive: Technician has a set last working day.</span>
+                                            ) : profileDraft.is_active ? (
+                                                <span>🟢 Active: Technician can log in to the mobile app and receive active job bookings.</span>
+                                            ) : (
+                                                <span>🔴 Inactive: Technician cannot log in and is excluded from receiving new jobs.</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
