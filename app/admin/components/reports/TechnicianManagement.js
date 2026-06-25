@@ -88,6 +88,43 @@ function TechnicianManagement({ initialSubTab }) {
         { id: 'handed_to_sc', label: 'Handed to SC', visible: true, width: 110 },
         { id: 'actions', label: 'Actions', visible: true, width: 120 }
     ]);
+
+    // Load spares columns configuration from localStorage after mount
+    useEffect(() => {
+        const savedCols = localStorage.getItem('spares_columns_config');
+        if (savedCols) {
+            try {
+                const parsed = JSON.parse(savedCols);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setSparesColumns(prev => {
+                        const savedMap = new Map(parsed.map(c => [c.id, c]));
+                        const orderedCols = parsed
+                            .filter(c => prev.some(p => p.id === c.id))
+                            .map(c => {
+                                const orig = prev.find(p => p.id === c.id);
+                                return {
+                                    ...orig,
+                                    visible: c.visible !== undefined ? c.visible : orig.visible,
+                                    width: c.width !== undefined ? c.width : orig.width
+                                };
+                            });
+                        const newCols = prev.filter(p => !savedMap.has(p.id));
+                        return [...orderedCols, ...newCols];
+                    });
+                }
+            } catch (e) {
+                console.error("Error loading spares columns configuration:", e);
+            }
+        }
+    }, []);
+
+    // Save spares columns configuration to localStorage when updated
+    useEffect(() => {
+        if (sparesColumns && sparesColumns.length > 0) {
+            localStorage.setItem('spares_columns_config', JSON.stringify(sparesColumns));
+        }
+    }, [sparesColumns]);
+
     const [sparesSort, setSparesSort] = useState({ column: 'date', direction: 'desc' });
     const [showColSettings, setShowColSettings] = useState(false);
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
