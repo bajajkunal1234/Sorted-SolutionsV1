@@ -42,6 +42,15 @@ const offlineIcon = new L.DivIcon({
 
 const MUMBAI = [19.076, 72.8777];
 
+// Admin location icon (Blue DivIcon representing "You")
+const adminIcon = new L.DivIcon({
+    className: '',
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:#3b82f6;border:3px solid #ffffff;box-shadow:0 0 0 4px rgba(59,130,246,0.35);display:flex;align-items:center;justify-content:center;font-size:11px;">👤</div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    popupAnchor: [0, -12],
+});
+
 function FitBounds({ positions, trigger }) {
     const map = useMap();
     const hasFitRef = useRef(false);
@@ -142,9 +151,27 @@ function formatAge(secondsAgo) {
  */
 export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true, isDashboard = false }) {
     const [allLocations, setAllLocations] = useState([]);
+    const [adminLocation, setAdminLocation] = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
     const [localActiveJobs, setLocalActiveJobs] = useState([]);
+
+    const fetchAdminLocation = () => {
+        if (typeof window !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setAdminLocation({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    console.error('Error getting admin location:', error);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+    };
 
     const [selectedTechForTimeline, setSelectedTechForTimeline] = useState(null);
     const [timelineData, setTimelineData] = useState([]);
@@ -231,6 +258,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
     // Fetch all online technicians from fleet-locations API
     const fetchLocations = async () => {
+        fetchAdminLocation();
         try {
             // Auto-fetch active jobs locally if not supplied as props
             if (!activeJobs && activeTechnicians.length === 0) {
@@ -393,63 +421,63 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                 {/* Map Type Switcher Floating Overlay */}
                 <div style={{
                     position: 'absolute',
-                    top: 10,
-                    right: 10,
+                    top: 8,
+                    right: 8,
                     zIndex: 1000,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 6,
-                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    padding: 4,
-                    borderRadius: 8,
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    gap: 4,
+                    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                    backdropFilter: 'blur(6px)',
+                    padding: 3,
+                    borderRadius: 6,
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
                 }}>
                     <button
                         onClick={() => setFitBoundsTrigger(prev => prev + 1)}
                         style={{
-                            padding: '4px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 6,
+                            padding: '3px 6px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            borderRadius: 4,
                             border: 'none',
                             cursor: 'pointer',
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            color: '#fff',
+                            backgroundColor: 'rgba(255,255,255,0.06)',
+                            color: 'rgba(255,255,255,0.85)',
                             transition: 'all 0.2s',
                         }}
                         title="Center map on all technicians"
                     >
                         🎯 Center Map
                     </button>
-                    <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center' }} />
+                    <div style={{ width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center' }} />
                     <button
                         onClick={() => setMapType('google-roadmap')}
                         style={{
-                            padding: '4px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 6,
+                            padding: '3px 6px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            borderRadius: 4,
                             border: 'none',
                             cursor: 'pointer',
-                            backgroundColor: mapType === 'google-roadmap' ? '#6366f1' : 'transparent',
-                            color: '#fff',
+                            backgroundColor: mapType === 'google-roadmap' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                            color: mapType === 'google-roadmap' ? '#fff' : 'rgba(255,255,255,0.7)',
                             transition: 'all 0.2s'
                         }}
                     >
-                        🗺️ Google Map
+                        🗺️ Map
                     </button>
                     <button
                         onClick={() => setMapType('google-hybrid')}
                         style={{
-                            padding: '4px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 6,
+                            padding: '3px 6px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            borderRadius: 4,
                             border: 'none',
                             cursor: 'pointer',
-                            backgroundColor: mapType === 'google-hybrid' ? '#6366f1' : 'transparent',
-                            color: '#fff',
+                            backgroundColor: mapType === 'google-hybrid' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                            color: mapType === 'google-hybrid' ? '#fff' : 'rgba(255,255,255,0.7)',
                             transition: 'all 0.2s'
                         }}
                     >
@@ -458,14 +486,14 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     <button
                         onClick={() => setMapType('voyager')}
                         style={{
-                            padding: '4px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 6,
+                            padding: '3px 6px',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            borderRadius: 4,
                             border: 'none',
                             cursor: 'pointer',
-                            backgroundColor: mapType === 'voyager' ? '#6366f1' : 'transparent',
-                            color: '#fff',
+                            backgroundColor: mapType === 'voyager' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                            color: mapType === 'voyager' ? '#fff' : 'rgba(255,255,255,0.7)',
                             transition: 'all 0.2s'
                         }}
                     >
@@ -492,8 +520,26 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                             attribution='&copy; <a href="https://carto.com/">Carto</a>'
                         />
                     )}
-                    {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} trigger={fitBoundsTrigger} />}
+                    {(() => {
+                        const fitPositions = [...mergedLocations];
+                        if (adminLocation) {
+                            fitPositions.push({ latitude: adminLocation.latitude, longitude: adminLocation.longitude });
+                        }
+                        return fitPositions.length > 0 && <FitBounds positions={fitPositions} trigger={fitBoundsTrigger} />;
+                    })()}
                     <MapController panTo={mapPanTarget} />
+                    {adminLocation && (
+                        <Marker
+                            position={[adminLocation.latitude, adminLocation.longitude]}
+                            icon={adminIcon}
+                        >
+                            <Popup>
+                                <div style={{ fontWeight: 700, fontSize: 12, textAlign: 'center', minWidth: 100, color: '#0f172a' }}>
+                                    📍 You (Admin)
+                                </div>
+                            </Popup>
+                        </Marker>
+                    )}
 
                     {mergedLocations.map(loc => {
                         const isOffline = !loc.is_online || loc.seconds_ago > 900;
@@ -512,141 +558,38 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                 icon={markerIcon}
                             >
                                 <Popup>
-                                    <div style={{ minWidth: 160 }}>
-                                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                                    <div style={{ minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 0' }}>
+                                        <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
                                             🔧 {loc.name}
                                         </div>
-                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-                                            <span style={{
-                                                padding: '2px 8px', borderRadius: 12,
-                                                background: isTrulyOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
-                                                color: isTrulyOnline ? '#10b981' : '#94a3b8',
-                                                fontSize: 10, fontWeight: 700
-                                            }}>
-                                                {isTrulyOnline ? 'ONLINE' : 'OFFLINE'}
-                                            </span>
-                                            <span style={{
-                                                padding: '2px 8px', borderRadius: 12,
-                                                background: loc.location_precision === 'precise' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                color: loc.location_precision === 'precise' ? '#38bdf8' : '#f59e0b',
-                                                fontSize: 10, fontWeight: 700
-                                            }}>
-                                                {loc.location_precision === 'precise' ? 'PRECISE' : 'APPROX'}
-                                            </span>
-                                            {loc.is_on_job && (
-                                                <span style={{
-                                                    padding: '2px 8px', borderRadius: 12,
-                                                    background: 'rgba(59, 130, 246, 0.15)',
-                                                    color: '#3b82f6',
-                                                    fontSize: 10, fontWeight: 700
-                                                }}>
-                                                    ON JOB
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {loc.is_mocked && (
-                                            <div style={{
-                                                color: '#ffffff', backgroundColor: '#ef4444',
-                                                padding: '4px 8px', borderRadius: 6, fontSize: 10,
-                                                fontWeight: 800, textTransform: 'uppercase',
-                                                marginBottom: 6, textAlign: 'center',
-                                                animation: 'pulse 1.5s infinite'
-                                            }}>
-                                                🚨 FAKE GPS DETECTED!
-                                            </div>
-                                        )}
-
-                                        {!isDashboard && loc.seconds_ago > 1800 && (
-                                            <div style={{
-                                                color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)',
-                                                padding: '4px 8px', borderRadius: 6, fontSize: 11,
-                                                fontWeight: 700, border: '1px solid rgba(239,68,68,0.2)',
-                                                marginBottom: 6
-                                            }}>
-                                                ⚠️ ALERT: No ping for &gt; 30m!
-                                            </div>
-                                        )}
-
-                                        <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                                            <div>📍 Last seen: {formatAge(loc.seconds_ago)}</div>
-                                            {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
-                                                <div>🔋 Battery: <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{loc.battery_level}%</span></div>
-                                            )}
+                                        <div style={{ fontSize: 11, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
                                             {loc.connectivity_status && (
-                                                <div>📶 Connection: <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{loc.connectivity_status}</span></div>
+                                                <div>📶 Connection: <span style={{ fontWeight: 600, color: '#1e293b' }}>{loc.connectivity_status}</span></div>
                                             )}
-                                            {loc.ip_address && (
-                                                <div style={{ fontSize: 10, color: '#64748b' }}>🌐 IP: {loc.ip_address}</div>
-                                            )}
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                                {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
-                                                    <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
-                                                ) : (
-                                                    <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
-                                                )}
-                                                {loc.isRealtime && <span style={{ color: '#10b981', fontWeight: 700, fontSize: 10 }}>● LIVE</span>}
-                                            </div>
-                                            {(() => {
-                                                const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
-                                                const addr = addressCache[cacheKey];
-                                                if (addr) {
-                                                    return (
-                                                        <div style={{ 
-                                                            fontSize: 10, 
-                                                            color: '#e2e8f0', 
-                                                            marginTop: 6, 
-                                                            padding: '6px 8px', 
-                                                            backgroundColor: 'rgba(255,255,255,0.05)', 
-                                                            borderRadius: 6,
-                                                            border: '1px solid rgba(255,255,255,0.05)',
-                                                            lineHeight: '1.4',
-                                                            wordBreak: 'break-word'
-                                                        }}>
-                                                            🏠 {addr}
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            })()}
+                                            <div>⏰ Last seen: <span style={{ fontWeight: 600, color: '#1e293b' }}>{formatAge(loc.seconds_ago)}</span></div>
                                         </div>
-
-                                        <button
-                                            onClick={() => setSelectedTechForTimeline({ id: loc.technician_id, name: loc.name })}
+                                        <a
+                                            href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             style={{
                                                 width: '100%',
                                                 padding: '6px 8px',
-                                                backgroundColor: '#6366f1',
-                                                border: 'none',
+                                                backgroundColor: '#3b82f6',
                                                 borderRadius: 6,
                                                 color: '#fff',
                                                 fontWeight: 700,
                                                 fontSize: 10,
-                                                cursor: 'pointer',
-                                                marginTop: 8,
-                                                textAlign: 'center'
+                                                textDecoration: 'none',
+                                                textAlign: 'center',
+                                                display: 'block',
+                                                marginTop: 4,
+                                                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.25)',
+                                                transition: 'all 0.2s'
                                             }}
                                         >
-                                            📅 View Session Timeline
-                                        </button>
-                                        <button
-                                            onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
-                                            style={{
-                                                width: '100%',
-                                                padding: '6px 8px',
-                                                backgroundColor: '#dc2626',
-                                                border: 'none',
-                                                borderRadius: 6,
-                                                color: '#fff',
-                                                fontWeight: 700,
-                                                fontSize: 10,
-                                                cursor: 'pointer',
-                                                marginTop: 6,
-                                                textAlign: 'center'
-                                            }}
-                                        >
-                                            📴 Remotely Log Out
-                                        </button>
+                                            🗺️ Get Directions
+                                        </a>
                                     </div>
                                 </Popup>
                             </Marker>
@@ -671,20 +614,21 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                         const isRedAlert = !isDashboard && loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
-                                padding: '10px 12px', borderRadius: 10,
+                                padding: '12px 14px', borderRadius: 10,
                                 background: isRedAlert ? 'rgba(239, 68, 68, 0.05)' : (isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)'),
                                 border: `1px solid ${isRedAlert ? '#ef4444' : (isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'))}`,
-                                display: 'flex', alignItems: 'center', gap: 10,
-                                opacity: isOffline ? 0.6 : 1
+                                display: 'flex', alignItems: 'flex-start', gap: 12,
+                                opacity: isOffline ? 0.65 : 1
                             }}>
                                 <div style={{
                                     width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
                                     backgroundColor: isRedAlert ? '#ef4444' : (isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569')),
                                     boxShadow: isRedAlert ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : ((!isOffline && loc.is_on_job) ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none'),
                                     animation: isRedAlert ? 'pulse 2s infinite' : ((!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none'),
+                                    marginTop: '5px'
                                 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13, color: isRedAlert ? '#fca5a5' : (isOffline ? '#94a3b8' : '#e2e8f0'), display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: isRedAlert ? '#fca5a5' : '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {loc.name}
                                         {isRedAlert && (
                                             <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>🚨 LATE</span>
@@ -726,7 +670,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         })()}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, marginTop: '2px' }}>
                                     {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
                                         <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                     ) : (
