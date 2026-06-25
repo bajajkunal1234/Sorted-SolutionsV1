@@ -43,6 +43,8 @@ export async function PATCH(request) {
 
         if (updates.date_joined === '') updates.date_joined = null
         if (updates.last_working_day === '') updates.last_working_day = null
+        if (updates.rating === '') updates.rating = null
+        if (updates.years_experience === '') updates.years_experience = null
 
         const { data, error } = await supabase
             .from('technicians')
