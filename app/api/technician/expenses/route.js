@@ -26,7 +26,7 @@ export async function GET(request) {
             .eq('id', technicianId)
             .single()
 
-        if (!tech || tech.current_session_token !== sessionToken) {
+        if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
@@ -88,7 +88,7 @@ export async function POST(request) {
             .eq('id', expenseData.technician_id)
             .single()
 
-        if (!tech || tech.current_session_token !== sessionToken) {
+        if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
@@ -189,7 +189,7 @@ export async function DELETE(request) {
             .eq('id', technicianId)
             .single()
 
-        if (!tech || tech.current_session_token !== sessionToken) {
+        if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 

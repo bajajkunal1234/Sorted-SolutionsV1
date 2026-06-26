@@ -191,6 +191,8 @@ export async function POST(request) {
                 // Allow technician to set password for the first time
                 const passwordHash = await bcrypt.hash(password, 12);
                 const techName = name || existingTech.name || `Technician ${last10.slice(-4)}`;
+                const sessionToken = generateSessionToken();
+                const clientIp = getClientIp(request);
 
                 const { data: updatedTech, error: updateError } = await supabase
                     .from('technicians')
@@ -198,6 +200,8 @@ export async function POST(request) {
                         name: techName,
                         password_hash: passwordHash,
                         phone: last10,
+                        current_session_token: sessionToken,
+                        last_device_ip: clientIp,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', existingTech.id)
@@ -214,11 +218,12 @@ export async function POST(request) {
                     customerId: updatedTech.ledger_id || null,
                     customerName: techName,
                     description: `Technician claimed access to admin-created account (${last10})`,
+                    metadata: { session_token: sessionToken, ip: clientIp },
                     source: 'Technician App'
-                });
+                }).catch(() => {});
 
                 const { password_hash: ph, ...safeUser } = updatedTech;
-                return NextResponse.json({ success: true, user: { ...safeUser, role: 'technician' }, message: 'Account registered successfully' });
+                return NextResponse.json({ success: true, user: { ...safeUser, role: 'technician', session_token: sessionToken }, message: 'Account registered successfully' });
             }
 
             // Check not already registered as customer (robust phone format matching)

@@ -41,7 +41,7 @@ export async function POST(request) {
             .eq('id', technician_id)
             .single()
 
-        if (techError || !tech || tech.current_session_token !== finalToken) {
+        if (techError || !tech || !tech.current_session_token || tech.current_session_token !== finalToken) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
