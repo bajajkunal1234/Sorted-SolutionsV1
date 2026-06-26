@@ -224,7 +224,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             setJobs(data || []);
             setError(null);
         } catch (err) {
-            setError('Failed to load jobs.');
+            setError(`Failed to load jobs: ${err.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
