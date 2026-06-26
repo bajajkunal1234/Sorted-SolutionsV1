@@ -236,6 +236,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
+    const formatTransactionDetails = (tx, title) => {
+        if (!tx) return '';
+        const itemLines = (tx.items || []).map(item => 
+            `- ${item.description || 'Item'} (Qty: ${item.qty || 1}, Rate: ₹${item.rate || 0}, Total: ₹${item.total || 0})`
+        ).join('\n');
+        return `${title} Details:\n` +
+               `Number: ${tx.quote_number || tx.invoice_number || tx.reference || ''}\n` +
+               `Total Amount: ₹${tx.total_amount || 0}\n` +
+               `Subtotal: ₹${tx.subtotal || 0}\n` +
+               `CGST: ₹${tx.cgst || 0}\n` +
+               `SGST: ₹${tx.sgst || 0}\n` +
+               `IGST: ₹${tx.igst || 0}\n` +
+               `Total Tax: ₹${tx.total_tax || 0}\n` +
+               `Items:\n${itemLines || 'No items listed'}`;
+    };
+
     const handleRestartProcess = async () => {
         if (!savedInvoice) return;
         
@@ -333,6 +349,111 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             // Reopen repair estimate calculator
             setActiveForm('calculator');
             alert('Invoice deleted and process restarted successfully!');
+
+        } catch (err) {
+            alert('Failed to restart process: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRestartQuotationOnly = async () => {
+        if (!savedQuotation) return;
+        
+        if (!window.confirm("Are you sure you want to restart the quotation process? This will permanently delete the current quotation, set the status back to Diagnosing & Quoting, and reopen the Repair Calculator.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Delete quotation from Supabase
+            const response = await apiCall(`/api/admin/transactions?type=quotation&id=${savedQuotation.id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete quotation');
+
+            // 2. Format detailed text for interactions log
+            const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+            const techId = editedJob.assignedTo || job.technician_id || null;
+            
+            const itemLines = (savedQuotation.items || []).map(item => 
+                `- ${item.description || 'Item'} (Qty: ${item.qty || 1}, Rate: ₹${item.rate || 0}, Total: ₹${item.total || 0})`
+            ).join('\n');
+
+            const description = `Quotation ${savedQuotation.quote_number} deleted by technician ${techName}. Process restarted back to Diagnosing & Quoting.\nQuotation details:\nTotal Amount: ₹${savedQuotation.total_amount || 0}\nSubtotal: ₹${savedQuotation.subtotal || 0}\nCGST: ₹${savedQuotation.cgst || 0}\nSGST: ₹${savedQuotation.sgst || 0}\nIGST: ₹${savedQuotation.igst || 0}\nTotal Tax: ₹${savedQuotation.total_tax || 0}\nItems:\n${itemLines || 'No items listed'}`;
+
+            // Post to technician job interactions API
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'quotation-deleted',
+                    category: 'billing',
+                    description: description,
+                    user_name: techName,
+                    performedBy: techId,
+                    customer_id: editedJob.customerId || null,
+                    metadata: {
+                        deleted_quote_number: savedQuotation.quote_number,
+                        deleted_quote_id: savedQuotation.id,
+                        deleted_quote_total: savedQuotation.total_amount,
+                        deleted_quote_subtotal: savedQuotation.subtotal,
+                        deleted_quote_tax: savedQuotation.total_tax,
+                        deleted_quote_items: savedQuotation.items
+                    }
+                })
+            }).catch(e => console.error("Job interaction logging failed", e));
+
+            // Also log to global client-side log
+            logInteraction({
+                type: 'quotation-deleted',
+                category: 'billing',
+                jobId: String(job.id),
+                customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+                customerName: editedJob.customerName || editedJob.customer_name,
+                description: `Quotation ${savedQuotation.quote_number} deleted. Process restarted back to Diagnosing & Quoting.`,
+                performedByName: techName,
+                performedBy: techId,
+                source: 'Technician App',
+            });
+
+            // 3. Update job status to diagnosing_quoting in DB
+            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'diagnosing_quoting',
+                    updated_by_name: techName,
+                    source: 'Technician App',
+                    _changeLog: [`Quotation ${savedQuotation.quote_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
+                })
+            });
+            const updateJson = await updateRes.json();
+            if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+
+            // 4. Update local states
+            setSavedQuotation(null);
+            
+            // Log local interaction in memory so it updates the UI immediately
+            const localInteraction = {
+                type: 'quotation-deleted',
+                performed_by_name: techName,
+                description: description,
+                timestamp: new Date().toISOString()
+            };
+            
+            const updatedJobData = { 
+                ...editedJob, 
+                status: 'diagnosing_quoting',
+                interactions: [localInteraction, ...(editedJob.interactions || [])]
+            };
+            setEditedJob(updatedJobData);
+            if (onJobUpdate) onJobUpdate(updatedJobData);
+
+            // Reopen repair estimate calculator
+            setActiveForm('calculator');
+            alert('Quotation deleted and process restarted successfully!');
 
         } catch (err) {
             alert('Failed to restart process: ' + err.message);
@@ -457,9 +578,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             // 4. Log interaction
             const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
-            const interactionDesc = isEditing 
+            const baseInteractionDesc = isEditing 
                 ? `Quotation ${savedData?.quote_number || savedData?.reference || ''} updated for job #${editedJob.job_number || editedJob.id}`
                 : `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`;
+            
+            const detailedInteractionDesc = `${baseInteractionDesc}\n\n${formatTransactionDetails(savedData, 'Quotation')}`;
 
             apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
@@ -467,9 +590,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 body: JSON.stringify({
                     type: interactionType,
                     category: 'billing',
-                    description: interactionDesc,
+                    description: detailedInteractionDesc,
                     user_name: techName,
-                    customer_id: editedJob.customerId || null
+                    customer_id: editedJob.customerId || null,
+                    metadata: {
+                        quote_number: savedData.quote_number,
+                        quote_id: savedData.id,
+                        total_amount: savedData.total_amount,
+                        subtotal: savedData.subtotal,
+                        tax: savedData.total_tax,
+                        items: savedData.items
+                    }
                 })
             }).catch(() => {});
 
@@ -606,15 +737,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             // Log quotation interaction
             const qType = isEditing ? 'quotation-edited' : 'quotation-created';
+            const detailedQDesc = `Quotation ${savedData.quote_number} updated to service charge only\n\n${formatTransactionDetails(savedData, 'Quotation')}`;
             apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: qType,
                     category: 'billing',
-                    description: `Quotation ${savedData.quote_number} updated to service charge only`,
+                    description: detailedQDesc,
                     user_name: techName,
-                    customer_id: editedJob.customerId || null
+                    customer_id: editedJob.customerId || null,
+                    metadata: {
+                        quote_number: savedData.quote_number,
+                        quote_id: savedData.id,
+                        total_amount: savedData.total_amount,
+                        subtotal: savedData.subtotal,
+                        tax: savedData.total_tax,
+                        items: savedData.items
+                    }
                 })
             }).catch(() => {});
 
@@ -656,14 +796,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             setSavedInvoice(finalInvoice);
 
             // Log invoice interaction
+            const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedData.quote_number}\n\n${formatTransactionDetails(finalInvoice, 'Invoice')}`;
             apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     type: 'invoice-created',
                     category: 'billing',
-                    description: `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedData.quote_number}`,
-                    user_name: techName
+                    description: detailedInvDesc,
+                    user_name: techName,
+                    customer_id: editedJob.customerId || null,
+                    metadata: {
+                        invoice_number: finalInvoice.invoice_number,
+                        invoice_id: finalInvoice.id,
+                        total_amount: finalInvoice.total_amount,
+                        subtotal: finalInvoice.subtotal,
+                        tax: finalInvoice.total_tax,
+                        items: finalInvoice.items
+                    }
                 })
             }).catch(() => {});
 
@@ -1699,9 +1849,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                 const data = await res.json();
                                                                 if (data.success) {
                                                                     setSavedInvoice(data.data);
+                                                                    const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
                                                                     apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: techName })
+                                                                        body: JSON.stringify({
+                                                                            type: 'invoice-created',
+                                                                            category: 'billing',
+                                                                            description: detailedInvDesc,
+                                                                            user_name: techName,
+                                                                            customer_id: editedJob.customerId || null,
+                                                                            metadata: {
+                                                                                invoice_number: data.data.invoice_number,
+                                                                                invoice_id: data.data.id,
+                                                                                total_amount: data.data.total_amount,
+                                                                                subtotal: data.data.subtotal,
+                                                                                tax: data.data.total_tax,
+                                                                                items: data.data.items
+                                                                            }
+                                                                        })
                                                                     }).catch(() => {});
                                                                     setShowWhatsappPopup({ type: 'invoice', doc: data.data });
                                                                 } else throw new Error(data.error);
@@ -1785,7 +1950,33 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                             </button>
                                                         </div>
                                                     );
-                                                })()
+                                                })())}
+                                            {/* Restart Quotation Process Button (only if not closed) */}
+                                            {editedJob.status !== 'closed' && (
+                                                <button
+                                                    className="btn"
+                                                    disabled={loading}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 14px',
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                                        color: '#f87171',
+                                                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                        fontWeight: 700,
+                                                        fontSize: '13px',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                                        whiteSpace: 'normal',
+                                                        marginTop: '12px'
+                                                    }}
+                                                    onClick={handleRestartQuotationOnly}
+                                                >
+                                                    🔄 Restart Quotation Process
+                                                </button>
                                             )}
                                         </>
                                     ) : (
@@ -2163,9 +2354,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 if (saveJson.success) savedData = saveJson.data;
                             } catch (e) { console.error('Failed to save sales invoice', e); }
                             setSavedInvoice(savedData);
+                            const detailedInvDesc = `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}\n\n` + formatTransactionDetails(savedData, 'Invoice');
                             apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: techName, customer_id: editedJob.customerId || null })
+                                body: JSON.stringify({
+                                    type: 'invoice-created',
+                                    category: 'billing',
+                                    description: detailedInvDesc,
+                                    user_name: techName,
+                                    customer_id: editedJob.customerId || null,
+                                    metadata: {
+                                        invoice_number: savedData?.invoice_number,
+                                        invoice_id: savedData?.id,
+                                        total_amount: savedData?.total_amount,
+                                        subtotal: savedData?.subtotal,
+                                        tax: savedData?.total_tax,
+                                        items: savedData?.items
+                                    }
+                                })
                             }).catch(() => {});
                             setActiveForm(null);
                         }}
