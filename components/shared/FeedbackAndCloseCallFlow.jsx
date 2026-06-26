@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, QrCode, AlertCircle, ThumbsUp, Check, Loader2, User, Wrench, HelpCircle, Info } from 'lucide-react';
+import { apiCall } from '@/lib/offlineSync';
 
 export default function FeedbackAndCloseCallFlow({
     onClose,
@@ -45,7 +46,7 @@ export default function FeedbackAndCloseCallFlow({
     useEffect(() => {
         const loadFeedbackQr = async () => {
             try {
-                const res = await fetch('/api/admin/qrcodes');
+                const res = await apiCall('/api/admin/qrcodes');
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     // Find active feedback QR
@@ -128,7 +129,7 @@ export default function FeedbackAndCloseCallFlow({
                 source: `${context} app`
             };
 
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(interactionPayload)
@@ -151,7 +152,7 @@ export default function FeedbackAndCloseCallFlow({
                     : formattedNotes
             };
 
-            const updateRes = await fetch(`/api/technician/jobs/${job.id}`, {
+            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jobUpdatePayload)
@@ -192,7 +193,7 @@ export default function FeedbackAndCloseCallFlow({
                 source: `${context} app`
             };
 
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(feedbackPayload)

@@ -23,17 +23,20 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Job not found', details: error?.message, hint: error?.hint, code: error?.code }, { status: 404 })
         }
 
-        // Validate active session
+        // Validate active session (bypass if requested by Admin via cookie)
         if (job.technician_id) {
-            const sessionToken = request.headers.get('x-session-token')
-            const { data: tech } = await supabase
-                .from('technicians')
-                .select('current_session_token')
-                .eq('id', job.technician_id)
-                .single()
+            const isAdmin = request.cookies.get('admin_auth')?.value === '1';
+            if (!isAdmin) {
+                const sessionToken = request.headers.get('x-session-token')
+                const { data: tech } = await supabase
+                    .from('technicians')
+                    .select('current_session_token')
+                    .eq('id', job.technician_id)
+                    .single()
 
-            if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
-                return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+                if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
+                    return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+                }
             }
         }
 
@@ -187,17 +190,20 @@ export async function PUT(request, { params }) {
             return NextResponse.json({ error: 'Job not found' }, { status: 404 })
         }
 
-        // Validate active session
+        // Validate active session (bypass if requested by Admin via cookie)
         if (existing.technician_id) {
-            const sessionToken = request.headers.get('x-session-token')
-            const { data: tech } = await supabase
-                .from('technicians')
-                .select('current_session_token')
-                .eq('id', existing.technician_id)
-                .single()
+            const isAdmin = request.cookies.get('admin_auth')?.value === '1';
+            if (!isAdmin) {
+                const sessionToken = request.headers.get('x-session-token')
+                const { data: tech } = await supabase
+                    .from('technicians')
+                    .select('current_session_token')
+                    .eq('id', existing.technician_id)
+                    .single()
 
-            if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
-                return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+                if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
+                    return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+                }
             }
         }
 
