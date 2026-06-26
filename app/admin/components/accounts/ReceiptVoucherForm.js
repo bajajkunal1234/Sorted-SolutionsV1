@@ -7,7 +7,7 @@ import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
 
-function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
+function ReceiptVoucherForm({ onClose, onSave, existingReceipt, saving = false }) {
     const [formData, setFormData] = useState({
         receipt_number: existingReceipt?.receipt_number || `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingReceipt?.date || new Date().toISOString().split('T')[0],
@@ -59,7 +59,6 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         if (onSave) {
             onSave(voucher);
         }
-        onClose();
     };
 
     return (
@@ -240,6 +239,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         onClick={onClose}
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px' }}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -247,9 +247,10 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         onClick={handleSubmit}
                         className="btn btn-primary"
                         style={{ padding: '8px 24px', backgroundColor: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        disabled={saving}
                     >
                         <Save size={18} />
-                        {existingReceipt?.id ? 'Update Receipt' : 'Save Receipt'}
+                        {saving ? 'Saving...' : (existingReceipt?.id ? 'Update Receipt' : 'Save Receipt')}
                     </button>
                 </div>
             </div>

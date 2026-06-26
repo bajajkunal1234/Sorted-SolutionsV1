@@ -156,7 +156,7 @@ const MUMBAI_LOCALITIES = [
     { name: 'Worli Sea Face', pincode: '400030' },
 ];
 
-function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propGroups = [], onGroupCreated, initialData = null, ledgers = [] }) {
+function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propGroups = [], onGroupCreated, initialData = null, ledgers = [], saving = false }) {
     // Common fields
     const [formData, setFormData] = useState({
         sku: initialData?.sku || '',
@@ -1651,11 +1651,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
 
                         {/* Footer */}
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={handleClose}>
+                            <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={saving}>
                                 Cancel
                             </button>
-                            <button type="submit" className="btn btn-primary">
-                                Create Account
+                            <button type="submit" className="btn btn-primary" disabled={saving}>
+                                {saving ? 'Saving...' : (initialData ? 'Save Changes' : 'Create Account')}
                             </button>
                         </div>
                     </form>

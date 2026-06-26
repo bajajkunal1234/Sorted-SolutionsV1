@@ -9,7 +9,7 @@ import JobSelector from './JobSelector';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
-function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems }) {
+function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems, saving = false }) {
     const buildInitialItems = () => {
         if (existingInvoice?.items) return existingInvoice.items.filter(i => !i.isCharge).map(i => ({ ...i, unit: i.unit || 'Nos' }));
         if (prefillItems?.length) {
@@ -767,6 +767,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                         onClick={onClose}
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px' }}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -774,8 +775,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                         onClick={() => handleSave('print')}
                         className="btn btn-primary"
                         style={{ padding: '8px 16px', backgroundColor: '#10b981' }}
+                        disabled={saving}
                     >
-                        {existingInvoice ? 'Update & Print' : 'Save & Print'}
+                        {saving ? 'Saving...' : (existingInvoice ? 'Update & Print' : 'Save & Print')}
                     </button>
                 </div>
             </div>

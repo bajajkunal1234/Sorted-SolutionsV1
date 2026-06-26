@@ -61,6 +61,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [shareTab, setShareTab] = useState(null);
     const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false, amc: false, rentals: false, journals: false });
     const [error, setError] = useState(null);
+    const [saving, setSaving] = useState(false);
 
     const tabToTypeMap = { sales: 'sales', purchases: 'purchase', quotations: 'quotation', receipts: 'receipt', payments: 'payment', journals: 'journal' };
 
@@ -816,7 +817,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const refreshGroups = async () => { try { const data = await accountGroupsAPI.getAll(); setGroups(data || []); } catch (err) { console.error(err); } };
 
     const handleFormSave = async (data, action) => {
+        if (saving) return;
         try {
+            setSaving(true);
             if (activeTab === 'accounts') {
                 if (selectedTransaction?.id) {
                     await accountsAPI.update(selectedTransaction.id, data);
@@ -912,6 +915,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 console.warn('Post-save data refresh failed (save was successful):', refreshErr.message);
             }
         } catch (err) { alert(`Failed to save: ${err.message}`); }
+        finally {
+            setSaving(false);
+        }
     };
 
     // Print a beautifully branded invoice/quotation using the global print engine
@@ -1909,13 +1915,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
             {/* Modals & Forms */}
             {selectedAccount && <AccountDetailModal account={selectedAccount} groups={groups} onClose={() => setSelectedAccount(null)} onUpdate={handleUpdateAccount} />}
-            {activeForm === 'sales-invoice' && <SalesInvoiceForm existingInvoice={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
-            {activeForm === 'purchase-invoice' && <PurchaseInvoiceForm existingInvoice={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
-            {activeForm === 'quotation' && <QuotationForm existingQuotation={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
-            {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
-            {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
+            {activeForm === 'sales-invoice' && <SalesInvoiceForm existingInvoice={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
+            {activeForm === 'purchase-invoice' && <PurchaseInvoiceForm existingInvoice={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
+            {activeForm === 'quotation' && <QuotationForm existingQuotation={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
+            {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
+            {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
             {activeForm === 'journal-entry' && <JournalEntryForm existingEntry={selectedTransaction} onSave={handleFormSave} onCancel={handleFormClose} />}
-            {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} />}
+            {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} saving={saving} />}
 
             {/* AMC Subscription Form */}
             {activeForm === 'amc-subscription' && (

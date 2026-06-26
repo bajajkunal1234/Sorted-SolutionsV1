@@ -8,7 +8,7 @@ import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
-function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems }) {
+function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems, saving = false }) {
     // Build initial items from prefillItems (from RepairCalculator) or existingQuotation or blank
     const buildInitialItems = () => {
         if (existingQuotation?.items) return existingQuotation.items.filter(i => !i.isCharge).map(i => ({ ...i, unit: i.unit || 'Nos' }));
@@ -726,6 +726,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                         onClick={onClose}
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px' }}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -733,8 +734,9 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                         onClick={() => handleSave('send')}
                         className="btn btn-primary"
                         style={{ padding: '8px 16px', backgroundColor: '#8b5cf6' }}
+                        disabled={saving}
                     >
-                        {existingQuotation ? 'Update & Send' : 'Save & Send'}
+                        {saving ? 'Saving...' : (existingQuotation ? 'Update & Send' : 'Save & Send')}
                     </button>
                 </div>
             </div>

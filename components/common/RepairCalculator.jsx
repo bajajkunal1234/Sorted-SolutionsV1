@@ -79,7 +79,7 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
     </div>
 );
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems, loading: parentLoading = false }) {
     const [mounted, setMounted] = useState(false);
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
@@ -283,7 +283,13 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                             </div>
                         )}
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)', marginTop: '-2px' }}><X size={22} /></button>
+                    <button 
+                        onClick={onClose} 
+                        disabled={loading || parentLoading}
+                        style={{ background: 'none', border: 'none', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', padding: '4px', color: 'var(--text-secondary)', marginTop: '-2px', opacity: (loading || parentLoading) ? 0.5 : 1 }}
+                    >
+                        <X size={22} />
+                    </button>
                 </div>
 
                 {/* Search */}
@@ -474,17 +480,29 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                         </button>
 
                         {onCreateQuotation && (
-                            <button onClick={handleCreateQuotation} style={{ padding: '10px 14px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                <FileText size={15} /> Quotation
+                            <button 
+                                onClick={handleCreateQuotation} 
+                                disabled={loading || parentLoading}
+                                style={{ padding: '10px 14px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '12px', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap', opacity: (loading || parentLoading) ? 0.7 : 1 }}
+                            >
+                                {parentLoading ? 'Saving...' : <><FileText size={15} /> Quotation</>}
                             </button>
                         )}
                         {onCreateInvoice && (
-                            <button onClick={handleCreateInvoice} style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                <FileText size={15} /> {invoiceLabel || 'Invoice'}
+                            <button 
+                                onClick={handleCreateInvoice} 
+                                disabled={loading || parentLoading}
+                                style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap', opacity: (loading || parentLoading) ? 0.7 : 1 }}
+                            >
+                                {parentLoading ? 'Creating...' : <><FileText size={15} /> {invoiceLabel || 'Invoice'}</>}
                             </button>
                         )}
                         {onApply && (
-                            <button onClick={() => onApply(buildItems())} style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                            <button 
+                                onClick={() => onApply(buildItems())} 
+                                disabled={loading || parentLoading}
+                                style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap', opacity: (loading || parentLoading) ? 0.7 : 1 }}
+                            >
                                 <Plus size={15} /> Add to Document
                             </button>
                         )}

@@ -227,6 +227,8 @@ function TechnicianApp() {
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
+    const [submittingPurchase, setSubmittingPurchase] = useState(false);
+    const [submittingLeave, setSubmittingLeave] = useState(false);
     const [technicianData, setTechnicianData] = useState(null);
     const [technicianId, setTechnicianId] = useState(null);
     
@@ -1104,6 +1106,7 @@ function TechnicianApp() {
     };
 
     const submitPurchaseInvoice = async () => {
+        if (submittingPurchase) return;
         if (isNewSupplier) {
             if (!newSupplierName.trim()) {
                 alert('Please enter Supplier / Shop Name');
@@ -1131,6 +1134,7 @@ function TechnicianApp() {
         if (!pendingPurchaseItems || pendingPurchaseItems.length === 0) return;
         
         try {
+            setSubmittingPurchase(true);
             const itemsList = pendingPurchaseItems.map(item => {
                 const itemSubtotal = item.qty * item.rate;
                 return {
@@ -1264,6 +1268,7 @@ function TechnicianApp() {
             setSupplierSearchQuery('');
             setShowSupplierDropdown(false);
             setPurchasePaidBy('company');
+            setSubmittingPurchase(false);
         }
     };
 
@@ -2679,27 +2684,84 @@ function TechnicianApp() {
                                     setLeaveEndDate('');
                                     setLeaveReason('');
                                 }}
+                                disabled={submittingLeave}
                                 className="btn btn-secondary"
-                                style={{ flex: 1, padding: '10px' }}
+                                style={{ flex: 1, padding: '10px', opacity: submittingLeave ? 0.5 : 1 }}
                             >
                                 Cancel
                             </button>
                             <button
-                                onClick={() => {
+                                onClick={async () => {
                                     if (!leaveStartDate || !leaveEndDate) {
                                         alert('Please select start and end dates');
                                         return;
                                     }
-                                    alert(`Leave request submitted!\nFrom: ${leaveStartDate}\nTo: ${leaveEndDate}\nReason: ${leaveReason || 'Not specified'}`);
-                                    setShowLeaveModal(false);
-                                    setLeaveStartDate('');
-                                    setLeaveEndDate('');
-                                    setLeaveReason('');
+                                    if (submittingLeave) return;
+
+                                    const start = new Date(leaveStartDate);
+                                    const end = new Date(leaveEndDate);
+                                    if (start > end) {
+                                        alert('Start date cannot be after end date');
+                                        return;
+                                    }
+
+                                    // Generate array of date strings between start and end inclusive
+                                    const dates = [];
+                                    let current = new Date(start);
+                                    while (current <= end) {
+                                        // Skip Sundays (getDay() === 0 is Sunday)
+                                        if (current.getDay() !== 0) {
+                                            dates.push(current.toISOString().split('T')[0]);
+                                        }
+                                        current.setDate(current.getDate() + 1);
+                                    }
+
+                                    if (dates.length === 0) {
+                                        alert('No working days in the selected date range.');
+                                        return;
+                                    }
+
+                                    setSubmittingLeave(true);
+                                    try {
+                                        for (const d of dates) {
+                                            const res = await apiCall('/api/technician/leaves', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    technician_id: technicianId,
+                                                    leave_date: d,
+                                                    reason: leaveReason
+                                                })
+                                            });
+                                            const json = await res.json();
+                                            if (!res.ok) {
+                                                throw new Error(json.error || 'Failed to submit leave request');
+                                            }
+                                        }
+                                        alert('Leave request submitted successfully!');
+                                        
+                                        // Refresh leaves list
+                                        const leavesRes = await apiCall(`/api/technician/leaves?technicianId=${technicianId}`);
+                                        const leavesJson = await leavesRes.json();
+                                        if (leavesJson && leavesJson.success) {
+                                            setLeaves(leavesJson.leaves || []);
+                                        }
+                                        
+                                        setShowLeaveModal(false);
+                                        setLeaveStartDate('');
+                                        setLeaveEndDate('');
+                                        setLeaveReason('');
+                                    } catch (err) {
+                                        alert('Failed to submit leave: ' + err.message);
+                                    } finally {
+                                        setSubmittingLeave(false);
+                                    }
                                 }}
+                                disabled={submittingLeave}
                                 className="btn btn-primary"
-                                style={{ flex: 1, padding: '10px' }}
+                                style={{ flex: 1, padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: submittingLeave ? 0.7 : 1 }}
                             >
-                                Submit Request
+                                {submittingLeave ? 'Submitting...' : 'Submit Request'}
                             </button>
                         </div>
                     </div>
@@ -3193,17 +3255,19 @@ function TechnicianApp() {
                                     setShowSupplierDropdown(false);
                                     setPurchasePaidBy('company');
                                 }}
+                                disabled={submittingPurchase}
                                 className="btn btn-secondary"
-                                style={{ flex: 1, padding: '10px' }}
+                                style={{ flex: 1, padding: '10px', opacity: submittingPurchase ? 0.5 : 1 }}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={submitPurchaseInvoice}
+                                disabled={submittingPurchase}
                                 className="btn btn-primary"
-                                style={{ flex: 1, padding: '10px' }}
+                                style={{ flex: 1, padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: submittingPurchase ? 0.7 : 1 }}
                             >
-                                Submit Purchase Invoice
+                                {submittingPurchase ? 'Submitting...' : 'Submit Purchase Invoice'}
                             </button>
                         </div>
                     </div>

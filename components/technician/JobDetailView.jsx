@@ -1893,10 +1893,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                             {/* Option 1: Quotation Approved */}
                                                             <button
                                                                 className="btn"
-                                                                disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : 1, whiteSpace: 'normal' }}
+                                                                disabled={cxAppApproved || loading}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : (loading ? 0.6 : 1), whiteSpace: 'normal' }}
                                                                 onClick={async () => {
-                                                                    if (cxAppApproved) return;
+                                                                    if (cxAppApproved || loading) return;
                                                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                                                     await handleSaveStatus('work_in_progress');
                                                                     apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
@@ -1906,9 +1906,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions || [])] }));
                                                                 }}
                                                             >
-                                                                <span style={{ fontSize: 20 }}>✅</span>
+                                                                <span style={{ fontSize: 20 }}>{loading ? '⏳' : '✅'}</span>
                                                                 <div style={{ textAlign: 'left' }}>
-                                                                    <div>Quotation Approved by Customer</div>
+                                                                    <div>{loading ? 'Processing approval...' : 'Quotation Approved by Customer'}</div>
                                                                     {cxAppApproved && <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Approved via Customer App</div>}
                                                                 </div>
                                                             </button>
@@ -1916,10 +1916,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                             {/* Option 2: Quotation Denied — close on visit charge */}
                                                             <button
                                                                 className="btn"
-                                                                disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: cxAppApproved ? '#64748b' : '#f87171', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1, whiteSpace: 'normal' }}
+                                                                disabled={cxAppApproved || loading}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: (cxAppApproved || loading) ? '#64748b' : '#f87171', border: `1px solid ${(cxAppApproved || loading) ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'not-allowed' : 'pointer', opacity: (cxAppApproved || loading) ? 0.4 : 1, whiteSpace: 'normal' }}
                                                                 onClick={() => {
-                                                                    if (cxAppApproved) return;
+                                                                    if (cxAppApproved || loading) return;
                                                                     setQuotationDecisionMode('denied');
                                                                     setActiveForm('calculator');
                                                                 }}
@@ -1934,10 +1934,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                             {/* Option 3: Cx needs time */}
                                                             <button
                                                                 className="btn"
-                                                                disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: cxAppApproved ? '#64748b' : '#f59e0b', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1, whiteSpace: 'normal' }}
+                                                                disabled={cxAppApproved || loading}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: (cxAppApproved || loading) ? '#64748b' : '#f59e0b', border: `1px solid ${(cxAppApproved || loading) ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'not-allowed' : 'pointer', opacity: (cxAppApproved || loading) ? 0.4 : 1, whiteSpace: 'normal' }}
                                                                 onClick={() => {
-                                                                    if (cxAppApproved) return;
+                                                                    if (cxAppApproved || loading) return;
                                                                     setQuotationDecisionMode('thinking');
                                                                     setActiveForm('calculator');
                                                                 }}
@@ -2336,6 +2336,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         onCreateQuotation={(items) => handleAutoCreateQuotation(items)}
                         onCreateInvoice={quotationDecisionMode ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
                         prefillItems={savedQuotation?.items || calculatorItems}
+                        loading={loading}
                     />
                 )}
                 {/* Manual Sales Invoice Form is now hidden from the UI but could still be opened programmatically */}
@@ -2343,6 +2344,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     <SalesInvoiceForm 
                         onClose={() => setActiveForm(null)}
                         onSave={async (data) => {
+                            setLoading(true);
                             let savedData = data;
                             try {
                                 const saveRes = await apiCall(`/api/admin/transactions?type=sales`, {
@@ -2352,7 +2354,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 });
                                 const saveJson = await saveRes.json();
                                 if (saveJson.success) savedData = saveJson.data;
-                            } catch (e) { console.error('Failed to save sales invoice', e); }
+                            } catch (e) { 
+                                console.error('Failed to save sales invoice', e); 
+                            } finally {
+                                setLoading(false);
+                            }
                             setSavedInvoice(savedData);
                             const detailedInvDesc = `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}\n\n` + formatTransactionDetails(savedData, 'Invoice');
                             apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
@@ -2377,6 +2383,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         }}
                         defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
                         prefillItems={savedQuotation?.items || calculatorItems}
+                        saving={loading}
                     />
                 )}
                 {showWhatsappPopup && (

@@ -7,7 +7,7 @@ import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
 
-function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'vendor' }) {
+function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'vendor', saving = false }) {
     const [formData, setFormData] = useState({
         payment_number: existingPayment?.payment_number || `PAY-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingPayment?.date || new Date().toISOString().split('T')[0],
@@ -59,7 +59,6 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'v
         if (onSave) {
             onSave(voucher);
         }
-        onClose();
     };
 
     return (
@@ -240,6 +239,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'v
                         onClick={onClose}
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px' }}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -247,9 +247,10 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'v
                         onClick={handleSubmit}
                         className="btn btn-primary"
                         style={{ padding: '8px 24px', backgroundColor: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        disabled={saving}
                     >
                         <Save size={18} />
-                        {existingPayment ? 'Update Payment' : 'Save Payment'}
+                        {saving ? 'Saving...' : (existingPayment ? 'Update Payment' : 'Save Payment')}
                     </button>
                 </div>
             </div>

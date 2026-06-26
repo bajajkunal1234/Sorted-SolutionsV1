@@ -443,8 +443,9 @@ function RentAMCTab({ customerId }) {
                             </div>
                         </div>
                         <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)', display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setScheduleAmc(null)}>Cancel</button>
+                            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setScheduleAmc(null)} disabled={loading}>Cancel</button>
                             <button className="btn btn-primary" style={{ padding: '8px 20px', backgroundColor: '#8b5cf6' }}
+                                disabled={loading}
                                 onClick={async () => {
                                     if (!scheduleAmc.scheduledDate) { alert('Please select a date'); return; }
                                     try {
@@ -479,7 +480,7 @@ function RentAMCTab({ customerId }) {
                                         setLoading(false);
                                     }
                                 }}>
-                                Schedule Job
+                                {loading ? 'Scheduling...' : 'Schedule Job'}
                             </button>
                         </div>
                     </div>

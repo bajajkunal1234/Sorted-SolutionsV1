@@ -9,7 +9,7 @@ import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import JobSelector from './JobSelector';
 
-function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
+function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false }) {
     const [formData, setFormData] = useState({
         account_id: existingInvoice?.account_id || null,
         account_name: existingInvoice?.account_name || '',
@@ -908,6 +908,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         onClick={onClose}
                         className="btn btn-secondary"
                         style={{ padding: '8px 16px' }}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -915,8 +916,9 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         onClick={() => handleSave('save')}
                         className="btn btn-primary"
                         style={{ padding: '8px 16px', backgroundColor: '#3b82f6' }}
+                        disabled={saving}
                     >
-                        {existingInvoice ? 'Update' : 'Save'}
+                        {saving ? 'Saving...' : (existingInvoice ? 'Update' : 'Save')}
                     </button>
                 </div>
             </div>
