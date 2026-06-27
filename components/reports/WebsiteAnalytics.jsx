@@ -706,6 +706,11 @@ export default function WebsiteAnalytics() {
                 setSelectedCustomer(null)
                 setCustomerSearchTerm('')
                 setEditingLead(null)
+                
+                setTimeout(() => {
+                    setIsManualLeadDrawerOpen(false)
+                    setManualLeadResult(null)
+                }, 1000)
             } else {
                 setManualLeadResult({
                     success: false,
@@ -1174,7 +1179,7 @@ export default function WebsiteAnalytics() {
                                 </button>
                             </div>
 
-                            <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                            <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
