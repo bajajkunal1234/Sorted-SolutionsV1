@@ -1278,24 +1278,56 @@ export default function WebsiteAnalytics() {
                                                         <option value="lost">Lost</option>
                                                     </select>
                                                 </td>
-                                                <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                    {l.jobsCount > 0 && l.jobs && l.jobs[0] ? (
-                                                        <span 
-                                                            onClick={() => handleOpenJob(l.jobs[0].id)}
-                                                            style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline' }}
-                                                        >
-                                                            {l.jobsCount} jobs
-                                                        </span>
+                                                <td style={{ padding: '12px 16px', fontWeight: 600 }}>
+                                                    {l.jobsCount > 0 && l.jobs ? (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                                                            {l.jobs.map((j, idx) => (
+                                                                <span key={j.id}>
+                                                                    <span 
+                                                                        onClick={() => handleOpenJob(j.id)}
+                                                                        style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                                                                        title={`Open Job ${j.jobNumber || `#${j.id}`}`}
+                                                                    >
+                                                                        {j.jobNumber || `#${j.id}`}
+                                                                    </span>
+                                                                    {idx < l.jobs.length - 1 && <span style={{ color: 'var(--text-tertiary)', marginRight: '2px' }}>,</span>}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     ) : '—'}
                                                 </td>
                                                 <td style={{ padding: '12px 16px', fontWeight: 700, color: '#10b981' }}>
-                                                    {l.totalRevenue > 0 && l.jobs && l.jobs[0] ? (
-                                                        <span 
-                                                            onClick={() => handleOpenInvoice(l.jobs[0].id)}
-                                                            style={{ color: '#10b981', cursor: 'pointer', textDecoration: 'underline' }}
-                                                        >
-                                                            ₹{l.totalRevenue.toLocaleString()}
-                                                        </span>
+                                                    {l.totalRevenue > 0 && l.jobs ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                            {l.jobs.filter(j => j.revenue > 0).length === 1 ? (
+                                                                <span 
+                                                                    onClick={() => handleOpenInvoice(l.jobs.find(j => j.revenue > 0).id)}
+                                                                    style={{ color: '#10b981', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                >
+                                                                    ₹{l.totalRevenue.toLocaleString()}
+                                                                </span>
+                                                            ) : (
+                                                                <>
+                                                                    <span>₹{l.totalRevenue.toLocaleString()}</span>
+                                                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                                                                        <span>(</span>
+                                                                        {l.jobs.filter(j => j.revenue > 0).map((j, idx, arr) => (
+                                                                            <span key={j.id}>
+                                                                                <span 
+                                                                                    onClick={() => handleOpenInvoice(j.id)}
+                                                                                    style={{ textDecoration: 'underline', cursor: 'pointer', color: '#10b981' }}
+                                                                                    title={`Open Invoice for Job ${j.jobNumber || `#${j.id}`}`}
+                                                                                >
+                                                                                    ₹{j.revenue.toLocaleString()}
+                                                                                </span>
+                                                                                {idx < arr.length - 1 && <span> + </span>}
+                                                                            </span>
+                                                                        ))}
+                                                                        <span>)</span>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     ) : l.totalRevenue > 0 ? (
                                                         <span>₹{l.totalRevenue.toLocaleString()}</span>
                                                     ) : '—'}
