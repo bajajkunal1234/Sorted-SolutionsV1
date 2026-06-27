@@ -438,14 +438,14 @@ export default function WebsiteAnalytics() {
 
     // Columns Configuration (resizable, orderable, toggleable)
     const DEFAULT_COLUMNS = [
-        { key: 'date', label: 'Date', visible: true, width: '15%' },
-        { key: 'details', label: 'Lead Details', visible: true, width: '20%' },
-        { key: 'source', label: 'Attribution Source', visible: true, width: '18%' },
-        { key: 'type', label: 'Type', visible: true, width: '10%' },
-        { key: 'jobs', label: 'Jobs', visible: true, width: '15%' },
-        { key: 'revenue', label: 'Revenue', visible: true, width: '12%' },
-        { key: 'notes', label: 'Reason / Notes', visible: true, width: '15%' },
-        { key: 'actions', label: 'Actions', visible: true, width: '10%' }
+        { key: 'date', label: 'Date', visible: true, width: 100 },
+        { key: 'details', label: 'Lead Details', visible: true, width: 160 },
+        { key: 'source', label: 'Attribution Source', visible: true, width: 140 },
+        { key: 'type', label: 'Type', visible: true, width: 80 },
+        { key: 'jobs', label: 'Jobs', visible: true, width: 120 },
+        { key: 'revenue', label: 'Revenue', visible: true, width: 100 },
+        { key: 'notes', label: 'Reason / Notes', visible: true, width: 150 },
+        { key: 'actions', label: 'Actions', visible: true, width: 130 }
     ]
 
     const [columnsConfig, setColumnsConfig] = useState(() => {
@@ -455,9 +455,23 @@ export default function WebsiteAnalytics() {
                 try {
                     const parsed = JSON.parse(saved)
                     if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(p => p.key)) {
+                        // Reset if legacy percentage strings exist
+                        const hasLegacyFormat = parsed.some(p => typeof p.width === 'string');
+                        if (hasLegacyFormat) {
+                            window.localStorage.removeItem('sorted_leads_columns');
+                            return DEFAULT_COLUMNS;
+                        }
+                        
                         return DEFAULT_COLUMNS.map(def => {
                             const match = parsed.find(p => p.key === def.key)
-                            return match ? { ...def, visible: match.visible, width: match.width } : def
+                            let width = def.width
+                            if (match && match.width) {
+                                const parsedWidth = parseFloat(match.width)
+                                if (!isNaN(parsedWidth) && typeof match.width === 'number') {
+                                    width = match.width
+                                }
+                            }
+                            return match ? { ...def, visible: match.visible, width } : def
                         }).sort((a, b) => {
                             const indexA = parsed.findIndex(p => p.key === a.key)
                             const indexB = parsed.findIndex(p => p.key === b.key)
@@ -523,20 +537,15 @@ export default function WebsiteAnalytics() {
     const startResize = (e, key) => {
         e.preventDefault();
         const startX = e.clientX || (e.touches && e.touches[0].clientX);
-        const startWidth = parseFloat(columnsConfig.find(c => c.key === key).width) || 100;
+        const startWidth = columnsConfig.find(c => c.key === key).width || 120;
         
         const onMouseMove = (moveEvent) => {
             const currentX = moveEvent.clientX || (moveEvent.touches && moveEvent.touches[0].clientX);
             const deltaX = currentX - startX;
-            
-            const tableElem = document.getElementById('leads-directory-table');
-            const tableWidth = tableElem ? tableElem.offsetWidth : 1000;
-            const deltaPercent = (deltaX / tableWidth) * 100;
-            
-            const newWidth = Math.max(5, startWidth + deltaPercent);
+            const newWidth = Math.max(60, startWidth + deltaX);
             
             setColumnsConfig(prev => prev.map(c => 
-                c.key === key ? { ...c, width: `${newWidth.toFixed(1)}%` } : c
+                c.key === key ? { ...c, width: newWidth } : c
             ));
         };
         
@@ -1552,74 +1561,94 @@ export default function WebsiteAnalytics() {
                             )}
 
                             <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
-                                <table id="leads-directory-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', tableLayout: 'fixed' }}>
+                                <table id="leads-directory-table" style={{ width: `${columnsConfig.filter(col => col.visible).reduce((sum, c) => sum + (c.width || 120), 0)}px`, minWidth: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', tableLayout: 'fixed' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                            {columnsConfig.filter(col => col.visible).map(col => (
-                                                <th key={col.key} style={{
-                                                    padding: '12px 16px',
-                                                    color: 'var(--text-tertiary)',
-                                                    fontWeight: 600,
-                                                    fontSize: '11px',
-                                                    textTransform: 'uppercase',
-                                                    position: 'sticky',
-                                                    top: 0,
-                                                    zIndex: 10,
-                                                    backgroundColor: 'var(--bg-secondary)',
-                                                    boxShadow: 'inset 0 -1px 0 var(--border-primary)',
-                                                    width: col.width,
-                                                    cursor: ['date', 'revenue', 'details'].includes(col.key) ? 'pointer' : 'default',
-                                                    userSelect: 'none',
-                                                    position: 'relative'
-                                                }}
-                                                onClick={() => handleHeaderClick(col.key)}
-                                                >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        {col.label}
-                                                        {sortConfig.key === col.key && (
-                                                            sortConfig.direction === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
-                                                        )}
-                                                    </div>
-                                                    <div 
-                                                        onMouseDown={(e) => startResize(e, col.key)}
-                                                        onTouchStart={(e) => startResize(e, col.key)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        style={{
-                                                            position: 'absolute',
-                                                            right: 0,
-                                                            top: 0,
-                                                            bottom: 0,
-                                                            width: '6px',
-                                                            cursor: 'col-resize',
-                                                            zIndex: 20
-                                                        }}
-                                                    />
-                                                </th>
-                                            ))}
+                                            {columnsConfig.filter(col => col.visible).map(col => {
+                                                const isActions = col.key === 'actions';
+                                                return (
+                                                    <th key={col.key} style={{
+                                                        padding: '12px 16px',
+                                                        color: 'var(--text-tertiary)',
+                                                        fontWeight: 600,
+                                                        fontSize: '11px',
+                                                        textTransform: 'uppercase',
+                                                        position: 'sticky',
+                                                        top: 0,
+                                                        right: isActions ? 0 : undefined,
+                                                        zIndex: isActions ? 15 : 10,
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        boxShadow: isActions 
+                                                            ? 'inset 1px 0 0 var(--border-primary), inset 0 -1px 0 var(--border-primary)' 
+                                                            : 'inset 0 -1px 0 var(--border-primary)',
+                                                        width: `${col.width}px`,
+                                                        minWidth: `${col.width}px`,
+                                                        cursor: ['date', 'revenue', 'details'].includes(col.key) ? 'pointer' : 'default',
+                                                        userSelect: 'none'
+                                                    }}
+                                                    onClick={() => handleHeaderClick(col.key)}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            {col.label}
+                                                            {sortConfig.key === col.key && (
+                                                                sortConfig.direction === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                            )}
+                                                        </div>
+                                                        <div 
+                                                            onMouseDown={(e) => startResize(e, col.key)}
+                                                            onTouchStart={(e) => startResize(e, col.key)}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                right: 0,
+                                                                top: 0,
+                                                                bottom: 0,
+                                                                width: '6px',
+                                                                cursor: 'col-resize',
+                                                                zIndex: 20
+                                                            }}
+                                                        />
+                                                    </th>
+                                                );
+                                            })}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {sortedLeads.map((l) => (
                                             <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 {columnsConfig.filter(col => col.visible).map(col => {
+                                                    const isActions = col.key === 'actions';
+                                                    const cellStyle = {
+                                                        padding: '12px 16px',
+                                                        width: `${col.width}px`,
+                                                        minWidth: `${col.width}px`,
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: ['date', 'details', 'type', 'notes'].includes(col.key) ? 'nowrap' : 'normal',
+                                                        position: isActions ? 'sticky' : undefined,
+                                                        right: isActions ? 0 : undefined,
+                                                        zIndex: isActions ? 9 : undefined,
+                                                        backgroundColor: isActions ? 'var(--bg-elevated)' : undefined,
+                                                        boxShadow: isActions ? 'inset 1px 0 0 var(--border-primary)' : undefined
+                                                    };
                                                     switch (col.key) {
                                                         case 'date':
                                                             return (
-                                                                <td key="date" style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <td key="date" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
                                                                     {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}<br/>
                                                                     <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                                 </td>
                                                             )
                                                         case 'details':
                                                             return (
-                                                                <td key="details" style={{ padding: '12px 16px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <td key="details" style={cellStyle}>
                                                                     <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || l.customer?.name || 'Anonymous Visitor'}</span><br/>
                                                                     <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
                                                                 </td>
                                                             )
                                                         case 'source':
                                                             return (
-                                                                <td key="source" style={{ padding: '12px 16px' }}>
+                                                                <td key="source" style={cellStyle}>
                                                                     <select
                                                                         value={l.lead_source || 'direct'}
                                                                         onChange={e => handleUpdateLeadSource(l.phone, e.target.value)}
@@ -1669,13 +1698,13 @@ export default function WebsiteAnalytics() {
                                                             )
                                                         case 'type':
                                                             return (
-                                                                <td key="type" style={{ padding: '12px 16px', textTransform: 'capitalize', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                <td key="type" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
                                                                     {l.conversion_type?.replace(/_/g, ' ') || '—'}
                                                                 </td>
                                                             )
                                                         case 'jobs':
                                                             return (
-                                                                <td key="jobs" style={{ padding: '12px 16px', fontWeight: 600 }}>
+                                                                <td key="jobs" style={cellStyle}>
                                                                     {l.jobsCount > 0 && l.jobs ? (
                                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                                                                             {l.jobs.map((j, idx) => (
@@ -1696,7 +1725,7 @@ export default function WebsiteAnalytics() {
                                                             )
                                                         case 'revenue':
                                                             return (
-                                                                <td key="revenue" style={{ padding: '12px 16px', fontWeight: 700, color: '#10b981' }}>
+                                                                <td key="revenue" style={{ ...cellStyle, color: '#10b981' }}>
                                                                     {l.totalRevenue > 0 && l.jobs ? (
                                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                             {l.jobs.filter(j => j.revenue > 0).length === 1 ? (
@@ -1735,7 +1764,7 @@ export default function WebsiteAnalytics() {
                                                             )
                                                         case 'notes':
                                                             return (
-                                                                <td key="notes" style={{ padding: '12px 16px' }}>
+                                                                <td key="notes" style={cellStyle}>
                                                                     {l.jobsCount > 0 || l.status === 'converted' ? (
                                                                         <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
                                                                             {l.notes || '—'}
@@ -1750,7 +1779,7 @@ export default function WebsiteAnalytics() {
                                                             )
                                                         case 'actions':
                                                             return (
-                                                                <td key="actions" style={{ padding: '12px 16px' }}>
+                                                                <td key="actions" style={cellStyle}>
                                                                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                                         <button
                                                                             onClick={() => setSelectedLead(l)}
