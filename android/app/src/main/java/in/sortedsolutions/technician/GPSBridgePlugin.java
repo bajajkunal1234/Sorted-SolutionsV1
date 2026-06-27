@@ -11,13 +11,42 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.annotation.PermissionCallback;
+import android.Manifest;
 
-@CapacitorPlugin(name = "GPSBridgePlugin")
+@CapacitorPlugin(
+    name = "GPSBridgePlugin",
+    permissions = {
+        @Permission(
+            alias = "location",
+            strings = {
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            }
+        )
+    }
+)
 public class GPSBridgePlugin extends Plugin {
 
     private static final String PREFS_NAME = "SortedSolutionsGPS";
     private static final String KEY_TECH_ID = "technician_id";
     private static final String KEY_SESSION_TOKEN = "session_token";
+
+    private void startBackgroundServiceInternal() {
+        Context context = getContext();
+        Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+            } else {
+                context.startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @PluginMethod
     public void setTechnicianId(PluginCall call) {
@@ -39,28 +68,26 @@ public class GPSBridgePlugin extends Plugin {
         }
         editor.apply();
 
-        // Start background location service immediately (24/7 tracking) if location permissions are granted
-        boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-
-        if (hasFineLocation || hasCoarseLocation) {
-            Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent);
-                } else {
-                    context.startService(serviceIntent);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        if (getPermissionState("location") == PermissionState.GRANTED) {
+            startBackgroundServiceInternal();
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
         } else {
-            android.util.Log.i("GPSBridgePlugin", "Service not started: permissions missing");
+            requestPermissionForAlias("location", call, "locationPermissionCallback");
         }
+    }
 
-        JSObject ret = new JSObject();
-        ret.put("success", true);
-        call.resolve(ret);
+    @PermissionCallback
+    private void locationPermissionCallback(PluginCall call) {
+        if (getPermissionState("location") == PermissionState.GRANTED) {
+            startBackgroundServiceInternal();
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } else {
+            call.reject("Location permission is required for tracking");
+        }
     }
 
     @PluginMethod
@@ -76,19 +103,8 @@ public class GPSBridgePlugin extends Plugin {
         // Trigger onStartCommand to apply location listener changes immediately
         String techId = prefs.getString(KEY_TECH_ID, "");
         if (!techId.isEmpty()) {
-            Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
-            boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            if (hasFineLocation || hasCoarseLocation) {
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(serviceIntent);
-                    } else {
-                        context.startService(serviceIntent);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+            if (getPermissionState("location") == PermissionState.GRANTED) {
+                startBackgroundServiceInternal();
             }
         }
 

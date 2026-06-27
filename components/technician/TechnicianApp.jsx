@@ -626,8 +626,14 @@ function TechnicianApp() {
             } catch (e) {}
 
             GPSBridgePlugin.setTechnicianId({ id: String(technicianId), sessionToken: sessionToken })
-                .then(() => console.log('[Native GPS] Technician ID registered on native service'))
-                .catch(err => console.error('[Native GPS] Failed to register technician ID:', err));
+                .then(() => {
+                    console.log('[Native GPS] Technician ID registered on native service');
+                    setGpsStatus('granted');
+                })
+                .catch(err => {
+                    console.error('[Native GPS] Failed to register technician ID:', err);
+                    setGpsStatus('denied');
+                });
         }
     }, [technicianId, gpsStatus]);
 
