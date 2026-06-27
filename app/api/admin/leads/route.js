@@ -468,7 +468,8 @@ export async function POST(request) {
             status,
             notes: notes || (matchedSessionId ? `Auto-linked to website click session.` : `Manual lead log.`),
             lead_source: forcedSource,
-            campaign: campaign
+            campaign: campaign,
+            first_contact_at: date
         });
 
         if (!result.success) throw new Error(result.error);
