@@ -690,6 +690,7 @@ export default function WebsiteAnalytics() {
                 setManualLeadResult({
                     success: true,
                     lead: isEdit ? json.data : json.lead,
+                    alreadyExisted: isEdit ? false : json.alreadyExisted,
                     matchedSession: isEdit ? null : json.matchedSession
                 })
                 load(range) // refresh directory
@@ -1989,7 +1990,9 @@ export default function WebsiteAnalytics() {
                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                     <Check size={18} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
                                     <div>
-                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Lead Saved Successfully!</div>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            {manualLeadResult.alreadyExisted ? 'Lead Updated! (Number already exists)' : 'Lead Saved Successfully!'}
+                                        </div>
                                         {manualLeadResult.matchedSession ? (
                                             <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
                                                 <Link2 size={14} style={{ marginTop: '2px' }} />

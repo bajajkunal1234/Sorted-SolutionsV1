@@ -477,6 +477,7 @@ export async function POST(request) {
         return NextResponse.json({
             success: true,
             lead: result.lead,
+            alreadyExisted: result.alreadyExisted,
             matchedSession: matchedClick ? matchedClick.visitor_sessions : null
         });
 
