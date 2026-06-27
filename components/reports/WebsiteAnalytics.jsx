@@ -353,7 +353,8 @@ export default function WebsiteAnalytics() {
     // Leads Tracker state
     const [leadsData, setLeadsData] = useState(null)
     const [leadsSearch, setLeadsSearch] = useState('')
-    const [leadsTab, setLeadsTab] = useState('directory') // 'directory' | 'daily_spend' | 'log_lead'
+    const [leadsTab, setLeadsTab] = useState('directory') // 'directory' | 'daily_spend'
+    const [isManualLeadDrawerOpen, setIsManualLeadDrawerOpen] = useState(false)
     const [selectedLead, setSelectedLead] = useState(null) // for journey timeline drawer
     
     const [dailySpendForm, setDailySpendForm] = useState({
@@ -978,7 +979,7 @@ export default function WebsiteAnalytics() {
 
                     {/* Leads sub-tabs */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px' }}>
-                        {['directory', 'daily_spend', 'log_lead'].map(t => (
+                        {['directory', 'daily_spend'].map(t => (
                             <button
                                 key={t}
                                 onClick={() => setLeadsTab(t)}
@@ -995,7 +996,7 @@ export default function WebsiteAnalytics() {
                                     letterSpacing: '0.05em'
                                 }}
                             >
-                                {t === 'directory' ? 'Leads Directory' : t === 'daily_spend' ? 'Google Ads Spends' : 'Log Manual Call/WA'}
+                                {t === 'directory' ? 'Leads Directory' : 'Google Ads Spends'}
                             </button>
                         ))}
                     </div>
@@ -1035,6 +1036,27 @@ export default function WebsiteAnalytics() {
                                     onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
                                 >
                                     <FileText size={14} /> Export CSV
+                                </button>
+                                <button
+                                    onClick={() => setIsManualLeadDrawerOpen(true)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '10px 16px',
+                                        border: 'none',
+                                        backgroundColor: 'var(--color-primary)',
+                                        color: 'white',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                    <Plus size={14} /> Report Lead
                                 </button>
                             </div>
 
@@ -1275,167 +1297,6 @@ export default function WebsiteAnalytics() {
                         </div>
                     )}
 
-                    {/* TAB Content: Log Call/WhatsApp */}
-                    {leadsTab === 'log_lead' && (
-                        <div style={{ maxWidth: '500px', margin: '0 auto', display: 'grid', gap: '16px' }}>
-                            <form onSubmit={handleSaveManualLead} style={{ padding: '24px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '14px' }}>
-                                <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                                    <PhoneCall size={28} style={{ color: 'var(--color-primary)', margin: '0 auto 10px' }} />
-                                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>Log Received Call / WhatsApp</div>
-                                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                        Log callers to automatically match them with their website visits.
-                                    </p>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
-                                            <AutocompleteSearch
-                                                placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
-                                                value={customerSearchTerm}
-                                                onChange={(val) => {
-                                                    setCustomerSearchTerm(val);
-                                                    if (!val) {
-                                                        setSelectedCustomer(null);
-                                                        setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
-                                                    }
-                                                }}
-                                                suggestions={customers.map(c => ({
-                                                    ...c,
-                                                    displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
-                                                }))}
-                                                searchKey="displayText"
-                                                onSelect={(selected) => {
-                                                    setCustomerSearchTerm(selected.displayText);
-                                                    setSelectedCustomer(selected);
-                                                    setManualLeadForm(prev => ({
-                                                        ...prev,
-                                                        phone: selected.phone || selected.mobile || '',
-                                                        name: selected.name
-                                                    }));
-                                                }}
-                                                loading={loadingCustomers}
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowNewAccountForm(true)}
-                                            style={{
-                                                height: '36px',
-                                                width: '36px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                borderRadius: 'var(--radius-md)',
-                                                border: '1px solid var(--border-primary)',
-                                                backgroundColor: 'var(--color-primary)',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                flexShrink: 0
-                                            }}
-                                            title="Create New Customer Account"
-                                        >
-                                            <Plus size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Channel</label>
-                                        <select value={manualLeadForm.type} onChange={e => setManualLeadForm({ ...manualLeadForm, type: e.target.value })}
-                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                                            <option value="call">Call Received</option>
-                                            <option value="whatsapp">WhatsApp Message</option>
-                                        </select>
-                                    </div>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</label>
-                                        <select value={manualLeadForm.status} onChange={e => setManualLeadForm({ ...manualLeadForm, status: e.target.value })}
-                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                                            <option value="interested">Interested</option>
-                                            <option value="converted">Converted</option>
-                                            <option value="junk">Junk/Spam</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date &amp; Time received</label>
-                                    <input type="datetime-local" value={manualLeadForm.date} onChange={e => setManualLeadForm({ ...manualLeadForm, date: e.target.value })}
-                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Attribution Source</label>
-                                        <select value={manualLeadForm.lead_source} onChange={e => setManualLeadForm({ ...manualLeadForm, lead_source: e.target.value })}
-                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-                                            <option value="auto">Auto-detect (Website click)</option>
-                                            <option value="google_ads">Google Ads (Paid)</option>
-                                            <option value="google_organic">Google Search (Organic)</option>
-                                            <option value="referral">Referral / Word of Mouth</option>
-                                            <option value="direct">Direct / Offline</option>
-                                        </select>
-                                    </div>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Campaign Name (Optional)</label>
-                                        <input type="text" placeholder="e.g. OTG_Repair" value={manualLeadForm.campaign} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign: e.target.value })}
-                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Enquiry description</label>
-                                    <textarea placeholder="e.g. Inquired about AC Gas charging rates" rows={3} value={manualLeadForm.notes} onChange={e => setManualLeadForm({ ...manualLeadForm, notes: e.target.value })}
-                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', resize: 'vertical', fontSize: '13px' }} />
-                                </div>
-
-                                <button type="submit" disabled={manualLeadSubmitting}
-                                    style={{ padding: '12px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: manualLeadSubmitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
-                                    {manualLeadSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Save Lead Log
-                                </button>
-                            </form>
-
-                            {/* Attrib Result Notification */}
-                            {manualLeadResult && (
-                                <div style={{
-                                    padding: '16px',
-                                    borderRadius: 'var(--radius-lg)',
-                                    border: manualLeadResult.success ? '1px solid #10b98150' : '1px solid #ef444450',
-                                    backgroundColor: manualLeadResult.success ? '#10b98110' : '#ef444410',
-                                    color: manualLeadResult.success ? '#065f46' : '#991b1b',
-                                    fontSize: '13px',
-                                    animation: 'fadeIn 0.2s'
-                                }}>
-                                    {manualLeadResult.success ? (
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                            <Check size={18} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-                                            <div>
-                                                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Lead Saved Successfully!</div>
-                                                {manualLeadResult.matchedSession ? (
-                                                    <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                                                        <Link2 size={14} style={{ marginTop: '2px' }} />
-                                                        <span>
-                                                            <strong>Auto-matched session:</strong> Landed via Google Ads ({manualLeadResult.matchedSession.utm_campaign || 'Paid campaign'}) from referrer <strong>{manualLeadResult.matchedSession.referrer || 'google.com'}</strong>.
-                                                        </span>
-                                                    </div>
-                                                ) : (
-                                                    <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>No matching active website click found near this time. Lead attributed to Direct/Offline.</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <AlertCircle size={18} style={{ flexShrink: 0 }} />
-                                            <span>{manualLeadResult.error}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Timeline drawer inside leads directory */}
                     <Drawer open={!!selectedLead} title={`Visitor Journey Timeline`} subtitle={`${selectedLead?.name || 'Anonymous Lead'} (${selectedLead?.phone})`} onClose={() => setSelectedLead(null)}>
@@ -1826,6 +1687,168 @@ export default function WebsiteAnalytics() {
                     : drawer?.type === 'first_party_journey' ? <JourneyTable rows={drawerRows} />
                     : <BookingTable rows={drawerRows} />
                 }
+            </Drawer>
+
+            {/* ── Manual Lead Log Drawer ─────────────────────────────────── */}
+            <Drawer
+                open={isManualLeadDrawerOpen}
+                title="Log Call / WhatsApp Lead"
+                subtitle="Log callers to automatically match them with their website visits"
+                onClose={() => {
+                    setIsManualLeadDrawerOpen(false)
+                    setManualLeadResult(null)
+                }}
+            >
+                <div style={{ display: 'grid', gap: '16px', padding: '8px 0' }}>
+                    <form onSubmit={handleSaveManualLead} style={{ display: 'grid', gap: '14px' }}>
+                        <div style={{ display: 'grid', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
+                                    <AutocompleteSearch
+                                        placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
+                                        value={customerSearchTerm}
+                                        onChange={(val) => {
+                                            setCustomerSearchTerm(val);
+                                            if (!val) {
+                                                setSelectedCustomer(null);
+                                                setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
+                                            }
+                                        }}
+                                        suggestions={customers.map(c => ({
+                                            ...c,
+                                            displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                        }))}
+                                        searchKey="displayText"
+                                        onSelect={(selected) => {
+                                            setCustomerSearchTerm(selected.displayText);
+                                            setSelectedCustomer(selected);
+                                            setManualLeadForm(prev => ({
+                                                ...prev,
+                                                phone: selected.phone || selected.mobile || '',
+                                                name: selected.name
+                                            }));
+                                        }}
+                                        loading={loadingCustomers}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewAccountForm(true)}
+                                    style={{
+                                        height: '36px',
+                                        width: '36px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--color-primary)',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        flexShrink: 0
+                                    }}
+                                    title="Create New Customer Account"
+                                >
+                                    <Plus size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Channel</label>
+                                <select value={manualLeadForm.type} onChange={e => setManualLeadForm({ ...manualLeadForm, type: e.target.value })}
+                                    style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                    <option value="call">Call Received</option>
+                                    <option value="whatsapp">WhatsApp Message</option>
+                                </select>
+                            </div>
+                            <div style={{ display: 'grid', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</label>
+                                <select value={manualLeadForm.status} onChange={e => setManualLeadForm({ ...manualLeadForm, status: e.target.value })}
+                                    style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                    <option value="interested">Interested</option>
+                                    <option value="converted">Converted</option>
+                                    <option value="junk">Junk/Spam</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date &amp; Time received</label>
+                            <input type="datetime-local" value={manualLeadForm.date} onChange={e => setManualLeadForm({ ...manualLeadForm, date: e.target.value })}
+                                style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Attribution Source</label>
+                                <select value={manualLeadForm.lead_source} onChange={e => setManualLeadForm({ ...manualLeadForm, lead_source: e.target.value })}
+                                    style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                    <option value="auto">Auto-detect (Website click)</option>
+                                    <option value="google_ads">Google Ads (Paid)</option>
+                                    <option value="google_organic">Google Search (Organic)</option>
+                                    <option value="referral">Referral / Word of Mouth</option>
+                                    <option value="direct">Direct / Offline</option>
+                                </select>
+                            </div>
+                            <div style={{ display: 'grid', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Campaign Name (Optional)</label>
+                                <input type="text" placeholder="e.g. OTG_Repair" value={manualLeadForm.campaign} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign: e.target.value })}
+                                    style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gap: '4px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Enquiry description</label>
+                            <textarea placeholder="e.g. Inquired about AC Gas charging rates" rows={3} value={manualLeadForm.notes} onChange={e => setManualLeadForm({ ...manualLeadForm, notes: e.target.value })}
+                                style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', resize: 'vertical', fontSize: '13px' }} />
+                        </div>
+
+                        <button type="submit" disabled={manualLeadSubmitting}
+                            style={{ padding: '12px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: manualLeadSubmitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
+                            {manualLeadSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Save Lead Log
+                        </button>
+                    </form>
+
+                    {/* Attrib Result Notification */}
+                    {manualLeadResult && (
+                        <div style={{
+                            padding: '16px',
+                            borderRadius: 'var(--radius-lg)',
+                            border: manualLeadResult.success ? '1px solid #10b98150' : '1px solid #ef444450',
+                            backgroundColor: manualLeadResult.success ? '#10b98110' : '#ef444410',
+                            color: manualLeadResult.success ? '#065f46' : '#991b1b',
+                            fontSize: '13px',
+                            animation: 'fadeIn 0.2s'
+                        }}>
+                            {manualLeadResult.success ? (
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                    <Check size={18} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                                    <div>
+                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Lead Saved Successfully!</div>
+                                        {manualLeadResult.matchedSession ? (
+                                            <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                                                <Link2 size={14} style={{ marginTop: '2px' }} />
+                                                <span>
+                                                    <strong>Auto-matched session:</strong> Landed via Google Ads ({manualLeadResult.matchedSession.utm_campaign || 'Paid campaign'}) from referrer <strong>{manualLeadResult.matchedSession.referrer || 'google.com'}</strong>.
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>No matching active website click found near this time. Lead attributed to Direct/Offline.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                                    <span>{manualLeadResult.error}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </Drawer>
 
             {/* New Account Form Modal */}
