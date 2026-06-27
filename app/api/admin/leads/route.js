@@ -491,7 +491,7 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json();
-        const { phone, status, notes, lead_source, campaign } = body;
+        const { phone, status, notes, lead_source, campaign, name, conversion_type, first_contact_at } = body;
 
         if (!phone) {
             return NextResponse.json({ success: false, error: 'Phone is required' }, { status: 400 });
@@ -510,6 +510,9 @@ export async function PUT(request) {
         if (notes !== undefined) updatePayload.notes = notes;
         if (lead_source !== undefined) updatePayload.lead_source = lead_source;
         if (campaign !== undefined) updatePayload.campaign = campaign;
+        if (name !== undefined) updatePayload.name = name;
+        if (conversion_type !== undefined) updatePayload.conversion_type = conversion_type;
+        if (first_contact_at !== undefined) updatePayload.first_contact_at = first_contact_at ? new Date(first_contact_at).toISOString() : null;
 
         const { data, error } = await supabase
             .from('lead_attributions')

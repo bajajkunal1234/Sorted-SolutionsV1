@@ -117,6 +117,83 @@ function Drawer({ open, title, subtitle, onClose, children }) {
     )
 }
 
+// ─── Bottom-Sheet Drawer for Mobile Ergonomics ───────────────────────────────
+function BottomDrawer({ open, title, subtitle, onClose, children }) {
+    useEffect(() => {
+        const handler = (e) => { if (e.key === 'Escape') onClose() }
+        if (open) window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [open, onClose])
+
+    if (!open) return null
+    return (
+        <>
+            {/* Backdrop */}
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1000, backdropFilter: 'blur(2px)' }} />
+            {/* Panel */}
+            <div className="bottom-sheet-panel">
+                {/* Drag Handle for mobile affordance */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px 0' }}>
+                    <div style={{ width: '40px', height: '4px', backgroundColor: 'var(--border-primary)', borderRadius: '2px' }} />
+                </div>
+                {/* Header */}
+                <div style={{ padding: '12px 20px 16px', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                    <div>
+                        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{title}</div>
+                        {subtitle && <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{subtitle}</div>}
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border-primary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: '6px', display: 'flex' }}>
+                        <X size={16} />
+                    </button>
+                </div>
+                {/* Body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px 24px' }}>
+                    {children}
+                </div>
+            </div>
+            <style>{`
+                .bottom-sheet-panel {
+                    position: fixed;
+                    bottom: 0;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: min(550px, 95vw);
+                    max-height: 85vh;
+                    background-color: var(--bg-elevated);
+                    border: 1px solid var(--border-primary);
+                    border-bottom: none;
+                    border-radius: 16px 16px 0 0;
+                    z-index: 1001;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 -8px 32px rgba(0,0,0,0.25);
+                    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+
+                @keyframes slideUp {
+                    from { transform: translate(-50%, 100%) }
+                    to { transform: translate(-50%, 0) }
+                }
+
+                @media (max-width: 767px) {
+                    .bottom-sheet-panel {
+                        left: 0;
+                        transform: none;
+                        width: 100%;
+                        max-height: 90vh;
+                        animation: slideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                    }
+                    
+                    @keyframes slideUpMobile {
+                        from { transform: translateY(100%) }
+                        to { transform: translateY(0) }
+                    }
+                }
+            `}</style>
+        </>
+    )
+}
+
 // ─── Drill-down table (customers) ─────────────────────────────────────────────
 function CustomerTable({ rows }) {
     if (!rows.length) return <div style={{ color: 'var(--text-tertiary)', fontSize: '13px', padding: '20px 0' }}>No records found.</div>
@@ -355,6 +432,7 @@ export default function WebsiteAnalytics() {
     const [leadsSearch, setLeadsSearch] = useState('')
     const [leadsTab, setLeadsTab] = useState('directory') // 'directory' | 'daily_spend'
     const [isManualLeadDrawerOpen, setIsManualLeadDrawerOpen] = useState(false)
+    const [editingLead, setEditingLead] = useState(null)
     const [selectedLead, setSelectedLead] = useState(null) // for journey timeline drawer
     
     const [dailySpendForm, setDailySpendForm] = useState({
@@ -592,17 +670,27 @@ export default function WebsiteAnalytics() {
         setManualLeadSubmitting(true)
         setManualLeadResult(null)
         try {
+            const isEdit = !!editingLead;
             const res = await fetch('/api/admin/leads', {
-                method: 'POST',
+                method: isEdit ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(manualLeadForm)
+                body: JSON.stringify(isEdit ? {
+                    phone: manualLeadForm.phone,
+                    name: manualLeadForm.name,
+                    conversion_type: manualLeadForm.type === 'whatsapp' ? 'manual_whatsapp' : 'manual_call',
+                    first_contact_at: manualLeadForm.date,
+                    notes: manualLeadForm.notes,
+                    status: manualLeadForm.status,
+                    lead_source: manualLeadForm.lead_source,
+                    campaign: manualLeadForm.campaign
+                } : manualLeadForm)
             })
             const json = await res.json()
             if (json.success) {
                 setManualLeadResult({
                     success: true,
-                    lead: json.lead,
-                    matchedSession: json.matchedSession
+                    lead: isEdit ? json.data : json.lead,
+                    matchedSession: isEdit ? null : json.matchedSession
                 })
                 load(range) // refresh directory
                 setManualLeadForm({
@@ -617,6 +705,7 @@ export default function WebsiteAnalytics() {
                 })
                 setSelectedCustomer(null)
                 setCustomerSearchTerm('')
+                setEditingLead(null)
             } else {
                 setManualLeadResult({
                     success: false,
@@ -631,6 +720,31 @@ export default function WebsiteAnalytics() {
         } finally {
             setManualLeadSubmitting(false)
         }
+    }
+
+    const handleStartEditLead = (l) => {
+        setEditingLead(l);
+        
+        // Parse date for input datetime-local format (YYYY-MM-DDTHH:mm)
+        const localDateStr = new Date(l.first_contact_at);
+        const offset = localDateStr.getTimezoneOffset();
+        const adjustedDate = new Date(localDateStr.getTime() - (offset * 60 * 1000));
+        const dateVal = adjustedDate.toISOString().slice(0, 16);
+
+        setManualLeadForm({
+            phone: l.phone,
+            name: l.name || '',
+            type: l.conversion_type === 'manual_whatsapp' ? 'whatsapp' : 'call',
+            date: dateVal,
+            notes: l.notes || '',
+            status: l.status || 'interested',
+            lead_source: l.lead_source || 'auto',
+            campaign: l.campaign || ''
+        });
+
+        setCustomerSearchTerm(l.name ? `${l.name} - ${l.phone}` : l.phone);
+        setSelectedCustomer({ name: l.name, phone: l.phone });
+        setIsManualLeadDrawerOpen(true);
     }
 
     const handleNewAccountSave = async (accountData) => {
@@ -1060,12 +1174,23 @@ export default function WebsiteAnalytics() {
                                 </button>
                             </div>
 
-                            <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                            <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
                                             {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Status', 'Jobs', 'Revenue', 'Reason / Notes', 'Actions'].map(h => (
-                                                <th key={h} style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                                                <th key={h} style={{
+                                                    padding: '12px 16px',
+                                                    color: 'var(--text-tertiary)',
+                                                    fontWeight: 600,
+                                                    fontSize: '11px',
+                                                    textTransform: 'uppercase',
+                                                    position: 'sticky',
+                                                    top: 0,
+                                                    zIndex: 10,
+                                                    backgroundColor: 'var(--bg-secondary)',
+                                                    boxShadow: 'inset 0 -1px 0 var(--border-primary)'
+                                                }}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
@@ -1182,16 +1307,30 @@ export default function WebsiteAnalytics() {
                                                     )}
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
-                                                    <button
-                                                        onClick={() => setSelectedLead(l)}
-                                                        style={{
-                                                            padding: '6px 10px', border: '1px solid var(--border-primary)',
-                                                            backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)',
-                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        Journey Flow
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                        <button
+                                                            onClick={() => setSelectedLead(l)}
+                                                            style={{
+                                                                padding: '6px 10px', border: '1px solid var(--border-primary)',
+                                                                backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)',
+                                                                borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            Journey Flow
+                                                        </button>
+                                                        {l.conversion_type?.startsWith('manual_') && (
+                                                            <button
+                                                                onClick={() => handleStartEditLead(l)}
+                                                                style={{
+                                                                    padding: '6px 10px', border: '1px solid var(--border-primary)',
+                                                                    backgroundColor: 'var(--bg-primary)', color: 'var(--color-primary)',
+                                                                    borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
+                                                                }}
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -1689,70 +1828,87 @@ export default function WebsiteAnalytics() {
                 }
             </Drawer>
 
-            {/* ── Manual Lead Log Drawer ─────────────────────────────────── */}
-            <Drawer
-                open={isManualLeadDrawerOpen}
-                title="Log Call / WhatsApp Lead"
-                subtitle="Log callers to automatically match them with their website visits"
-                onClose={() => {
-                    setIsManualLeadDrawerOpen(false)
-                    setManualLeadResult(null)
-                }}
-            >
+             {/* ── Manual Lead Log Drawer (Bottom Sheet Style) ──────────────── */}
+             <BottomDrawer
+                 open={isManualLeadDrawerOpen}
+                 title={editingLead ? "Edit Lead Log" : "Log Call / WhatsApp Lead"}
+                 subtitle={editingLead ? `Correct lead details for ${manualLeadForm.name || 'Anonymous'}` : "Log callers to automatically match them with their website visits"}
+                 onClose={() => {
+                     setIsManualLeadDrawerOpen(false)
+                     setManualLeadResult(null)
+                     setEditingLead(null)
+                 }}
+             >
                 <div style={{ display: 'grid', gap: '16px', padding: '8px 0' }}>
                     <form onSubmit={handleSaveManualLead} style={{ display: 'grid', gap: '14px' }}>
                         <div style={{ display: 'grid', gap: '4px' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
-                                    <AutocompleteSearch
-                                        placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
-                                        value={customerSearchTerm}
-                                        onChange={(val) => {
-                                            setCustomerSearchTerm(val);
-                                            if (!val) {
-                                                setSelectedCustomer(null);
-                                                setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
-                                            }
-                                        }}
-                                        suggestions={customers.map(c => ({
-                                            ...c,
-                                            displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
-                                        }))}
-                                        searchKey="displayText"
-                                        onSelect={(selected) => {
-                                            setCustomerSearchTerm(selected.displayText);
-                                            setSelectedCustomer(selected);
-                                            setManualLeadForm(prev => ({
-                                                ...prev,
-                                                phone: selected.phone || selected.mobile || '',
-                                                name: selected.name
-                                            }));
-                                        }}
-                                        loading={loadingCustomers}
-                                    />
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowNewAccountForm(true)}
+                            {editingLead ? (
+                                <input
+                                    type="text"
+                                    value={`${manualLeadForm.name ? manualLeadForm.name + ' ' : ''}(${manualLeadForm.phone})`}
+                                    disabled
                                     style={{
-                                        height: '36px',
-                                        width: '36px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: 'var(--radius-md)',
+                                        padding: '10px 12px',
                                         border: '1px solid var(--border-primary)',
-                                        backgroundColor: 'var(--color-primary)',
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        flexShrink: 0
+                                        borderRadius: '6px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-tertiary)',
+                                        fontSize: '13px'
                                     }}
-                                    title="Create New Customer Account"
-                                >
-                                    <Plus size={18} />
-                                </button>
-                            </div>
+                                />
+                            ) : (
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
+                                        <AutocompleteSearch
+                                            placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
+                                            value={customerSearchTerm}
+                                            onChange={(val) => {
+                                                setCustomerSearchTerm(val);
+                                                if (!val) {
+                                                    setSelectedCustomer(null);
+                                                    setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
+                                                }
+                                            }}
+                                            suggestions={customers.map(c => ({
+                                                ...c,
+                                                displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                            }))}
+                                            searchKey="displayText"
+                                            onSelect={(selected) => {
+                                                setCustomerSearchTerm(selected.displayText);
+                                                setSelectedCustomer(selected);
+                                                setManualLeadForm(prev => ({
+                                                    ...prev,
+                                                    phone: selected.phone || selected.mobile || '',
+                                                    name: selected.name
+                                                }));
+                                            }}
+                                            loading={loadingCustomers}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewAccountForm(true)}
+                                        style={{
+                                            height: '36px',
+                                            width: '36px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--color-primary)',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            flexShrink: 0
+                                        }}
+                                        title="Create New Customer Account"
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1808,7 +1964,8 @@ export default function WebsiteAnalytics() {
 
                         <button type="submit" disabled={manualLeadSubmitting}
                             style={{ padding: '12px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: manualLeadSubmitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
-                            {manualLeadSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Save Lead Log
+                            {manualLeadSubmitting ? <Loader2 size={16} className="animate-spin" /> : editingLead ? <Check size={16} /> : <Plus size={16} />}
+                            {editingLead ? "Update Lead Log" : "Save Lead Log"}
                         </button>
                     </form>
 
@@ -1849,7 +2006,7 @@ export default function WebsiteAnalytics() {
                         </div>
                     )}
                 </div>
-            </Drawer>
+            </BottomDrawer>
 
             {/* New Account Form Modal */}
             {showNewAccountForm && (
