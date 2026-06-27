@@ -1184,7 +1184,7 @@ export default function WebsiteAnalytics() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                            {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Status', 'Jobs', 'Revenue', 'Reason / Notes', 'Actions'].map(h => (
+                                            {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Jobs', 'Revenue', 'Reason / Notes', 'Actions'].map(h => (
                                                 <th key={h} style={{
                                                     padding: '12px 16px',
                                                     color: 'var(--text-tertiary)',
@@ -1261,23 +1261,7 @@ export default function WebsiteAnalytics() {
                                                 <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
                                                     {l.conversion_type?.replace(/_/g, ' ') || '—'}
                                                 </td>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    <select
-                                                        value={l.status}
-                                                        onChange={e => handleUpdateLeadStatus(l.phone, e.target.value)}
-                                                        style={{
-                                                            padding: '4px 8px', borderRadius: '4px',
-                                                            backgroundColor: l.status === 'converted' ? '#10b98115' : l.status === 'junk' ? '#ef444415' : 'var(--bg-secondary)',
-                                                            color: l.status === 'converted' ? '#10b981' : l.status === 'junk' ? '#ef4444' : 'var(--text-primary)',
-                                                            border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        <option value="interested">Interested</option>
-                                                        <option value="converted">Converted</option>
-                                                        <option value="junk">Junk/Spam</option>
-                                                        <option value="lost">Lost</option>
-                                                    </select>
-                                                </td>
+
                                                 <td style={{ padding: '12px 16px', fontWeight: 600 }}>
                                                     {l.jobsCount > 0 && l.jobs ? (
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
@@ -1288,7 +1272,7 @@ export default function WebsiteAnalytics() {
                                                                         style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
                                                                         title={`Open Job ${j.jobNumber || `#${j.id}`}`}
                                                                     >
-                                                                        {j.jobNumber || `#${j.id}`}
+                                                                        {j.jobNumber || `#${j.id}`}{j.status && ` (${j.status.toLowerCase()})`}
                                                                     </span>
                                                                     {idx < l.jobs.length - 1 && <span style={{ color: 'var(--text-tertiary)', marginRight: '2px' }}>,</span>}
                                                                 </span>
