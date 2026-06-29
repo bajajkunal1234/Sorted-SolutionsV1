@@ -374,6 +374,15 @@ function PropertyManagerModal({ onClose }) {
                         initialLat={form.lat}
                         initialLng={form.lng}
                         onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                        onAddressSelected={(details) => setForm(p => ({
+                            ...p,
+                            building_name: details.building_name || p.building_name,
+                            address: details.address || p.address,
+                            locality: details.locality || p.locality,
+                            pincode: details.pincode || p.pincode,
+                            lat: details.lat,
+                            lng: details.lng
+                        }))}
                         height="220px"
                         label="📍 Confirm your pin on map"
                     />

@@ -402,6 +402,15 @@ function StepAddress({ onNext, onSkip, customerId }) {
                             localityQuery={form.locality} pincodeQuery={form.pincode}
                             initialLat={form.lat} initialLng={form.lng}
                             onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                            onAddressSelected={(details) => setForm(p => ({
+                                ...p,
+                                building_name: details.building_name || p.building_name,
+                                address: details.address || p.address,
+                                locality: details.locality || p.locality,
+                                pincode: details.pincode || p.pincode,
+                                lat: details.lat,
+                                lng: details.lng
+                            }))}
                             height="200px" label="Drag pin to your building entrance"
                         />
                     </div>
