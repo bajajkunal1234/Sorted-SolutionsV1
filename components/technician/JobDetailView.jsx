@@ -1851,28 +1851,35 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                         Quotation Options ({savedQuotations.length}/2):
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {savedQuotations.map((q, idx) => (
-                                                            <button
-                                                                key={q.id}
-                                                                type="button"
-                                                                onClick={() => setSavedQuotation(q)}
-                                                                style={{
-                                                                    padding: '10px 12px',
-                                                                    fontSize: '13px',
-                                                                    fontWeight: 700,
-                                                                    borderRadius: '8px',
-                                                                    border: savedQuotation.id === q.id ? '2px solid #8b5cf6' : '1px solid var(--border-primary)',
-                                                                    backgroundColor: savedQuotation.id === q.id ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
-                                                                    color: savedQuotation.id === q.id ? '#8b5cf6' : 'var(--text-primary)',
-                                                                    cursor: 'pointer',
-                                                                    flex: 1,
-                                                                    textAlign: 'center',
-                                                                    transition: 'all 0.15s ease'
-                                                                }}
-                                                            >
-                                                                Option {idx + 1} ({q.quote_number?.slice(-4) || idx + 1}) · ₹{q.total_amount?.toLocaleString('en-IN')}
-                                                            </button>
-                                                        ))}
+                                                        {(() => {
+                                                            const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                                            return sortedQuotes.map((q, idx) => {
+                                                                const label = idx === 0 ? 'Option 1 (Quotation)' : 'Option 2 (Service Charge)';
+                                                                const isActive = savedQuotation?.id === q.id;
+                                                                return (
+                                                                    <button
+                                                                        key={q.id}
+                                                                        type="button"
+                                                                        onClick={() => setSavedQuotation(q)}
+                                                                        style={{
+                                                                            padding: '10px 12px',
+                                                                            fontSize: '13px',
+                                                                            fontWeight: 700,
+                                                                            borderRadius: '8px',
+                                                                            border: isActive ? '2px solid #8b5cf6' : '1px solid var(--border-primary)',
+                                                                            backgroundColor: isActive ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
+                                                                            color: isActive ? '#8b5cf6' : 'var(--text-primary)',
+                                                                            cursor: 'pointer',
+                                                                            flex: 1,
+                                                                            textAlign: 'center',
+                                                                            transition: 'all 0.15s ease'
+                                                                        }}
+                                                                    >
+                                                                        {label} · ₹{q.total_amount?.toLocaleString('en-IN')}
+                                                                    </button>
+                                                                );
+                                                             });
+                                                         })()}
                                                         {savedQuotations.length < 2 && !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
                                                             <button
                                                                 type="button"
@@ -1895,7 +1902,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     transition: 'all 0.15s ease'
                                                                 }}
                                                             >
-                                                                ➕ Add Option 2
+                                                                ➕ Add Service Charge
                                                             </button>
                                                         )}
                                                     </div>
@@ -1994,78 +2001,62 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     </button>
                                                 </>
                                             ) : (
-                                                // ── 3 Quotation Decision Cards ──
+                                                // ── Proceed Button for Selected Option ──
                                                 (() => {
-                                                    const cxAppApproved = editedJob.interactions?.some(i =>
-                                                        i.type === 'approve_quotation' &&
-                                                        i.performed_by_name?.toLowerCase()?.includes('customer')
-                                                    );
-                                                    return (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                                                What did the customer decide?
+                                                    const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                                    const isServiceChargeSelected = savedQuotations.length === 2 && savedQuotation?.id === sortedQuotes[1]?.id;
+
+                                                    if (isServiceChargeSelected) {
+                                                        return (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                <button
+                                                                    className="btn"
+                                                                    disabled={loading}
+                                                                    style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'normal', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
+                                                                    onClick={() => {
+                                                                        setQuotationDecisionMode('denied');
+                                                                        setActiveForm('calculator');
+                                                                    }}
+                                                                >
+                                                                    <span style={{ fontSize: 20 }}>⚙️</span>
+                                                                    <div style={{ textAlign: 'left' }}>
+                                                                        <div style={{ fontWeight: 700 }}>Proceed with Service Charge</div>
+                                                                        <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Finalize service charges in calculator → create invoice</div>
+                                                                    </div>
+                                                                </button>
                                                             </div>
-
-                                                            {/* Option 1: Quotation Approved */}
-                                                            <button
-                                                                className="btn"
-                                                                disabled={cxAppApproved || loading}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : (loading ? 0.6 : 1), whiteSpace: 'normal' }}
-                                                                onClick={async () => {
-                                                                    if (cxAppApproved || loading) return;
-                                                                    const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                                                    await handleSaveStatus('work_in_progress');
-                                                                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} approved by customer (confirmed by ${techName})`, user_name: techName })
-                                                                    }).catch(() => {});
-                                                                    setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions || [])] }));
-                                                                }}
-                                                            >
-                                                                <span style={{ fontSize: 20 }}>{loading ? '⏳' : '✅'}</span>
-                                                                <div style={{ textAlign: 'left' }}>
-                                                                    <div>{loading ? 'Processing approval...' : 'Quotation Approved by Customer'}</div>
-                                                                    {cxAppApproved && <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Approved via Customer App</div>}
-                                                                </div>
-                                                            </button>
-
-                                                            {/* Option 2: Quotation Denied — close on visit charge */}
-                                                            <button
-                                                                className="btn"
-                                                                disabled={cxAppApproved || loading}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: (cxAppApproved || loading) ? '#64748b' : '#f87171', border: `1px solid ${(cxAppApproved || loading) ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'not-allowed' : 'pointer', opacity: (cxAppApproved || loading) ? 0.4 : 1, whiteSpace: 'normal' }}
-                                                                onClick={() => {
-                                                                    if (cxAppApproved || loading) return;
-                                                                    setQuotationDecisionMode('denied');
-                                                                    setActiveForm('calculator');
-                                                                }}
-                                                            >
-                                                                <span style={{ fontSize: 20 }}>❌</span>
-                                                                <div style={{ textAlign: 'left' }}>
-                                                                    <div>Quotation Denied</div>
-                                                                    <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75 }}>Close on visit charge → collect payment → feedback</div>
-                                                                </div>
-                                                            </button>
-
-                                                            {/* Option 3: Cx needs time */}
-                                                            <button
-                                                                className="btn"
-                                                                disabled={cxAppApproved || loading}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: (cxAppApproved || loading) ? '#64748b' : '#f59e0b', border: `1px solid ${(cxAppApproved || loading) ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: (cxAppApproved || loading) ? 'not-allowed' : 'pointer', opacity: (cxAppApproved || loading) ? 0.4 : 1, whiteSpace: 'normal' }}
-                                                                onClick={() => {
-                                                                    if (cxAppApproved || loading) return;
-                                                                    setQuotationDecisionMode('thinking');
-                                                                    setActiveForm('calculator');
-                                                                }}
-                                                            >
-                                                                <span style={{ fontSize: 20 }}>🕐</span>
-                                                                <div style={{ textAlign: 'left' }}>
-                                                                    <div>Customer Needs Time to Think</div>
-                                                                    <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75 }}>Visit charge → collect payment → admin follow-up in 2 days</div>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    );
+                                                        );
+                                                    } else {
+                                                        const cxAppApproved = editedJob.interactions?.some(i =>
+                                                            i.type === 'approve_quotation' &&
+                                                            i.performed_by_name?.toLowerCase()?.includes('customer')
+                                                        );
+                                                        return (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                <button
+                                                                    className="btn"
+                                                                    disabled={cxAppApproved || loading}
+                                                                    style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', cursor: (cxAppApproved || loading) ? 'default' : 'pointer', whiteSpace: 'normal', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                                                                    onClick={async () => {
+                                                                        if (cxAppApproved || loading) return;
+                                                                        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                                        await handleSaveStatus('work_in_progress');
+                                                                        apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} approved by customer (confirmed by ${techName})`, user_name: techName })
+                                                                        }).catch(() => {});
+                                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions || [])] }));
+                                                                    }}
+                                                                >
+                                                                    <span style={{ fontSize: 20 }}>✅</span>
+                                                                    <div style={{ textAlign: 'left' }}>
+                                                                        <div style={{ fontWeight: 700 }}>{loading ? 'Processing approval...' : 'Proceed with Quotation'}</div>
+                                                                        {cxAppApproved && <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Approved via Customer App</div>}
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    }
                                                 })())}
                                             {/* Restart Quotation Process Button (only if not closed) */}
                                             {editedJob.status !== 'closed' && (
@@ -2453,6 +2444,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         onCreateInvoice={quotationDecisionMode ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
                         prefillItems={isNewQuotationOption ? calculatorItems : (savedQuotation?.items || calculatorItems)}
                         loading={loading}
+                        hideParts={
+                            isNewQuotationOption ||
+                            quotationDecisionMode === 'denied' ||
+                            (savedQuotations.length === 2 && savedQuotation?.id === [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[1]?.id)
+                        }
                     />
                 )}
                 {/* Manual Sales Invoice Form is now hidden from the UI but could still be opened programmatically */}

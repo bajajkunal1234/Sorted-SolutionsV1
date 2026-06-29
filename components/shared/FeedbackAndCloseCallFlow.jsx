@@ -31,6 +31,8 @@ export default function FeedbackAndCloseCallFlow({
     const [pocName, setPocName] = useState(''); // Name/Relation if someone_else
     const [repairDone, setRepairDone] = useState(initialRepairOutcome); // pre-seeded if provided
     const [customReason, setCustomReason] = useState(''); // Required if repairDone === 'Custom'
+    const [invoices, setInvoices] = useState([]);
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
 
     // Conditional elements (only if Repair Done)
     const [warrantyExplained, setWarrantyExplained] = useState(''); // 'Yes' or 'No'
@@ -62,12 +64,34 @@ export default function FeedbackAndCloseCallFlow({
         loadFeedbackQr();
     }, []);
 
+    // Load sales invoices for the job
+    useEffect(() => {
+        if (job?.id) {
+            const loadInvoices = async () => {
+                try {
+                    const res = await apiCall(`/api/technician/jobs/${job.id}/invoice`);
+                    const json = await res.json();
+                    if (json.success && Array.isArray(json.data)) {
+                        setInvoices(json.data);
+                        if (json.data.length > 0) {
+                            setSelectedInvoiceId(json.data[0].id);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to load invoices:", err);
+                }
+            };
+            loadInvoices();
+        }
+    }, [job?.id]);
+
     // Form Validation helper for Step 1
     const isStep1Valid = () => {
         if (!pocOption) return false;
         if (pocOption === 'someone_else' && !pocName.trim()) return false;
         if (!repairDone) return false;
         if (repairDone === 'Custom' && !customReason.trim()) return false;
+        if (repairDone === 'Closed on service charge' && !selectedInvoiceId) return false;
 
         if (repairDone === 'Repair Done') {
             if (!warrantyExplained) return false;
@@ -100,6 +124,11 @@ export default function FeedbackAndCloseCallFlow({
                 noteParts.push(`Custom Reason: ${customReason.trim()}`);
             }
 
+            if (repairDone === 'Closed on service charge') {
+                const selectedInv = invoices.find(inv => inv.id === selectedInvoiceId);
+                noteParts.push(`Selected Service Charge Invoice: ${selectedInv ? selectedInv.invoice_number : selectedInvoiceId}`);
+            }
+
             if (repairDone === 'Repair Done') {
                 noteParts.push(`Usage & Warranty Explained: ${warrantyExplained === 'Yes' ? 'Yes ✓' : `No ❌ (Reason: ${warrantyReason.trim()})`}`);
                 noteParts.push(`Customer Tested: ${customerTested === 'Yes' ? 'Yes ✓' : `No ❌ (Reason: ${testedReason.trim()})`}`);
@@ -124,6 +153,8 @@ export default function FeedbackAndCloseCallFlow({
                     warranty_reason: warrantyExplained === 'No' ? warrantyReason.trim() : null,
                     customer_tested: repairDone === 'Repair Done' ? customerTested : null,
                     tested_reason: customerTested === 'No' ? testedReason.trim() : null,
+                    service_charge_invoice_id: repairDone === 'Closed on service charge' ? selectedInvoiceId : undefined,
+                    service_charge_invoice_number: repairDone === 'Closed on service charge' ? (invoices.find(inv => inv.id === selectedInvoiceId)?.invoice_number) : undefined,
                 },
                 status: 'completed',
                 source: `${context} app`
@@ -385,6 +416,31 @@ export default function FeedbackAndCloseCallFlow({
                                         onChange={e => setCustomReason(e.target.value)}
                                         style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', resize: 'vertical' }}
                                     />
+                                )}
+                                {repairDone === 'Closed on service charge' && (
+                                    <div style={{ marginTop: '12px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>
+                                            Select Service Charge Invoice <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
+                                        {invoices.length > 0 ? (
+                                            <select
+                                                className="form-input"
+                                                value={selectedInvoiceId}
+                                                onChange={e => setSelectedInvoiceId(e.target.value)}
+                                                style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', outline: 'none', fontSize: '14px' }}
+                                            >
+                                                {invoices.map(inv => (
+                                                    <option key={inv.id} value={inv.id}>
+                                                        {inv.invoice_number} · ₹{inv.total_amount?.toLocaleString('en-IN')} ({inv.date})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <div style={{ padding: '10px 12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '12px', color: '#f87171', fontWeight: 600 }}>
+                                                ⚠️ No invoices found for this job. Please create a service charge invoice first.
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 

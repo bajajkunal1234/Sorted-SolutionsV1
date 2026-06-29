@@ -79,13 +79,13 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
     </div>
 );
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems, loading: parentLoading = false }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems, loading: parentLoading = false, hideParts = false }) {
     const [mounted, setMounted] = useState(false);
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
     const [search, setSearch]             = useState('');
-    const [filter, setFilter]             = useState('all'); // 'all' | 'product' | 'service'
+    const [filter, setFilter]             = useState(hideParts ? 'service' : 'all'); // 'all' | 'product' | 'service'
     const [basket, setBasket]             = useState([]); // { ...item, qty, priceType, customPrice }
     const [showTax, setShowTax]           = useState(true);
     const [basketOpen, setBasketOpen]     = useState(false);
@@ -95,7 +95,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         return () => setMounted(false);
     }, []);
     const [showManual, setShowManual]     = useState(false);
-    const [manualItem, setManualItem]     = useState({ name: '', rate: '', type: 'product' });
+    const [manualItem, setManualItem]     = useState({ name: '', rate: '', type: hideParts ? 'service' : 'product' });
 
     const warrantyWarning =
         job?.product?.warranty?.status === 'in-warranty' ||
@@ -214,7 +214,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
             customPrice: rate,
             isManual: true,
         }]);
-        setManualItem({ name: '', rate: '', type: 'product' });
+        setManualItem({ name: '', rate: '', type: hideParts ? 'service' : 'product' });
         setShowManual(false);
     };
 
@@ -228,7 +228,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     const visible = inventory.filter(item => {
         const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
         const isService   = item.type === 'service' || item.product_type === 'service';
-        const matchFilter = filter === 'all' || (filter === 'service' ? isService : !isService);
+        const matchFilter = hideParts ? isService : (filter === 'all' || (filter === 'service' ? isService : !isService));
         return matchSearch && matchFilter;
     });
 
@@ -305,11 +305,13 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                 </div>
 
                 {/* Filter pills */}
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    <button style={pillStyle(filter === 'all')}     onClick={() => setFilter('all')}>All</button>
-                    <button style={pillStyle(filter === 'product')} onClick={() => setFilter('product')}><Package size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Parts</button>
-                    <button style={pillStyle(filter === 'service')} onClick={() => setFilter('service')}><Wrench  size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Services</button>
-                </div>
+                {!hideParts && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        <button style={pillStyle(filter === 'all')}     onClick={() => setFilter('all')}>All</button>
+                        <button style={pillStyle(filter === 'product')} onClick={() => setFilter('product')}><Package size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Parts</button>
+                        <button style={pillStyle(filter === 'service')} onClick={() => setFilter('service')}><Wrench  size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Services</button>
+                    </div>
+                )}
             </div>
 
             {/* ── WARRANTY BANNER ── */}
@@ -395,10 +397,14 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                 <div style={{ padding: '0 12px 12px', display: 'grid', gap: '8px' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
                                         <input className="form-input" placeholder="Item / Service name" value={manualItem.name} onChange={e => setManualItem(p => ({ ...p, name: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
-                                        <select value={manualItem.type} onChange={e => setManualItem(p => ({ ...p, type: e.target.value }))} className="form-input" style={{ fontSize: '13px', padding: '10px' }}>
-                                            <option value="product">Part</option>
-                                            <option value="service">Service</option>
-                                        </select>
+                                        {!hideParts ? (
+                                            <select value={manualItem.type} onChange={e => setManualItem(p => ({ ...p, type: e.target.value }))} className="form-input" style={{ fontSize: '13px', padding: '10px' }}>
+                                                <option value="product">Part</option>
+                                                <option value="service">Service</option>
+                                            </select>
+                                        ) : (
+                                            <div className="form-input" style={{ fontSize: '13px', padding: '10px', display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>Service</div>
+                                        )}
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
                                         <input className="form-input" type="number" placeholder="Price (₹)" value={manualItem.rate} onChange={e => setManualItem(p => ({ ...p, rate: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
