@@ -1304,155 +1304,158 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                 )}
                                             </div>
 
-                                            {['work_in_progress', 'completed', 'closed'].includes(editedJob.status) ? (
-                                                <>
-                                                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                                                        <CheckCircle size={16} /> 
-                                                        {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
-                                                            ? 'Cx Approved from App' 
-                                                            : 'Cx Said to Proceed'}
-                                                    </div>
-                                                    <button
-                                                        className="btn"
-                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
-                                                        disabled={loading}
-                                                        onClick={async () => {
-                                                            setLoading(true);
-                                                            try {
-                                                                const res = await fetch(`/api/admin/transactions?type=sales`, {
-                                                                    method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        account_id: savedQuotation.account_id,
-                                                                        account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
-                                                                        accountGSTIN: savedQuotation.accountGSTIN || '',
-                                                                        accountState: savedQuotation.accountState || 'Maharashtra',
-                                                                        billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                                                                        job_id: editedJob.id,
-                                                                        date: new Date().toISOString().split('T')[0],
-                                                                        due_date: new Date().toISOString().split('T')[0],
-                                                                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                                                                        reference: savedQuotation.quote_number,
-                                                                        status: 'unpaid',
-                                                                        items: savedQuotation.items,
-                                                                        subtotal: savedQuotation.subtotal,
-                                                                        cgst: savedQuotation.cgst,
-                                                                        sgst: savedQuotation.sgst,
-                                                                        igst: savedQuotation.igst,
-                                                                        total_tax: savedQuotation.total_tax,
-                                                                        total_amount: savedQuotation.total_amount,
-                                                                        notes: 'Auto-generated from approved quotation',
-                                                                        terms: savedQuotation.terms,
-                                                                        technician_id: savedQuotation.technician_id || editedJob.technician_id || null,
-                                                                        technician_name: savedQuotation.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
-                                                                    })
-                                                                });
-                                                                const data = await res.json();
-                                                                if (data.success) {
-                                                                    setSavedInvoice(data.data);
+                                            {(() => {
+                                                const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                                const isServiceChargeSelected = savedQuotations.length === 2 && savedQuotation?.id === sortedQuotes[1]?.id;
+
+                                                if (isServiceChargeSelected) {
+                                                    if (editedJob.status === 'closed') return null;
+                                                    return (
+                                                        <button
+                                                            className="btn"
+                                                            disabled={loading}
+                                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                                                            onClick={async () => {
+                                                                setLoading(true);
+                                                                try {
+                                                                    const serviceQuote = sortedQuotes[1];
+                                                                    if (!serviceQuote) throw new Error('Service charge quotation option not found');
+                                                                    const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({
+                                                                            account_id: serviceQuote.account_id,
+                                                                            account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
+                                                                            accountGSTIN: serviceQuote.accountGSTIN || '',
+                                                                            accountState: serviceQuote.accountState || 'Maharashtra',
+                                                                            billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                            job_id: editedJob.id,
+                                                                            date: new Date().toISOString().split('T')[0],
+                                                                            due_date: new Date().toISOString().split('T')[0],
+                                                                            invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                            reference: serviceQuote.quote_number,
+                                                                            status: 'unpaid',
+                                                                            items: serviceQuote.items,
+                                                                            subtotal: serviceQuote.subtotal,
+                                                                            cgst: serviceQuote.cgst,
+                                                                            sgst: serviceQuote.sgst,
+                                                                            igst: serviceQuote.igst,
+                                                                            total_tax: serviceQuote.total_tax,
+                                                                            total_amount: serviceQuote.total_amount,
+                                                                            notes: 'Auto-generated from service charge quotation',
+                                                                            terms: serviceQuote.terms,
+                                                                            technician_id: serviceQuote.technician_id || editedJob.technician_id || null,
+                                                                            technician_name: serviceQuote.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
+                                                                        })
+                                                                    });
+                                                                    const data = await res.json();
+                                                                    if (data.success) {
+                                                                        setSavedInvoice(data.data);
+                                                                        
+                                                                        await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice ${data.data.invoice_number} created from service charge quotation ${serviceQuote.quote_number}`, user_name: 'Admin' })
+                                                                        }).catch(() => {});
+                                                                        
+                                                                        await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: 'Admin' })
+                                                                        }).catch(() => {});
+                                                                        
+                                                                        setShowCollectPayment(true);
+                                                                    } else throw new Error(data.error);
+                                                                } catch (e) {
+                                                                    alert('Failed to auto-create invoice: ' + e.message);
+                                                                } finally {
+                                                                    setLoading(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            ⚙️ {loading ? 'Processing...' : 'Proceed with Service Charge'}
+                                                        </button>
+                                                    );
+                                                } else {
+                                                    if (['work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
+                                                        return (
+                                                            <>
+                                                                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                                                    <CheckCircle size={16} /> 
+                                                                    {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
+                                                                        ? 'Cx Approved from App' 
+                                                                        : 'Cx Said to Proceed'}
+                                                                </div>
+                                                                <button
+                                                                    className="btn"
+                                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                                                                    disabled={loading}
+                                                                    onClick={async () => {
+                                                                        setLoading(true);
+                                                                        try {
+                                                                            const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({
+                                                                                    account_id: savedQuotation.account_id,
+                                                                                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                                                                                    accountGSTIN: savedQuotation.accountGSTIN || '',
+                                                                                    accountState: savedQuotation.accountState || 'Maharashtra',
+                                                                                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                                    job_id: editedJob.id,
+                                                                                    date: new Date().toISOString().split('T')[0],
+                                                                                    due_date: new Date().toISOString().split('T')[0],
+                                                                                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                                    reference: savedQuotation.quote_number,
+                                                                                    status: 'unpaid',
+                                                                                    items: savedQuotation.items,
+                                                                                    subtotal: savedQuotation.subtotal,
+                                                                                    cgst: savedQuotation.cgst,
+                                                                                    sgst: savedQuotation.sgst,
+                                                                                    igst: savedQuotation.igst,
+                                                                                    total_tax: savedQuotation.total_tax,
+                                                                                    total_amount: savedQuotation.total_amount,
+                                                                                    notes: 'Auto-generated from approved quotation',
+                                                                                    terms: savedQuotation.terms,
+                                                                                    technician_id: savedQuotation.technician_id || editedJob.technician_id || null,
+                                                                                    technician_name: savedQuotation.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
+                                                                                })
+                                                                            });
+                                                                            const data = await res.json();
+                                                                            if (data.success) {
+                                                                                setSavedInvoice(data.data);
+                                                                                fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
+                                                                                }).catch(() => {});
+                                                                                setShowWhatsappPopup({ type: 'invoice', doc: data.data });
+                                                                            } else throw new Error(data.error);
+                                                                        } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
+                                                                        finally { setLoading(false); }
+                                                                    }}
+                                                                >
+                                                                    {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
+                                                                </button>
+                                                            </>
+                                                        );
+                                                    } else {
+                                                        return (
+                                                            <button
+                                                                className="btn"
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
+                                                                onClick={async () => {
+                                                                    await handleSaveStatus('work_in_progress');
                                                                     fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
+                                                                        body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
                                                                     }).catch(() => {});
-                                                                    setShowWhatsappPopup({ type: 'invoice', doc: data.data });
-                                                                } else throw new Error(data.error);
-                                                            } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
-                                                            finally { setLoading(false); }
-                                                        }}
-                                                    >
-                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                 (() => {
-                                                     const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-                                                     const isServiceChargeSelected = savedQuotations.length === 2 && savedQuotation?.id === sortedQuotes[1]?.id;
-
-                                                     if (isServiceChargeSelected) {
-                                                          return (
-                                                              <button
-                                                                  className="btn"
-                                                                  disabled={loading}
-                                                                  style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                                                                  onClick={async () => {
-                                                                      setLoading(true);
-                                                                      try {
-                                                                          const serviceQuote = sortedQuotes[1];
-                                                                          if (!serviceQuote) throw new Error('Service charge quotation option not found');
-                                                                          const res = await fetch(`/api/admin/transactions?type=sales`, {
-                                                                              method: 'POST',
-                                                                              headers: { 'Content-Type': 'application/json' },
-                                                                              body: JSON.stringify({
-                                                                                  account_id: serviceQuote.account_id,
-                                                                                  account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
-                                                                                  accountGSTIN: serviceQuote.accountGSTIN || '',
-                                                                                  accountState: serviceQuote.accountState || 'Maharashtra',
-                                                                                  billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                                                                                  job_id: editedJob.id,
-                                                                                  date: new Date().toISOString().split('T')[0],
-                                                                                  due_date: new Date().toISOString().split('T')[0],
-                                                                                  invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                                                                                  reference: serviceQuote.quote_number,
-                                                                                  status: 'unpaid',
-                                                                                  items: serviceQuote.items,
-                                                                                  subtotal: serviceQuote.subtotal,
-                                                                                  cgst: serviceQuote.cgst,
-                                                                                  sgst: serviceQuote.sgst,
-                                                                                  igst: serviceQuote.igst,
-                                                                                  total_tax: serviceQuote.total_tax,
-                                                                                  total_amount: serviceQuote.total_amount,
-                                                                                  notes: 'Auto-generated from service charge quotation',
-                                                                                  terms: serviceQuote.terms,
-                                                                                  technician_id: serviceQuote.technician_id || editedJob.technician_id || null,
-                                                                                  technician_name: serviceQuote.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
-                                                                              })
-                                                                          });
-                                                                          const data = await res.json();
-                                                                          if (data.success) {
-                                                                              setSavedInvoice(data.data);
-                                                                              
-                                                                              await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                  body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice ${data.data.invoice_number} created from service charge quotation ${serviceQuote.quote_number}`, user_name: 'Admin' })
-                                                                              }).catch(() => {});
-                                                                              
-                                                                              await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                  method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                  body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: 'Admin' })
-                                                                              }).catch(() => {});
-                                                                              
-                                                                              setShowCollectPayment(true);
-                                                                          } else throw new Error(data.error);
-                                                                      } catch (e) {
-                                                                          alert('Failed to auto-create invoice: ' + e.message);
-                                                                      } finally {
-                                                                          setLoading(false);
-                                                                      }
-                                                                  }}
-                                                              >
-                                                                  ⚙️ {loading ? 'Processing...' : 'Proceed with Service Charge'}
-                                                              </button>
-                                                          );
-                                                     } else {
-                                                         return (
-                                                             <button
-                                                                 className="btn"
-                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
-                                                                 onClick={async () => {
-                                                                     await handleSaveStatus('work_in_progress');
-                                                                     fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                         body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
-                                                                     }).catch(() => {});
-                                                                     setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
-                                                                 }}
-                                                             >
-                                                                 ✓ Mark as Customer Approved
-                                                             </button>
-                                                         );
-                                                     }
-                                                 })()
-                                            )}
+                                                                    setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                                }}
+                                                            >
+                                                                ✓ Mark as Customer Approved
+                                                            </button>
+                                                        );
+                                                    }
+                                                }
+                                            })()}
                                         </>
                                     ) : (
                                         <button
