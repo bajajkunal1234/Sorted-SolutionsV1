@@ -26,6 +26,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
     const [calculatorItems, setCalculatorItems] = useState(null);
     const [savedQuotation, setSavedQuotation] = useState(null);
+    const [savedQuotations, setSavedQuotations] = useState([]);
+    const [isNewQuotationOption, setIsNewQuotationOption] = useState(false);
     const [savedInvoice, setSavedInvoice] = useState(null);
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type, doc }
     const [showCollectPayment, setShowCollectPayment] = useState(false);
@@ -85,7 +87,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 else if (invRes?.success && invRes.invoice) setSavedInvoice(invRes.invoice);
                 
                 if (quotaRes?.success && quotaRes.data?.length > 0) {
+                    setSavedQuotations(quotaRes.data);
                     setSavedQuotation(quotaRes.data[0]);
+                } else {
+                    setSavedQuotations([]);
+                    setSavedQuotation(null);
                 }
                 
                 if (freshJob) {
@@ -1209,8 +1215,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                 ) : (
                                                     <button
                                                         className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                        onClick={() => setShowCollectPayment(true)}
+                                                onClick={() => setShowCollectPayment(true)}
                                                     >
                                                         <CheckCircle size={14} /> Collect Payment
                                                     </button>
@@ -1219,6 +1224,70 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                         </div>
                                     ) : savedQuotation ? (
                                         <>
+                                            {/* Quotation Options Tab Selector */}
+                                            {savedQuotations.length > 0 && (
+                                                <div style={{ marginBottom: '14px' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: '6px' }}>
+                                                        Quotation Options ({savedQuotations.length}/2):
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {(() => {
+                                                            const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                                            return sortedQuotes.map((q, idx) => {
+                                                                const label = idx === 0 ? 'Option 1 (Quotation)' : 'Option 2 (Service Charge)';
+                                                                const isActive = savedQuotation?.id === q.id;
+                                                                return (
+                                                                    <button
+                                                                        key={q.id}
+                                                                        type="button"
+                                                                        onClick={() => setSavedQuotation(q)}
+                                                                        style={{
+                                                                            padding: '8px 12px',
+                                                                            fontSize: '13px',
+                                                                            fontWeight: 700,
+                                                                            borderRadius: '6px',
+                                                                            border: isActive ? '2px solid #8b5cf6' : '1px solid var(--border-primary)',
+                                                                            backgroundColor: isActive ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
+                                                                            color: isActive ? '#8b5cf6' : 'var(--text-primary)',
+                                                                            cursor: 'pointer',
+                                                                            flex: 1,
+                                                                            textAlign: 'center',
+                                                                            transition: 'all 0.15s ease'
+                                                                        }}
+                                                                    >
+                                                                        {label} · ₹{q.total_amount?.toLocaleString('en-IN')}
+                                                                    </button>
+                                                                );
+                                                            });
+                                                        })()}
+                                                        {savedQuotations.length < 2 && !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsNewQuotationOption(true);
+                                                                    setCalculatorItems([]);
+                                                                    setActiveForm('calculator');
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 700,
+                                                                    borderRadius: '6px',
+                                                                    border: '1px dashed #f59e0b',
+                                                                    backgroundColor: 'rgba(245,158,11,0.05)',
+                                                                    color: '#f59e0b',
+                                                                    cursor: 'pointer',
+                                                                    flex: 1,
+                                                                    textAlign: 'center',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                ➕ Add Service Charge
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                                 <div>
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
@@ -1295,20 +1364,41 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <button
-                                                    className="btn"
-                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
-                                                    onClick={async () => {
-                                                        await handleSaveStatus('work_in_progress');
-                                                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
-                                                        }).catch(() => {});
-                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
-                                                    }}
-                                                >
-                                                    ✓ Mark as Customer Approved
-                                                </button>
+                                                 (() => {
+                                                     const sortedQuotes = [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                                     const isServiceChargeSelected = savedQuotations.length === 2 && savedQuotation?.id === sortedQuotes[1]?.id;
+
+                                                     if (isServiceChargeSelected) {
+                                                         return (
+                                                             <button
+                                                                 className="btn"
+                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                                                                 onClick={() => {
+                                                                     setActiveForm('calculator');
+                                                                 }}
+                                                             >
+                                                                 ⚙️ Proceed with Service Charge
+                                                             </button>
+                                                         );
+                                                     } else {
+                                                         return (
+                                                             <button
+                                                                 className="btn"
+                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
+                                                                 onClick={async () => {
+                                                                     await handleSaveStatus('work_in_progress');
+                                                                     fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                         body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
+                                                                     }).catch(() => {});
+                                                                     setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                                 }}
+                                                             >
+                                                                 ✓ Mark as Customer Approved
+                                                             </button>
+                                                         );
+                                                     }
+                                                 })()
                                             )}
                                         </>
                                     ) : (
@@ -1422,6 +1512,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         setCalculatorItems(items);
                         setActiveForm('sales-invoice');
                     }}
+                    hideParts={
+                        isNewQuotationOption ||
+                        (savedQuotations.length === 2 && savedQuotation?.id === [...savedQuotations].sort((a,b) => new Date(a.created_at) - new Date(b.created_at))[1]?.id)
+                    }
                 />
             )}
             {activeForm === 'quotation' && (
@@ -1448,6 +1542,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                         // 2. Save quotation in local state
                         setSavedQuotation(savedData);
+                        setSavedQuotations(prev => {
+                            const idx = prev.findIndex(q => q.id === savedData.id);
+                            if (idx > -1) {
+                                const updated = [...prev];
+                                updated[idx] = savedData;
+                                return updated;
+                            } else {
+                                return [savedData, ...prev];
+                            }
+                        });
+                        setIsNewQuotationOption(false);
                         // 3. Auto-update job status → quotation-sent
                         try {
                             await fetch(`/api/admin/jobs`, {
@@ -1469,7 +1574,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
                     prefillItems={calculatorItems}
-                    existingQuotation={savedQuotation}
+                    existingQuotation={isNewQuotationOption ? null : savedQuotation}
                 />
             )}
             {activeForm === 'sales-invoice' && (
