@@ -42,7 +42,7 @@ function TechnicianApp() {
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
-    const [gpsErrorDetail, setGpsErrorDetail] = useState('');
+    const [gpsErrorDetail, setGpsErrorDetail] = useState(''); // stores the exact geolocator error message for diagnostics
     const [isOnline, setIsOnline] = useState(true);
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
