@@ -35,6 +35,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [activeForm, setActiveForm] = useState(null);
     const [calculatorItems, setCalculatorItems] = useState(null);
     const [savedQuotation, setSavedQuotation] = useState(null);
+    const [savedQuotations, setSavedQuotations] = useState([]);
+    const [isNewQuotationOption, setIsNewQuotationOption] = useState(false);
     const [savedInvoice, setSavedInvoice] = useState(null);
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
@@ -140,7 +142,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     ]);
                     if (quotaRes.ok) {
                         const quotaData = await quotaRes.json();
-                        if (quotaData.success && quotaData.data?.length > 0) setSavedQuotation(quotaData.data[0]);
+                        if (quotaData.success && quotaData.data?.length > 0) {
+                            setSavedQuotations(quotaData.data);
+                            setSavedQuotation(quotaData.data[0]);
+                        } else {
+                            setSavedQuotations([]);
+                            setSavedQuotation(null);
+                        }
                     }
                     if (invRes.ok) {
                         const invData = await invRes.json();
@@ -419,22 +427,32 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 source: 'Technician App',
             });
 
-            // 3. Update job status to diagnosing_quoting in DB
-            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: 'diagnosing_quoting',
-                    updated_by_name: techName,
-                    source: 'Technician App',
-                    _changeLog: [`Quotation ${savedQuotation.quote_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
-                })
-            });
-            const updateJson = await updateRes.json();
-            if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+            const remainsOther = savedQuotations.length > 1;
+
+            if (!remainsOther) {
+                // 3. Update job status to diagnosing_quoting in DB
+                const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: 'diagnosing_quoting',
+                        updated_by_name: techName,
+                        source: 'Technician App',
+                        _changeLog: [`Quotation ${savedQuotation.quote_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
+                    })
+                });
+                const updateJson = await updateRes.json();
+                if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+            }
 
             // 4. Update local states
-            setSavedQuotation(null);
+            const remainingQuotes = savedQuotations.filter(q => q.id !== savedQuotation.id);
+            setSavedQuotations(remainingQuotes);
+            if (remainingQuotes.length > 0) {
+                setSavedQuotation(remainingQuotes[0]);
+            } else {
+                setSavedQuotation(null);
+            }
             
             // Log local interaction in memory so it updates the UI immediately
             const localInteraction = {
@@ -446,15 +464,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             
             const updatedJobData = { 
                 ...editedJob, 
-                status: 'diagnosing_quoting',
+                status: remainsOther ? editedJob.status : 'diagnosing_quoting',
                 interactions: [localInteraction, ...(editedJob.interactions || [])]
             };
             setEditedJob(updatedJobData);
             if (onJobUpdate) onJobUpdate(updatedJobData);
 
-            // Reopen repair estimate calculator
-            setActiveForm('calculator');
-            alert('Quotation deleted and process restarted successfully!');
+            if (!remainsOther) {
+                // Reopen repair estimate calculator
+                setActiveForm('calculator');
+            }
+            alert('Quotation deleted successfully!');
 
         } catch (err) {
             alert('Failed to restart process: ' + err.message);
@@ -526,7 +546,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             const totalTax = cgst + sgst + igst;
             const totalAmount = combinedTaxable + totalTax;
 
-            const isEditing = !!savedQuotation?.id;
+            const isEditing = !isNewQuotationOption && !!savedQuotation?.id;
 
             const quotationPayload = {
                 account_id: editedJob.customerId,
@@ -576,6 +596,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             const savedData = saveJson.data;
             setSavedQuotation(savedData);
+            setSavedQuotations(prev => {
+                const idx = prev.findIndex(q => q.id === savedData.id);
+                if (idx > -1) {
+                    const updated = [...prev];
+                    updated[idx] = savedData;
+                    return updated;
+                } else {
+                    return [savedData, ...prev];
+                }
+            });
+            setIsNewQuotationOption(false);
 
             // 4. Log interaction
             const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
@@ -685,7 +716,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             const totalTax = cgst + sgst + igst;
             const totalAmount = combinedTaxable + totalTax;
 
-            const isEditing = !!savedQuotation?.id;
+            const isEditing = !isNewQuotationOption && !!savedQuotation?.id;
 
             // Save the updated quotation in database
             const quotationPayload = {
@@ -735,6 +766,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             const savedData = saveJson.data;
             setSavedQuotation(savedData);
+            setSavedQuotations(prev => {
+                const idx = prev.findIndex(q => q.id === savedData.id);
+                if (idx > -1) {
+                    const updated = [...prev];
+                    updated[idx] = savedData;
+                    return updated;
+                } else {
+                    return [savedData, ...prev];
+                }
+            });
+            setIsNewQuotationOption(false);
 
             // Log quotation interaction
             const qType = isEditing ? 'quotation-edited' : 'quotation-created';
@@ -1802,6 +1844,63 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         </>
                                     ) : savedQuotation ? (
                                         <>
+                                            {/* Quotation Options Tab Selector */}
+                                            {savedQuotations.length > 0 && (
+                                                <div style={{ marginBottom: '14px' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: '6px' }}>
+                                                        Quotation Options ({savedQuotations.length}/2):
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {savedQuotations.map((q, idx) => (
+                                                            <button
+                                                                key={q.id}
+                                                                type="button"
+                                                                onClick={() => setSavedQuotation(q)}
+                                                                style={{
+                                                                    padding: '10px 12px',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 700,
+                                                                    borderRadius: '8px',
+                                                                    border: savedQuotation.id === q.id ? '2px solid #8b5cf6' : '1px solid var(--border-primary)',
+                                                                    backgroundColor: savedQuotation.id === q.id ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
+                                                                    color: savedQuotation.id === q.id ? '#8b5cf6' : 'var(--text-primary)',
+                                                                    cursor: 'pointer',
+                                                                    flex: 1,
+                                                                    textAlign: 'center',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                Option {idx + 1} ({q.quote_number?.slice(-4) || idx + 1}) · ₹{q.total_amount?.toLocaleString('en-IN')}
+                                                            </button>
+                                                        ))}
+                                                        {savedQuotations.length < 2 && !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsNewQuotationOption(true);
+                                                                    setCalculatorItems([]);
+                                                                    setActiveForm('calculator');
+                                                                }}
+                                                                style={{
+                                                                    padding: '10px 12px',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 700,
+                                                                    borderRadius: '8px',
+                                                                    border: '1px dashed #f59e0b',
+                                                                    backgroundColor: 'rgba(245,158,11,0.05)',
+                                                                    color: '#f59e0b',
+                                                                    cursor: 'pointer',
+                                                                    flex: 1,
+                                                                    textAlign: 'center',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                ➕ Add Option 2
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
@@ -2352,7 +2451,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         }}
                         onCreateQuotation={(items) => handleAutoCreateQuotation(items)}
                         onCreateInvoice={quotationDecisionMode ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
-                        prefillItems={savedQuotation?.items || calculatorItems}
+                        prefillItems={isNewQuotationOption ? calculatorItems : (savedQuotation?.items || calculatorItems)}
                         loading={loading}
                     />
                 )}
@@ -2399,7 +2498,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             setActiveForm(null);
                         }}
                         defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
-                        prefillItems={savedQuotation?.items || calculatorItems}
+                        prefillItems={isNewQuotationOption ? calculatorItems : (savedQuotation?.items || calculatorItems)}
                         saving={loading}
                     />
                 )}
