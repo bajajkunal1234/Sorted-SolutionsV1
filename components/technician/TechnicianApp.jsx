@@ -399,13 +399,22 @@ function TechnicianApp() {
             },
             (err) => {
                 console.warn('GPS check failed:', err);
+                let cached = null;
+                try {
+                    cached = localStorage.getItem('lastKnownCoordinates');
+                } catch (e) {}
+                if (cached) {
+                    console.log('GPS error, using cached coordinates:', cached);
+                    setGpsStatus('granted');
+                    return;
+                }
                 if (err.code === 1) {
                     setGpsStatus('denied');
                 } else {
                     setGpsStatus('error');
                 }
             },
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
         );
     };
 
@@ -2479,21 +2488,41 @@ function TechnicianApp() {
                         ? "Your device's GPS or Location Services appear to be turned off. Please enable Location/GPS in your phone settings to proceed."
                         : "Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location permissions for this app in your device settings to proceed."}
                 </p>
-                <button 
-                    onClick={handleGpsRetry}
-                    style={{
-                        padding: '12px 24px',
-                        backgroundColor: '#f59e0b',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(245,158,11,0.25)'
-                    }}
-                >
-                    Retry / Enable GPS
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 280 }}>
+                    <button 
+                        onClick={handleGpsRetry}
+                        style={{
+                            width: '100%',
+                            padding: '14px',
+                            backgroundColor: '#f59e0b',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontSize: '15px',
+                            boxShadow: '0 4px 12px rgba(245,158,11,0.25)'
+                        }}
+                    >
+                        Retry / Enable GPS
+                    </button>
+                    <button 
+                        onClick={() => setGpsStatus('granted')}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            backgroundColor: 'transparent',
+                            color: 'rgba(255,255,255,0.4)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            fontSize: '13px'
+                        }}
+                    >
+                        Proceed anyway (GPS offline)
+                    </button>
+                </div>
             </div>
         );
     }
