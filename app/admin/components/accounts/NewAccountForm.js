@@ -637,17 +637,17 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
 
         // Add properties if applicable
         if (showField('properties')) {
-            // Validate property fields if any part of a property is filled
+            // Validate property fields if any part of a property is filled (flat_number and building_name are optional)
             const invalidProp = properties.find(p => {
                 const isNotEmpty = p.name.trim() || p.address.trim() || p.flat_number?.trim() || p.building_name?.trim() || p.locality?.trim() || p.pincode?.trim();
                 if (isNotEmpty) {
-                    return !p.address?.trim() || !p.flat_number?.trim() || !p.building_name?.trim() || !p.locality?.trim() || !p.pincode?.trim();
+                    return !p.address?.trim() || !p.locality?.trim() || !p.pincode?.trim();
                 }
                 return false;
             });
 
             if (invalidProp) {
-                setErrors(prev => ({ ...prev, properties: 'Please fill all mandatory property fields (Flat/Wing, Building Name, Street Address/Area, Locality, Pincode) for the added properties.' }));
+                setErrors(prev => ({ ...prev, properties: 'Please fill all mandatory property fields (Street Address/Area, Locality, Pincode) for the added properties.' }));
                 return;
             }
 

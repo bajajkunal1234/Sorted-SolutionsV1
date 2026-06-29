@@ -1054,39 +1054,63 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     {/* 3. Property Selection */}
                     <div className="form-group">
                         <label className="form-label">Property / Address *</label>
-                        <select
-                            className="form-select"
-                            value={formData.property?.id || ''}
-                            onChange={(e) => handlePropertyChange(e.target.value)}
-                            onBlur={() => { if (!formData.property) setErrors(prev => ({ ...prev, property: 'Property is required' })); else setErrors(prev => { const e = {...prev}; delete e.property; return e; }); }}
-                            disabled={!formData.customer}
-                            style={{ borderColor: errors.property ? 'var(--color-danger)' : undefined }}
-                        >
-                            <option value="">
-                                {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
-                            </option>
-                            {properties.map(property => {
-                                let addrStr = '';
-                                if (typeof property.address === 'string') {
-                                    addrStr = property.address;
-                                } else if (property.address?.line1) {
-                                    addrStr = property.address.line1;
-                                }
-                                const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
-                                const displayLabel = dbAddrStr || property.property_name || property.label || `Property #${String(property.id).slice(0, 6)}`;
-                                return (
-                                    <option key={property.id} value={property.id}>
-                                        {displayLabel}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ flex: 1 }}>
+                                <select
+                                    className="form-select"
+                                    value={formData.property?.id || ''}
+                                    onChange={(e) => handlePropertyChange(e.target.value)}
+                                    onBlur={() => { if (!formData.property) setErrors(prev => ({ ...prev, property: 'Property is required' })); else setErrors(prev => { const e = {...prev}; delete e.property; return e; }); }}
+                                    disabled={!formData.customer}
+                                    style={{ borderColor: errors.property ? 'var(--color-danger)' : undefined }}
+                                >
+                                    <option value="">
+                                        {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
                                     </option>
-                                );
-                            })}
-                        </select>
+                                    {properties.map(property => {
+                                        let addrStr = '';
+                                        if (typeof property.address === 'string') {
+                                            addrStr = property.address;
+                                        } else if (property.address?.line1) {
+                                            addrStr = property.address.line1;
+                                        }
+                                        const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
+                                        const displayLabel = dbAddrStr || property.property_name || property.label || `Property #${String(property.id).slice(0, 6)}`;
+                                        return (
+                                            <option key={property.id} value={property.id}>
+                                                {displayLabel}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                            {formData.customer && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => {
+                                        setShowCreateModal('property');
+                                    }}
+                                    title="Create new property"
+                                >
+                                    <Plus size={16} />
+                                </button>
+                            )}
+                        </div>
                         {!formData.property && formData.customer && properties.length === 0 && !loadingStates.properties && (
                             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                No properties found. Go to the <strong>Accounts tab</strong> to add a property to this customer.
+                                No properties found. Click the <strong>+</strong> button next to the dropdown to add a property.
                             </p>
                         )}
                         {errors.property && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.property}</span>}
+
+                        {showCreateModal === 'property' && (
+                            <PropertyForm
+                                customerId={formData.customer?.id}
+                                onClose={() => setShowCreateModal(null)}
+                                onSave={handlePropertySave}
+                            />
+                        )}
 
 
 
