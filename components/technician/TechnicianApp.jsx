@@ -2488,40 +2488,52 @@ function TechnicianApp() {
                         ? "Your device's GPS or Location Services appear to be turned off. Please enable Location/GPS in your phone settings to proceed."
                         : "Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location permissions for this app in your device settings to proceed."}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 280 }}>
-                    <button 
-                        onClick={handleGpsRetry}
-                        style={{
-                            width: '100%',
-                            padding: '14px',
-                            backgroundColor: '#f59e0b',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontSize: '15px',
-                            boxShadow: '0 4px 12px rgba(245,158,11,0.25)'
-                        }}
-                    >
-                        Retry / Enable GPS
-                    </button>
-                    <button 
-                        onClick={() => setGpsStatus('granted')}
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            backgroundColor: 'transparent',
-                            color: 'rgba(255,255,255,0.4)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            fontSize: '13px'
-                        }}
-                    >
-                        Proceed anyway (GPS offline)
-                    </button>
+                <button 
+                    onClick={handleGpsRetry}
+                    style={{
+                        width: '100%',
+                        maxWidth: 280,
+                        padding: '14px',
+                        backgroundColor: '#f59e0b',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontSize: '15px',
+                        boxShadow: '0 4px 12px rgba(245,158,11,0.25)',
+                        marginBottom: '24px'
+                    }}
+                >
+                    Retry / Enable GPS
+                </button>
+
+                <div style={{
+                    width: '100%',
+                    maxWidth: 340,
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    textAlign: 'left'
+                }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#f59e0b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        💡 Troubleshooting GPS Issues:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>
+                        <li style={{ marginBottom: '6px' }}>
+                            <strong>Don't use Incognito Mode:</strong> Browsers in Incognito/Private tabs completely block location access by default.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                            <strong>Avoid In-App Browsers:</strong> If opened from WhatsApp or Email, copy the link and open it directly in Chrome or Safari.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                            <strong>Turn System GPS ON:</strong> Ensure your phone's main "Location / GPS" setting is turned on in the top pull-down menu.
+                        </li>
+                        <li>
+                            <strong>Allow Browser App Permission:</strong> Go to your phone Settings &gt; Apps &gt; Chrome (or Safari) &gt; Permissions &gt; Location &gt; set to <strong>"Allow while using app"</strong>.
+                        </li>
+                    </ul>
                 </div>
             </div>
         );
