@@ -2013,15 +2013,80 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     className="btn"
                                                                     disabled={loading}
                                                                     style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', cursor: 'pointer', whiteSpace: 'normal', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
-                                                                    onClick={() => {
-                                                                        setQuotationDecisionMode('denied');
-                                                                        setActiveForm('calculator');
+                                                                    onClick={async () => {
+                                                                        setLoading(true);
+                                                                        try {
+                                                                            const serviceQuote = sortedQuotes[1];
+                                                                            if (!serviceQuote) throw new Error('Service charge quotation option not found');
+                                                                            const res = await apiCall(`/api/admin/transactions?type=sales`, {
+                                                                                method: 'POST',
+                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({
+                                                                                    account_id: serviceQuote.account_id,
+                                                                                    account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
+                                                                                    accountGSTIN: serviceQuote.accountGSTIN || '',
+                                                                                    accountState: serviceQuote.accountState || 'Maharashtra',
+                                                                                    billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                                    job_id: editedJob.id,
+                                                                                    date: new Date().toISOString().split('T')[0],
+                                                                                    due_date: new Date().toISOString().split('T')[0],
+                                                                                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                                    reference: serviceQuote.quote_number,
+                                                                                    status: 'unpaid',
+                                                                                    items: serviceQuote.items,
+                                                                                    subtotal: serviceQuote.subtotal,
+                                                                                    cgst: serviceQuote.cgst,
+                                                                                    sgst: serviceQuote.sgst,
+                                                                                    igst: serviceQuote.igst,
+                                                                                    total_tax: serviceQuote.total_tax,
+                                                                                    total_amount: serviceQuote.total_amount,
+                                                                                    notes: 'Auto-generated from service charge quotation',
+                                                                                    terms: serviceQuote.terms,
+                                                                                    technician_id: serviceQuote.technician_id || techId,
+                                                                                    technician_name: serviceQuote.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                                                                                })
+                                                                            });
+                                                                            const data = await res.json();
+                                                                            if (data.success) {
+                                                                                setSavedInvoice(data.data);
+                                                                                const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from service charge quotation ${serviceQuote.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
+                                                                                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify({
+                                                                                        type: 'invoice-created',
+                                                                                        category: 'billing',
+                                                                                        description: detailedInvDesc,
+                                                                                        user_name: techName,
+                                                                                        customer_id: editedJob.customerId || null,
+                                                                                        metadata: {
+                                                                                            invoice_number: data.data.invoice_number,
+                                                                                            invoice_id: data.data.id,
+                                                                                            total_amount: data.data.total_amount,
+                                                                                            subtotal: data.data.subtotal,
+                                                                                            tax: data.data.total_tax,
+                                                                                            items: data.data.items
+                                                                                        }
+                                                                                    })
+                                                                                }).catch(() => {});
+                                                                                
+                                                                                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: techName })
+                                                                                }).catch(() => {});
+                                                                                
+                                                                                setShowServiceChargeCollectPayment(true);
+                                                                            } else throw new Error(data.error);
+                                                                        } catch (e) {
+                                                                            alert('Failed to auto-create invoice: ' + e.message);
+                                                                        } finally {
+                                                                            setLoading(false);
+                                                                        }
                                                                     }}
                                                                 >
                                                                     <span style={{ fontSize: 20 }}>⚙️</span>
                                                                     <div style={{ textAlign: 'left' }}>
-                                                                        <div style={{ fontWeight: 700 }}>Proceed with Service Charge</div>
-                                                                        <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Finalize service charges in calculator → create invoice</div>
+                                                                        <div style={{ fontWeight: 700 }}>{loading ? 'Processing...' : 'Proceed with Service Charge'}</div>
+                                                                        <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Auto-create service charge invoice & collect payment</div>
                                                                     </div>
                                                                 </button>
                                                             </div>

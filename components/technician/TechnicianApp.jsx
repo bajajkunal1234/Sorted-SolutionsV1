@@ -21,7 +21,12 @@ import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { apiCall } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
 
-const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor
+const isNativePlatform = () => {
+    if (typeof window === 'undefined') return false;
+    return !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web');
+};
+
+const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web'
     ? registerPlugin('GPSBridgePlugin')
     : null;
 
@@ -274,7 +279,7 @@ function TechnicianApp() {
         if (typeof window === 'undefined') return;
 
         const handleUnauthorizedLogout = () => {
-            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+            const isNative = isNativePlatform();
             if (isNative && GPSBridgePlugin) {
                 GPSBridgePlugin.clearTechnicianId().catch(() => {});
             }
@@ -303,7 +308,7 @@ function TechnicianApp() {
     const checkGpsAndPingLocation = async () => {
         if (!technicianId) return;
 
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        const isNative = isNativePlatform();
 
         // 1. If native, bypass GPS check and never block the app UI
         if (isNative) {
@@ -423,7 +428,7 @@ function TechnicianApp() {
     };
 
     const handleGpsRetry = async () => {
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        const isNative = isNativePlatform();
         if (isNative && GPSBridgePlugin) {
             try {
                 if (gpsStatus === 'error') {
@@ -466,7 +471,7 @@ function TechnicianApp() {
     const updateOnlineStatus = async (status) => {
         setIsOnline(status);
         
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        const isNative = isNativePlatform();
         if (isNative && GPSBridgePlugin) {
             try {
                 await GPSBridgePlugin.setOnlineStatus({ isOnline: status });
@@ -576,7 +581,7 @@ function TechnicianApp() {
                     console.error('Error fetching online status:', error);
                 } else if (data) {
                     setIsOnline(data.is_online !== false);
-                    const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+                    const isNative = isNativePlatform();
                     if (isNative && GPSBridgePlugin) {
                         GPSBridgePlugin.setOnlineStatus({ isOnline: data.is_online !== false })
                             .catch(err => console.error('[Native GPS] setOnlineStatus failed on mount:', err));
@@ -606,7 +611,7 @@ function TechnicianApp() {
     useEffect(() => {
         if (!technicianId) return;
 
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        const isNative = isNativePlatform();
 
         // Run foreground check immediately to verify status and set block screens
         checkGpsAndPingLocation();
@@ -627,7 +632,7 @@ function TechnicianApp() {
     useEffect(() => {
         if (!technicianId || gpsStatus !== 'granted') return;
 
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        const isNative = isNativePlatform();
 
         if (isNative && GPSBridgePlugin) {
             let sessionToken = null;
@@ -837,7 +842,7 @@ function TechnicianApp() {
     // Logout handler
     const handleLogout = async () => {
         if (window.confirm('Are you sure you want to logout?')) {
-            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+            const isNative = isNativePlatform();
             if (isNative && GPSBridgePlugin) {
                 try {
                     await GPSBridgePlugin.clearTechnicianId();
