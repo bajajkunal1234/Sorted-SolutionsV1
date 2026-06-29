@@ -53,6 +53,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [verifyGpsLoading, setVerifyGpsLoading] = useState(false);
     const [verifyGpsSuccess, setVerifyGpsSuccess] = useState(false);
     const pendingArrivedDataRef = useRef(null); // stores { arrivedAt, jobData } until modal is resolved
+    const arrivalCoordsRef = useRef(null); // stores { lat, lng } of technician's arrival
 
     // Payment collection state
     const [showCollectPayment, setShowCollectPayment] = useState(false);
@@ -840,6 +841,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         
         const performMarkArrived = async (lat = null, lng = null) => {
             try {
+                arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
                 // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
                 const res = await apiCall(`/api/technician/jobs/${job.id}`, {
                     method: 'PUT',
@@ -947,16 +949,31 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         const pending = pendingArrivedDataRef.current;
         setEditedJob(prev => ({ ...prev, arrived_at: pending?.arrivedAt, status: 'diagnosing_quoting' }));
         if (onJobUpdate && pending?.jobData) onJobUpdate(pending.jobData);
+        
         // Mark the existing pin as verified by this technician
         const propertyId = editedJob._raw_property?.id || null;
         if (propertyId) {
+            const currentPropLat = editedJob._raw_property?.latitude || null;
+            const currentPropLng = editedJob._raw_property?.longitude || null;
+
+            // If the property has no coordinates, but we have arrival GPS coordinates,
+            // use the arrival coordinates as the new verified pin!
+            const finalLat = currentPropLat || arrivalCoordsRef.current?.lat || null;
+            const finalLng = currentPropLng || arrivalCoordsRef.current?.lng || null;
+
+            const body = {
+                location_verified_by: techName,
+                location_verified_at: new Date().toISOString(),
+            };
+            if (finalLat && finalLng) {
+                body.latitude = finalLat;
+                body.longitude = finalLng;
+            }
+
             apiCall(`/api/admin/properties?id=${propertyId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location_verified_by: techName,
-                    location_verified_at: new Date().toISOString(),
-                })
+                body: JSON.stringify(body)
             }).catch(() => {});
         }
         // Log the confirmation
