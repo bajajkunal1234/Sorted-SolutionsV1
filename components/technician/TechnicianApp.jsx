@@ -42,6 +42,7 @@ function TechnicianApp() {
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
+    const [gpsErrorDetail, setGpsErrorDetail] = useState('');
     const [isOnline, setIsOnline] = useState(true);
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
@@ -311,6 +312,7 @@ function TechnicianApp() {
         }
 
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            setGpsErrorDetail('navigator.geolocation is undefined');
             setGpsStatus('error');
             return;
         }
@@ -324,6 +326,7 @@ function TechnicianApp() {
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 setGpsStatus('granted');
+                setGpsErrorDetail('');
                 try {
                     localStorage.setItem('lastKnownCoordinates', JSON.stringify({
                         latitude: pos.coords.latitude,
@@ -399,6 +402,7 @@ function TechnicianApp() {
             },
             (err) => {
                 console.warn('GPS check failed:', err);
+                setGpsErrorDetail(`[Code ${err.code}] ${err.message}`);
                 let cached = null;
                 try {
                     cached = localStorage.getItem('lastKnownCoordinates');
@@ -2488,6 +2492,23 @@ function TechnicianApp() {
                         ? "Your device's GPS or Location Services appear to be turned off. Please enable Location/GPS in your phone settings to proceed."
                         : "Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location permissions for this app in your device settings to proceed."}
                 </p>
+                {gpsErrorDetail && (
+                    <div style={{
+                        padding: '10px 14px',
+                        background: 'rgba(239, 68, 68, 0.12)',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        color: '#ef4444',
+                        borderRadius: 10,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        marginBottom: 20,
+                        maxWidth: 320,
+                        textAlign: 'center',
+                        wordBreak: 'break-word'
+                    }}>
+                        Error details: {gpsErrorDetail}
+                    </div>
+                )}
                 <button 
                     onClick={handleGpsRetry}
                     style={{
