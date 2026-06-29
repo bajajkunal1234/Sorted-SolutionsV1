@@ -336,8 +336,8 @@ export default function PinDropMap({
             }}>
                 <MapContainer center={position} zoom={hasCoords ? 17 : 12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
                     <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://carto.com/">Carto</a> | Geocoding by Google'
+                        url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        attribution='&copy; Google Maps'
                     />
                     {mapCenter && <MapController center={mapCenter} />}
                     {readOnly

@@ -213,8 +213,8 @@ export default function TechnicianDirectionsMap({
                     zoomControl={true}
                 >
                     <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; Carto | Routing by OSRM'
+                        url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        attribution='&copy; Google Maps | Routing by OSRM'
                     />
 
                     {/* Route polyline */}
