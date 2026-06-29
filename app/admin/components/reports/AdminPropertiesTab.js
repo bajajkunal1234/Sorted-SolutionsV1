@@ -418,6 +418,15 @@ export default function AdminPropertiesTab() {
                                                 initialLat={editForm.lat}
                                                 initialLng={editForm.lng}
                                                 onChange={({ lat, lng }) => setEditForm(p => ({ ...p, lat, lng }))}
+                                                onAddressSelected={(details) => setEditForm(p => ({
+                                                    ...p,
+                                                    building_name: details.building_name || p.building_name,
+                                                    address: details.address || p.address,
+                                                    locality: details.locality || p.locality,
+                                                    pincode: details.pincode || p.pincode,
+                                                    lat: details.lat,
+                                                    lng: details.lng
+                                                }))}
                                                 height="220px"
                                             />
                                         </div>
@@ -641,6 +650,15 @@ function AddPropertyModal({ onClose, onSaved }) {
                         initialLat={form.lat}
                         initialLng={form.lng}
                         onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                        onAddressSelected={(details) => setForm(p => ({
+                            ...p,
+                            building_name: details.building_name || p.building_name,
+                            address: details.address || p.address,
+                            locality: details.locality || p.locality,
+                            pincode: details.pincode || p.pincode,
+                            lat: details.lat,
+                            lng: details.lng
+                        }))}
                         height="220px"
                     />
                     <div>

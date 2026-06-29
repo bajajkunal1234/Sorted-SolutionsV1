@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { Save, X, Search, MapPin, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Save, X } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import LocalityCombobox from '@/components/common/LocalityCombobox'
 import { getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
@@ -20,9 +20,6 @@ const S = {
     modalContent: { background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto' },
     label: { fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
     input: { width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: '#f8fafc', fontSize: 14, outline: 'none', boxSizing: 'border-box' },
-    searchInput: { width: '100%', background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 10, padding: '11px 12px 11px 36px', color: '#f8fafc', fontSize: 14, outline: 'none', boxSizing: 'border-box' },
-    dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, marginTop: 4, zIndex: 10, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' },
-    dropdownItem: { padding: '10px 12px', color: '#cbd5e1', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 8 }
 }
 
 function PropertyForm({ customerId, onSave, onClose }) {
@@ -41,62 +38,6 @@ function PropertyForm({ customerId, onSave, onClose }) {
 
     const [loading, setLoading] = useState(false)
     const [errors, setErrors] = useState({})
-
-    // Autocomplete search states
-    const [searchTerm, setSearchTerm] = useState('')
-    const [predictions, setPredictions] = useState([])
-    const [searching, setSearching] = useState(false)
-    const debounceTimerRef = useRef(null)
-
-    const handleSearchChange = (val) => {
-        setSearchTerm(val)
-        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-        if (val.trim().length < 2) {
-            setPredictions([])
-            return
-        }
-        debounceTimerRef.current = setTimeout(async () => {
-            setSearching(true)
-            try {
-                const res = await fetch(`/api/admin/places-autocomplete?q=${encodeURIComponent(val)}`)
-                const data = await res.json()
-                if (data.success) {
-                    setPredictions(data.predictions || [])
-                }
-            } catch (err) {
-                console.error('Autocomplete error:', err)
-            } finally {
-                setSearching(false)
-            }
-        }, 400)
-    }
-
-    const handleSelectPrediction = async (pred) => {
-        setSearchTerm(pred.description)
-        setPredictions([])
-        setSearching(true)
-        try {
-            const res = await fetch(`/api/admin/places-details?place_id=${pred.place_id}`)
-            const result = await res.json()
-            if (result.success && result.data) {
-                const d = result.data
-                setFormData(prev => ({
-                    ...prev,
-                    building_name: d.building_name || prev.building_name,
-                    address: d.address || prev.address,
-                    locality: d.locality || prev.locality,
-                    city: d.city || prev.city || 'Mumbai',
-                    pincode: d.pincode || prev.pincode,
-                    lat: d.latitude,
-                    lng: d.longitude
-                }))
-            }
-        } catch (err) {
-            console.error('Details fetch error:', err)
-        } finally {
-            setSearching(false)
-        }
-    }
 
     const handleLocalityChange = (e) => {
         const name = e.target.value
@@ -132,7 +73,7 @@ function PropertyForm({ customerId, onSave, onClose }) {
                 latitude: formData.lat,
                 longitude: formData.lng,
                 customer_id: customerId,
-                force_create: true // Skip duplicate blocker in job creation flow
+                force_create: true // Skip duplicate checker in job creation
             }
             if (onSave) await onSave(propertyData)
         } catch (err) {
@@ -151,39 +92,6 @@ function PropertyForm({ customerId, onSave, onClose }) {
                     <button type="button" onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <X size={14} />
                     </button>
-                </div>
-
-                {/* Google Location Autocomplete Search */}
-                <div style={{ position: 'relative', marginBottom: 16 }}>
-                    <div style={S.label}>🔍 Search Google Maps (Recommended)</div>
-                    <div style={{ position: 'relative' }}>
-                        <Search size={16} color="#38bdf8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                        <input
-                            type="text"
-                            style={S.searchInput}
-                            value={searchTerm}
-                            onChange={(e) => handleSearchChange(e.target.value)}
-                            placeholder="Type building name, landmark or area..."
-                        />
-                        {searching && <Loader2 size={16} className="animate-spin" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#38bdf8' }} />}
-                    </div>
-
-                    {predictions.length > 0 && (
-                        <div style={S.dropdown}>
-                            {predictions.map(pred => (
-                                <div
-                                    key={pred.place_id}
-                                    style={S.dropdownItem}
-                                    onClick={() => handleSelectPrediction(pred)}
-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.1)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                >
-                                    <MapPin size={14} color="#38bdf8" />
-                                    <span>{pred.description}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -222,16 +130,28 @@ function PropertyForm({ customerId, onSave, onClose }) {
                         />
                     </div>
 
-                    {/* Draggable Map Integration */}
+                    {/* Draggable Map Integration (with Google Autocomplete search built-in) */}
                     <ClientPinDropMap
-                        label="📍 Refine location pin (drag to exact door)"
+                        label="📍 Confirm location pin"
                         building={formData.building_name}
                         street={formData.address}
                         localityQuery={formData.locality}
                         pincodeQuery={formData.pincode}
                         initialLat={formData.lat}
                         initialLng={formData.lng}
-                        onChange={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
+                        onChange={({ lat, lng }) => setFormData(prev => ({ ...prev, lat: lat, lng: lng }))}
+                        onAddressSelected={(details) => {
+                            setFormData(prev => ({
+                                ...prev,
+                                building_name: details.building_name || prev.building_name,
+                                address: details.address || prev.address,
+                                locality: details.locality || prev.locality,
+                                city: details.city || prev.city || 'Mumbai',
+                                pincode: details.pincode || prev.pincode,
+                                lat: details.lat,
+                                lng: details.lng
+                            }))
+                        }}
                         height="200px"
                     />
 

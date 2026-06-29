@@ -1176,6 +1176,14 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                                 updateProperty(index, 'lat', lat);
                                                                 updateProperty(index, 'lng', lng);
                                                             }}
+                                                            onAddressSelected={(details) => {
+                                                                updateProperty(index, 'building_name', details.building_name || property.building_name || '');
+                                                                updateProperty(index, 'address', details.address || property.address || '');
+                                                                updateProperty(index, 'locality', details.locality || property.locality || '');
+                                                                updateProperty(index, 'pincode', details.pincode || property.pincode || '');
+                                                                updateProperty(index, 'lat', details.lat);
+                                                                updateProperty(index, 'lng', details.lng);
+                                                            }}
                                                             height="200px"
                                                         />
                                                     </div>

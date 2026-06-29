@@ -62,38 +62,17 @@ function MapController({ center }) {
 
 /**
  * PinDropMap — Google-powered geocoding with Leaflet/Carto map display.
- *
- * Props:
- *   building      {string}  — Building/society name
- *   street        {string}  — Street, landmark, area
- *   localityQuery {string}  — Locality (e.g. "Goregaon East")
- *   pincodeQuery  {string}  — Pincode
- *   initialLat    {number}  — Pre-stored lat
- *   initialLng    {number}  — Pre-stored lng
- *   onChange      {fn}      — Called with { lat, lng }
- *   height        {string}
- *   label         {string}
- *   readOnly      {boolean}
- *
- * Search strategy (using Google Geocoding, most precise to least):
- *   1. Building + Street + Locality, Mumbai   ← most precise
- *   2. Street + Locality, Mumbai              ← good fallback
- *   3. Locality, Mumbai                       ← guaranteed anchor
- *   4. Pincode, India                         ← last resort
- *
- *   Pin is placed as soon as ANY result is found at each step.
- *   Each step refines the pin location if a more precise result arrives.
  */
 export default function PinDropMap({
     building = '',
     street = '',
     localityQuery = '',
     pincodeQuery = '',
-    // legacy props — still accepted
-    geocodeQuery = '',
+    geocodeQuery = '', // legacy
     initialLat,
     initialLng,
     onChange,
+    onAddressSelected, // new callback for place components
     height = '240px',
     label,
     readOnly = false,
@@ -108,6 +87,12 @@ export default function PinDropMap({
     const debounceRef = useRef(null);
     const lastKey = useRef('');
     const userDragged = useRef(false);
+
+    // Google Maps Autocomplete states
+    const [searchTerm, setSearchTerm] = useState('');
+    const [predictions, setPredictions] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const searchDebounceRef = useRef(null);
 
     const placePin = useCallback((result) => {
         if (!userDragged.current) {
@@ -126,7 +111,6 @@ export default function PinDropMap({
         setSearchStatus('searching');
         setFoundAddress('');
 
-        // Build queries from most specific → least specific
         const cityCtx = 'Mumbai, Maharashtra, India';
         const queries = [];
 
@@ -142,15 +126,14 @@ export default function PinDropMap({
             if (result) {
                 placePin(result);
                 setSearchStatus('found');
-                // Show which level of precision found the result
-                const label =
+                const labelText =
                     q.startsWith(bld || '!!') && bld ? 'Building found ✅'
                     : q.startsWith(str || '!!') && str ? 'Street found ✅'
                     : loc && q.includes(loc) ? 'Area found ✅'
                     : 'Pincode area ✅';
-                setFoundAddress(label);
+                setFoundAddress(labelText);
                 placed = true;
-                break; // Stop at first successful result
+                break;
             }
         }
 
@@ -158,7 +141,7 @@ export default function PinDropMap({
         setGeocoding(false);
     }, [placePin]);
 
-    // Debounced trigger when any address field changes
+    // Debounced trigger when address text fields change
     useEffect(() => {
         if (readOnly) return;
         if (!building && !street && !localityQuery && !pincodeQuery) return;
@@ -198,13 +181,62 @@ export default function PinDropMap({
         runSearch(building, street, localityQuery, pincodeQuery);
     };
 
+    // Autocomplete searching logic
+    const handleSearchChange = (val) => {
+        setSearchTerm(val);
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        if (val.trim().length < 2) {
+            setPredictions([]);
+            return;
+        }
+        searchDebounceRef.current = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const res = await fetch(`/api/admin/places-autocomplete?q=${encodeURIComponent(val)}`);
+                const data = await res.json();
+                if (data.success) {
+                    setPredictions(data.predictions || []);
+                }
+            } catch (err) {
+                console.error('Autocomplete fetch error:', err);
+            } finally {
+                setSearching(false);
+            }
+        }, 450);
+    };
+
+    const handleSelectPrediction = (pred) => {
+        setSearchTerm(pred.description);
+        setPredictions([]);
+        
+        const coords = [pred.lat, pred.lng];
+        setPosition(coords);
+        setMapCenter(coords);
+        userDragged.current = false;
+        setSearchStatus('found');
+        setFoundAddress('Google Maps location ✅');
+
+        if (onChange) onChange({ lat: pred.lat, lng: pred.lng });
+        if (onAddressSelected) {
+            onAddressSelected({
+                building_name: pred.building_name,
+                address: pred.address,
+                locality: pred.locality,
+                city: pred.city,
+                pincode: pred.pincode,
+                lat: pred.lat,
+                lng: pred.lng
+            });
+        }
+    };
+
     const statusText = geocoding
         ? '🔍 Finding your exact location...'
         : searchStatus === 'found'
             ? `${foundAddress} — drag red pin to your exact entrance`
             : searchStatus === 'not_found'
                 ? '⚠️ Not found — drag pin manually'
-                : '📍 Fill address fields above to place pin automatically';
+                : '📍 Fill address fields or search Google above to place pin';
 
     const barBg = searchStatus === 'found' ? 'rgba(16,185,129,0.08)' : 'rgba(56,189,248,0.07)';
     const barBorder = searchStatus === 'found' ? 'rgba(16,185,129,0.22)' : 'rgba(56,189,248,0.18)';
@@ -218,6 +250,60 @@ export default function PinDropMap({
             {label && (
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
                     {label}
+                </div>
+            )}
+
+            {/* Google Places Autocomplete search bar */}
+            {!readOnly && (
+                <div style={{ position: 'relative', marginBottom: 8 }}>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => handleSearchChange(e.target.value)}
+                            placeholder="🔍 Search building, society or landmark on Google Maps..."
+                            style={{
+                                width: '100%',
+                                padding: '10px 12px 10px 12px',
+                                borderRadius: 10,
+                                border: '1px solid rgba(56,189,248,0.25)',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                color: '#f8fafc',
+                                fontSize: 13,
+                                outline: 'none',
+                                boxSizing: 'border-box'
+                            }}
+                        />
+                        {searching && (
+                            <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#38bdf8', fontSize: 11 }}>
+                                Searching...
+                            </div>
+                        )}
+                    </div>
+                    {predictions.length > 0 && (
+                        <div style={{
+                            position: 'absolute', top: '100%', left: 0, right: 0,
+                            background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 10, marginTop: 4, zIndex: 1000, overflow: 'hidden',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxThemeHeight: '200px', overflowY: 'auto'
+                        }}>
+                            {predictions.map(pred => (
+                                <div
+                                    key={pred.place_id}
+                                    onClick={() => handleSelectPrediction(pred)}
+                                    style={{
+                                        padding: '10px 12px', color: '#cbd5e1', fontSize: 12,
+                                        cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                        display: 'flex', alignItems: 'center', gap: 6
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(56,189,248,0.1)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    📍 <span>{pred.description}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
