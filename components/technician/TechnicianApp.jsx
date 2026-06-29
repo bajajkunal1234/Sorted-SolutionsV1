@@ -2522,6 +2522,9 @@ function TechnicianApp() {
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.6' }}>
                         <li style={{ marginBottom: '6px' }}>
+                            <strong>Unblock in Address Bar:</strong> If Chrome/Safari is not prompting you, look at the top left of your browser address bar next to <code>sortedsolutions.in</code>. Click the <strong>Sliders/Tune icon</strong> (or Lock icon) and change <strong>Location</strong> to <strong>Allow</strong>.
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
                             <strong>Don't use Incognito Mode:</strong> Browsers in Incognito/Private tabs completely block location access by default.
                         </li>
                         <li style={{ marginBottom: '6px' }}>
