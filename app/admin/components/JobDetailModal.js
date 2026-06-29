@@ -1282,7 +1282,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                     transition: 'all 0.15s ease'
                                                                 }}
                                                             >
-                                                                ➕ Add Service Charge
+                                                                Service Charge Close
                                                             </button>
                                                         )}
                                                     </div>

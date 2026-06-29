@@ -1887,23 +1887,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     setIsNewQuotationOption(true);
                                                                     setCalculatorItems([]);
                                                                     setActiveForm('calculator');
-                                                                }}
-                                                                style={{
-                                                                    padding: '10px 12px',
-                                                                    fontSize: '13px',
-                                                                    fontWeight: 700,
-                                                                    borderRadius: '8px',
-                                                                    border: '1px dashed #f59e0b',
-                                                                    backgroundColor: 'rgba(245,158,11,0.05)',
-                                                                    color: '#f59e0b',
-                                                                    cursor: 'pointer',
-                                                                    flex: 1,
-                                                                    textAlign: 'center',
-                                                                    transition: 'all 0.15s ease'
-                                                                }}
-                                                            >
-                                                                ➕ Add Service Charge
-                                                            </button>
+                                                                 }}
+                                                                 style={{
+                                                                     padding: '10px 12px',
+                                                                     fontSize: '13px',
+                                                                     fontWeight: 700,
+                                                                     borderRadius: '8px',
+                                                                     border: '1px dashed #f59e0b',
+                                                                     backgroundColor: 'rgba(245,158,11,0.05)',
+                                                                     color: '#f59e0b',
+                                                                     cursor: 'pointer',
+                                                                     flex: 1,
+                                                                     textAlign: 'center',
+                                                                     transition: 'all 0.15s ease'
+                                                                 }}
+                                                             >
+                                                                 Service Charge Close
+                                                             </button>
                                                         )}
                                                     </div>
                                                 </div>
