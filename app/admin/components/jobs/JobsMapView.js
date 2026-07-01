@@ -193,24 +193,21 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         const name = job.customer?.name || job.customer_name || 'Customer';
         const img = job.customer?.accountImage;
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-        const avatar = generateInitialsAvatar(name);
 
         if (custMarkerType === 'pin') {
             const htmlContent = img
                 ? `<div style="position: relative; width: 34px; height: 42px;">
                      <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
-                       <circle cx="17" cy="17" r="10" fill="#1d4ed8"/>
                      </svg>
-                     <div style="position: absolute; top: 7px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 5px; left: 5px; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; border: 1.5px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
                 : `<div style="position: relative; width: 34px; height: 42px;">
                      <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
-                       <circle cx="17" cy="17" r="10" fill="#1d4ed8"/>
-                       <text x="17" y="21" fill="#ffffff" font-size="10" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                       <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                          ${initials}
                        </text>
                      </svg>
@@ -230,17 +227,15 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 ? `<div style="position: relative; width: 28px; height: 36px;">
                      <svg width="28" height="36" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
-                       <circle cx="17" cy="17" r="9" fill="#1d4ed8"/>
                      </svg>
-                     <div style="position: absolute; top: 4.5px; left: 5px; width: 18px; height: 18px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
                 : `<div style="position: relative; width: 28px; height: 36px;">
                      <svg width="28" height="36" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
-                       <circle cx="17" cy="17" r="9" fill="#1d4ed8"/>
-                       <text x="17" y="21.5" fill="#ffffff" font-size="9.5" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                       <text x="17" y="23" fill="#ffffff" font-size="12" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                          ${initials}
                        </text>
                      </svg>
@@ -274,7 +269,8 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             });
         }
 
-        // Default 'circle' icon
+        // Default 'circle' initials avatar
+        const avatar = generateInitialsAvatar(name);
         const htmlContent = img
             ? `<div style="
                 width: 34px;
@@ -325,8 +321,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
                 <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                   <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#ea580c"/>
-                  <circle cx="17" cy="17" r="10" fill="#9a3412"/>
-                  <text x="17" y="21" fill="#ffedd5" font-size="10" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                  <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                     ${initials}
                   </text>
                 </svg>
@@ -818,7 +813,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                     border: 'none',
                                                                                                     cursor: isCurrent ? 'default' : 'pointer',
                                                                                                     backgroundColor: isCurrent ? 'rgba(16,185,129,0.15)' : '#38bdf8',
-                                                                                                    color: isCurrent ? '#0f172a' : '#0f172a'
+                                                                                                    color: isCurrent ? '#10b981' : '#0f172a'
                                                                                                 }}
                                                                                             >
                                                                                                 {isCurrent ? 'Current' : 'Assign'}
