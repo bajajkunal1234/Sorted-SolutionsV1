@@ -48,7 +48,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
     // Location Verification Modal — shown after Mark as Arrived
     const [showLocationVerifyModal, setShowLocationVerifyModal] = useState(false);
-    const [locationVerifyStep, setLocationVerifyStep] = useState('ask'); // 'ask' | 'update'
+    const [locationVerifyStep, setLocationVerifyStep] = useState('ask'); // 'ask' | 'update' | 'before_photos'
+    const [beforePhotos, setBeforePhotos] = useState([]);
+    const [beforePhotosDescription, setBeforePhotosDescription] = useState('');
+    const [beforePhotosLoading, setBeforePhotosLoading] = useState(false);
+    const beforePhotosInputRef = useRef(null);
     const [verifyLat, setVerifyLat] = useState(null);
     const [verifyLng, setVerifyLng] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
@@ -987,10 +991,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     // Called when tech confirms pin was correct (Yes path)
     const handleLocationVerifyYes = async () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        setShowLocationVerifyModal(false);
-        const pending = pendingArrivedDataRef.current;
-        setEditedJob(prev => ({ ...prev, arrived_at: pending?.arrivedAt, status: 'diagnosing_quoting' }));
-        if (onJobUpdate && pending?.jobData) onJobUpdate(pending.jobData);
         
         // Mark the existing pin as verified by this technician
         const propertyId = editedJob._raw_property?.id || null;
@@ -1023,6 +1023,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'location-verified', category: 'property', description: `Customer pin location confirmed accurate by ${techName}`, user_name: techName })
         }).catch(() => {});
+
+        // Transition to before photos step and open camera
+        setLocationVerifyStep('before_photos');
+        setTimeout(() => {
+            beforePhotosInputRef.current?.click();
+        }, 150);
     };
 
     // Called when tech confirms updated pin location (No → update path)
@@ -1050,14 +1056,130 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'location-updated', category: 'property', description: `Customer pin location updated and verified by ${techName} (${verifyLat.toFixed(5)}, ${verifyLng.toFixed(5)})`, user_name: techName })
             }).catch(() => {});
-            setShowLocationVerifyModal(false);
-            const pending = pendingArrivedDataRef.current;
-            setEditedJob(prev => ({ ...prev, arrived_at: pending?.arrivedAt, status: 'diagnosing_quoting' }));
-            if (onJobUpdate && pending?.jobData) onJobUpdate(pending.jobData);
+            
+            // Transition to before photos step and open camera
+            setLocationVerifyStep('before_photos');
+            setTimeout(() => {
+                beforePhotosInputRef.current?.click();
+            }, 150);
         } catch (err) {
             alert('Could not save location: ' + err.message);
         } finally {
             setVerifyLoading(false);
+        }
+    };
+
+    const handleBeforePhotosUpload = (event) => {
+        const files = Array.from(event.target.files);
+        const newPhotos = files.map(file => ({
+            id: Date.now() + Math.random(),
+            name: file.name,
+            url: URL.createObjectURL(file),
+            file
+        }));
+        setBeforePhotos(prev => [...prev, ...newPhotos]);
+    };
+
+    const removeBeforePhoto = (id) => {
+        setBeforePhotos(prev => prev.filter(p => p.id !== id));
+    };
+
+    const handleBeforePhotosSubmit = async () => {
+        if (beforePhotos.length === 0) {
+            alert('Please take/upload at least 1 before photo of the product.');
+            return;
+        }
+        setBeforePhotosLoading(true);
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        try {
+            // 1. Upload each photo
+            const uploadedUrls = [];
+            for (const photo of beforePhotos) {
+                if (photo.file) {
+                    const formData = new FormData();
+                    const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
+                    formData.append('file', photo.file, safeFileName || 'upload.jpg');
+                    const uploadRes = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!uploadRes.ok) {
+                        throw new Error('Upload failed');
+                    }
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.success) {
+                        uploadedUrls.push(uploadData.url);
+                    }
+                }
+            }
+
+            // 2. Log interaction with photos and description
+            const descText = beforePhotosDescription.trim() 
+                ? `Before Photos uploaded.\nNote: ${beforePhotosDescription.trim()}`
+                : `Before Photos uploaded.`;
+
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'before-photos-uploaded',
+                    category: 'job',
+                    description: descText,
+                    user_name: techName,
+                    metadata: { attachments: uploadedUrls }
+                })
+            });
+
+            // 3. Mark the job as arrived and update status to diagnosing_quoting
+            const pending = pendingArrivedDataRef.current;
+            
+            // Call PUT to update the status to diagnosing_quoting on the server
+            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'diagnosing_quoting',
+                    arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                    updated_by_name: techName
+                })
+            });
+            const updateData = await updateRes.json();
+            if (!updateRes.ok) throw new Error(updateData.error || 'Failed to update job status');
+
+            setEditedJob(prev => ({
+                ...prev,
+                arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                status: 'diagnosing_quoting',
+                interactions: [
+                    {
+                        type: 'before-photos-uploaded',
+                        performed_by_name: techName,
+                        description: descText,
+                        timestamp: new Date().toISOString(),
+                        metadata: { attachments: uploadedUrls }
+                    },
+                    ...(prev.interactions || [])
+                ]
+            }));
+
+            // Notify parent component about the updated job data
+            if (onJobUpdate) {
+                onJobUpdate({
+                    ...editedJob,
+                    arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                    status: 'diagnosing_quoting'
+                });
+            }
+
+            // Close the location verification modal
+            setShowLocationVerifyModal(false);
+            // Reset state
+            setBeforePhotos([]);
+            setBeforePhotosDescription('');
+        } catch (err) {
+            alert('Failed to submit before photos: ' + err.message);
+        } finally {
+            setBeforePhotosLoading(false);
         }
     };
 
@@ -2291,10 +2413,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 </div>
             )}
 
-            {/* ── Location Verify Modal — shown after Mark as Arrived ── */}
             {showLocationVerifyModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
 
                         {locationVerifyStep === 'ask' && (
@@ -2409,6 +2530,87 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {verifyLoading
                                         ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</>
                                         : <><CheckCircle size={16} /> Save & Confirm Location</>}
+                                </button>
+                            </>
+                        )}
+
+                        {locationVerifyStep === 'before_photos' && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Camera size={20} color="#38bdf8" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>📸 Product Check-in</h3>
+                                        <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Capture product condition before starting work</p>
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: 16 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                        Product / Defect Photos * (Minimum 1 photo required)
+                                    </label>
+                                    
+                                    <div 
+                                        onClick={() => beforePhotosInputRef.current?.click()}
+                                        style={{ border: '2px dashed rgba(56,189,248,0.3)', borderRadius: 14, padding: 20, textAlign: 'center', background: 'rgba(56,189,248,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                    >
+                                        <Upload size={32} color="#38bdf8" style={{ margin: '0 auto 8px' }} />
+                                        <div style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 600 }}>Open Camera / Upload Photo</div>
+                                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Capture the product condition</div>
+                                    </div>
+                                    
+                                    <input 
+                                        ref={beforePhotosInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        onChange={handleBeforePhotosUpload}
+                                        style={{ display: 'none' }}
+                                    />
+
+                                    {/* Uploaded Photos Preview */}
+                                    {beforePhotos.length > 0 && (
+                                        <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8 }}>
+                                            {beforePhotos.map(photo => (
+                                                <div key={photo.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', height: 80 }}>
+                                                    <img src={photo.url} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeBeforePhoto(photo.id)}
+                                                        style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ marginBottom: 20 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                        Issue Description (Optional)
+                                    </label>
+                                    <textarea
+                                        value={beforePhotosDescription}
+                                        onChange={(e) => setBeforePhotosDescription(e.target.value)}
+                                        placeholder="Describe the issue as reported by the customer..."
+                                        style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#f8fafc', resize: 'vertical', minHeight: 70, outline: 'none' }}
+                                    />
+                                </div>
+
+                                <button
+                                    disabled={beforePhotos.length === 0 || beforePhotosLoading}
+                                    onClick={handleBeforePhotosSubmit}
+                                    style={{ width: '100%', padding: '14px', borderRadius: 14, background: beforePhotos.length > 0 ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 15, cursor: beforePhotos.length > 0 && !beforePhotosLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                >
+                                    {beforePhotosLoading ? (
+                                        <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</>
+                                    ) : (
+                                        <><CheckCircle size={16} /> Complete Check-in & Start Diagnosis</>
+                                    )}
                                 </button>
                             </>
                         )}
