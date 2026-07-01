@@ -2389,6 +2389,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         initialLng={verifyLng}
                                         onChange={({ lat, lng }) => { setVerifyLat(lat); setVerifyLng(lng); }}
                                         height="200px"
+                                        hideSearch={true}
                                     />
                                 </div>
 

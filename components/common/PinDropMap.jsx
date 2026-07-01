@@ -76,6 +76,7 @@ export default function PinDropMap({
     height = '240px',
     label,
     readOnly = false,
+    hideSearch = false,
 }) {
     const hasCoords = !!(initialLat && initialLng);
     const [position, setPosition] = useState(hasCoords ? [initialLat, initialLng] : MUMBAI_CENTER);
@@ -254,7 +255,7 @@ export default function PinDropMap({
             )}
 
             {/* Google Places Autocomplete search bar */}
-            {!readOnly && (
+            {!readOnly && !hideSearch && (
                 <div style={{ position: 'relative', marginBottom: 8 }}>
                     <div style={{ position: 'relative' }}>
                         <input
@@ -307,7 +308,7 @@ export default function PinDropMap({
                 </div>
             )}
 
-            {!readOnly && (
+            {!readOnly && !hideSearch && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <div style={{ flex: 1, padding: '7px 12px', background: barBg, border: `1px solid ${barBorder}`, borderRadius: 8, fontSize: 12, color: textColor, fontWeight: 500 }}>
                         {statusText}
