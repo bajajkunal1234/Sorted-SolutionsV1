@@ -115,6 +115,25 @@ export async function POST(request, { params }) {
             }).catch(e => console.error('[interactions route] Failed to notify admin:', e.message));
         }
 
+        // Notify Admin when after photos are uploaded
+        if (body.type === 'after-photos-uploaded') {
+            const { data: jobInfo } = await supabase
+                .from('jobs')
+                .select('job_number')
+                .eq('id', jobId)
+                .single();
+            const jobRef = jobInfo?.job_number || jobId;
+
+            await supabase.from('app_notifications').insert({
+                recipient_type: 'admin',
+                recipient_id: 'admin',
+                title: '📸 After Photos Uploaded',
+                message: `Technician ${interactionPayload.performed_by_name} uploaded after photos for Job #${jobRef}`,
+                link: `/admin?tab=jobs&jobId=${jobId}`,
+                is_read: false
+            }).catch(e => console.error('[interactions route] Failed to notify admin:', e.message));
+        }
+
         return NextResponse.json({ success: true, data: result.data });
     } catch (error) {
         console.error('Error creating job interaction:', error);

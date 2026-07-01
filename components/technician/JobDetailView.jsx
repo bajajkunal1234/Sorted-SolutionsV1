@@ -53,6 +53,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [beforePhotosDescription, setBeforePhotosDescription] = useState('');
     const [beforePhotosLoading, setBeforePhotosLoading] = useState(false);
     const beforePhotosInputRef = useRef(null);
+    const [showAfterPhotosModal, setShowAfterPhotosModal] = useState(false);
+    const [afterPhotos, setAfterPhotos] = useState([]);
+    const [afterPhotosDescription, setAfterPhotosDescription] = useState('');
+    const [afterPhotosLoading, setAfterPhotosLoading] = useState(false);
+    const afterPhotosInputRef = useRef(null);
     const [verifyLat, setVerifyLat] = useState(null);
     const [verifyLng, setVerifyLng] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
@@ -1227,6 +1232,134 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
+    const handleAfterPhotosUpload = (event) => {
+        const files = Array.from(event.target.files);
+        const newPhotos = files.map(file => ({
+            id: Date.now() + Math.random(),
+            name: file.name,
+            url: URL.createObjectURL(file),
+            file
+        }));
+        setAfterPhotos(prev => [...prev, ...newPhotos]);
+    };
+
+    const removeAfterPhoto = (id) => {
+        setAfterPhotos(prev => prev.filter(p => p.id !== id));
+    };
+
+    const handleAfterPhotosSubmit = async () => {
+        if (afterPhotos.length === 0) {
+            alert('Please take/upload at least 1 after photo of the product.');
+            return;
+        }
+        setAfterPhotosLoading(true);
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        try {
+            // 1. Upload each photo (compressed)
+            const uploadedUrls = [];
+            for (const photo of afterPhotos) {
+                if (photo.file) {
+                    const compressed = await compressImage(photo.file);
+                    const formData = new FormData();
+                    const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'after_image.jpg';
+                    formData.append('file', compressed, safeFileName || 'upload.jpg');
+                    const uploadRes = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!uploadRes.ok) {
+                        throw new Error('Upload failed');
+                    }
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.success) {
+                        uploadedUrls.push(uploadData.url);
+                    }
+                }
+            }
+
+            // 2. Log interaction with after photos and description
+            const descText = afterPhotosDescription.trim() 
+                ? `After Photos uploaded.\nNote: ${afterPhotosDescription.trim()}`
+                : `After Photos uploaded.`;
+
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'after-photos-uploaded',
+                    category: 'job',
+                    description: descText,
+                    user_name: techName,
+                    metadata: { attachments: uploadedUrls }
+                })
+            });
+
+            // 3. Create the final sales invoice
+            const res = await apiCall(`/api/admin/transactions?type=sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    account_id: savedQuotation.account_id,
+                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                    accountGSTIN: savedQuotation.accountGSTIN || '',
+                    accountState: savedQuotation.accountState || 'Maharashtra',
+                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    job_id: editedJob.id,
+                    date: new Date().toISOString().split('T')[0],
+                    due_date: new Date().toISOString().split('T')[0],
+                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    reference: savedQuotation.quote_number,
+                    status: 'unpaid',
+                    items: savedQuotation.items,
+                    subtotal: savedQuotation.subtotal,
+                    cgst: savedQuotation.cgst,
+                    sgst: savedQuotation.sgst,
+                    igst: savedQuotation.igst,
+                    total_tax: savedQuotation.total_tax,
+                    total_amount: savedQuotation.total_amount,
+                    notes: 'Auto-generated from approved quotation',
+                    terms: savedQuotation.terms,
+                    technician_id: savedQuotation.technician_id || techId,
+                    technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSavedInvoice(data.data);
+                const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
+                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'invoice-created',
+                        category: 'billing',
+                        description: detailedInvDesc,
+                        user_name: techName,
+                        customer_id: editedJob.customerId || null,
+                        metadata: {
+                            invoice_number: data.data.invoice_number,
+                            invoice_id: data.data.id,
+                            total_amount: data.data.total_amount,
+                            subtotal: data.data.subtotal,
+                            tax: data.data.total_tax,
+                            items: data.data.items
+                        }
+                    })
+                });
+
+                // Reset states and close modal
+                setShowAfterPhotosModal(false);
+                setAfterPhotos([]);
+                setAfterPhotosDescription('');
+                setShowWhatsappPopup({ type: 'invoice', doc: data.data });
+            } else throw new Error(data.error);
+
+        } catch (err) {
+            alert('Failed to save after photos and create invoice: ' + err.message);
+        } finally {
+            setAfterPhotosLoading(false);
+        }
+    };
+
     const handleAddNote = async (note) => {
         setIsAddingNote(true);
         // Read name from local storage or passed technician data
@@ -2198,63 +2331,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     className="btn"
                                                                     style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
                                                                     disabled={loading}
-                                                                    onClick={async () => {
-                                                                        setLoading(true);
-                                                                        try {
-                                                                            const res = await apiCall(`/api/admin/transactions?type=sales`, {
-                                                                                method: 'POST',
-                                                                                headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({
-                                                                                    account_id: savedQuotation.account_id,
-                                                                                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
-                                                                                    accountGSTIN: savedQuotation.accountGSTIN || '',
-                                                                                    accountState: savedQuotation.accountState || 'Maharashtra',
-                                                                                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                                                                                    job_id: editedJob.id,
-                                                                                    date: new Date().toISOString().split('T')[0],
-                                                                                    due_date: new Date().toISOString().split('T')[0],
-                                                                                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                                                                                    reference: savedQuotation.quote_number,
-                                                                                    status: 'unpaid',
-                                                                                    items: savedQuotation.items,
-                                                                                    subtotal: savedQuotation.subtotal,
-                                                                                    cgst: savedQuotation.cgst,
-                                                                                    sgst: savedQuotation.sgst,
-                                                                                    igst: savedQuotation.igst,
-                                                                                    total_tax: savedQuotation.total_tax,
-                                                                                    total_amount: savedQuotation.total_amount,
-                                                                                    notes: 'Auto-generated from approved quotation',
-                                                                                    terms: savedQuotation.terms,
-                                                                                    technician_id: savedQuotation.technician_id || techId,
-                                                                                    technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                                                                                })
-                                                                            });
-                                                                            const data = await res.json();
-                                                                            if (data.success) {
-                                                                                setSavedInvoice(data.data);
-                                                                                const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
-                                                                                apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                    body: JSON.stringify({
-                                                                                        type: 'invoice-created',
-                                                                                        category: 'billing',
-                                                                                        description: detailedInvDesc,
-                                                                                        user_name: techName,
-                                                                                        customer_id: editedJob.customerId || null,
-                                                                                        metadata: {
-                                                                                            invoice_number: data.data.invoice_number,
-                                                                                            invoice_id: data.data.id,
-                                                                                            total_amount: data.data.total_amount,
-                                                                                            subtotal: data.data.subtotal,
-                                                                                            tax: data.data.total_tax,
-                                                                                            items: data.data.items
-                                                                                        }
-                                                                                    })
-                                                                                }).catch(() => {});
-                                                                                setShowWhatsappPopup({ type: 'invoice', doc: data.data });
-                                                                            } else throw new Error(data.error);
-                                                                        } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
-                                                                        finally { setLoading(false); }
+                                                                    onClick={() => {
+                                                                        setShowAfterPhotosModal(true);
                                                                     }}
                                                                 >
                                                                     {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
@@ -2658,6 +2736,104 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </button>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* ── After Photos Modal ── */}
+            {showAfterPhotosModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Camera size={20} color="#10b981" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>📸 Job Completion</h3>
+                                    <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Capture product condition after completing work</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowAfterPhotosModal(false);
+                                    setAfterPhotos([]);
+                                    setAfterPhotosDescription('');
+                                }}
+                                style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                After Repair Photos * (Minimum 1 photo required)
+                            </label>
+                            
+                            <div 
+                                onClick={() => afterPhotosInputRef.current?.click()}
+                                style={{ border: '2px dashed rgba(16,185,129,0.3)', borderRadius: 14, padding: 20, textAlign: 'center', background: 'rgba(16,185,129,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            >
+                                <Upload size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
+                                <div style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 600 }}>Open Camera / Upload Photo</div>
+                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Capture the repaired/completed product</div>
+                            </div>
+                            
+                            <input 
+                                ref={afterPhotosInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={handleAfterPhotosUpload}
+                                style={{ display: 'none' }}
+                            />
+
+                            {/* Uploaded Photos Preview */}
+                            {afterPhotos.length > 0 && (
+                                <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8 }}>
+                                    {afterPhotos.map(photo => (
+                                        <div key={photo.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', height: 80 }}>
+                                            <img src={photo.url} alt="product" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAfterPhoto(photo.id)}
+                                                style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Description / Repair Notes (Optional)
+                            </label>
+                            <textarea
+                                value={afterPhotosDescription}
+                                onChange={(e) => setAfterPhotosDescription(e.target.value)}
+                                placeholder="Describe the work done or any additional details for the customer..."
+                                style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#f8fafc', resize: 'vertical', minHeight: 70, outline: 'none' }}
+                            />
+                        </div>
+
+                        <button
+                            disabled={afterPhotos.length === 0 || afterPhotosLoading}
+                            onClick={handleAfterPhotosSubmit}
+                            style={{ width: '100%', padding: '14px', borderRadius: 14, background: afterPhotos.length > 0 ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 15, cursor: afterPhotos.length > 0 && !afterPhotosLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        >
+                            {afterPhotosLoading ? (
+                                <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</>
+                            ) : (
+                                <><CheckCircle size={16} /> Submit & Create Final Invoice</>
+                            )}
+                        </button>
                     </div>
                 </div>
             )}
