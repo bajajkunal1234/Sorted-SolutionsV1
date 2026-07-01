@@ -29,6 +29,82 @@ const techIcon = typeof window !== 'undefined' ? L.divIcon({
     popupAnchor: [0, -16]
 }) : null;
 
+// Robust helper to resolve coordinates from a job object or its linked property/customer properties
+function getJobCoordinates(job) {
+    if (!job) return null;
+
+    // 1. Direct coordinates on job
+    if (job.lat && job.lng) {
+        return { lat: Number(job.lat), lng: Number(job.lng) };
+    }
+    if (job.latitude && job.longitude) {
+        return { lat: Number(job.latitude), lng: Number(job.longitude) };
+    }
+
+    // 2. Direct coordinates on job.property
+    const prop = job.property;
+    if (prop) {
+        if (prop.lat && prop.lng) {
+            return { lat: Number(prop.lat), lng: Number(prop.lng) };
+        }
+        if (prop.latitude && prop.longitude) {
+            return { lat: Number(prop.latitude), lng: Number(prop.longitude) };
+        }
+    }
+
+    // 3. Match from customer's properties list
+    const accountProps = job.customer?.properties;
+    if (Array.isArray(accountProps) && accountProps.length > 0) {
+        // Try matching by ID first
+        const propId = prop?.id || job.property_id;
+        if (propId) {
+            const matchById = accountProps.find(p => String(p.id) === String(propId));
+            if (matchById && (matchById.lat || matchById.latitude)) {
+                return {
+                    lat: Number(matchById.lat || matchById.latitude),
+                    lng: Number(matchById.lng || matchById.longitude)
+                };
+            }
+        }
+
+        // Try matching by building name or address line similarity
+        if (prop) {
+            const matchByDetails = accountProps.find(p => 
+                (p.building_name && prop.building_name && String(p.building_name).trim().toLowerCase() === String(prop.building_name).trim().toLowerCase()) ||
+                (p.address && prop.address && String(p.address).trim().toLowerCase() === String(prop.address).trim().toLowerCase())
+            );
+            if (matchByDetails && (matchByDetails.lat || matchByDetails.latitude)) {
+                return {
+                    lat: Number(matchByDetails.lat || matchByDetails.latitude),
+                    lng: Number(matchByDetails.lng || matchByDetails.longitude)
+                };
+            }
+        }
+
+        // Fallback: If only 1 property in customer account, use it
+        if (accountProps.length === 1) {
+            const first = accountProps[0];
+            if (first.lat || first.latitude) {
+                return {
+                    lat: Number(first.lat || first.latitude),
+                    lng: Number(first.lng || first.longitude)
+                };
+            }
+        }
+        
+        // Fallback 2: Use the first property that has coordinates
+        const firstWithCoords = accountProps.find(p => p.lat || p.latitude);
+        if (firstWithCoords) {
+            return {
+                lat: Number(firstWithCoords.lat || firstWithCoords.latitude),
+                lng: Number(firstWithCoords.lng || firstWithCoords.longitude)
+            };
+        }
+    }
+
+    return null;
+}
+
 // Helper to center the map when jobs change
 function MapCenterController({ jobs }) {
     const map = useMap();
@@ -36,9 +112,8 @@ function MapCenterController({ jobs }) {
         if (!jobs || jobs.length === 0) return;
         const validCoords = jobs
             .map(j => {
-                const lat = j.property?.lat || j.lat;
-                const lng = j.property?.lng || j.lng;
-                return (lat && lng) ? [lat, lng] : null;
+                const coords = getJobCoordinates(j);
+                return coords ? [coords.lat, coords.lng] : null;
             })
             .filter(Boolean);
 
@@ -150,9 +225,10 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
     // Calculate real-road google distances for nearest 5 technicians
     const handleCalculateDistances = async (job) => {
-        const jobLat = job.property?.lat || job.lat;
-        const jobLng = job.property?.lng || job.lng;
-        if (!jobLat || !jobLng) return;
+        const coords = getJobCoordinates(job);
+        if (!coords) return;
+        const jobLat = coords.lat;
+        const jobLng = coords.lng;
 
         setActiveJobId(job.id);
         setLoadingDistances(true);
@@ -204,11 +280,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
     // Filter jobs that have valid coordinates
     const geocodedJobs = useMemo(() => {
-        return jobs.filter(j => {
-            const lat = j.property?.lat || j.lat;
-            const lng = j.property?.lng || j.lng;
-            return !!(lat && lng);
-        });
+        return jobs.filter(j => !!getJobCoordinates(j));
     }, [jobs]);
 
     // Handle technician assignment from popup
@@ -243,8 +315,9 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
                 {/* Customer Job Markers */}
                 {geocodedJobs.map(job => {
-                    const lat = job.property?.lat || job.lat;
-                    const lng = job.property?.lng || job.lng;
+                    const coords = getJobCoordinates(job);
+                    if (!coords) return null;
+                    const { lat, lng } = coords;
                     const customerName = job.customer?.name || job.customer_name || 'Customer';
                     const isAssigned = !!job.technician_id;
 
