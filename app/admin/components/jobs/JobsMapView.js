@@ -98,6 +98,18 @@ function MapCenterController({ groups }) {
     return null;
 }
 
+// Helper to auto-pan and zoom the map to fit active routing directions
+function MapInteractionController({ activeRoute }) {
+    const map = useMap();
+    useEffect(() => {
+        if (activeRoute?.coords && activeRoute.coords.length > 0) {
+            const bounds = L.latLngBounds(activeRoute.coords);
+            map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+        }
+    }, [activeRoute, map]);
+    return null;
+}
+
 // Haversine straight-line distance formula
 function getHaversineDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; // Earth radius in km
@@ -186,20 +198,22 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         if (custMarkerType === 'pin') {
             const htmlContent = img
                 ? `<div style="position: relative; width: 34px; height: 42px;">
-                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
+                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                       <circle cx="17" cy="17" r="10" fill="#1d4ed8"/>
                      </svg>
-                     <div style="position: absolute; top: 5px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 7px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
                 : `<div style="position: relative; width: 34px; height: 42px;">
-                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
+                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                       <circle cx="17" cy="17" r="10" fill="#1d4ed8"/>
+                       <text x="17" y="21" fill="#ffffff" font-size="10" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                         ${initials}
+                       </text>
                      </svg>
-                     <div style="position: absolute; top: 5px; left: 7px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8px; font-weight: 700; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
-                       ${initials}
-                     </div>
                    </div>`;
 
             return L.divIcon({
@@ -207,35 +221,37 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 className: 'custom-customer-marker-pin',
                 iconSize: [34, 42],
                 iconAnchor: [17, 42],
-                popupAnchor: [0, -42]
+                popupAnchor: [17, -21] // Side-anchored popup (opens to the right)
             });
         }
 
         if (custMarkerType === 'compact-pin') {
             const htmlContent = img
-                ? `<div style="position: relative; width: 26px; height: 32px;">
-                     <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                ? `<div style="position: relative; width: 28px; height: 36px;">
+                     <svg width="28" height="36" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                       <circle cx="17" cy="17" r="9" fill="#1d4ed8"/>
                      </svg>
-                     <div style="position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 4.5px; left: 5px; width: 18px; height: 18px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
-                : `<div style="position: relative; width: 26px; height: 32px;">
-                     <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                : `<div style="position: relative; width: 28px; height: 36px;">
+                     <svg width="28" height="36" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                       <circle cx="17" cy="17" r="9" fill="#1d4ed8"/>
+                       <text x="17" y="21.5" fill="#ffffff" font-size="9.5" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                         ${initials}
+                       </text>
                      </svg>
-                     <div style="position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px; font-weight: 800; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
-                       ${initials}
-                     </div>
                    </div>`;
 
             return L.divIcon({
                 html: htmlContent,
                 className: 'custom-customer-marker-compact-pin',
-                iconSize: [26, 32],
-                iconAnchor: [13, 32],
-                popupAnchor: [0, -32]
+                iconSize: [28, 36],
+                iconAnchor: [14, 36],
+                popupAnchor: [14, -18] // Side-anchored popup (opens to the right)
             });
         }
 
@@ -254,7 +270,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 className: 'custom-customer-marker-compact',
                 iconSize: [14, 14],
                 iconAnchor: [7, 7],
-                popupAnchor: [0, -7]
+                popupAnchor: [7, 0] // Side-anchored popup (opens to the right)
             });
         }
 
@@ -296,7 +312,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             className: 'custom-customer-marker-circle',
             iconSize: [34, 34],
             iconAnchor: [17, 17],
-            popupAnchor: [0, -17]
+            popupAnchor: [17, 0] // Side-anchored popup (opens to the right)
         });
     };
 
@@ -307,10 +323,13 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
         if (techMarkerType === 'pin') {
             const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
-                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
-                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#eab308"/>
+                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#ea580c"/>
+                  <circle cx="17" cy="17" r="10" fill="#9a3412"/>
+                  <text x="17" y="21" fill="#ffedd5" font-size="10" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                    ${initials}
+                  </text>
                 </svg>
-                <div style="position: absolute; top: 6px; left: 9px; font-size: 11px;">🔧</div>
               </div>`;
 
             return L.divIcon({
@@ -318,7 +337,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 className: 'custom-tech-marker-pin',
                 iconSize: [34, 42],
                 iconAnchor: [17, 42],
-                popupAnchor: [0, -42]
+                popupAnchor: [17, -21]
             });
         }
 
@@ -343,7 +362,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 className: 'custom-tech-marker-avatar',
                 iconSize: [32, 32],
                 iconAnchor: [16, 16],
-                popupAnchor: [0, -16]
+                popupAnchor: [16, 0]
             });
         }
 
@@ -366,17 +385,18 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             className: 'custom-tech-marker-wrench',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
-            popupAnchor: [0, -16]
+            popupAnchor: [16, 0]
         });
     };
 
-    // Calculate real-road google distances for nearest 5 technicians
+    // Calculate real-road google distances for nearest 5 active technicians
     const handleCalculateDistances = async (lat, lng, jobId) => {
         setActiveJobId(jobId);
         setLoadingDistances(true);
         setDistances({});
 
         const candidates = technicians
+            .filter(t => t.is_active !== false) // Exclude inactive/fired test technicians
             .map(tech => {
                 const liveLoc = fleetLocations.find(l => l.technician_id === tech.id);
                 if (!liveLoc || !liveLoc.latitude || !liveLoc.longitude) {
@@ -423,7 +443,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             }
         }));
 
-        // Populate map for ALL technicians (with coordinates or not)
+        // Populate map for ALL active technicians (with coordinates or not)
         candidates.forEach(tech => {
             if (tech.hasLocation) {
                 if (!googleResults[tech.id]) {
@@ -619,6 +639,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 />
 
                 <MapCenterController groups={propertiesGroup} />
+                <MapInteractionController activeRoute={activeRoute} />
 
                 {/* Polyline Route Overlay */}
                 {activeRoute?.coords && (
@@ -737,6 +758,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                                                                         {activeJobId === job.id && Object.keys(distances).length > 0 ? (
                                                                             technicians
+                                                                                .filter(t => t.is_active !== false) // ACTIVE ONLY dropdown list
                                                                                 .map(t => ({
                                                                                     ...t,
                                                                                     distInfo: distances[t.id]
@@ -796,7 +818,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                     border: 'none',
                                                                                                     cursor: isCurrent ? 'default' : 'pointer',
                                                                                                     backgroundColor: isCurrent ? 'rgba(16,185,129,0.15)' : '#38bdf8',
-                                                                                                    color: isCurrent ? '#10b981' : '#0f172a'
+                                                                                                    color: isCurrent ? '#0f172a' : '#0f172a'
                                                                                                 }}
                                                                                             >
                                                                                                 {isCurrent ? 'Current' : 'Assign'}
@@ -827,7 +849,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 {/* Technician Live Location Markers */}
                 {fleetLocations.map(loc => {
                     const tech = technicians.find(t => t.id === loc.technician_id);
-                    if (!tech) return null;
+                    if (!tech || tech.is_active === false) return null; // Hide inactive/fired technicians from map
 
                     return (
                         <Marker
