@@ -794,8 +794,8 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                             title={hasLoc ? "Click to view driving route on map" : "Live location unavailable"}
                                                                                         >
                                                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
-                                                                                                <span style={{ fontSize: '8px', color: hasLoc ? '#38bdf8' : '#94a3b8', fontWeight: 600 }}>
+                                                                                                <span style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
+                                                                                                <span style={{ fontSize: '11px', color: hasLoc ? '#38bdf8' : '#94a3b8', fontWeight: 600 }}>
                                                                                                     {hasLoc ? `🚗 ${distInfo.distance} (${distInfo.duration})` : '🚗 Location Unavailable'} {isShowingRoute ? '🗺️' : ''}
                                                                                                 </span>
                                                                                             </div>
@@ -806,8 +806,8 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                 }}
                                                                                                 disabled={isCurrent}
                                                                                                 style={{
-                                                                                                    padding: '2px 6px',
-                                                                                                    fontSize: '9px',
+                                                                                                    padding: '3px 8px',
+                                                                                                    fontSize: '11px',
                                                                                                     fontWeight: 800,
                                                                                                     borderRadius: '3px',
                                                                                                     border: 'none',
