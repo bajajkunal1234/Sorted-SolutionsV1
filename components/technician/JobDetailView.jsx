@@ -1069,6 +1069,47 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
+    const compressImage = (file) => {
+        return new Promise((resolve) => {
+            if (!file.type.startsWith('image/')) {
+                resolve(file);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        resolve(new File([blob], file.name || 'image.jpeg', { type: 'image/jpeg', lastModified: Date.now() }));
+                    }, 'image/jpeg', 0.85);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
     const handleBeforePhotosUpload = (event) => {
         const files = Array.from(event.target.files);
         const newPhotos = files.map(file => ({
@@ -1092,13 +1133,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setBeforePhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Upload each photo
+            // 1. Upload each photo (compressed)
             const uploadedUrls = [];
             for (const photo of beforePhotos) {
                 if (photo.file) {
+                    const compressed = await compressImage(photo.file);
                     const formData = new FormData();
-                    const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
-                    formData.append('file', photo.file, safeFileName || 'upload.jpg');
+                    const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
+                    formData.append('file', compressed, safeFileName || 'upload.jpg');
                     const uploadRes = await fetch('/api/upload', {
                         method: 'POST',
                         body: formData
