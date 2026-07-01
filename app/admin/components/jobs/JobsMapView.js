@@ -83,6 +83,22 @@ function getJobCoordinates(job) {
     return null;
 }
 
+// Helper to resolve coordinates for a Supplier from their properties list
+function getSupplierCoordinates(supplier) {
+    if (!supplier) return null;
+    const props = supplier.properties;
+    if (Array.isArray(props) && props.length > 0) {
+        const first = props.find(p => p.lat || p.latitude);
+        if (first) {
+            return {
+                lat: Number(first.lat || first.latitude),
+                lng: Number(first.lng || first.longitude)
+            };
+        }
+    }
+    return null;
+}
+
 // Helper to center the map when jobs change
 function MapCenterController({ groups }) {
     const map = useMap();
@@ -126,6 +142,7 @@ function getHaversineDistance(lat1, lon1, lat2, lon2) {
 export default function JobsMapView({ jobs, onUpdateJob }) {
     const [technicians, setTechnicians] = useState([]);
     const [fleetLocations, setFleetLocations] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
     const [loadingTechs, setLoadingTechs] = useState(false);
     
     // Proximity distances loading state
@@ -137,54 +154,69 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     // Active routing layer
     const [activeRoute, setActiveRoute] = useState(null);
 
-    // Marker styling customization states (initialized from localStorage with client fallback)
-    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'compact-pin' | 'pin' | 'compact'
-    const [techMarkerType, setTechMarkerType] = useState('wrench'); // 'wrench' | 'pin' | 'avatar'
+    // Marker styling and layer visibility configurations
+    const [custMarkerType, setCustMarkerType] = useState('circle');
+    const [techMarkerType, setTechMarkerType] = useState('wrench');
+    const [supplierMarkerType, setSupplierMarkerType] = useState('pin');
+    const [mapViewType, setMapViewType] = useState('roadmap');
+    const [autoExpandSingleJob, setAutoExpandSingleJob] = useState(true);
+    const [enableRoutePathHighlight, setEnableRoutePathHighlight] = useState(true);
+    const [showCustomersLayer, setShowCustomersLayer] = useState(true);
+    const [showTechniciansLayer, setShowTechniciansLayer] = useState(true);
+    const [showSuppliersLayer, setShowSuppliersLayer] = useState(true);
 
-    // Load saved styles on mount
+    // Load configurations from localStorage
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedCust = localStorage.getItem('custMarkerType');
             const savedTech = localStorage.getItem('techMarkerType');
+            const savedSupplier = localStorage.getItem('supplierMarkerType');
+            const savedView = localStorage.getItem('mapViewType');
+            const savedAuto = localStorage.getItem('autoExpandSingleJob');
+            const savedRoute = localStorage.getItem('enableRoutePathHighlight');
+            const savedCustLayer = localStorage.getItem('showCustomersLayer');
+            const savedTechLayer = localStorage.getItem('showTechniciansLayer');
+            const savedSupplierLayer = localStorage.getItem('showSuppliersLayer');
+
             if (savedCust) setCustMarkerType(savedCust);
             if (savedTech) setTechMarkerType(savedTech);
+            if (savedSupplier) setSupplierMarkerType(savedSupplier);
+            if (savedView) setMapViewType(savedView);
+            if (savedAuto !== null) setAutoExpandSingleJob(savedAuto !== 'false');
+            if (savedRoute !== null) setEnableRoutePathHighlight(savedRoute !== 'false');
+            if (savedCustLayer !== null) setShowCustomersLayer(savedCustLayer !== 'false');
+            if (savedTechLayer !== null) setShowTechniciansLayer(savedTechLayer !== 'false');
+            if (savedSupplierLayer !== null) setShowSuppliersLayer(savedSupplierLayer !== 'false');
         }
     }, []);
 
-    // Save style modifications
-    const handleCustMarkerStyleChange = (val) => {
-        setCustMarkerType(val);
-        localStorage.setItem('custMarkerType', val);
-    };
-
-    const handleTechMarkerStyleChange = (val) => {
-        setTechMarkerType(val);
-        localStorage.setItem('techMarkerType', val);
-    };
-
-    // Fetch technicians and fleet locations on mount
-    const fetchTechData = async () => {
+    // Fetch technicians, live locations, and suppliers on mount
+    const fetchMapAccountsData = async () => {
         setLoadingTechs(true);
         try {
-            const [techRes, fleetRes] = await Promise.all([
+            const [techRes, fleetRes, supplierRes] = await Promise.all([
                 techniciansAPI.getAll(),
-                fetch('/api/admin/fleet-locations').then(res => res.json())
+                fetch('/api/admin/fleet-locations').then(res => res.json()),
+                fetch('/api/admin/accounts?type=supplier').then(res => res.json())
             ]);
             
             setTechnicians(techRes || []);
             if (fleetRes?.success) {
                 setFleetLocations(fleetRes.data || []);
             }
+            if (supplierRes?.success) {
+                setSuppliers(supplierRes.data || []);
+            }
         } catch (err) {
-            console.error('Failed to load technician live coordinates:', err);
+            console.error('Failed to load map tracking accounts:', err);
         } finally {
             setLoadingTechs(false);
         }
     };
 
     useEffect(() => {
-        fetchTechData();
-        const timer = setInterval(fetchTechData, 45000);
+        fetchMapAccountsData();
+        const timer = setInterval(fetchMapAccountsData, 45000);
         return () => clearInterval(timer);
     }, []);
 
@@ -193,6 +225,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         const name = job.customer?.name || job.customer_name || 'Customer';
         const img = job.customer?.accountImage;
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        const avatar = generateInitialsAvatar(name);
 
         if (custMarkerType === 'pin') {
             const htmlContent = img
@@ -270,7 +303,6 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         }
 
         // Default 'circle' initials avatar
-        const avatar = generateInitialsAvatar(name);
         const htmlContent = img
             ? `<div style="
                 width: 34px;
@@ -381,6 +413,76 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             iconSize: [32, 32],
             iconAnchor: [16, 16],
             popupAnchor: [16, 0]
+        });
+    };
+
+    // Helper to build supplier markers dynamically based on selected style option
+    const getSupplierIcon = (supplier) => {
+        const name = supplier.name || 'Supplier';
+        const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+        if (supplierMarkerType === 'pin') {
+            const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
+                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#22c55e"/>
+                  <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+                    ${initials}
+                  </text>
+                </svg>
+              </div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-supplier-marker-pin',
+                iconSize: [34, 42],
+                iconAnchor: [17, 42],
+                popupAnchor: [17, -21]
+            });
+        }
+
+        if (supplierMarkerType === 'compact') {
+            const htmlContent = `<div style="
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                border: 2px solid #ffffff;
+                background-color: #22c55e;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            "></div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-supplier-marker-compact',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7],
+                popupAnchor: [7, 0]
+            });
+        }
+
+        // Default 'circle' initials avatar
+        const htmlContent = `<div style="
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+            background-color: #14532d;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          ">
+              ${initials}
+          </div>`;
+
+        return L.divIcon({
+            html: htmlContent,
+            className: 'custom-supplier-marker-circle',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [17, 0]
         });
     };
 
@@ -496,6 +598,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
     // Group jobs by property coordinates
     const propertiesGroup = useMemo(() => {
+        if (!showCustomersLayer) return [];
         const groups = {};
         jobs.forEach(job => {
             const coords = getJobCoordinates(job);
@@ -515,7 +618,17 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
             groups[propId].jobs.push(job);
         });
         return Object.values(groups);
-    }, [jobs]);
+    }, [jobs, showCustomersLayer]);
+
+    // Group suppliers that have coordinates
+    const geocodedSuppliers = useMemo(() => {
+        if (!showSuppliersLayer) return [];
+        return suppliers.map(s => {
+            const coords = getSupplierCoordinates(s);
+            if (!coords) return null;
+            return { ...s, coords };
+        }).filter(Boolean);
+    }, [suppliers, showSuppliersLayer]);
 
     // Handle technician assignment from popup
     const handleAssign = async (job, tech) => {
@@ -554,73 +667,6 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 }
             ` }} />
 
-            {/* Custom Marker Option Dropdowns */}
-            <div style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                backgroundColor: 'rgba(30, 41, 59, 0.85)',
-                backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '10px',
-                padding: '10px 12px',
-                zIndex: 1000,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                width: '170px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
-            }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Marker Styles</div>
-                
-                {/* Customer dropdown */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Customers:</label>
-                    <select
-                        value={custMarkerType}
-                        onChange={(e) => handleCustMarkerStyleChange(e.target.value)}
-                        style={{
-                            padding: '4px 6px',
-                            borderRadius: '5px',
-                            backgroundColor: '#0f172a',
-                            border: '1px solid #334155',
-                            color: '#f8fafc',
-                            fontSize: '11px',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="circle">Photo/Initials Circle</option>
-                        <option value="compact-pin">Compact Map Pin</option>
-                        <option value="pin">Standard Map Pin</option>
-                        <option value="compact">Compact Dot</option>
-                    </select>
-                </div>
-
-                {/* Tech dropdown */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Technicians:</label>
-                    <select
-                        value={techMarkerType}
-                        onChange={(e) => handleTechMarkerStyleChange(e.target.value)}
-                        style={{
-                            padding: '4px 6px',
-                            borderRadius: '5px',
-                            backgroundColor: '#0f172a',
-                            border: '1px solid #334155',
-                            color: '#f8fafc',
-                            fontSize: '11px',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="wrench">Wrench Circle</option>
-                        <option value="pin">Standard Map Pin</option>
-                        <option value="avatar">Tech Initials Circle</option>
-                    </select>
-                </div>
-            </div>
-
             {/* Map Container */}
             <MapContainer
                 center={[19.117, 72.905]} // Default Mumbai area
@@ -628,8 +674,15 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 style={{ height: '100%', width: '100%', zIndex: 0 }}
                 scrollWheelZoom={true}
             >
+                {/* Dynamically Swap Google base map layers */}
                 <TileLayer
-                    url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                    key={mapViewType}
+                    url={
+                        mapViewType === 'satellite' ? "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" :
+                        mapViewType === 'hybrid' ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" :
+                        mapViewType === 'terrain' ? "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}" :
+                        "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                    }
                     attribution='&copy; Google Maps'
                 />
 
@@ -662,7 +715,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                             icon={getCustomerIcon(representativeJob)}
                             eventHandlers={{
                                 click: () => {
-                                    if (propertyJobs.length === 1) {
+                                    if (autoExpandSingleJob && propertyJobs.length === 1) {
                                         setExpandedJobId(representativeJob.id);
                                         handleCalculateDistances(lat, lng, representativeJob.id);
                                     } else {
@@ -778,7 +831,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                         <div 
                                                                                             key={t.id} 
                                                                                             onClick={() => {
-                                                                                                if (hasLoc) handleCalculateRoute(t, job, lat, lng);
+                                                                                                if (hasLoc && enableRoutePathHighlight) handleCalculateRoute(t, job, lat, lng);
                                                                                             }}
                                                                                             style={{ 
                                                                                                 display: 'flex', 
@@ -788,10 +841,10 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                 borderRadius: '4px', 
                                                                                                 backgroundColor: isShowingRoute ? 'rgba(14, 165, 233, 0.15)' : 'rgba(255,255,255,0.03)', 
                                                                                                 border: isShowingRoute ? '1px solid rgba(14, 165, 233, 0.4)' : '1px solid rgba(255,255,255,0.05)',
-                                                                                                cursor: hasLoc ? 'pointer' : 'default',
+                                                                                                cursor: hasLoc && enableRoutePathHighlight ? 'pointer' : 'default',
                                                                                                 transition: 'all 0.15s'
                                                                                             }}
-                                                                                            title={hasLoc ? "Click to view driving route on map" : "Live location unavailable"}
+                                                                                            title={hasLoc && enableRoutePathHighlight ? "Click to view driving route on map" : hasLoc ? "Routing calculations disabled" : "Live location unavailable"}
                                                                                         >
                                                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                                                                 <span style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
@@ -841,8 +894,41 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     );
                 })}
 
-                {/* Technician Live Location Markers */}
-                {fleetLocations.map(loc => {
+                {/* Supplier Markers Overlay */}
+                {geocodedSuppliers.map(supplier => {
+                    const { lat, lng } = supplier.coords;
+
+                    return (
+                        <Marker
+                            key={`${supplier.id}-${supplierMarkerType}`}
+                            position={[lat, lng]}
+                            icon={getSupplierIcon(supplier)}
+                        >
+                            <Tooltip direction="top" offset={[0, -16]}>
+                                <div>
+                                    <span style={{ fontWeight: 600 }}>{supplier.name}</span> (Supplier)
+                                </div>
+                            </Tooltip>
+
+                            <Popup>
+                                <div style={{ fontSize: '12px', color: '#cbd5e1', fontFamily: 'inherit', minWidth: '180px' }}>
+                                    <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: 800, color: '#22c55e' }}>{supplier.name}</h4>
+                                    <div><strong>Contact:</strong> {supplier.contactPerson || 'N/A'}</div>
+                                    <div><strong>Phone:</strong> {supplier.mobile || supplier.phone || 'N/A'}</div>
+                                    {supplier.customerDescription && (
+                                        <div style={{ marginTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '6px', color: '#94a3b8', fontSize: '11px', lineHeight: 1.3 }}>
+                                            <strong>Supplies / Notes:</strong><br />
+                                            {supplier.customerDescription}
+                                        </div>
+                                    )}
+                                </div>
+                            </Popup>
+                        </Marker>
+                    );
+                })}
+
+                {/* Technician Live Location Markers Overlay */}
+                {showTechniciansLayer && fleetLocations.map(loc => {
                     const tech = technicians.find(t => t.id === loc.technician_id);
                     if (!tech || tech.is_active === false) return null; // Hide inactive/fired technicians from map
 

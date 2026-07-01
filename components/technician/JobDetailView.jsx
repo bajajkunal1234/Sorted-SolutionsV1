@@ -992,9 +992,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const handleLocationVerifyYes = async () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         
-        // Mark the existing pin as verified by this technician
+        // Mark the existing pin as verified by this technician (only if it is a real property record)
         const propertyId = editedJob._raw_property?.id || null;
-        if (propertyId) {
+        const isRealProperty = propertyId && !String(propertyId).startsWith('inline');
+        if (isRealProperty) {
             const currentPropLat = editedJob._raw_property?.latitude || null;
             const currentPropLng = editedJob._raw_property?.longitude || null;
 
@@ -1037,9 +1038,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setVerifyLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const propertyId = editedJob._raw_property?.id || null;
+        const isRealProperty = propertyId && !String(propertyId).startsWith('inline');
         try {
-            // Update property pin + verified fields
-            if (propertyId) {
+            // Update property pin + verified fields (only if it is a real property record)
+            if (isRealProperty) {
                 await apiCall(`/api/admin/properties?id=${propertyId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
