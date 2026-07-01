@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Grid, Columns, Table as TableIcon, List, Settings } from 'lucide-react';
+import { Plus, Grid, Columns, Table as TableIcon, List, Settings, Map } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import dynamic from 'next/dynamic';
 import JobCard from './JobCard';
 import JobDetailModal from './JobDetailModal';
 import CreateJobForm from './CreateJobForm';
 import JobsCardView from './jobs/JobsCardView';
 import JobsTableView from './jobs/JobsTableView';
 import JobsListView from './jobs/JobsListView';
+
+const JobsMapView = dynamic(() => import('./jobs/JobsMapView'), { ssr: false });
 import BookingReviewModal from './jobs/BookingReviewModal';
 import { jobsAPI } from '@/lib/adminAPI';
 import { sortJobs, groupJobsBy, STATUS_ORDER } from '@/lib/utils/helpers';
@@ -345,6 +348,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                     saveStatus={saveStatus}
                     onResetView={handleResetView}
                     showAssignee={true}
+                    hideSortGroup={viewType === 'map'}
                 />
             </div>
 
@@ -352,7 +356,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View Type toggles */}
                 <div style={{ display: 'flex', gap: '4px' }}>
-                    {[{ type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }].map(({ type, Icon, label }) => (
+                    {[{ type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }, { type: 'map', Icon: Map, label: 'Map' }].map(({ type, Icon, label }) => (
                         <button key={type} onClick={() => setViewType(type)} title={label}
                             style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : 'transparent', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
                             <Icon size={13} />{label}
@@ -503,6 +507,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                             />
                         )}
                         {viewType === 'list'  && <JobsListView  jobs={processedJobs} onJobClick={handleJobClick} />}
+                        {viewType === 'map'   && <JobsMapView   jobs={processedJobs} onUpdateJob={handleUpdateJob} />}
                     </>
                 )}
             </div>

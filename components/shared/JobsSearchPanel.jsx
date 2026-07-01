@@ -153,6 +153,7 @@ export default function JobsSearchPanel({
     showAssignee = true,
     groupByOptions = DEFAULT_GROUP_BY_OPTIONS,
     sortByOptions = DEFAULT_SORT_BY_OPTIONS,
+    hideSortGroup = false,
 }) {
     const [open, setOpen] = useState(false);
     const [showCustomFilter, setShowCustomFilter] = useState(false);
@@ -295,12 +296,12 @@ export default function JobsSearchPanel({
                         ))}
 
                         {/* Group-by tag */}
-                        {groupBy && groupBy !== 'none' && (
+                        {!hideSortGroup && groupBy && groupBy !== 'none' && (
                             <FilterTag label={`Group: ${activeGroupBy?.label || groupBy}`} onRemove={() => onGroupByChange('none')} />
                         )}
 
                         {/* Sort tag */}
-                        {(sortBy !== 'dueDate' || sortOrder !== 'asc') && (
+                        {!hideSortGroup && (sortBy !== 'dueDate' || sortOrder !== 'asc') && (
                             <FilterTag
                                 label={`Sort: ${activeSortBy?.label || sortBy} ${sortOrder === 'asc' ? '↑' : '↓'}`}
                                 onRemove={() => { onSortByChange('dueDate'); onSortOrderChange('asc'); }}
@@ -444,79 +445,83 @@ export default function JobsSearchPanel({
                     </div>
 
                     {/* ── Group By Dropdown ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
-                            <Layers size={14} /> Group By:
+                    {!hideSortGroup && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
+                                <Layers size={14} /> Group By:
+                            </div>
+                            <select
+                                value={groupBy}
+                                onChange={e => onGroupByChange(e.target.value)}
+                                style={{
+                                    flex: 1,
+                                    padding: '6px 10px',
+                                    fontSize: '13px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #334155',
+                                    backgroundColor: '#0f172a',
+                                    color: '#e2e8f0',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {groupByOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
                         </div>
-                        <select
-                            value={groupBy}
-                            onChange={e => onGroupByChange(e.target.value)}
-                            style={{
-                                flex: 1,
-                                padding: '6px 10px',
-                                fontSize: '13px',
-                                borderRadius: '6px',
-                                border: '1px solid #334155',
-                                backgroundColor: '#0f172a',
-                                color: '#e2e8f0',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {groupByOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
-                    </div>
+                    )}
 
                     {/* ── Sort By Dropdown ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fb923c', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
-                            <ArrowUpDown size={14} /> Sort By:
+                    {!hideSortGroup && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fb923c', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
+                                <ArrowUpDown size={14} /> Sort By:
+                            </div>
+                            <select
+                                value={sortBy}
+                                onChange={e => {
+                                    onSortByChange(e.target.value);
+                                    if (e.target.value === 'dueDate' && sortBy !== 'dueDate') {
+                                        onSortOrderChange('asc');
+                                    }
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '6px 10px',
+                                    fontSize: '13px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #334155',
+                                    backgroundColor: '#0f172a',
+                                    color: '#e2e8f0',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {sortByOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: '13px',
+                                    borderRadius: '6px',
+                                    border: '1px solid #334155',
+                                    backgroundColor: '#0f172a',
+                                    color: '#fb923c',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    transition: 'all 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1e293b'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0f172a'}
+                            >
+                                {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
+                            </button>
                         </div>
-                        <select
-                            value={sortBy}
-                            onChange={e => {
-                                onSortByChange(e.target.value);
-                                if (e.target.value === 'dueDate' && sortBy !== 'dueDate') {
-                                    onSortOrderChange('asc');
-                                }
-                            }}
-                            style={{
-                                flex: 1,
-                                padding: '6px 10px',
-                                fontSize: '13px',
-                                borderRadius: '6px',
-                                border: '1px solid #334155',
-                                backgroundColor: '#0f172a',
-                                color: '#e2e8f0',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            {sortByOptions.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                        </select>
-                        <button
-                            onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
-                            style={{
-                                padding: '6px 12px',
-                                fontSize: '13px',
-                                borderRadius: '6px',
-                                border: '1px solid #334155',
-                                backgroundColor: '#0f172a',
-                                color: '#fb923c',
-                                cursor: 'pointer',
-                                fontWeight: 600,
-                                transition: 'all 0.15s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1e293b'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0f172a'}
-                        >
-                            {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
-                        </button>
-                    </div>
+                    )}
 
                     {/* ── Footer: Save View ── */}
                     <div style={{ padding: '10px 16px' }}>
