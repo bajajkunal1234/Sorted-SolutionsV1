@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench } from 'lucide-react';
+import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress, formatRelativeTime } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
@@ -594,6 +594,28 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                         <a href={`tel:${displayPhone}`} style={{ color: 'var(--color-primary)' }}>
                                             {displayPhone}
                                         </a>
+                                        {displayPhoneRaw && displayPhoneRaw !== 'N/A' && (
+                                            <a
+                                                href={`https://wa.me/${displayPhoneRaw.replace(/\D/g, '').length === 10 ? '91' + displayPhoneRaw.replace(/\D/g, '') : displayPhoneRaw.replace(/\D/g, '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-secondary"
+                                                style={{
+                                                    padding: '3px 8px',
+                                                    fontSize: '12px',
+                                                    height: 'auto',
+                                                    backgroundColor: 'rgba(34,197,94,0.08)',
+                                                    color: '#22c55e',
+                                                    border: '1px solid rgba(34,197,94,0.25)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    marginLeft: 'var(--spacing-xs)',
+                                                }}
+                                            >
+                                                <MessageCircle size={12} /> WhatsApp
+                                            </a>
+                                        )}
                                     </div>
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-start' }}>
                                         <MapPin size={16} style={{ marginTop: '3px', flexShrink: 0, color: 'var(--text-secondary)' }} />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog, UserX } from 'lucide-react';
+import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog, UserX, MessageCircle } from 'lucide-react';
 import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import NewAccountForm from '../accounts/NewAccountForm';
@@ -77,6 +77,12 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     ].filter(Boolean).join(', ') || booking.property?.address || '';
 
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress || cust.name || '')}`;
+
+    const whatsappUrl = useMemo(() => {
+        if (!cust.phone) return '';
+        const clean = cust.phone.replace(/\D/g, '');
+        return `https://wa.me/${clean.length === 10 ? '91' + clean : clean}`;
+    }, [cust.phone]);
 
     // ── Load account groups on demand ───────────────────────────────────────────
     const ensureGroups = async () => {
@@ -381,6 +387,25 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                                 {cust.phone && (
                                     <a href={`tel:${cust.phone}`} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
                                         <Phone size={14} /> Call
+                                    </a>
+                                )}
+                                {whatsappUrl && (
+                                    <a
+                                        href={whatsappUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary"
+                                        style={{
+                                            padding: '6px 12px',
+                                            backgroundColor: 'rgba(34,197,94,0.08)',
+                                            color: '#22c55e',
+                                            border: '1px solid rgba(34,197,94,0.25)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                        }}
+                                    >
+                                        <MessageCircle size={14} /> WhatsApp
                                     </a>
                                 )}
                                 {fullAddress && (
