@@ -3,31 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Navigation, User, Briefcase, Calendar, CheckCircle, Clock, Loader2, Phone } from 'lucide-react';
+import { User, Briefcase, Calendar, Loader2, Phone } from 'lucide-react';
 import { techniciansAPI } from '@/lib/adminAPI';
 import { generateInitialsAvatar } from '@/lib/utils/accountHelpers';
-
-// Leaflet default marker fix (fallback icon)
-const techIcon = typeof window !== 'undefined' ? L.divIcon({
-    html: `<div style="
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        border: 2px solid #eab308;
-        background-color: #fef08a;
-        color: #854d0e;
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-        font-weight: bold;
-    ">🔧</div>`,
-    className: 'custom-tech-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-}) : null;
 
 // Robust helper to resolve coordinates from a job object or its linked property/customer properties
 function getJobCoordinates(job) {
@@ -144,6 +122,10 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     const [activeJobId, setActiveJobId] = useState(null);
     const [expandedJobId, setExpandedJobId] = useState(null);
 
+    // Marker styling customization states
+    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'pin' | 'compact'
+    const [techMarkerType, setTechMarkerType] = useState('wrench'); // 'wrench' | 'pin' | 'avatar'
+
     // Fetch technicians and fleet locations on mount
     const fetchTechData = async () => {
         setLoadingTechs(true);
@@ -170,13 +152,61 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         return () => clearInterval(timer);
     }, []);
 
-    // Helper to build circular client icons containing photo or initials
+    // Helper to build customer markers based on selected customization
     const getCustomerIcon = (job) => {
         const name = job.customer?.name || job.customer_name || 'Customer';
         const img = job.customer?.accountImage;
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
         const avatar = generateInitialsAvatar(name);
 
+        if (custMarkerType === 'pin') {
+            const htmlContent = img
+                ? `<div style="position: relative; width: 34px; height: 42px;">
+                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
+                       <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                     </svg>
+                     <div style="position: absolute; top: 4px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                       <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
+                     </div>
+                   </div>`
+                : `<div style="position: relative; width: 34px; height: 42px;">
+                     <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
+                       <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                     </svg>
+                     <div style="position: absolute; top: 4px; left: 7px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8px; font-weight: 700; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
+                       ${initials}
+                     </div>
+                   </div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-customer-marker-pin',
+                iconSize: [34, 42],
+                iconAnchor: [17, 42],
+                popupAnchor: [0, -42]
+            });
+        }
+
+        if (custMarkerType === 'compact') {
+            const htmlContent = `<div style="
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                border: 2px solid #ffffff;
+                background-color: #3b82f6;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            "></div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-customer-marker-compact',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7],
+                popupAnchor: [0, -7]
+            });
+        }
+
+        // Default 'circle' icon
         const htmlContent = img
             ? `<div style="
                 width: 34px;
@@ -211,10 +241,80 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
         return L.divIcon({
             html: htmlContent,
-            className: 'custom-customer-marker',
+            className: 'custom-customer-marker-circle',
             iconSize: [34, 34],
             iconAnchor: [17, 17],
             popupAnchor: [0, -17]
+        });
+    };
+
+    // Helper to build technician markers dynamically based on selected style option
+    const getTechIcon = (tech) => {
+        const name = tech?.name || 'Technician';
+        const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+        if (techMarkerType === 'pin') {
+            const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
+                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#eab308"/>
+                </svg>
+                <div style="position: absolute; top: 6px; left: 9px; font-size: 11px;">🔧</div>
+              </div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-tech-marker-pin',
+                iconSize: [34, 42],
+                iconAnchor: [17, 42],
+                popupAnchor: [0, -42]
+            });
+        }
+
+        if (techMarkerType === 'avatar') {
+            const htmlContent = `<div style="
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: 2px solid #eab308;
+                background-color: #fef08a;
+                color: #854d0e;
+                font-size: 11px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+                font-weight: bold;
+              ">${initials}</div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-tech-marker-avatar',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -16]
+            });
+        }
+
+        // Default 'wrench' circle icon
+        return L.divIcon({
+            html: `<div style="
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: 2px solid #eab308;
+                background-color: #fef08a;
+                color: #854d0e;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+                font-weight: bold;
+            ">🔧</div>`,
+            className: 'custom-tech-marker-wrench',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -16]
         });
     };
 
@@ -307,6 +407,93 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+            {/* Global dark styling overrides for Leaflet popups */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+                    background: #1e293b !important;
+                    color: #f8fafc !important;
+                    border: 1px solid rgba(255,255,255,0.08) !important;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+                    border-radius: 12px !important;
+                }
+                .leaflet-popup-content {
+                    margin: 12px !important;
+                }
+                .leaflet-container a.leaflet-popup-close-button {
+                    color: #94a3b8 !important;
+                    padding: 8px 8px 0 0 !important;
+                }
+                .leaflet-container a.leaflet-popup-close-button:hover {
+                    color: #f1f5f9 !important;
+                }
+            ` }} />
+
+            {/* Custom Marker Option Dropdowns */}
+            <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                backgroundColor: 'rgba(30, 41, 59, 0.85)',
+                backdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '10px',
+                padding: '10px 12px',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                width: '170px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+            }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Marker Styles</div>
+                
+                {/* Customer dropdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Customers:</label>
+                    <select
+                        value={custMarkerType}
+                        onChange={(e) => setCustMarkerType(e.target.value)}
+                        style={{
+                            padding: '4px 6px',
+                            borderRadius: '5px',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #334155',
+                            color: '#f8fafc',
+                            fontSize: '11px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="circle">Photo/Initials Circle</option>
+                        <option value="pin">Standard Map Pin</option>
+                        <option value="compact">Compact Dot</option>
+                    </select>
+                </div>
+
+                {/* Tech dropdown */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Technicians:</label>
+                    <select
+                        value={techMarkerType}
+                        onChange={(e) => setTechMarkerType(e.target.value)}
+                        style={{
+                            padding: '4px 6px',
+                            borderRadius: '5px',
+                            backgroundColor: '#0f172a',
+                            border: '1px solid #334155',
+                            color: '#f8fafc',
+                            fontSize: '11px',
+                            outline: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="wrench">Wrench Circle</option>
+                        <option value="pin">Standard Map Pin</option>
+                        <option value="avatar">Tech Initials Circle</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Map Container */}
             <MapContainer
                 center={[19.117, 72.905]} // Default Mumbai area
@@ -333,7 +520,6 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                             icon={getCustomerIcon(representativeJob)}
                             eventHandlers={{
                                 click: () => {
-                                    // Auto-expand first job if there is only 1 job at this property
                                     if (propertyJobs.length === 1) {
                                         setExpandedJobId(representativeJob.id);
                                         handleCalculateDistances(lat, lng, representativeJob.id);
@@ -350,7 +536,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                             </Tooltip>
 
                             <Popup maxWidth={320}>
-                                <div style={{ minWidth: '280px', color: '#f1f5f9', fontFamily: 'inherit', maxHeight: '340px', overflowY: 'auto' }}>
+                                <div style={{ minWidth: '270px', color: '#f8fafc', fontFamily: 'inherit', maxHeight: '340px', overflowY: 'auto' }}>
                                     {/* Property Header */}
                                     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', marginBottom: '8px' }}>
                                         <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', margin: 0 }}>{customerName}</h4>
@@ -378,11 +564,11 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                 handleCalculateDistances(lat, lng, job.id);
                                                             }
                                                         }}
-                                                        style={{ padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(56,189,248,0.08)' : 'transparent', transition: 'background-color 0.2s' }}
+                                                        style={{ padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(56,189,248,0.12)' : 'transparent', transition: 'background-color 0.2s' }}
                                                     >
-                                                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '75%' }}>
-                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#e2e8f0' }}>{job.job_number}</span>
-                                                            <span style={{ fontSize: '10px', color: '#94a3b8', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{job.category || job.appliance || 'Service Job'}</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '70%' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>{job.job_number}</span>
+                                                            <span style={{ fontSize: '10px', color: '#cbd5e1', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{job.category || job.appliance || 'Service Job'}</span>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                             <span style={{
@@ -391,27 +577,27 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                 borderRadius: '10px',
                                                                 backgroundColor: isAssigned ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
                                                                 color: isAssigned ? '#10b981' : '#ef4444',
-                                                                fontWeight: 600,
+                                                                fontWeight: 700,
                                                                 textTransform: 'capitalize'
                                                             }}>{job.status.replace(/_/g, ' ')}</span>
-                                                            <span style={{ fontSize: '9px', color: '#64748b' }}>{isExpanded ? '▼' : '▶'}</span>
+                                                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>{isExpanded ? '▼' : '▶'}</span>
                                                         </div>
                                                     </div>
 
                                                     {/* Expanded details */}
                                                     {isExpanded && (
-                                                        <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(0,0,0,0.15)' }}>
-                                                            <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                                                        <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(15,23,42,0.6)' }}>
+                                                            <p style={{ fontSize: '11px', color: '#f1f5f9', margin: '0 0 8px 0', lineHeight: '1.4', fontWeight: 500 }}>
                                                                 {job.description || 'No description provided.'}
                                                             </p>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px', color: '#94a3b8', marginBottom: '10px' }}>
-                                                                <div>📅 Scheduled: {job.scheduled_date || job.dueDate || 'N/A'}</div>
+                                                                <div>📅 Scheduled: <span style={{ color: '#cbd5e1' }}>{job.scheduled_date || job.dueDate || 'N/A'}</span></div>
                                                                 <div>🔧 Current Tech: <strong style={{ color: isAssigned ? '#fbbf24' : '#ef4444' }}>{job.technician_name || 'Unassigned'}</strong></div>
                                                             </div>
 
                                                             {/* Proximity calculations */}
                                                             <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '8px' }}>
-                                                                <h5 style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
+                                                                <h5 style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', color: '#94a3b8', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
                                                                     Assign Technician
                                                                 </h5>
 
@@ -428,10 +614,10 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                     const distInfo = distances[t.id];
                                                                                     const isCurrent = job.technician_id === t.id;
                                                                                     return (
-                                                                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                                                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
                                                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                                                <span style={{ fontSize: '10px', fontWeight: 600, color: '#e2e8f0' }}>{t.name}</span>
-                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 500 }}>🚗 {distInfo.distance} ({distInfo.duration})</span>
+                                                                                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
+                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 600 }}>🚗 {distInfo.distance} ({distInfo.duration})</span>
                                                                                             </div>
                                                                                             <button
                                                                                                 onClick={() => handleAssign(job, t)}
@@ -439,7 +625,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                 style={{
                                                                                                     padding: '2px 6px',
                                                                                                     fontSize: '9px',
-                                                                                                    fontWeight: 700,
+                                                                                                    fontWeight: 800,
                                                                                                     borderRadius: '3px',
                                                                                                     border: 'none',
                                                                                                     cursor: isCurrent ? 'default' : 'pointer',
@@ -453,7 +639,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                     );
                                                                                 })
                                                                         ) : (
-                                                                            <div style={{ fontSize: '10px', color: '#64748b', padding: '4px 0' }}>
+                                                                            <div style={{ fontSize: '10px', color: '#94a3b8', padding: '4px 0' }}>
                                                                                 No technicians with active live location nearby.
                                                                             </div>
                                                                         )}
@@ -472,9 +658,9 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                     width: '100%',
                                                                                     padding: '4px',
                                                                                     borderRadius: '3px',
-                                                                                    backgroundColor: '#1e293b',
-                                                                                    border: '1px solid #475569',
-                                                                                    color: '#e2e8f0',
+                                                                                    backgroundColor: '#0f172a',
+                                                                                    border: '1px solid #334155',
+                                                                                    color: '#f8fafc',
                                                                                     fontSize: '10px',
                                                                                     cursor: 'pointer',
                                                                                     outline: 'none'
@@ -513,7 +699,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                         <Marker
                             key={loc.technician_id}
                             position={[loc.latitude, loc.longitude]}
-                            icon={techIcon}
+                            icon={getTechIcon(tech)}
                         >
                             <Tooltip direction="top" offset={[0, -16]}>
                                 <div>
