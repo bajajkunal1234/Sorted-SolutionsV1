@@ -125,9 +125,30 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     // Active routing layer
     const [activeRoute, setActiveRoute] = useState(null);
 
-    // Marker styling customization states
-    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'pin' | 'compact-pin' | 'compact'
+    // Marker styling customization states (initialized from localStorage with client fallback)
+    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'compact-pin' | 'pin' | 'compact'
     const [techMarkerType, setTechMarkerType] = useState('wrench'); // 'wrench' | 'pin' | 'avatar'
+
+    // Load saved styles on mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedCust = localStorage.getItem('custMarkerType');
+            const savedTech = localStorage.getItem('techMarkerType');
+            if (savedCust) setCustMarkerType(savedCust);
+            if (savedTech) setTechMarkerType(savedTech);
+        }
+    }, []);
+
+    // Save style modifications
+    const handleCustMarkerStyleChange = (val) => {
+        setCustMarkerType(val);
+        localStorage.setItem('custMarkerType', val);
+    };
+
+    const handleTechMarkerStyleChange = (val) => {
+        setTechMarkerType(val);
+        localStorage.setItem('techMarkerType', val);
+    };
 
     // Fetch technicians and fleet locations on mount
     const fetchTechData = async () => {
@@ -168,7 +189,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                      <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
                      </svg>
-                     <div style="position: absolute; top: 4px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 5px; left: 7px; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
@@ -176,7 +197,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                      <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
                      </svg>
-                     <div style="position: absolute; top: 4px; left: 7px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8px; font-weight: 700; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
+                     <div style="position: absolute; top: 5px; left: 7px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 8px; font-weight: 700; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
                        ${initials}
                      </div>
                    </div>`;
@@ -196,7 +217,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                      <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
                      </svg>
-                     <div style="position: absolute; top: 3px; left: 4px; width: 16px; height: 16px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                     <div style="position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
                        <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
                      </div>
                    </div>`
@@ -204,7 +225,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                      <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                        <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
                      </svg>
-                     <div style="position: absolute; top: 3px; left: 4.5px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px; font-weight: 800; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
+                     <div style="position: absolute; top: 5px; left: 5px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px; font-weight: 800; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
                        ${initials}
                      </div>
                    </div>`;
@@ -356,11 +377,14 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         setDistances({});
 
         const candidates = technicians
-            .filter(t => t.is_active !== false)
             .map(tech => {
                 const liveLoc = fleetLocations.find(l => l.technician_id === tech.id);
                 if (!liveLoc || !liveLoc.latitude || !liveLoc.longitude) {
-                    return { ...tech, straightDist: Infinity };
+                    return { 
+                        ...tech, 
+                        straightDist: Infinity, 
+                        hasLocation: false 
+                    };
                 }
                 const dist = getHaversineDistance(
                     lat, lng,
@@ -370,16 +394,19 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     ...tech, 
                     straightDist: dist, 
                     coords: `${liveLoc.latitude},${liveLoc.longitude}`,
-                    isOnline: liveLoc.is_online
+                    isOnline: liveLoc.is_online,
+                    hasLocation: true
                 };
             });
 
         // Filter and sort candidates
-        candidates.sort((a, b) => a.straightDist - b.straightDist);
-        const closestCandidates = candidates.slice(0, 5).filter(t => t.straightDist !== Infinity);
+        const closestWithLocation = candidates
+            .filter(c => c.hasLocation)
+            .sort((a, b) => a.straightDist - b.straightDist)
+            .slice(0, 5);
 
         const googleResults = {};
-        await Promise.all(closestCandidates.map(async (tech) => {
+        await Promise.all(closestWithLocation.map(async (tech) => {
             try {
                 const res = await fetch(`/api/admin/google-distance?origin=${tech.coords}&destination=${lat},${lng}`);
                 const data = await res.json();
@@ -387,13 +414,37 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     googleResults[tech.id] = {
                         distance: data.distance,
                         duration: data.duration,
-                        isOnline: tech.isOnline
+                        isOnline: tech.isOnline,
+                        hasLocation: true
                     };
                 }
             } catch (err) {
                 console.error('Google Matrix computation failed:', err);
             }
         }));
+
+        // Populate map for ALL technicians (with coordinates or not)
+        candidates.forEach(tech => {
+            if (tech.hasLocation) {
+                if (!googleResults[tech.id]) {
+                    // Fallback to straight distance if Google route failed
+                    googleResults[tech.id] = {
+                        distance: `${tech.straightDist.toFixed(1)} km (straight)`,
+                        duration: 'N/A',
+                        isOnline: tech.isOnline,
+                        hasLocation: true
+                    };
+                }
+            } else {
+                // Return offline entry
+                googleResults[tech.id] = {
+                    distance: 'No GPS Location',
+                    duration: 'N/A',
+                    isOnline: false,
+                    hasLocation: false
+                };
+            }
+        });
 
         setDistances(googleResults);
         setLoadingDistances(false);
@@ -512,7 +563,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Customers:</label>
                     <select
                         value={custMarkerType}
-                        onChange={(e) => setCustMarkerType(e.target.value)}
+                        onChange={(e) => handleCustMarkerStyleChange(e.target.value)}
                         style={{
                             padding: '4px 6px',
                             borderRadius: '5px',
@@ -536,7 +587,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     <label style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600 }}>Technicians:</label>
                     <select
                         value={techMarkerType}
-                        onChange={(e) => setTechMarkerType(e.target.value)}
+                        onChange={(e) => handleTechMarkerStyleChange(e.target.value)}
                         style={{
                             padding: '4px 6px',
                             borderRadius: '5px',
@@ -590,7 +641,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
                     return (
                         <Marker
-                            key={group.id}
+                            key={`${group.id}-${custMarkerType}`}
                             position={[lat, lng]}
                             icon={getCustomerIcon(representativeJob)}
                             eventHandlers={{
@@ -601,7 +652,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                     } else {
                                         setExpandedJobId(null);
                                     }
-                                    setActiveRoute(null); // Clear routing when opening different customer
+                                    setActiveRoute(null);
                                 }
                             }}
                         >
@@ -636,7 +687,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                         onClick={() => {
                                                             const nextVal = isExpanded ? null : job.id;
                                                             setExpandedJobId(nextVal);
-                                                            setActiveRoute(null); // Clear routing on job toggle
+                                                            setActiveRoute(null);
                                                             if (nextVal) {
                                                                 handleCalculateDistances(lat, lng, job.id);
                                                             }
@@ -684,18 +735,34 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                     </div>
                                                                 ) : (
                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                                                        {Object.keys(distances).length > 0 && activeJobId === job.id ? (
+                                                                        {activeJobId === job.id && Object.keys(distances).length > 0 ? (
                                                                             technicians
-                                                                                .filter(t => distances[t.id])
+                                                                                .map(t => ({
+                                                                                    ...t,
+                                                                                    distInfo: distances[t.id]
+                                                                                }))
+                                                                                .sort((a, b) => {
+                                                                                    const aHas = a.distInfo?.hasLocation ? 1 : 0;
+                                                                                    const bHas = b.distInfo?.hasLocation ? 1 : 0;
+                                                                                    if (aHas !== bHas) return bHas - aHas;
+                                                                                    // If both have location, sort by straight distance
+                                                                                    if (aHas && bHas) {
+                                                                                        return a.straightDist - b.straightDist;
+                                                                                    }
+                                                                                    return 0;
+                                                                                })
                                                                                 .map(t => {
-                                                                                    const distInfo = distances[t.id];
+                                                                                    const distInfo = t.distInfo;
                                                                                     const isCurrent = job.technician_id === t.id;
                                                                                     const isShowingRoute = activeRoute && activeRoute.techId === t.id && activeRoute.jobId === job.id;
+                                                                                    const hasLoc = distInfo?.hasLocation;
 
                                                                                     return (
                                                                                         <div 
                                                                                             key={t.id} 
-                                                                                            onClick={() => handleCalculateRoute(t, job, lat, lng)}
+                                                                                            onClick={() => {
+                                                                                                if (hasLoc) handleCalculateRoute(t, job, lat, lng);
+                                                                                            }}
                                                                                             style={{ 
                                                                                                 display: 'flex', 
                                                                                                 alignItems: 'center', 
@@ -704,18 +771,20 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                                 borderRadius: '4px', 
                                                                                                 backgroundColor: isShowingRoute ? 'rgba(14, 165, 233, 0.15)' : 'rgba(255,255,255,0.03)', 
                                                                                                 border: isShowingRoute ? '1px solid rgba(14, 165, 233, 0.4)' : '1px solid rgba(255,255,255,0.05)',
-                                                                                                cursor: 'pointer',
+                                                                                                cursor: hasLoc ? 'pointer' : 'default',
                                                                                                 transition: 'all 0.15s'
                                                                                             }}
-                                                                                            title="Click to view driving route on map"
+                                                                                            title={hasLoc ? "Click to view driving route on map" : "Live location unavailable"}
                                                                                         >
                                                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                                                                 <span style={{ fontSize: '10px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
-                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 600 }}>🚗 {distInfo.distance} ({distInfo.duration}) {isShowingRoute ? '🗺️' : ''}</span>
+                                                                                                <span style={{ fontSize: '8px', color: hasLoc ? '#38bdf8' : '#94a3b8', fontWeight: 600 }}>
+                                                                                                    {hasLoc ? `🚗 ${distInfo.distance} (${distInfo.duration})` : '🚗 Location Unavailable'} {isShowingRoute ? '🗺️' : ''}
+                                                                                                </span>
                                                                                             </div>
                                                                                             <button
                                                                                                 onClick={(e) => {
-                                                                                                    e.stopPropagation(); // Avoid triggering routing toggle when assigning
+                                                                                                    e.stopPropagation();
                                                                                                     handleAssign(job, t);
                                                                                                 }}
                                                                                                 disabled={isCurrent}
@@ -737,41 +806,9 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                 })
                                                                         ) : (
                                                                             <div style={{ fontSize: '10px', color: '#94a3b8', padding: '4px 0' }}>
-                                                                                No technicians with active live location nearby.
+                                                                                No technicians available.
                                                                             </div>
                                                                         )}
-
-                                                                        {/* Other tech dropdown fallback */}
-                                                                        <div style={{ marginTop: '4px' }}>
-                                                                            <select
-                                                                                onChange={(e) => {
-                                                                                    const val = e.target.value;
-                                                                                    if (!val) return;
-                                                                                    const t = technicians.find(tech => tech.id === val);
-                                                                                    if (t) handleAssign(job, t);
-                                                                                    e.target.value = '';
-                                                                                }}
-                                                                                style={{
-                                                                                    width: '100%',
-                                                                                    padding: '4px',
-                                                                                    borderRadius: '3px',
-                                                                                    backgroundColor: '#0f172a',
-                                                                                    border: '1px solid #334155',
-                                                                                    color: '#f8fafc',
-                                                                                    fontSize: '10px',
-                                                                                    cursor: 'pointer',
-                                                                                    outline: 'none'
-                                                                                }}
-                                                                            >
-                                                                                <option value="">— Reassign to other tech —</option>
-                                                                                {technicians
-                                                                                    .filter(t => t.is_active !== false && t.id !== job.technician_id)
-                                                                                    .map(t => (
-                                                                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                                                                    ))
-                                                                                }
-                                                                            </select>
-                                                                        </div>
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -790,11 +827,11 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 {/* Technician Live Location Markers */}
                 {fleetLocations.map(loc => {
                     const tech = technicians.find(t => t.id === loc.technician_id);
-                    if (!tech || tech.is_active === false) return null;
+                    if (!tech) return null;
 
                     return (
                         <Marker
-                            key={loc.technician_id}
+                            key={`${loc.technician_id}-${techMarkerType}`}
                             position={[loc.latitude, loc.longitude]}
                             icon={getTechIcon(tech)}
                         >
