@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { MapPin, Navigation, User, Briefcase, Calendar, CheckCircle, Clock, Loader2, Phone } from 'lucide-react';
@@ -106,22 +106,17 @@ function getJobCoordinates(job) {
 }
 
 // Helper to center the map when jobs change
-function MapCenterController({ jobs }) {
+function MapCenterController({ groups }) {
     const map = useMap();
     useEffect(() => {
-        if (!jobs || jobs.length === 0) return;
-        const validCoords = jobs
-            .map(j => {
-                const coords = getJobCoordinates(j);
-                return coords ? [coords.lat, coords.lng] : null;
-            })
-            .filter(Boolean);
+        if (!groups || groups.length === 0) return;
+        const validCoords = groups.map(g => [g.lat, g.lng]);
 
         if (validCoords.length > 0) {
             const bounds = L.latLngBounds(validCoords);
             map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
         }
-    }, [jobs, map]);
+    }, [groups, map]);
     return null;
 }
 
@@ -147,6 +142,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     const [distances, setDistances] = useState({});
     const [loadingDistances, setLoadingDistances] = useState(false);
     const [activeJobId, setActiveJobId] = useState(null);
+    const [expandedJobId, setExpandedJobId] = useState(null);
 
     // Fetch technicians and fleet locations on mount
     const fetchTechData = async () => {
@@ -170,7 +166,6 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
     useEffect(() => {
         fetchTechData();
-        // Refresh live locations every 45 seconds
         const timer = setInterval(fetchTechData, 45000);
         return () => clearInterval(timer);
     }, []);
@@ -224,13 +219,8 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     };
 
     // Calculate real-road google distances for nearest 5 technicians
-    const handleCalculateDistances = async (job) => {
-        const coords = getJobCoordinates(job);
-        if (!coords) return;
-        const jobLat = coords.lat;
-        const jobLng = coords.lng;
-
-        setActiveJobId(job.id);
+    const handleCalculateDistances = async (lat, lng, jobId) => {
+        setActiveJobId(jobId);
         setLoadingDistances(true);
         setDistances({});
 
@@ -242,7 +232,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     return { ...tech, straightDist: Infinity };
                 }
                 const dist = getHaversineDistance(
-                    jobLat, jobLng,
+                    lat, lng,
                     liveLoc.latitude, liveLoc.longitude
                 );
                 return { 
@@ -260,7 +250,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         const googleResults = {};
         await Promise.all(closestCandidates.map(async (tech) => {
             try {
-                const res = await fetch(`/api/admin/google-distance?origin=${tech.coords}&destination=${jobLat},${jobLng}`);
+                const res = await fetch(`/api/admin/google-distance?origin=${tech.coords}&destination=${lat},${lng}`);
                 const data = await res.json();
                 if (data.success) {
                     googleResults[tech.id] = {
@@ -278,9 +268,27 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         setLoadingDistances(false);
     };
 
-    // Filter jobs that have valid coordinates
-    const geocodedJobs = useMemo(() => {
-        return jobs.filter(j => !!getJobCoordinates(j));
+    // Group jobs by property coordinates
+    const propertiesGroup = useMemo(() => {
+        const groups = {};
+        jobs.forEach(job => {
+            const coords = getJobCoordinates(job);
+            if (!coords) return;
+            const propId = job.property_id || job.property?.id || `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+            if (!groups[propId]) {
+                groups[propId] = {
+                    id: propId,
+                    lat: coords.lat,
+                    lng: coords.lng,
+                    property: job.property,
+                    customer: job.customer,
+                    customerName: job.customer_name || job.customer?.name || 'Customer',
+                    jobs: []
+                };
+            }
+            groups[propId].jobs.push(job);
+        });
+        return Object.values(groups);
     }, [jobs]);
 
     // Handle technician assignment from popup
@@ -311,156 +319,184 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     attribution='&copy; Google Maps'
                 />
 
-                <MapCenterController jobs={geocodedJobs} />
+                <MapCenterController groups={propertiesGroup} />
 
-                {/* Customer Job Markers */}
-                {geocodedJobs.map(job => {
-                    const coords = getJobCoordinates(job);
-                    if (!coords) return null;
-                    const { lat, lng } = coords;
-                    const customerName = job.customer?.name || job.customer_name || 'Customer';
-                    const isAssigned = !!job.technician_id;
+                {/* Customer Properties Markers */}
+                {propertiesGroup.map(group => {
+                    const { lat, lng, customerName, jobs: propertyJobs } = group;
+                    const representativeJob = propertyJobs[0];
 
                     return (
                         <Marker
-                            key={job.id}
+                            key={group.id}
                             position={[lat, lng]}
-                            icon={getCustomerIcon(job)}
+                            icon={getCustomerIcon(representativeJob)}
                             eventHandlers={{
-                                click: () => handleCalculateDistances(job)
+                                click: () => {
+                                    // Auto-expand first job if there is only 1 job at this property
+                                    if (propertyJobs.length === 1) {
+                                        setExpandedJobId(representativeJob.id);
+                                        handleCalculateDistances(lat, lng, representativeJob.id);
+                                    } else {
+                                        setExpandedJobId(null);
+                                    }
+                                }
                             }}
                         >
                             <Tooltip direction="top" offset={[0, -18]}>
                                 <div>
-                                    <span style={{ fontWeight: 600 }}>{job.job_number}</span> - {customerName}
+                                    <span style={{ fontWeight: 600 }}>{customerName}</span> ({propertyJobs.length} {propertyJobs.length === 1 ? 'job' : 'jobs'})
                                 </div>
                             </Tooltip>
 
                             <Popup maxWidth={320}>
-                                <div style={{ minWidth: '260px', color: '#f1f5f9', fontFamily: 'inherit' }}>
-                                    {/* Job Header */}
+                                <div style={{ minWidth: '280px', color: '#f1f5f9', fontFamily: 'inherit', maxHeight: '340px', overflowY: 'auto' }}>
+                                    {/* Property Header */}
                                     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', marginBottom: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#38bdf8' }}>{job.job_number}</span>
-                                            <span style={{
-                                                fontSize: '10px',
-                                                padding: '2px 6px',
-                                                borderRadius: '12px',
-                                                backgroundColor: isAssigned ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                                                color: isAssigned ? '#10b981' : '#ef4444',
-                                                fontWeight: 600,
-                                                textTransform: 'capitalize'
-                                            }}>{job.status.replace(/_/g, ' ')}</span>
-                                        </div>
-                                        <h4 style={{ fontSize: '13px', fontWeight: 600, margin: '4px 0 0', color: '#e2e8f0' }}>{job.jobName || job.description || 'Job details'}</h4>
-                                    </div>
-
-                                    {/* Job Meta Info */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <User size={13} /> <span style={{ color: '#cbd5e1' }}>{customerName}</span>
-                                        </div>
-                                        {job.customer?.mobile && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Phone size={13} /> <span style={{ color: '#cbd5e1' }}>{job.customer.mobile}</span>
-                                            </div>
+                                        <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', margin: 0 }}>{customerName}</h4>
+                                        {group.property && (
+                                            <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0', lineHeight: 1.3 }}>
+                                                📍 {[group.property.flat_number, group.property.building_name, group.property.address].filter(Boolean).join(', ')}
+                                            </p>
                                         )}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Calendar size={13} /> <span>Scheduled: {job.scheduled_date || job.dueDate || 'N/A'}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Briefcase size={13} />
-                                            <span>
-                                                Current Assignee: <strong style={{ color: isAssigned ? '#fbbf24' : '#ef4444' }}>{job.technician_name || 'Unassigned'}</strong>
-                                            </span>
-                                        </div>
                                     </div>
 
-                                    {/* Proximity / Routing Assignment Tool */}
-                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '8px' }}>
-                                        <h5 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
-                                            Proximity Assignment
-                                        </h5>
+                                    {/* Jobs List at Property */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {propertyJobs.map(job => {
+                                            const isExpanded = expandedJobId === job.id;
+                                            const isAssigned = !!job.technician_id;
 
-                                        {loadingDistances ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px 0', color: '#38bdf8', fontSize: '12px' }}>
-                                                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Calculating Google routes...
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '180px', overflowY: 'auto', paddingRight: '4px' }}>
-                                                {/* Listed closest technicians via Google Maps */}
-                                                {Object.keys(distances).length > 0 ? (
-                                                    technicians
-                                                        .filter(t => distances[t.id])
-                                                        .map(t => {
-                                                            const distInfo = distances[t.id];
-                                                            const isCurrent = job.technician_id === t.id;
-                                                            return (
-                                                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: '6px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#e2e8f0' }}>{t.name}</span>
-                                                                        <span style={{ fontSize: '9px', color: '#38bdf8', fontWeight: 500 }}>
-                                                                            🚗 {distInfo.distance} ({distInfo.duration})
-                                                                        </span>
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => handleAssign(job, t)}
-                                                                        disabled={isCurrent}
-                                                                        style={{
-                                                                            padding: '3px 8px',
-                                                                            fontSize: '10px',
-                                                                            fontWeight: 700,
-                                                                            borderRadius: '4px',
-                                                                            border: 'none',
-                                                                            cursor: isCurrent ? 'default' : 'pointer',
-                                                                            backgroundColor: isCurrent ? 'rgba(16,185,129,0.15)' : '#38bdf8',
-                                                                            color: isCurrent ? '#10b981' : '#0f172a'
-                                                                        }}
-                                                                    >
-                                                                        {isCurrent ? 'Assigned' : 'Assign'}
-                                                                    </button>
-                                                                </div>
-                                                            );
-                                                        })
-                                                ) : (
-                                                    <div style={{ fontSize: '11px', color: '#64748b', padding: '4px 0' }}>
-                                                        No technicians with active live location nearby.
-                                                    </div>
-                                                )}
-
-                                                {/* Expandable fallback dropdown for all active technicians */}
-                                                <div style={{ marginTop: '4px' }}>
-                                                    <select
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            if (!val) return;
-                                                            const t = technicians.find(tech => tech.id === val);
-                                                            if (t) handleAssign(job, t);
-                                                            e.target.value = '';
+                                            return (
+                                                <div key={job.id} style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                                                    {/* Job Accordion Header */}
+                                                    <div 
+                                                        onClick={() => {
+                                                            const nextVal = isExpanded ? null : job.id;
+                                                            setExpandedJobId(nextVal);
+                                                            if (nextVal) {
+                                                                handleCalculateDistances(lat, lng, job.id);
+                                                            }
                                                         }}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '5px',
-                                                            borderRadius: '4px',
-                                                            backgroundColor: '#1e293b',
-                                                            border: '1px solid #475569',
-                                                            color: '#e2e8f0',
-                                                            fontSize: '11px',
-                                                            cursor: 'pointer',
-                                                            outline: 'none'
-                                                        }}
+                                                        style={{ padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(56,189,248,0.08)' : 'transparent', transition: 'background-color 0.2s' }}
                                                     >
-                                                        <option value="">— Reassign to other tech —</option>
-                                                        {technicians
-                                                            .filter(t => t.is_active !== false && t.id !== job.technician_id)
-                                                            .map(t => (
-                                                                <option key={t.id} value={t.id}>{t.name}</option>
-                                                            ))
-                                                        }
-                                                    </select>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '75%' }}>
+                                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#e2e8f0' }}>{job.job_number}</span>
+                                                            <span style={{ fontSize: '10px', color: '#94a3b8', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{job.category || job.appliance || 'Service Job'}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{
+                                                                fontSize: '9px',
+                                                                padding: '1px 5px',
+                                                                borderRadius: '10px',
+                                                                backgroundColor: isAssigned ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                                                                color: isAssigned ? '#10b981' : '#ef4444',
+                                                                fontWeight: 600,
+                                                                textTransform: 'capitalize'
+                                                            }}>{job.status.replace(/_/g, ' ')}</span>
+                                                            <span style={{ fontSize: '9px', color: '#64748b' }}>{isExpanded ? '▼' : '▶'}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Expanded details */}
+                                                    {isExpanded && (
+                                                        <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(0,0,0,0.15)' }}>
+                                                            <p style={{ fontSize: '11px', color: '#cbd5e1', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                                                                {job.description || 'No description provided.'}
+                                                            </p>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px', color: '#94a3b8', marginBottom: '10px' }}>
+                                                                <div>📅 Scheduled: {job.scheduled_date || job.dueDate || 'N/A'}</div>
+                                                                <div>🔧 Current Tech: <strong style={{ color: isAssigned ? '#fbbf24' : '#ef4444' }}>{job.technician_name || 'Unassigned'}</strong></div>
+                                                            </div>
+
+                                                            {/* Proximity calculations */}
+                                                            <div style={{ borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '8px' }}>
+                                                                <h5 style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', margin: '0 0 6px 0', letterSpacing: '0.5px' }}>
+                                                                    Assign Technician
+                                                                </h5>
+
+                                                                {loadingDistances && activeJobId === job.id ? (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', color: '#38bdf8', padding: '6px 0' }}>
+                                                                        <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Calculating Google routes...
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                                        {Object.keys(distances).length > 0 && activeJobId === job.id ? (
+                                                                            technicians
+                                                                                .filter(t => distances[t.id])
+                                                                                .map(t => {
+                                                                                    const distInfo = distances[t.id];
+                                                                                    const isCurrent = job.technician_id === t.id;
+                                                                                    return (
+                                                                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                                                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                                                <span style={{ fontSize: '10px', fontWeight: 600, color: '#e2e8f0' }}>{t.name}</span>
+                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 500 }}>🚗 {distInfo.distance} ({distInfo.duration})</span>
+                                                                                            </div>
+                                                                                            <button
+                                                                                                onClick={() => handleAssign(job, t)}
+                                                                                                disabled={isCurrent}
+                                                                                                style={{
+                                                                                                    padding: '2px 6px',
+                                                                                                    fontSize: '9px',
+                                                                                                    fontWeight: 700,
+                                                                                                    borderRadius: '3px',
+                                                                                                    border: 'none',
+                                                                                                    cursor: isCurrent ? 'default' : 'pointer',
+                                                                                                    backgroundColor: isCurrent ? 'rgba(16,185,129,0.15)' : '#38bdf8',
+                                                                                                    color: isCurrent ? '#10b981' : '#0f172a'
+                                                                                                }}
+                                                                                            >
+                                                                                                {isCurrent ? 'Current' : 'Assign'}
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    );
+                                                                                })
+                                                                        ) : (
+                                                                            <div style={{ fontSize: '10px', color: '#64748b', padding: '4px 0' }}>
+                                                                                No technicians with active live location nearby.
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Other tech dropdown fallback */}
+                                                                        <div style={{ marginTop: '4px' }}>
+                                                                            <select
+                                                                                onChange={(e) => {
+                                                                                    const val = e.target.value;
+                                                                                    if (!val) return;
+                                                                                    const t = technicians.find(tech => tech.id === val);
+                                                                                    if (t) handleAssign(job, t);
+                                                                                    e.target.value = '';
+                                                                                }}
+                                                                                style={{
+                                                                                    width: '100%',
+                                                                                    padding: '4px',
+                                                                                    borderRadius: '3px',
+                                                                                    backgroundColor: '#1e293b',
+                                                                                    border: '1px solid #475569',
+                                                                                    color: '#e2e8f0',
+                                                                                    fontSize: '10px',
+                                                                                    cursor: 'pointer',
+                                                                                    outline: 'none'
+                                                                                }}
+                                                                            >
+                                                                                <option value="">— Reassign to other tech —</option>
+                                                                                {technicians
+                                                                                    .filter(t => t.is_active !== false && t.id !== job.technician_id)
+                                                                                    .map(t => (
+                                                                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                                                                    ))
+                                                                                }
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </Popup>
