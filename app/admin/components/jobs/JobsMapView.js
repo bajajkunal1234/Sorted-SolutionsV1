@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { User, Briefcase, Calendar, Loader2, Phone } from 'lucide-react';
+import { User, Briefcase, Calendar, Loader2, Phone, Map } from 'lucide-react';
 import { techniciansAPI } from '@/lib/adminAPI';
 import { generateInitialsAvatar } from '@/lib/utils/accountHelpers';
 
@@ -122,8 +122,11 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     const [activeJobId, setActiveJobId] = useState(null);
     const [expandedJobId, setExpandedJobId] = useState(null);
 
+    // Active routing layer
+    const [activeRoute, setActiveRoute] = useState(null);
+
     // Marker styling customization states
-    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'pin' | 'compact'
+    const [custMarkerType, setCustMarkerType] = useState('circle'); // 'circle' | 'pin' | 'compact-pin' | 'compact'
     const [techMarkerType, setTechMarkerType] = useState('wrench'); // 'wrench' | 'pin' | 'avatar'
 
     // Fetch technicians and fleet locations on mount
@@ -184,6 +187,34 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 iconSize: [34, 42],
                 iconAnchor: [17, 42],
                 popupAnchor: [0, -42]
+            });
+        }
+
+        if (custMarkerType === 'compact-pin') {
+            const htmlContent = img
+                ? `<div style="position: relative; width: 26px; height: 32px;">
+                     <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                       <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                     </svg>
+                     <div style="position: absolute; top: 3px; left: 4px; width: 16px; height: 16px; border-radius: 50%; overflow: hidden; border: 1px solid #fff;">
+                       <img src="${img}" style="width: 100%; height: 100%; object-fit: cover;" />
+                     </div>
+                   </div>`
+                : `<div style="position: relative; width: 26px; height: 32px;">
+                     <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                       <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#3b82f6"/>
+                     </svg>
+                     <div style="position: absolute; top: 3px; left: 4.5px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 7px; font-weight: 800; background-color: ${avatar.backgroundColor || '#1d4ed8'};">
+                       ${initials}
+                     </div>
+                   </div>`;
+
+            return L.divIcon({
+                html: htmlContent,
+                className: 'custom-customer-marker-compact-pin',
+                iconSize: [26, 32],
+                iconAnchor: [13, 32],
+                popupAnchor: [0, -32]
             });
         }
 
@@ -368,6 +399,35 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
         setLoadingDistances(false);
     };
 
+    // Dynamic routing calculator using OSRM to render polyline path
+    const handleCalculateRoute = async (tech, job, lat, lng) => {
+        const liveLoc = fleetLocations.find(l => l.technician_id === tech.id);
+        if (!liveLoc || !liveLoc.latitude || !liveLoc.longitude) return;
+
+        // If clicking the same tech route that is already displayed, toggle it off
+        if (activeRoute && activeRoute.techId === tech.id && activeRoute.jobId === job.id) {
+            setActiveRoute(null);
+            return;
+        }
+
+        try {
+            const url = `https://router.project-osrm.org/route/v1/driving/${liveLoc.longitude},${liveLoc.latitude};${lng},${lat}?geometries=geojson&overview=full`;
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes?.length > 0) {
+                const routeData = data.routes[0];
+                const coords = routeData.geometry.coordinates.map(([rlng, rlat]) => [rlat, rlng]);
+                setActiveRoute({
+                    coords,
+                    techId: tech.id,
+                    jobId: job.id
+                });
+            }
+        } catch (err) {
+            console.error('OSRM path drawing failed:', err);
+        }
+    };
+
     // Group jobs by property coordinates
     const propertiesGroup = useMemo(() => {
         const groups = {};
@@ -465,6 +525,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                         }}
                     >
                         <option value="circle">Photo/Initials Circle</option>
+                        <option value="compact-pin">Compact Map Pin</option>
                         <option value="pin">Standard Map Pin</option>
                         <option value="compact">Compact Dot</option>
                     </select>
@@ -508,6 +569,20 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
 
                 <MapCenterController groups={propertiesGroup} />
 
+                {/* Polyline Route Overlay */}
+                {activeRoute?.coords && (
+                    <>
+                        <Polyline 
+                            positions={activeRoute.coords} 
+                            pathOptions={{ color: 'rgba(56, 189, 248, 0.3)', weight: 9, lineCap: 'round' }} 
+                        />
+                        <Polyline 
+                            positions={activeRoute.coords} 
+                            pathOptions={{ color: '#0ea5e9', weight: 4, lineCap: 'round', dashArray: '1, 8' }} 
+                        />
+                    </>
+                )}
+
                 {/* Customer Properties Markers */}
                 {propertiesGroup.map(group => {
                     const { lat, lng, customerName, jobs: propertyJobs } = group;
@@ -526,6 +601,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                     } else {
                                         setExpandedJobId(null);
                                     }
+                                    setActiveRoute(null); // Clear routing when opening different customer
                                 }
                             }}
                         >
@@ -535,7 +611,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                 </div>
                             </Tooltip>
 
-                            <Popup maxWidth={320}>
+                            <Popup maxWidth={320} onClose={() => setActiveRoute(null)}>
                                 <div style={{ minWidth: '270px', color: '#f8fafc', fontFamily: 'inherit', maxHeight: '340px', overflowY: 'auto' }}>
                                     {/* Property Header */}
                                     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', marginBottom: '8px' }}>
@@ -560,6 +636,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                         onClick={() => {
                                                             const nextVal = isExpanded ? null : job.id;
                                                             setExpandedJobId(nextVal);
+                                                            setActiveRoute(null); // Clear routing on job toggle
                                                             if (nextVal) {
                                                                 handleCalculateDistances(lat, lng, job.id);
                                                             }
@@ -613,14 +690,34 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                                                 .map(t => {
                                                                                     const distInfo = distances[t.id];
                                                                                     const isCurrent = job.technician_id === t.id;
+                                                                                    const isShowingRoute = activeRoute && activeRoute.techId === t.id && activeRoute.jobId === job.id;
+
                                                                                     return (
-                                                                                        <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                                        <div 
+                                                                                            key={t.id} 
+                                                                                            onClick={() => handleCalculateRoute(t, job, lat, lng)}
+                                                                                            style={{ 
+                                                                                                display: 'flex', 
+                                                                                                alignItems: 'center', 
+                                                                                                justifyContent: 'space-between', 
+                                                                                                padding: '4px 6px', 
+                                                                                                borderRadius: '4px', 
+                                                                                                backgroundColor: isShowingRoute ? 'rgba(14, 165, 233, 0.15)' : 'rgba(255,255,255,0.03)', 
+                                                                                                border: isShowingRoute ? '1px solid rgba(14, 165, 233, 0.4)' : '1px solid rgba(255,255,255,0.05)',
+                                                                                                cursor: 'pointer',
+                                                                                                transition: 'all 0.15s'
+                                                                                            }}
+                                                                                            title="Click to view driving route on map"
+                                                                                        >
                                                                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                                                                 <span style={{ fontSize: '10px', fontWeight: 700, color: '#f8fafc' }}>{t.name}</span>
-                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 600 }}>🚗 {distInfo.distance} ({distInfo.duration})</span>
+                                                                                                <span style={{ fontSize: '8px', color: '#38bdf8', fontWeight: 600 }}>🚗 {distInfo.distance} ({distInfo.duration}) {isShowingRoute ? '🗺️' : ''}</span>
                                                                                             </div>
                                                                                             <button
-                                                                                                onClick={() => handleAssign(job, t)}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation(); // Avoid triggering routing toggle when assigning
+                                                                                                    handleAssign(job, t);
+                                                                                                }}
                                                                                                 disabled={isCurrent}
                                                                                                 style={{
                                                                                                     padding: '2px 6px',
