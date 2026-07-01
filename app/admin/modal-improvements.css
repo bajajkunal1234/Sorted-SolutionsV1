@@ -616,4 +616,22 @@ button[class*="cancel"]:hover,
         overflow: hidden !important;
         text-overflow: ellipsis !important;
     }
+
+    /* Booking Review Customer Card Responsiveness */
+    .booking-review-customer-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-md) !important;
+    }
+    .booking-review-customer-actions {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+        gap: var(--spacing-xs) !important;
+    }
+    .booking-review-customer-actions a {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        justify-content: center !important;
+        padding: 8px 10px !important;
+    }
 }

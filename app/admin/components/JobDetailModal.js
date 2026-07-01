@@ -589,7 +589,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             <strong>Property:</strong> {property.property_name || property.label || property.name || 'Property'}
                                         </div>
                                     )}
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
                                         <Phone size={16} />
                                         <a href={`tel:${displayPhone}`} style={{ color: 'var(--color-primary)' }}>
                                             {displayPhone}

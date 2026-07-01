@@ -349,7 +349,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                 <div className="modal-body">
                     {/* Customer Info */}
                     <div style={{ backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div className="booking-review-customer-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
                                 <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 18, flexShrink: 0 }}>
                                     {(cust.name || cust.firstName || '?')[0].toUpperCase()}
@@ -383,7 +383,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                                     )}
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexShrink: 0 }}>
+                            <div className="booking-review-customer-actions" style={{ display: 'flex', gap: 'var(--spacing-xs)', flexShrink: 0 }}>
                                 {cust.phone && (
                                     <a href={`tel:${cust.phone}`} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
                                         <Phone size={14} /> Call
