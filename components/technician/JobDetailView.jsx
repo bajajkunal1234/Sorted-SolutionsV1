@@ -1771,11 +1771,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </div>
                             )}
 
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
-                                </h3>
-                                <div style={{ display: 'grid', gap: '12px' }}>
+                            {editedJob.status !== 'scheduled' && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
+                                    </h3>
+                                    <div style={{ display: 'grid', gap: '12px' }}>
                                     {savedInvoice ? (
                                         <>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
@@ -2166,6 +2167,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     )}
                                 </div>
                             </div>
+                            )}
                         </div>
                     )}
                 </div>
