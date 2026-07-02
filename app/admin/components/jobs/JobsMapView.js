@@ -681,9 +681,10 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                         mapViewType === 'satellite' ? "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" :
                         mapViewType === 'hybrid' ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" :
                         mapViewType === 'terrain' ? "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}" :
+                        mapViewType === 'dark' ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" :
                         "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                     }
-                    attribution='&copy; Google Maps'
+                    attribution={mapViewType === 'dark' ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' : '&copy; Google Maps'}
                 />
 
                 <MapCenterController groups={propertiesGroup} />

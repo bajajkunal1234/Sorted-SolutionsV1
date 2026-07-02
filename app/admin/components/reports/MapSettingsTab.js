@@ -174,7 +174,7 @@ export default function MapSettingsTab() {
 
                         {/* Map Layer View type */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Google Maps Base Layer:</label>
+                            <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Map Base Layer Style:</label>
                             <select
                                 value={settings.mapViewType}
                                 onChange={(e) => handleChange('mapViewType', e.target.value)}
@@ -194,6 +194,7 @@ export default function MapSettingsTab() {
                                 <option value="satellite">Google Satellite (Imagery view)</option>
                                 <option value="hybrid">Google Hybrid (Satellite + Road Labels)</option>
                                 <option value="terrain">Google Terrain (Topography & Shading)</option>
+                                <option value="dark">Dark Mode Map (CartoDB Dark Matter)</option>
                             </select>
                         </div>
 
