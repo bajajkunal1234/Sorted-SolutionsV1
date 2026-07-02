@@ -666,7 +666,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     color: #f1f5f9 !important;
                 }
                 .dark-map-tiles {
-                    filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(105%) saturate(80%) !important;
+                    filter: grayscale(100%) invert(90%) brightness(95%) contrast(100%) !important;
                 }
             ` }} />
 
