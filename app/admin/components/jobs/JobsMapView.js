@@ -665,6 +665,9 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 .leaflet-container a.leaflet-popup-close-button:hover {
                     color: #f1f5f9 !important;
                 }
+                .dark-map-tiles {
+                    filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(105%) saturate(80%) !important;
+                }
             ` }} />
 
             {/* Map Container */}
@@ -677,14 +680,14 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                 {/* Dynamically Swap Google base map layers */}
                 <TileLayer
                     key={mapViewType}
+                    className={mapViewType === 'dark' ? 'dark-map-tiles' : ''}
                     url={
                         mapViewType === 'satellite' ? "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" :
                         mapViewType === 'hybrid' ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" :
                         mapViewType === 'terrain' ? "https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}" :
-                        mapViewType === 'dark' ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" :
                         "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                     }
-                    attribution={mapViewType === 'dark' ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' : '&copy; Google Maps'}
+                    attribution='&copy; Google Maps'
                 />
 
                 <MapCenterController groups={propertiesGroup} />
