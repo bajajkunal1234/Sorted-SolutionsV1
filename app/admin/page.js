@@ -12,6 +12,7 @@ import './modal-improvements.css'
 import NotificationBell from '@/components/common/NotificationBell'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import DashboardFollowups from './components/DashboardFollowups'
+import DashboardLivePerformance from './components/DashboardLivePerformance'
 import dynamic from 'next/dynamic'
 
 const TechnicianLiveMap = dynamic(() => import('./components/reports/TechnicianLiveMap'), {
@@ -119,6 +120,8 @@ export default function AdminApp() {
                                 </h3>
                                 <TechnicianLiveMap height={325} showRoster={true} isDashboard={true} />
                             </div>
+
+                            <DashboardLivePerformance />
 
                             <DashboardFollowups />
                         </div>
