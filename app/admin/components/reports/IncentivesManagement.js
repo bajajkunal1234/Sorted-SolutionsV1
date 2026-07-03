@@ -298,8 +298,15 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
     return Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
 };
 
-function IncentivesManagement() {
-    const [activeView, setActiveView] = useState('configure'); // configure, performance, history
+function IncentivesManagement({ initialSubTab }) {
+    const [activeView, setActiveView] = useState(initialSubTab || 'configure'); // configure, performance, history
+
+    useEffect(() => {
+        if (initialSubTab) {
+            setActiveView(initialSubTab);
+        }
+    }, [initialSubTab]);
+
     const now = new Date();
     const [activeMonth, setActiveMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     const [loading, setLoading] = useState(true);

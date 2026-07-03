@@ -72,10 +72,16 @@ export default function AdminApp() {
             setTechSubTabToOpen(subTab)
             setActiveTab('reports')
         }
+        window.openPerformanceTracking = (subTab) => {
+            setReportsSectionToOpen('incentives')
+            setTechSubTabToOpen(subTab)
+            setActiveTab('reports')
+        }
         return () => {
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
             delete window.openTechnicianManagement
+            delete window.openPerformanceTracking
         }
     }, [])
 

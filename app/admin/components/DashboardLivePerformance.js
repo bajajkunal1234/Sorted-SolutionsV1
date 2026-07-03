@@ -145,25 +145,59 @@ export default function DashboardLivePerformance() {
                     ⚡ Today's Live Performance
                 </h3>
                 
-                <select
-                    value={selectedTechId}
-                    onChange={(e) => setSelectedTechId(e.target.value)}
-                    style={{
-                        padding: '6px 12px',
-                        fontSize: 'var(--font-size-sm)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-primary)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        outline: 'none',
-                        cursor: 'pointer'
-                    }}
-                >
-                    <option value="all">All Technicians (Combined)</option>
-                    {technicians.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                    <select
+                        value={selectedTechId}
+                        onChange={(e) => setSelectedTechId(e.target.value)}
+                        style={{
+                            padding: '6px 12px',
+                            fontSize: 'var(--font-size-sm)',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="all">All Technicians (Combined)</option>
+                        {technicians.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={() => {
+                            if (typeof window.openPerformanceTracking === 'function') {
+                                window.openPerformanceTracking('performance');
+                            }
+                        }}
+                        style={{
+                            padding: '6px 12px',
+                            fontSize: 'var(--font-size-sm)',
+                            fontWeight: 500,
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--color-primary)';
+                            e.currentTarget.style.color = 'var(--color-primary)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--border-primary)';
+                            e.currentTarget.style.color = 'var(--text-primary)';
+                        }}
+                    >
+                        View All
+                    </button>
+                </div>
             </div>
 
             {loading ? (

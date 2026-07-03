@@ -405,7 +405,11 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         setSubSection={setSubSection}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
-                        initialSubTab={activeSection === 'technicians' ? initialTechSubTab : null}
+                        initialSubTab={
+                            activeSection === 'technicians' || activeSection === 'incentives'
+                                ? initialTechSubTab
+                                : null
+                        }
                     />
                 ) : (
                     <div style={{
