@@ -100,6 +100,37 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         }
     });
 
+    // Calculate days to close
+    let totalDaysToClose = 0;
+    let closedJobsWithDays = 0;
+    closedJobs.forEach(job => {
+        const assignInt = (interactionsList || []).find(i => i.job_id === job.id && i.type === 'job-assigned');
+        const assignTime = assignInt ? new Date(assignInt.timestamp) : new Date(job.created_at);
+
+        const closureInt = (interactionsList || []).find(i => 
+            i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+        );
+        const closureTime = closureInt ? new Date(closureInt.timestamp) : (job.completed_at ? new Date(job.completed_at) : null);
+
+        if (closureTime && assignTime) {
+            const d1 = new Date(closureTime);
+            const d2 = new Date(assignTime);
+            d1.setHours(0,0,0,0);
+            d2.setHours(0,0,0,0);
+
+            const diffTime = d1.getTime() - d2.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            const daysToClose = Math.max(1, diffDays + 1);
+
+            totalDaysToClose += daysToClose;
+            closedJobsWithDays++;
+            job.days_to_close = daysToClose;
+        } else {
+            job.days_to_close = null;
+        }
+    });
+    const avgDaysToClose = closedJobsWithDays > 0 ? parseFloat((totalDaysToClose / closedJobsWithDays).toFixed(1)) : 0;
+
     // 7. Conversion Ratio
     const conversionRatio = closedCount > 0 ? Math.round((repairDoneCount / closedCount) * 100) : 0;
 
@@ -139,7 +170,10 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         techJobs,
         techInvoices,
         quotationsCount,
-        techQuotations
+        techQuotations,
+        avgDaysToClose,
+        totalDaysToClose,
+        closedJobsWithDays
     };
 };
 
@@ -162,6 +196,7 @@ const evaluatePerformanceTargets = (techsList, paramsList) => {
                 case 't5': metricValue = metrics.avgRevenuePerJob; qualifies = metricValue >= param.threshold; break;
                 case 't6': metricValue = metrics.feedbackRate; qualifies = metricValue >= param.threshold; break;
                 case 't7': metricValue = metrics.avgRating; qualifies = metricValue >= param.threshold; break;
+                case 't8': metricValue = metrics.avgDaysToClose; qualifies = metricValue > 0 && metricValue <= param.threshold; break;
             }
 
             breakdown.push({
@@ -356,7 +391,8 @@ function IncentivesManagement() {
                 { id: 't4', name: 'Total Revenue (₹)', threshold: 100000, enabled: true },
                 { id: 't5', name: 'Avg Revenue per Job (₹)', threshold: 2500, enabled: true },
                 { id: 't6', name: 'Feedback Rate (%)', threshold: 80, enabled: true },
-                { id: 't7', name: 'Average Rating (out of 5)', threshold: 4.5, enabled: true }
+                { id: 't7', name: 'Average Rating (out of 5)', threshold: 4.5, enabled: true },
+                { id: 't8', name: 'Avg Days to Close', threshold: 3, enabled: true }
             ];
 
             let loadedParams = paramsData && paramsData.value ? paramsData.value : defaultParams;
@@ -398,7 +434,7 @@ function IncentivesManagement() {
                     .from('interactions')
                     .select('job_id, type, metadata, timestamp')
                     .gte('timestamp', historyStart)
-                    .in('type', ['job-closed', 'close-call-no-service']);
+                    .in('type', ['job-closed', 'close-call-no-service', 'job-assigned']);
 
                 const { data: allQuotesData } = await supabase
                     .from('quotations')
@@ -448,6 +484,7 @@ function IncentivesManagement() {
                             totalRevenue: metrics.totalRevenue,
                             feedbackRate: metrics.feedbackRate,
                             avgRating: metrics.avgRating,
+                            avgDaysToClose: metrics.avgDaysToClose,
                             achievedCount: historyTargets.achievedCount,
                             totalTargets: historyTargets.totalTargets,
                             scorePercent: historyTargets.scorePercent
@@ -510,6 +547,8 @@ function IncentivesManagement() {
         let totalRatingCount = 0;
         let totalRevenue = 0;
         let totalRepairDone = 0;
+        let totalDaysToClose = 0;
+        let closedJobsWithDays = 0;
 
         technicians.forEach(tech => {
             const m = tech.currentMetrics;
@@ -520,6 +559,8 @@ function IncentivesManagement() {
                 totalFeedbacks += m.feedbackCount || 0;
                 totalRevenue += m.totalRevenue || 0;
                 totalRepairDone += m.repairDoneCount || 0;
+                totalDaysToClose += m.totalDaysToClose || 0;
+                closedJobsWithDays += m.closedJobsWithDays || 0;
                 
                 const ratedJobs = (m.techJobs || []).filter(j => j.customer_rating > 0);
                 totalRatingSum += ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0);
@@ -529,6 +570,7 @@ function IncentivesManagement() {
 
         const avgRating = totalRatingCount > 0 ? (totalRatingSum / totalRatingCount).toFixed(1) : '—';
         const conversion = totalClosed > 0 ? Math.round((totalRepairDone / totalClosed) * 100) : 0;
+        const avgDaysToClose = closedJobsWithDays > 0 ? (totalDaysToClose / closedJobsWithDays).toFixed(1) : '—';
 
         return {
             totalVisits,
@@ -537,7 +579,8 @@ function IncentivesManagement() {
             totalFeedbacks,
             totalRevenue,
             avgRating,
-            conversion
+            conversion,
+            avgDaysToClose
         };
     }, [technicians]);
 
@@ -675,7 +718,7 @@ function IncentivesManagement() {
                                             <span style={{ color: 'var(--text-secondary)' }}>Target:</span>
                                             <input
                                                 type="number"
-                                                step={param.id === 't7' ? '0.1' : '1'}
+                                                step={param.id === 't7' || param.id === 't8' ? '0.1' : '1'}
                                                 value={param.threshold}
                                                 onChange={(e) => updateParameter(param.id, 'threshold', parseFloat(e.target.value))}
                                                 className="form-input"
@@ -862,7 +905,8 @@ function IncentivesManagement() {
                             { label: 'Total Feedbacks Taken', value: overallStats.totalFeedbacks },
                             { label: 'Overall Revenue', value: `₹${overallStats.totalRevenue.toLocaleString()}` },
                             { label: 'Avg Rating', value: overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★` },
-                            { label: 'Overall Conversion %', value: `${overallStats.conversion}%` }
+                            { label: 'Overall Conversion %', value: `${overallStats.conversion}%` },
+                            { label: 'Avg Days to Close', value: overallStats.avgDaysToClose === '—' ? '—' : `${overallStats.avgDaysToClose} days` }
                         ].map((stat, idx) => (
                             <div key={idx} style={{
                                 padding: 'var(--spacing-md)',
@@ -901,6 +945,7 @@ function IncentivesManagement() {
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Quotations Created</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Feedbacks Taken</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Average Rating</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Avg Days to Close</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Revenue Generated</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Conversion %</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Targets Met</th>
@@ -909,7 +954,7 @@ function IncentivesManagement() {
                                 <tbody>
                                     {technicians.length === 0 ? (
                                         <tr>
-                                            <td colSpan="9" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                            <td colSpan="10" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                 No technician records found for this range.
                                             </td>
                                         </tr>
@@ -944,6 +989,9 @@ function IncentivesManagement() {
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.feedbackCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
                                                             {m.avgRating > 0 ? `${m.avgRating} ★` : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>
+                                                            {m.avgDaysToClose > 0 ? `${m.avgDaysToClose} days` : '—'}
                                                         </td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
                                                             ₹{(m.totalRevenue || 0).toLocaleString()}
@@ -999,6 +1047,9 @@ function IncentivesManagement() {
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: '#eab308' }}>
                                                             {overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★`}
                                                         </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                            {overallStats.avgDaysToClose === '—' ? '—' : `${overallStats.avgDaysToClose} days`}
+                                                        </td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', color: 'var(--text-primary)' }}>
                                                             ₹{overallStats.totalRevenue.toLocaleString()}
                                                         </td>
@@ -1053,7 +1104,7 @@ function IncentivesManagement() {
                                 </h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-md)' }}>
                                     {selectedTech.breakdown.map((item, idx) => {
-                                        const unit = item.id === 't3' || item.id === 't6' ? '%' : item.id === 't7' ? ' ★' : '';
+                                        const unit = item.id === 't3' || item.id === 't6' ? '%' : item.id === 't7' ? ' ★' : item.id === 't8' ? ' days' : '';
                                         const prefix = item.id === 't4' || item.id === 't5' ? '₹' : '';
                                         return (
                                             <div
@@ -1205,6 +1256,7 @@ function IncentivesManagement() {
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
                                                 </tr>
@@ -1212,7 +1264,7 @@ function IncentivesManagement() {
                                             <tbody>
                                                 {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
                                                     <tr>
-                                                        <td colSpan={selectedTechId === 'all' ? 8 : 7} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        <td colSpan={selectedTechId === 'all' ? 9 : 8} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                             No jobs logged for this period.
                                                         </td>
                                                     </tr>
@@ -1301,6 +1353,9 @@ function IncentivesManagement() {
                                                                             {closureOutcome}
                                                                         </span>
                                                                     </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                        {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
+                                                                    </td>
                                                                     <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
                                                                         ₹{jobRev.toLocaleString()}
                                                                     </td>
@@ -1360,6 +1415,7 @@ function IncentivesManagement() {
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total Revenue</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback Rate</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Average Rating</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Avg Days to Close</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Goals Achieved</th>
                                         </tr>
                                     </thead>
@@ -1386,6 +1442,9 @@ function IncentivesManagement() {
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
                                                     {record.avgRating} ★
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    {record.avgDaysToClose > 0 ? `${record.avgDaysToClose} days` : '—'}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                     <span style={{
