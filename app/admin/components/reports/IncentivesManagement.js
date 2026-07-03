@@ -409,7 +409,7 @@ function IncentivesManagement() {
                 setAllInteractions(allInteractionsData || []);
                 setAllQuotations(allQuotesData || []);
 
-                const processedTechs = techsData.map(tech => {
+                const processedTechs = techsData.filter(tech => tech.is_active === true).map(tech => {
                     const currentMetrics = calculateMetricsForMonth(
                         tech.id,
                         tech.ledger_id,
@@ -582,13 +582,15 @@ function IncentivesManagement() {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                        <input
-                            type="month"
-                            value={activeMonth}
-                            onChange={(e) => setActiveMonth(e.target.value)}
-                            className="form-input"
-                            style={{ fontSize: 'var(--font-size-sm)' }}
-                        />
+                        {activeView === 'history' && (
+                            <input
+                                type="month"
+                                value={activeMonth}
+                                onChange={(e) => setActiveMonth(e.target.value)}
+                                className="form-input"
+                                style={{ fontSize: 'var(--font-size-sm)' }}
+                            />
+                        )}
                         <button
                             className="btn btn-secondary"
                             onClick={fetchData}
