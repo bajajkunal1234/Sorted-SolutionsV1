@@ -613,45 +613,17 @@ function IncentivesManagement() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
+            {/* Compact Toolbar */}
             <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)'
+                padding: 'var(--spacing-md) var(--spacing-md) 0 var(--spacing-md)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 'var(--spacing-sm)'
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                    <div>
-                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>
-                            Performance Analytics
-                        </h3>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                            Configure target parameters, track live daily metrics, and monitor technician achievements
-                        </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                        {activeView === 'history' && (
-                            <input
-                                type="month"
-                                value={activeMonth}
-                                onChange={(e) => setActiveMonth(e.target.value)}
-                                className="form-input"
-                                style={{ fontSize: 'var(--font-size-sm)' }}
-                            />
-                        )}
-                        <button
-                            className="btn btn-secondary"
-                            onClick={fetchData}
-                            disabled={loading}
-                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                            <RefreshCcw size={14} className={loading ? "spin" : ""} />
-                            Refresh
-                        </button>
-                    </div>
-                </div>
-
                 {/* View Tabs */}
-                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-md)' }}>
+                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                     {[
                         { id: 'configure', label: 'Configure Parameters', icon: Settings },
                         { id: 'performance', label: 'Live Performance', icon: BarChart3 },
@@ -661,8 +633,8 @@ function IncentivesManagement() {
                             key={view.id}
                             onClick={() => setActiveView(view.id)}
                             style={{
-                                padding: '8px 16px',
-                                fontSize: 'var(--font-size-sm)',
+                                padding: '6px 12px',
+                                fontSize: 'var(--font-size-xs)',
                                 fontWeight: 500,
                                 backgroundColor: activeView === view.id ? 'var(--color-primary)' : 'var(--bg-secondary)',
                                 color: activeView === view.id ? 'var(--text-inverse)' : 'var(--text-primary)',
@@ -675,10 +647,32 @@ function IncentivesManagement() {
                                 transition: 'all var(--transition-fast)'
                             }}
                         >
-                            <view.icon size={14} />
+                            <view.icon size={12} />
                             {view.label}
                         </button>
                     ))}
+                </div>
+
+                {/* Controls */}
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                    {activeView === 'history' && (
+                        <input
+                            type="month"
+                            value={activeMonth}
+                            onChange={(e) => setActiveMonth(e.target.value)}
+                            className="form-input"
+                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', height: 'auto' }}
+                        />
+                    )}
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchData}
+                        disabled={loading}
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        <RefreshCcw size={12} className={loading ? "spin" : ""} />
+                        Refresh
+                    </button>
                 </div>
             </div>
 
