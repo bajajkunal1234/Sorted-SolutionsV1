@@ -621,16 +621,9 @@ function IncentivesManagement({ initialSubTab }) {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Compact Toolbar */}
-            <div style={{
-                padding: 'var(--spacing-md) var(--spacing-md) 0 var(--spacing-md)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 'var(--spacing-sm)'
-            }}>
+            <div className="performance-toolbar">
                 {/* View Tabs */}
-                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                <div className="performance-tabs-container">
                     {[
                         { id: 'configure', label: 'Configure Parameters', icon: Settings },
                         { id: 'performance', label: 'Live Performance', icon: BarChart3 },
@@ -651,7 +644,8 @@ function IncentivesManagement({ initialSubTab }) {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                transition: 'all var(--transition-fast)'
+                                transition: 'all var(--transition-fast)',
+                                whiteSpace: 'nowrap'
                             }}
                         >
                             <view.icon size={12} />
@@ -891,7 +885,7 @@ function IncentivesManagement({ initialSubTab }) {
                     </div>
 
                     {/* Overall Summary Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--spacing-md)' }}>
+                    <div className="performance-summary-grid">
                         {[
                             { label: 'Jobs Assigned', value: overallStats.totalJobs },
                             { label: 'Total Visits Done', value: overallStats.totalVisits },
@@ -903,17 +897,9 @@ function IncentivesManagement({ initialSubTab }) {
                             { label: 'Overall Conversion %', value: `${overallStats.conversion}%` },
                             { label: 'Avg Days to Close', value: overallStats.avgDaysToClose === '—' ? '—' : `${overallStats.avgDaysToClose} days` }
                         ].map((stat, idx) => (
-                            <div key={idx} style={{
-                                padding: 'var(--spacing-md)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-lg)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px'
-                            }}>
-                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>{stat.label}</span>
-                                <span style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, color: 'var(--text-primary)' }}>{stat.value}</span>
+                            <div key={idx} className="performance-summary-card">
+                                <span className="performance-summary-card-label">{stat.label}</span>
+                                <span className="performance-summary-card-value">{stat.value}</span>
                             </div>
                         ))}
                     </div>

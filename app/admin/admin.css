@@ -252,3 +252,94 @@
         grid-template-columns: 1fr 2fr;
     }
 }
+
+/* Compact Mobile-First Toolbar & Tabs */
+.performance-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-md) 0 var(--spacing-md);
+}
+
+@media (min-width: 768px) {
+    .performance-toolbar {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+.performance-tabs-container {
+    display: flex;
+    gap: var(--spacing-xs);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+
+.performance-tabs-container::-webkit-scrollbar {
+    display: none;
+}
+
+/* Mobile-First Summary Cards Grid */
+.performance-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+}
+
+@media (min-width: 576px) {
+    .performance-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    .performance-summary-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: var(--spacing-md);
+    }
+}
+
+/* Compact Summary Card */
+.performance-summary-card {
+    padding: var(--spacing-sm);
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.performance-summary-card-label {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.performance-summary-card-value {
+    font-size: var(--font-size-md);
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+@media (min-width: 992px) {
+    .performance-summary-card {
+        padding: var(--spacing-md);
+        gap: 4px;
+        border-radius: var(--radius-lg);
+    }
+    .performance-summary-card-label {
+        font-size: 11px;
+    }
+    .performance-summary-card-value {
+        font-size: var(--font-size-xl);
+    }
+}
