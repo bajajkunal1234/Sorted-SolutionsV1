@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Settings, Save, BarChart3, Calendar, Users, CheckCircle, AlertCircle, Award, Star, User, ChevronRight, DollarSign, Briefcase, RefreshCcw, Loader2 } from 'lucide-react';
 import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
+import JobDetailModal from '../JobDetailModal';
 
 const parseSlotStartTime = (slotStr) => {
     if (!slotStr) return null;
@@ -31,7 +32,7 @@ const isServiceChargeOnlyInvoice = (inv) => {
     });
 };
 
-const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList) => {
+const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList, quotationsList) => {
     // 1. Filter jobs for this technician in this month
     const techJobs = jobsList.filter(j =>
         (j.technician_id === techId) &&
@@ -115,6 +116,14 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         ? parseFloat((ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0) / ratedJobs.length).toFixed(1))
         : 0;
 
+    // 11. Quotations Count
+    const techQuotations = (quotationsList || []).filter(q => {
+        if (q.technician_id === techId) return true;
+        const linkedJob = (jobsList || []).find(j => j.id === q.job_id);
+        return linkedJob && linkedJob.technician_id === techId;
+    }).filter(q => q.date >= mStart && q.date <= mEnd);
+    const quotationsCount = techQuotations.length;
+
     return {
         visitsCount,
         closedCount,
@@ -128,7 +137,9 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         avgRating,
         totalJobs,
         techJobs,
-        techInvoices
+        techInvoices,
+        quotationsCount,
+        techQuotations
     };
 };
 
@@ -263,9 +274,70 @@ function IncentivesManagement() {
     const [allInteractions, setAllInteractions] = useState([]);
     const [selectedTechId, setSelectedTechId] = useState(null);
 
+    const [datePreset, setDatePreset] = useState('this_month'); // today, yesterday, this_week, this_month, custom
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [allQuotations, setAllQuotations] = useState([]);
+    const [selectedDateFilter, setSelectedDateFilter] = useState(null);
+    const [viewingJob, setViewingJob] = useState(null);
+
+    const getDatesForPreset = (preset) => {
+        const d = new Date();
+        const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const nowIST = new Date(utc + (3600000 * 5.5));
+        
+        let start = '';
+        let end = '';
+
+        const formatDate = (dateObj) => {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        if (preset === 'today') {
+            start = formatDate(nowIST);
+            end = formatDate(nowIST);
+        } else if (preset === 'yesterday') {
+            const yest = new Date(nowIST);
+            yest.setDate(yest.getDate() - 1);
+            start = formatDate(yest);
+            end = formatDate(yest);
+        } else if (preset === 'this_week') {
+            const currentDay = nowIST.getDay();
+            const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+            const monday = new Date(nowIST);
+            monday.setDate(nowIST.getDate() + distanceToMonday);
+            
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            
+            start = formatDate(monday);
+            end = formatDate(sunday);
+        } else if (preset === 'this_month') {
+            const firstDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1);
+            const lastDay = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 0);
+            start = formatDate(firstDay);
+            end = formatDate(lastDay);
+        }
+        return { start, end };
+    };
+
     useEffect(() => {
-        fetchData();
-    }, [activeMonth]);
+        if (datePreset !== 'custom') {
+            const { start, end } = getDatesForPreset(datePreset);
+            setStartDate(start);
+            setEndDate(end);
+        }
+    }, [datePreset]);
+
+    useEffect(() => {
+        // Only fetch if we have valid dates
+        if (startDate && endDate) {
+            fetchData();
+        }
+    }, [startDate, endDate, activeMonth]);
 
     const fetchData = async () => {
         try {
@@ -287,7 +359,6 @@ function IncentivesManagement() {
                 { id: 't7', name: 'Average Rating (out of 5)', threshold: 4.5, enabled: true }
             ];
 
-            const allowedIds = ['t1', 't2', 't3', 't4', 't5', 't6', 't7'];
             let loadedParams = paramsData && paramsData.value ? paramsData.value : defaultParams;
             
             const mergedParams = defaultParams.map(dp => {
@@ -304,10 +375,9 @@ function IncentivesManagement() {
             setParameters(mergedParams);
 
             if (techsData && techsData.length > 0) {
-                const [yr, mo] = activeMonth.split('-').map(Number);
-                const monthStart = `${activeMonth}-01`;
-                const monthEnd = `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`;
-
+                const startD = startDate || `${activeMonth}-01`;
+                const endD = endDate || `${activeMonth}-31`;
+                const [yr, mo] = startD.split('-').map(Number);
                 const historyStartObj = new Date(yr, mo - 4, 1);
                 const historyStart = `${historyStartObj.getFullYear()}-${String(historyStartObj.getMonth() + 1).padStart(2, '0')}-01`;
 
@@ -315,13 +385,13 @@ function IncentivesManagement() {
                     .from('jobs')
                     .select('id, job_number, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance, brand')
                     .gte('scheduled_date', historyStart)
-                    .lte('scheduled_date', monthEnd);
+                    .lte('scheduled_date', endD);
 
                 const { data: allInvoices } = await supabase
                     .from('sales_invoices')
                     .select('id, total_amount, date, job_id, technician_id, technician_name, status, account_id, items')
                     .gte('date', historyStart)
-                    .lte('date', monthEnd)
+                    .lte('date', endD)
                     .neq('status', 'cancelled');
 
                 const { data: allInteractionsData } = await supabase
@@ -330,17 +400,25 @@ function IncentivesManagement() {
                     .gte('timestamp', historyStart)
                     .in('type', ['job-closed', 'close-call-no-service']);
 
+                const { data: allQuotesData } = await supabase
+                    .from('quotations')
+                    .select('id, date, job_id, technician_id, total_amount, status')
+                    .gte('date', historyStart)
+                    .lte('date', endD);
+
                 setAllInteractions(allInteractionsData || []);
+                setAllQuotations(allQuotesData || []);
 
                 const processedTechs = techsData.map(tech => {
                     const currentMetrics = calculateMetricsForMonth(
                         tech.id,
                         tech.ledger_id,
-                        monthStart,
-                        monthEnd,
+                        startD,
+                        endD,
                         allJobs || [],
                         allInvoices || [],
-                        allInteractionsData || []
+                        allInteractionsData || [],
+                        allQuotesData || []
                     );
 
                     const history = [-1, -2, -3].map(offset => {
@@ -356,7 +434,8 @@ function IncentivesManagement() {
                             histEnd,
                             allJobs || [],
                             allInvoices || [],
-                            allInteractionsData || []
+                            allInteractionsData || [],
+                            allQuotesData || []
                         );
 
                         const historyTargets = evaluatePerformanceTargets([{ currentMetrics: metrics }], mergedParams)[0];
@@ -422,13 +501,56 @@ function IncentivesManagement() {
         }
     };
 
+    const overallStats = useMemo(() => {
+        let totalVisits = 0;
+        let totalClosed = 0;
+        let totalQuotes = 0;
+        let totalFeedbacks = 0;
+        let totalRatingSum = 0;
+        let totalRatingCount = 0;
+        let totalRevenue = 0;
+        let totalRepairDone = 0;
+
+        technicians.forEach(tech => {
+            const m = tech.currentMetrics;
+            if (m) {
+                totalVisits += m.visitsCount || 0;
+                totalClosed += m.closedCount || 0;
+                totalQuotes += m.quotationsCount || 0;
+                totalFeedbacks += m.feedbackCount || 0;
+                totalRevenue += m.totalRevenue || 0;
+                totalRepairDone += m.repairDoneCount || 0;
+                
+                const ratedJobs = (m.techJobs || []).filter(j => j.customer_rating > 0);
+                totalRatingSum += ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0);
+                totalRatingCount += ratedJobs.length;
+            }
+        });
+
+        const avgRating = totalRatingCount > 0 ? (totalRatingSum / totalRatingCount).toFixed(1) : '—';
+        const conversion = totalClosed > 0 ? Math.round((totalRepairDone / totalClosed) * 100) : 0;
+
+        return {
+            totalVisits,
+            totalClosed,
+            totalQuotes,
+            totalFeedbacks,
+            totalRevenue,
+            avgRating,
+            conversion
+        };
+    }, [technicians]);
+
     const selectedTech = technicians.find(t => t.id === selectedTechId) || technicians[0];
     const [yr, mo] = activeMonth.split('-').map(Number);
     const monthStart = `${activeMonth}-01`;
     const monthEnd = selectedTech ? `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}` : '';
     
+    const startRange = startDate || monthStart;
+    const endRange = endDate || monthEnd;
+
     const dailyPerformanceData = selectedTech 
-        ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs, selectedTech.currentMetrics.techInvoices, allInteractions, monthStart, monthEnd)
+        ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs, selectedTech.currentMetrics.techInvoices, allInteractions, startRange, endRange)
         : [];
 
     return (
@@ -651,51 +773,213 @@ function IncentivesManagement() {
             {/* Live Performance View */}
             {activeView === 'performance' && (
                 <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                    {/* Technician Selector Header */}
+                    {/* Date Selector and Preset row */}
                     <div style={{
                         display: 'flex',
-                        gap: 'var(--spacing-sm)',
-                        overflowX: 'auto',
-                        paddingBottom: 'var(--spacing-xs)',
-                        borderBottom: '1px solid var(--border-primary)',
+                        flexWrap: 'wrap',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 'var(--spacing-md)',
+                        padding: 'var(--spacing-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-lg)',
                         flexShrink: 0
                     }}>
-                        {technicians.map(tech => (
-                            <button
-                                key={tech.id}
-                                onClick={() => setSelectedTechId(tech.id)}
-                                style={{
-                                    padding: 'var(--spacing-sm) var(--spacing-md)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    border: `2px solid ${selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                                    backgroundColor: selectedTechId === tech.id ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-elevated)',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                    minWidth: '180px',
-                                    flexShrink: 0,
-                                    color: selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--text-primary)',
-                                    transition: 'all 0.2s',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '4px'
-                                }}
-                            >
-                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'inherit' }}>
-                                    <User size={16} color={selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--text-secondary)'} />
-                                    {tech.name}
-                                </div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                    {tech.achievedCount} of {tech.totalTargets} Targets Met ({tech.scorePercent}%)
-                                </div>
-                            </button>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                            {[
+                                { id: 'today', label: 'Today' },
+                                { id: 'yesterday', label: 'Yesterday' },
+                                { id: 'this_week', label: 'This Week' },
+                                { id: 'this_month', label: 'This Month' },
+                                { id: 'custom', label: 'Custom Range' }
+                            ].map(preset => (
+                                <button
+                                    key={preset.id}
+                                    onClick={() => setDatePreset(preset.id)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: 'var(--font-size-xs)',
+                                        fontWeight: 600,
+                                        borderRadius: 'var(--radius-md)',
+                                        border: datePreset === preset.id ? 'none' : '1px solid var(--border-primary)',
+                                        backgroundColor: datePreset === preset.id ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                        color: datePreset === preset.id ? 'var(--text-inverse)' : 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>From:</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    disabled={datePreset !== 'custom'}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="form-input"
+                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', width: '130px' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>To:</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    disabled={datePreset !== 'custom'}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="form-input"
+                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', width: '130px' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Overall Summary Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--spacing-md)' }}>
+                        {[
+                            { label: 'Total Visits Done', value: overallStats.totalVisits },
+                            { label: 'Total Jobs Closed', value: overallStats.totalClosed },
+                            { label: 'Total Quotes Created', value: overallStats.totalQuotes },
+                            { label: 'Total Feedbacks Taken', value: overallStats.totalFeedbacks },
+                            { label: 'Overall Revenue', value: `₹${overallStats.totalRevenue.toLocaleString()}` },
+                            { label: 'Avg Rating', value: overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★` },
+                            { label: 'Overall Conversion %', value: `${overallStats.conversion}%` }
+                        ].map((stat, idx) => (
+                            <div key={idx} style={{
+                                padding: 'var(--spacing-md)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px'
+                            }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>{stat.label}</span>
+                                <span style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, color: 'var(--text-primary)' }}>{stat.value}</span>
+                            </div>
                         ))}
                     </div>
 
+                    {/* All Technicians Summary Table */}
+                    <div style={{
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: 'var(--spacing-md)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                                All Technicians Summary ({new Date(startRange).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - {new Date(endRange).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })})
+                            </h4>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Technician Name</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Visits Done</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Jobs Closed</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Quotations Created</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Feedbacks Taken</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Average Rating</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Revenue Generated</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Conversion %</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Targets Met</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {technicians.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="9" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                No technician records found for this range.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        technicians.map((tech) => {
+                                            const m = tech.currentMetrics || {};
+                                            const isSelected = selectedTechId === tech.id;
+                                            return (
+                                                <tr
+                                                    key={tech.id}
+                                                    onClick={() => {
+                                                        setSelectedTechId(tech.id);
+                                                        setSelectedDateFilter(null);
+                                                    }}
+                                                    style={{
+                                                        borderBottom: '1px solid var(--border-primary)',
+                                                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s',
+                                                        outline: isSelected ? '1px solid var(--color-primary)' : 'none'
+                                                    }}
+                                                    className="hover-row"
+                                                >
+                                                    <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <User size={15} color="var(--text-secondary)" />
+                                                        {tech.name}
+                                                    </td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.visitsCount || 0}</td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.closedCount || 0}</td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.quotationsCount || 0}</td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.feedbackCount || 0}</td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
+                                                        {m.avgRating > 0 ? `${m.avgRating} ★` : '—'}
+                                                    </td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                        ₹{(m.totalRevenue || 0).toLocaleString()}
+                                                    </td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
+                                                        {m.conversionRatio || 0}%
+                                                    </td>
+                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                        <span style={{
+                                                            fontSize: 'var(--font-size-xs)',
+                                                            fontWeight: 700,
+                                                            padding: '2px 8px',
+                                                            borderRadius: 'var(--radius-full)',
+                                                            backgroundColor: tech.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                            color: tech.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                        }}>
+                                                            {tech.achievedCount} / {tech.totalTargets} ({tech.scorePercent}%)
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     {selectedTech ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)', borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, margin: 0, color: 'var(--color-primary)' }}>
+                                    Detailed Drill-down: {selectedTech.name}
+                                </h3>
+                                <button
+                                    onClick={() => setSelectedDateFilter(null)}
+                                    className="btn btn-secondary"
+                                    style={{
+                                        display: selectedDateFilter ? 'inline-block' : 'none',
+                                        fontSize: 'var(--font-size-xs)',
+                                        padding: '4px 8px'
+                                    }}
+                                >
+                                    ✕ Clear Date Filter ({selectedDateFilter})
+                                </button>
+                            </div>
+
                             {/* KPI Metrics Cards */}
                             <div>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                                     Month Performance Goals ({activeMonth})
                                 </h4>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-md)' }}>
@@ -768,184 +1052,200 @@ function IncentivesManagement() {
                                 </div>
                             </div>
 
-                            {/* Daily Performance Breakdown Table */}
-                            <div style={{
-                                backgroundColor: 'var(--bg-elevated)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: 'var(--spacing-md)',
-                                overflow: 'hidden'
-                            }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                    Daily Breakdown
-                                </h4>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                                        <thead>
-                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Repair Done</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closed No Repair</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Daily Conversion %</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Daily Revenue</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {dailyPerformanceData.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                                        No daily logs found for this period.
-                                                    </td>
+                            {/* Two Column Layout for Breakdown & Jobs */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-md)', alignItems: 'start' }}>
+                                {/* Daily Performance Breakdown Table */}
+                                <div style={{
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    padding: 'var(--spacing-md)',
+                                    overflow: 'hidden'
+                                }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '2px' }}>
+                                        Daily Breakdown
+                                    </h4>
+                                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                        Click a day to filter job details
+                                    </p>
+                                    <div style={{ overflowY: 'auto', maxHeight: '380px' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closed</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
                                                 </tr>
-                                            ) : (
-                                                dailyPerformanceData.map((day, idx) => {
-                                                    const conversion = day.closed > 0 ? Math.round((day.repairDone / day.closed) * 100) : 0;
-                                                    return (
-                                                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                            <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                                                {new Date(day.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                            </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.visits}</td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.closed}</td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--color-success)', fontWeight: 500 }}>{day.repairDone}</td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>{day.closedWithoutRepair}</td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>{conversion}%</td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>₹{day.revenue.toLocaleString()}</td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Job-Level Performance Grid */}
-                            <div style={{
-                                backgroundColor: 'var(--bg-elevated)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-lg)',
-                                padding: 'var(--spacing-md)',
-                                overflow: 'hidden'
-                            }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                    Job-Level Details
-                                </h4>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                                        <thead>
-                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
-                                                <tr>
-                                                    <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                                        No jobs logged for this period.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                selectedTech.currentMetrics.techJobs
-                                                    .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
-                                                    .map((job) => {
-                                                        const isVisited = !!job.arrived_at;
-                                                        const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
-                                                        const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
-                                                        const jobRev = jobInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv)).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-
-                                                        let closureOutcome = 'In Progress';
-                                                        let isRepair = false;
-                                                        if (job.status === 'closed') {
-                                                            const closureInt = allInteractions.find(i => 
-                                                                i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
-                                                            );
-                                                            if (closureInt) {
-                                                                if (closureInt.type === 'close-call-no-service') {
-                                                                    closureOutcome = 'Closed No Repair';
-                                                                } else {
-                                                                    const outcome = closureInt.metadata?.repair_outcome;
-                                                                    closureOutcome = outcome || 'Closed';
-                                                                    if (outcome === 'Repair Done') {
-                                                                        isRepair = true;
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                if (hasRealRepairInvoice) {
-                                                                    closureOutcome = 'Repair Done';
-                                                                    isRepair = true;
-                                                                } else {
-                                                                    closureOutcome = 'Closed No Repair';
-                                                                }
-                                                            }
-                                                        }
-
+                                            </thead>
+                                            <tbody>
+                                                {dailyPerformanceData.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="4" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                            No daily logs found.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    dailyPerformanceData.map((day, idx) => {
+                                                        const isFiltered = selectedDateFilter === day.date;
                                                         return (
-                                                            <tr key={job.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                                                    #{job.job_number || job.id.slice(0, 8)}
+                                                            <tr 
+                                                                key={idx} 
+                                                                onClick={() => setSelectedDateFilter(isFiltered ? null : day.date)}
+                                                                style={{ 
+                                                                    borderBottom: '1px solid var(--border-primary)',
+                                                                    cursor: 'pointer',
+                                                                    backgroundColor: isFiltered ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+                                                                    transition: 'all 0.15s'
+                                                                }}
+                                                                className="hover-row"
+                                                            >
+                                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: isFiltered ? 700 : 500 }}>
+                                                                    {new Date(day.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                                                 </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                    {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
-                                                                </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                    {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                    <span style={{
-                                                                        fontSize: 'var(--font-size-xs)',
-                                                                        fontWeight: 600,
-                                                                        padding: '2px 8px',
-                                                                        borderRadius: 'var(--radius-full)',
-                                                                        backgroundColor: isVisited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                                        color: isVisited ? 'var(--color-success)' : 'var(--color-danger)'
-                                                                    }}>
-                                                                        {isVisited ? 'Visited' : 'Not Visited'}
-                                                                    </span>
-                                                                </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                    <span style={{
-                                                                        fontSize: 'var(--font-size-xs)',
-                                                                        fontWeight: 600,
-                                                                        padding: '2px 8px',
-                                                                        borderRadius: 'var(--radius-full)',
-                                                                        backgroundColor: job.status === 'closed'
-                                                                            ? (isRepair ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)')
-                                                                            : 'rgba(245, 158, 11, 0.15)',
-                                                                        color: job.status === 'closed'
-                                                                            ? (isRepair ? 'var(--color-success)' : 'var(--text-secondary)')
-                                                                            : 'var(--color-warning)'
-                                                                    }}>
-                                                                        {closureOutcome}
-                                                                    </span>
-                                                                </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                                    ₹{jobRev.toLocaleString()}
-                                                                </td>
-                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                    {job.customer_rating > 0 ? (
-                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
-                                                                            <Star size={14} fill="#eab308" />
-                                                                            {job.customer_rating}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
-                                                                    )}
-                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.visits}</td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.closed}</td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>₹{day.revenue.toLocaleString()}</td>
                                                             </tr>
                                                         );
                                                     })
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Job-Level Performance Grid */}
+                                <div style={{
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    padding: 'var(--spacing-md)',
+                                    overflow: 'hidden'
+                                }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                                        Job-Level Details {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                                    </h4>
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
+                                                    <tr>
+                                                        <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                            No jobs logged for this period.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    selectedTech.currentMetrics.techJobs
+                                                        .filter(job => !selectedDateFilter || job.scheduled_date === selectedDateFilter)
+                                                        .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
+                                                        .map((job) => {
+                                                            const isVisited = !!job.arrived_at;
+                                                            const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
+                                                            const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+                                                            const jobRev = jobInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv)).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+                                                            let closureOutcome = 'In Progress';
+                                                            let isRepair = false;
+                                                            if (job.status === 'closed') {
+                                                                const closureInt = allInteractions.find(i => 
+                                                                    i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                                                                );
+                                                                if (closureInt) {
+                                                                    if (closureInt.type === 'close-call-no-service') {
+                                                                        closureOutcome = 'Closed No Repair';
+                                                                    } else {
+                                                                        const outcome = closureInt.metadata?.repair_outcome;
+                                                                        closureOutcome = outcome || 'Closed';
+                                                                        if (outcome === 'Repair Done') {
+                                                                            isRepair = true;
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    if (hasRealRepairInvoice) {
+                                                                        closureOutcome = 'Repair Done';
+                                                                        isRepair = true;
+                                                                    } else {
+                                                                        closureOutcome = 'Closed No Repair';
+                                                                    }
+                                                                }
+                                                            }
+
+                                                            return (
+                                                                <tr 
+                                                                    key={job.id} 
+                                                                    onClick={() => setViewingJob(job)}
+                                                                    style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer' }}
+                                                                    className="hover-row"
+                                                                >
+                                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                                                        #{job.job_number || job.id.slice(0, 8)}
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                        {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                        {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                        <span style={{
+                                                                            fontSize: 'var(--font-size-xs)',
+                                                                            fontWeight: 600,
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: 'var(--radius-full)',
+                                                                            backgroundColor: isVisited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                            color: isVisited ? 'var(--color-success)' : 'var(--color-danger)'
+                                                                        }}>
+                                                                            {isVisited ? 'Visited' : 'Not Visited'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                        <span style={{
+                                                                            fontSize: 'var(--font-size-xs)',
+                                                                            fontWeight: 600,
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: 'var(--radius-full)',
+                                                                            backgroundColor: job.status === 'closed'
+                                                                                ? (isRepair ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)')
+                                                                                : 'rgba(245, 158, 11, 0.15)',
+                                                                            color: job.status === 'closed'
+                                                                                ? (isRepair ? 'var(--color-success)' : 'var(--text-secondary)')
+                                                                                : 'var(--color-warning)'
+                                                                        }}>
+                                                                            {closureOutcome}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
+                                                                        ₹{jobRev.toLocaleString()}
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                        {job.customer_rating > 0 ? (
+                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
+                                                                                <Star size={14} fill="#eab308" />
+                                                                                {job.customer_rating}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1032,6 +1332,17 @@ function IncentivesManagement() {
                         ))}
                     </div>
                 </div>
+            )}
+
+            {viewingJob && (
+                <JobDetailModal
+                    job={viewingJob}
+                    onClose={() => setViewingJob(null)}
+                    onUpdate={() => {
+                        fetchData();
+                        setViewingJob(null);
+                    }}
+                />
             )}
         </div>
     );
