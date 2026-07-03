@@ -478,6 +478,7 @@ function IncentivesManagement() {
 
                         return {
                             month: mStr,
+                            totalJobs: metrics.totalJobs,
                             visitsCount: metrics.visitsCount,
                             closedCount: metrics.closedCount,
                             conversionRatio: metrics.conversionRatio,
@@ -539,6 +540,7 @@ function IncentivesManagement() {
     };
 
     const overallStats = useMemo(() => {
+        let totalJobs = 0;
         let totalVisits = 0;
         let totalClosed = 0;
         let totalQuotes = 0;
@@ -553,6 +555,7 @@ function IncentivesManagement() {
         technicians.forEach(tech => {
             const m = tech.currentMetrics;
             if (m) {
+                totalJobs += m.totalJobs || 0;
                 totalVisits += m.visitsCount || 0;
                 totalClosed += m.closedCount || 0;
                 totalQuotes += m.quotationsCount || 0;
@@ -573,6 +576,7 @@ function IncentivesManagement() {
         const avgDaysToClose = closedJobsWithDays > 0 ? (totalDaysToClose / closedJobsWithDays).toFixed(1) : '—';
 
         return {
+            totalJobs,
             totalVisits,
             totalClosed,
             totalQuotes,
@@ -899,6 +903,7 @@ function IncentivesManagement() {
                     {/* Overall Summary Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--spacing-md)' }}>
                         {[
+                            { label: 'Jobs Assigned', value: overallStats.totalJobs },
                             { label: 'Total Visits Done', value: overallStats.totalVisits },
                             { label: 'Total Jobs Closed', value: overallStats.totalClosed },
                             { label: 'Total Quotes Created', value: overallStats.totalQuotes },
@@ -940,6 +945,7 @@ function IncentivesManagement() {
                                 <thead>
                                     <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Technician Name</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Jobs Assigned</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Visits Done</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Jobs Closed</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Quotations Created</th>
@@ -954,7 +960,7 @@ function IncentivesManagement() {
                                 <tbody>
                                     {technicians.length === 0 ? (
                                         <tr>
-                                            <td colSpan="10" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                            <td colSpan="11" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                 No technician records found for this range.
                                             </td>
                                         </tr>
@@ -983,6 +989,7 @@ function IncentivesManagement() {
                                                             <User size={15} color="var(--text-secondary)" />
                                                             {tech.name}
                                                         </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.totalJobs || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.visitsCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.closedCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.quotationsCount || 0}</td>
@@ -1040,6 +1047,7 @@ function IncentivesManagement() {
                                                             <Users size={15} color="var(--color-primary)" style={{ flexShrink: 0 }} />
                                                             All Technicians (Combined)
                                                         </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalJobs}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalVisits}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalClosed}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalQuotes}</td>
@@ -1409,6 +1417,7 @@ function IncentivesManagement() {
                                     <thead>
                                         <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Month</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Assigned</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Conversion %</th>
@@ -1424,6 +1433,9 @@ function IncentivesManagement() {
                                             <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
                                                     {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    {record.totalJobs || 0}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                     {record.visitsCount}
