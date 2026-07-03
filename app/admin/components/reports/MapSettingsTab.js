@@ -18,23 +18,50 @@ export default function MapSettingsTab() {
     });
 
     const [activeSubTab, setActiveSubTab] = useState('jobs-map');
+    const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Load settings from localStorage on mount
+    // Load settings from database with localStorage fallback on mount
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const loaded = {
-                mapViewType: localStorage.getItem('mapViewType') || 'roadmap',
-                custMarkerType: localStorage.getItem('custMarkerType') || 'circle',
-                techMarkerType: localStorage.getItem('techMarkerType') || 'wrench',
-                supplierMarkerType: localStorage.getItem('supplierMarkerType') || 'pin',
-                autoExpandSingleJob: localStorage.getItem('autoExpandSingleJob') !== 'false',
-                enableRoutePathHighlight: localStorage.getItem('enableRoutePathHighlight') !== 'false',
-                showCustomersLayer: localStorage.getItem('showCustomersLayer') !== 'false',
-                showTechniciansLayer: localStorage.getItem('showTechniciansLayer') !== 'false',
-                showSuppliersLayer: localStorage.getItem('showSuppliersLayer') !== 'false'
-            };
-            setSettings(loaded);
-        }
+        const fetchSettings = async () => {
+            try {
+                const response = await fetch('/api/admin/website-settings?key=map_settings');
+                const result = await response.json();
+                if (result.success && result.data && result.data.value) {
+                    setSettings(result.data.value);
+                    // Update local storage cache
+                    const val = result.data.value;
+                    localStorage.setItem('mapViewType', val.mapViewType || 'roadmap');
+                    localStorage.setItem('custMarkerType', val.custMarkerType || 'circle');
+                    localStorage.setItem('techMarkerType', val.techMarkerType || 'wrench');
+                    localStorage.setItem('supplierMarkerType', val.supplierMarkerType || 'pin');
+                    localStorage.setItem('autoExpandSingleJob', String(val.autoExpandSingleJob !== false));
+                    localStorage.setItem('enableRoutePathHighlight', String(val.enableRoutePathHighlight !== false));
+                    localStorage.setItem('showCustomersLayer', String(val.showCustomersLayer !== false));
+                    localStorage.setItem('showTechniciansLayer', String(val.showTechniciansLayer !== false));
+                    localStorage.setItem('showSuppliersLayer', String(val.showSuppliersLayer !== false));
+                } else {
+                    // Local fallback
+                    const loaded = {
+                        mapViewType: localStorage.getItem('mapViewType') || 'roadmap',
+                        custMarkerType: localStorage.getItem('custMarkerType') || 'circle',
+                        techMarkerType: localStorage.getItem('techMarkerType') || 'wrench',
+                        supplierMarkerType: localStorage.getItem('supplierMarkerType') || 'pin',
+                        autoExpandSingleJob: localStorage.getItem('autoExpandSingleJob') !== 'false',
+                        enableRoutePathHighlight: localStorage.getItem('enableRoutePathHighlight') !== 'false',
+                        showCustomersLayer: localStorage.getItem('showCustomersLayer') !== 'false',
+                        showTechniciansLayer: localStorage.getItem('showTechniciansLayer') !== 'false',
+                        showSuppliersLayer: localStorage.getItem('showSuppliersLayer') !== 'false'
+                    };
+                    setSettings(loaded);
+                }
+            } catch (err) {
+                console.error('Failed to load map settings from database:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
     }, []);
 
     const handleChange = (key, value) => {
@@ -44,8 +71,10 @@ export default function MapSettingsTab() {
         }));
     };
 
-    const handleSave = () => {
-        if (typeof window !== 'undefined') {
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            // 1. Write to local storage cache
             localStorage.setItem('mapViewType', settings.mapViewType);
             localStorage.setItem('custMarkerType', settings.custMarkerType);
             localStorage.setItem('techMarkerType', settings.techMarkerType);
@@ -55,10 +84,38 @@ export default function MapSettingsTab() {
             localStorage.setItem('showCustomersLayer', String(settings.showCustomersLayer));
             localStorage.setItem('showTechniciansLayer', String(settings.showTechniciansLayer));
             localStorage.setItem('showSuppliersLayer', String(settings.showSuppliersLayer));
-            
-            alert('✅ Map settings saved successfully! They will apply immediately on the map views.');
+
+            // 2. Write to database
+            const response = await fetch('/api/admin/website-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: 'map_settings',
+                    value: settings,
+                    description: 'Global map configuration and visual designs settings'
+                })
+            });
+            const result = await response.json();
+            if (result.success) {
+                alert('✅ Map settings synced to cloud database successfully! They will apply across all devices.');
+            } else {
+                throw new Error(result.error || 'Database save failed');
+            }
+        } catch (err) {
+            alert('Saved locally, but failed to sync to cloud: ' + err.message);
+        } finally {
+            setIsSaving(false);
         }
     };
+
+    if (loading) {
+        return (
+            <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '12px' }}>
+                <span className="animate-spin" style={{ display: 'inline-block', width: '24px', height: '24px', border: '2.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%' }}></span>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Loading settings from database...</span>
+            </div>
+        );
+    }
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', color: '#f1f5f9', fontFamily: 'inherit' }}>
@@ -70,6 +127,7 @@ export default function MapSettingsTab() {
                 </div>
                 <button
                     onClick={handleSave}
+                    disabled={isSaving}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -77,15 +135,15 @@ export default function MapSettingsTab() {
                         padding: '10px 20px',
                         borderRadius: '8px',
                         border: 'none',
-                        background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                        background: isSaving ? '#475569' : 'linear-gradient(135deg, #3b82f6, #2563eb)',
                         color: '#ffffff',
                         fontWeight: 700,
                         fontSize: '14px',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(37,99,235,0.2)'
+                        cursor: isSaving ? 'default' : 'pointer',
+                        boxShadow: isSaving ? 'none' : '0 4px 12px rgba(37,99,235,0.2)'
                     }}
                 >
-                    <Save size={16} /> Save Map Settings
+                    <Save size={16} /> {isSaving ? 'Syncing...' : 'Save Map Settings'}
                 </button>
             </div>
 

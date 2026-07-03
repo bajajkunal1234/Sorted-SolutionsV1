@@ -165,29 +165,53 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     const [showTechniciansLayer, setShowTechniciansLayer] = useState(true);
     const [showSuppliersLayer, setShowSuppliersLayer] = useState(true);
 
-    // Load configurations from localStorage
+    // Load configurations from DB with localStorage fallback
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const savedCust = localStorage.getItem('custMarkerType');
-            const savedTech = localStorage.getItem('techMarkerType');
-            const savedSupplier = localStorage.getItem('supplierMarkerType');
-            const savedView = localStorage.getItem('mapViewType');
-            const savedAuto = localStorage.getItem('autoExpandSingleJob');
-            const savedRoute = localStorage.getItem('enableRoutePathHighlight');
-            const savedCustLayer = localStorage.getItem('showCustomersLayer');
-            const savedTechLayer = localStorage.getItem('showTechniciansLayer');
-            const savedSupplierLayer = localStorage.getItem('showSuppliersLayer');
+        const loadConfigs = async () => {
+            try {
+                const res = await fetch('/api/admin/website-settings?key=map_settings');
+                const result = await res.json();
+                if (result.success && result.data && result.data.value) {
+                    const val = result.data.value;
+                    if (val.custMarkerType) setCustMarkerType(val.custMarkerType);
+                    if (val.techMarkerType) setTechMarkerType(val.techMarkerType);
+                    if (val.supplierMarkerType) setSupplierMarkerType(val.supplierMarkerType);
+                    if (val.mapViewType) setMapViewType(val.mapViewType);
+                    if (val.autoExpandSingleJob !== undefined) setAutoExpandSingleJob(val.autoExpandSingleJob !== false);
+                    if (val.enableRoutePathHighlight !== undefined) setEnableRoutePathHighlight(val.enableRoutePathHighlight !== false);
+                    if (val.showCustomersLayer !== undefined) setShowCustomersLayer(val.showCustomersLayer !== false);
+                    if (val.showTechniciansLayer !== undefined) setShowTechniciansLayer(val.showTechniciansLayer !== false);
+                    if (val.showSuppliersLayer !== undefined) setShowSuppliersLayer(val.showSuppliersLayer !== false);
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to load map settings from database, falling back to local storage:', err);
+            }
 
-            if (savedCust) setCustMarkerType(savedCust);
-            if (savedTech) setTechMarkerType(savedTech);
-            if (savedSupplier) setSupplierMarkerType(savedSupplier);
-            if (savedView) setMapViewType(savedView);
-            if (savedAuto !== null) setAutoExpandSingleJob(savedAuto !== 'false');
-            if (savedRoute !== null) setEnableRoutePathHighlight(savedRoute !== 'false');
-            if (savedCustLayer !== null) setShowCustomersLayer(savedCustLayer !== 'false');
-            if (savedTechLayer !== null) setShowTechniciansLayer(savedTechLayer !== 'false');
-            if (savedSupplierLayer !== null) setShowSuppliersLayer(savedSupplierLayer !== 'false');
-        }
+            // Fallback to local storage
+            if (typeof window !== 'undefined') {
+                const savedCust = localStorage.getItem('custMarkerType');
+                const savedTech = localStorage.getItem('techMarkerType');
+                const savedSupplier = localStorage.getItem('supplierMarkerType');
+                const savedView = localStorage.getItem('mapViewType');
+                const savedAuto = localStorage.getItem('autoExpandSingleJob');
+                const savedRoute = localStorage.getItem('enableRoutePathHighlight');
+                const savedCustLayer = localStorage.getItem('showCustomersLayer');
+                const savedTechLayer = localStorage.getItem('showTechniciansLayer');
+                const savedSupplierLayer = localStorage.getItem('showSuppliersLayer');
+
+                if (savedCust) setCustMarkerType(savedCust);
+                if (savedTech) setTechMarkerType(savedTech);
+                if (savedSupplier) setSupplierMarkerType(savedSupplier);
+                if (savedView) setMapViewType(savedView);
+                if (savedAuto !== null) setAutoExpandSingleJob(savedAuto !== 'false');
+                if (savedRoute !== null) setEnableRoutePathHighlight(savedRoute !== 'false');
+                if (savedCustLayer !== null) setShowCustomersLayer(savedCustLayer !== 'false');
+                if (savedTechLayer !== null) setShowTechniciansLayer(savedTechLayer !== 'false');
+                if (savedSupplierLayer !== null) setShowSuppliersLayer(savedSupplierLayer !== 'false');
+            }
+        };
+        loadConfigs();
     }, []);
 
     // Fetch technicians, live locations, and suppliers on mount
