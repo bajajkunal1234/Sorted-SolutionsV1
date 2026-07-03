@@ -471,8 +471,8 @@ function IncentivesManagement() {
                 
                 if (calculatedTechs.length > 0) {
                     setSelectedTechId(prev => {
-                        if (prev && calculatedTechs.some(t => t.id === prev)) return prev;
-                        return calculatedTechs[0].id;
+                        if (prev && (prev === 'all' || calculatedTechs.some(t => t.id === prev))) return prev;
+                        return 'all';
                     });
                 }
             }
@@ -541,7 +541,18 @@ function IncentivesManagement() {
         };
     }, [technicians]);
 
-    const selectedTech = technicians.find(t => t.id === selectedTechId) || technicians[0];
+    const selectedTech = selectedTechId === 'all'
+        ? {
+            id: 'all',
+            name: 'All Technicians',
+            currentMetrics: {
+                techJobs: technicians.flatMap(t => t.currentMetrics?.techJobs || []),
+                techInvoices: technicians.flatMap(t => t.currentMetrics?.techInvoices || []),
+                techQuotations: technicians.flatMap(t => t.currentMetrics?.techQuotations || [])
+            },
+            breakdown: []
+          }
+        : (technicians.find(t => t.id === selectedTechId) || technicians[0] || null);
     const [yr, mo] = activeMonth.split('-').map(Number);
     const monthStart = `${activeMonth}-01`;
     const monthEnd = selectedTech ? `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}` : '';
@@ -549,8 +560,8 @@ function IncentivesManagement() {
     const startRange = startDate || monthStart;
     const endRange = endDate || monthEnd;
 
-    const dailyPerformanceData = selectedTech 
-        ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs, selectedTech.currentMetrics.techInvoices, allInteractions, startRange, endRange)
+    const dailyPerformanceData = selectedTech && selectedTech.currentMetrics
+        ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs || [], selectedTech.currentMetrics.techInvoices || [], allInteractions, startRange, endRange)
         : [];
 
     return (
@@ -901,57 +912,113 @@ function IncentivesManagement() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        technicians.map((tech) => {
-                                            const m = tech.currentMetrics || {};
-                                            const isSelected = selectedTechId === tech.id;
-                                            return (
-                                                <tr
-                                                    key={tech.id}
-                                                    onClick={() => {
-                                                        setSelectedTechId(tech.id);
-                                                        setSelectedDateFilter(null);
-                                                    }}
-                                                    style={{
-                                                        borderBottom: '1px solid var(--border-primary)',
-                                                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
-                                                        cursor: 'pointer',
-                                                        transition: 'all 0.15s',
-                                                        outline: isSelected ? '1px solid var(--color-primary)' : 'none'
-                                                    }}
-                                                    className="hover-row"
-                                                >
-                                                    <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <User size={15} color="var(--text-secondary)" />
-                                                        {tech.name}
-                                                    </td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.visitsCount || 0}</td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.closedCount || 0}</td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.quotationsCount || 0}</td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.feedbackCount || 0}</td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
-                                                        {m.avgRating > 0 ? `${m.avgRating} ★` : '—'}
-                                                    </td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                        ₹{(m.totalRevenue || 0).toLocaleString()}
-                                                    </td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                                                        {m.conversionRatio || 0}%
-                                                    </td>
-                                                    <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                        <span style={{
-                                                            fontSize: 'var(--font-size-xs)',
-                                                            fontWeight: 700,
-                                                            padding: '2px 8px',
-                                                            borderRadius: 'var(--radius-full)',
-                                                            backgroundColor: tech.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                            color: tech.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
-                                                        }}>
-                                                            {tech.achievedCount} / {tech.totalTargets} ({tech.scorePercent}%)
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
+                                        <>
+                                            {technicians.map((tech) => {
+                                                const m = tech.currentMetrics || {};
+                                                const isSelected = selectedTechId === tech.id;
+                                                return (
+                                                    <tr
+                                                        key={tech.id}
+                                                        onClick={() => {
+                                                            setSelectedTechId(tech.id);
+                                                            setSelectedDateFilter(null);
+                                                        }}
+                                                        style={{
+                                                            borderBottom: '1px solid var(--border-primary)',
+                                                            backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s',
+                                                            outline: isSelected ? '1px solid var(--color-primary)' : 'none'
+                                                        }}
+                                                        className="hover-row"
+                                                    >
+                                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <User size={15} color="var(--text-secondary)" />
+                                                            {tech.name}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.visitsCount || 0}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.closedCount || 0}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.quotationsCount || 0}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.feedbackCount || 0}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
+                                                            {m.avgRating > 0 ? `${m.avgRating} ★` : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                            ₹{(m.totalRevenue || 0).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
+                                                            {m.conversionRatio || 0}%
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                            <span style={{
+                                                                fontSize: 'var(--font-size-xs)',
+                                                                fontWeight: 700,
+                                                                padding: '2px 8px',
+                                                                borderRadius: 'var(--radius-full)',
+                                                                backgroundColor: tech.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                                color: tech.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                            }}>
+                                                                {tech.achievedCount} / {tech.totalTargets} ({tech.scorePercent}%)
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {/* Combined totals row */}
+                                            {(() => {
+                                                const isAllSelected = selectedTechId === 'all';
+                                                const totalAchievedCount = technicians.reduce((sum, t) => sum + (t.achievedCount || 0), 0);
+                                                const totalTargetsCount = technicians.reduce((sum, t) => sum + (t.totalTargets || 0), 0);
+                                                const totalTargetsPercent = totalTargetsCount > 0 ? Math.round((totalAchievedCount / totalTargetsCount) * 100) : 0;
+                                                return (
+                                                    <tr
+                                                        onClick={() => {
+                                                            setSelectedTechId('all');
+                                                            setSelectedDateFilter(null);
+                                                        }}
+                                                        style={{
+                                                            borderTop: '2px solid var(--border-primary)',
+                                                            backgroundColor: isAllSelected ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-secondary)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s',
+                                                            fontWeight: 'bold',
+                                                            outline: isAllSelected ? '1px solid var(--color-primary)' : 'none'
+                                                        }}
+                                                        className="hover-row"
+                                                    >
+                                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <Users size={15} color="var(--color-primary)" style={{ flexShrink: 0 }} />
+                                                            All Technicians (Combined)
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalVisits}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalClosed}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalQuotes}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalFeedbacks}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: '#eab308' }}>
+                                                            {overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★`}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', color: 'var(--text-primary)' }}>
+                                                            ₹{overallStats.totalRevenue.toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                            {overallStats.conversion}%
+                                                        </td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                            <span style={{
+                                                                fontSize: 'var(--font-size-xs)',
+                                                                fontWeight: 700,
+                                                                padding: '2px 8px',
+                                                                borderRadius: 'var(--radius-full)',
+                                                                backgroundColor: totalTargetsPercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                                color: totalTargetsPercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                            }}>
+                                                                {totalAchievedCount} / {totalTargetsCount} ({totalTargetsPercent}%)
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })()}
+                                        </>
                                     )}
                                 </tbody>
                             </table>
@@ -1131,6 +1198,7 @@ function IncentivesManagement() {
                                             <thead>
                                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
+                                                    {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
@@ -1142,7 +1210,7 @@ function IncentivesManagement() {
                                             <tbody>
                                                 {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
                                                     <tr>
-                                                        <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        <td colSpan={selectedTechId === 'all' ? 8 : 7} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                             No jobs logged for this period.
                                                         </td>
                                                     </tr>
@@ -1192,6 +1260,11 @@ function IncentivesManagement() {
                                                                     <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
                                                                         #{job.job_number || job.id.slice(0, 8)}
                                                                     </td>
+                                                                    {selectedTechId === 'all' && (
+                                                                        <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                                            {job.technician_name || 'Unassigned'}
+                                                                        </td>
+                                                                    )}
                                                                     <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                         {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
                                                                     </td>
