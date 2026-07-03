@@ -834,18 +834,7 @@ function IncentivesManagement() {
             {activeView === 'performance' && (
                 <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     {/* Date Selector and Preset row */}
-                    <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 'var(--spacing-md)',
-                        padding: 'var(--spacing-md)',
-                        backgroundColor: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-primary)',
-                        borderRadius: 'var(--radius-lg)',
-                        flexShrink: 0
-                    }}>
+                    <div className="performance-filters-container" style={{ flexShrink: 0 }}>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                             {[
                                 { id: 'today', label: 'Today' },
@@ -941,7 +930,7 @@ function IncentivesManagement() {
                             </h4>
                         </div>
                         <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                            <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Technician Name</th>
@@ -1181,7 +1170,7 @@ function IncentivesManagement() {
                             </div>
 
                             {/* Two Column Layout for Breakdown & Jobs */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-md)', alignItems: 'start' }}>
+                            <div className="performance-drilldown-grid" style={{ alignItems: 'start' }}>
                                 {/* Daily Performance Breakdown Table */}
                                 <div style={{
                                     backgroundColor: 'var(--bg-elevated)',
@@ -1197,7 +1186,7 @@ function IncentivesManagement() {
                                         Click a day to filter job details
                                     </p>
                                     <div style={{ overflowY: 'auto', maxHeight: '380px' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                        <table style={{ width: '100%', minWidth: '320px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                             <thead>
                                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
@@ -1255,7 +1244,7 @@ function IncentivesManagement() {
                                         Job-Level Details {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
                                     </h4>
                                     <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                        <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                             <thead>
                                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
@@ -1413,67 +1402,69 @@ function IncentivesManagement() {
                                     {tech.name} - Performance History
                                 </h4>
 
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Month</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Assigned</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Conversion %</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total Revenue</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback Rate</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Average Rating</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Avg Days to Close</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Goals Achieved</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {tech.history.map((record, idx) => (
-                                            <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                                    {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    {record.totalJobs || 0}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    {record.visitsCount}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    {record.closedCount}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                                                    {record.conversionRatio}%
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                    ₹{record.totalRevenue.toLocaleString()}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    {record.feedbackRate}%
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
-                                                    {record.avgRating} ★
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    {record.avgDaysToClose > 0 ? `${record.avgDaysToClose} days` : '—'}
-                                                </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                    <span style={{
-                                                        fontSize: 'var(--font-size-xs)',
-                                                        fontWeight: 700,
-                                                        padding: '2px 8px',
-                                                        borderRadius: 'var(--radius-full)',
-                                                        backgroundColor: record.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                        color: record.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
-                                                    }}>
-                                                        {record.achievedCount} / {record.totalTargets}
-                                                    </span>
-                                                </td>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Month</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Assigned</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Conversion %</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total Revenue</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback Rate</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Average Rating</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Avg Days to Close</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Goals Achieved</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {tech.history.map((record, idx) => (
+                                                <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                                        {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        {record.totalJobs || 0}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        {record.visitsCount}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        {record.closedCount}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
+                                                        {record.conversionRatio}%
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
+                                                        ₹{record.totalRevenue.toLocaleString()}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        {record.feedbackRate}%
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
+                                                        {record.avgRating} ★
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        {record.avgDaysToClose > 0 ? `${record.avgDaysToClose} days` : '—'}
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                        <span style={{
+                                                            fontSize: 'var(--font-size-xs)',
+                                                            fontWeight: 700,
+                                                            padding: '2px 8px',
+                                                            borderRadius: 'var(--radius-full)',
+                                                            backgroundColor: record.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                            color: record.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                        }}>
+                                                            {record.achievedCount} / {record.totalTargets}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         ))}
                     </div>
