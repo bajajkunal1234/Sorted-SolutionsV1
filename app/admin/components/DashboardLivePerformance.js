@@ -121,7 +121,6 @@ export default function DashboardLivePerformance() {
         { label: 'Jobs Assigned', value: activeMetrics.assigned || 0, icon: Briefcase, color: '#3b82f6' },
         { label: 'Visits Done', value: activeMetrics.visits || 0, icon: TrendingUp, color: '#f59e0b' },
         { label: 'Jobs Closed', value: activeMetrics.closed || 0, icon: CheckCircle, color: '#8b5cf6' },
-        { label: 'Currently on Job', value: activeMetrics.onJob || 0, icon: Activity, color: '#ec4899' },
     ];
 
     return (
