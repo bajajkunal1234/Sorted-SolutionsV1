@@ -242,12 +242,13 @@ export async function PUT(request, { params }) {
         }
 
         // ── Special action: mark_arrived ───────────────────────────────────
-        // Tech clicked "Mark as Arrived" — auto-advances to diagnosing_quoting
+        // Tech clicked "Mark as Arrived" — auto-advances to diagnosing_quoting if scheduled
         if (action === 'mark_arrived') {
             const now = new Date().toISOString();
+            const newStatus = existing?.status === 'scheduled' ? 'diagnosing_quoting' : existing?.status;
             const { data: job, error } = await supabase
                 .from('jobs')
-                .update({ arrived_at: now, status: 'diagnosing_quoting' })
+                .update({ arrived_at: now, status: newStatus })
                 .eq('id', id)
                 .select()
                 .single();

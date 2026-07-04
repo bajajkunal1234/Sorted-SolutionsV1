@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle } from 'lucide-react';
+import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle, Camera } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress, formatRelativeTime } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
@@ -458,8 +458,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
-            setEditedJob(prev => ({ ...prev, arrived_at: data.job?.arrived_at || new Date().toISOString(), status: 'diagnosing_quoting' }));
-            if (onUpdate) onUpdate(data.job);
+            const newStatus = data.job?.status || (editedJob.status === 'scheduled' ? 'diagnosing_quoting' : editedJob.status);
+            setEditedJob(prev => ({ ...prev, arrived_at: data.job?.arrived_at || new Date().toISOString(), status: newStatus }));
+            if (onUpdate) onUpdate(data.job || { ...editedJob, arrived_at: data.job?.arrived_at || new Date().toISOString(), status: newStatus });
         } catch (err) {
             alert('Could not mark arrival: ' + err.message);
         } finally {
@@ -987,71 +988,145 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                            {/* Start Job — shown when scheduled */}
-                            {editedJob.status === 'scheduled' && !editedJob.on_way_at && (
-                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                         Ready to Head Out?
-                                    </h3>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                        Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
-                                    </p>
-                                    <button
-                                        className="btn btn-primary"
-                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
-                                        onClick={async () => {
-                                            if (!navigator.geolocation) return alert('GPS not supported on this device');
-                                            navigator.geolocation.getCurrentPosition(async () => {
-                                                const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Admin';
-                                                await fetch(`/api/technician/jobs/${job.id}`, {
-                                                    method: 'PUT',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ action: 'mark_on_way', updated_by_name: techName })
-                                                });
-                                                setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
-                                            }, () => alert('Please enable GPS permissions.'));
-                                        }}
-                                        disabled={loading}
-                                    >
-                                         Start Job & Share Location
-                                    </button>
-                                </div>
-                            )}
-                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
-                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                     On the way — customer notified. Location sharing active.
-                                </div>
-                            )}
+                            {/* Start Job & Share Location / Mark as Arrived buttons flow */}
+                            {(() => {
+                                const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
 
-                            {/* Mark as Arrived — shown when scheduled and on_way_at is set */}
-                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
-                                <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #8b5cf6' }}>
-                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#8b5cf6'} />
-                                        {editedJob.arrived_at ? 'Arrival Confirmed ✓' : 'At Customer Location?'}
-                                    </h3>
-                                    {editedJob.arrived_at ? (
-                                        <div style={{ padding: '12px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#10b981', fontWeight: 600 }}>
-                                            ✓ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Status auto-changed to Diagnosing & Quoting</div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                                Tap when you reach the customer — status will auto-advance to <strong>Diagnosing & Quoting</strong> and your arrival is recorded.
-                                            </p>
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={handleMarkArrived}
-                                                disabled={markingArrival}
-                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
-                                            >
-                                                {markingArrival ? ' Recording...' : 'Mark as Arrived'}
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                                return (
+                                    <>
+                                        {/* On Way Banner */}
+                                        {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && isCurrentlyOnWay && (
+                                            <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: '12px' }}>
+                                                 On the way — customer notified. Location sharing active.
+                                            </div>
+                                        )}
+
+                                        {/* Start Job Button */}
+                                        {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && !isCurrentlyOnWay && (
+                                            <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                     Ready to Head Out?
+                                                </h3>
+                                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                                    Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
+                                                </p>
+                                                <button
+                                                    className="btn btn-primary"
+                                                    style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
+                                                    onClick={async () => {
+                                                        if (!navigator.geolocation) return alert('GPS not supported on this device');
+                                                        navigator.geolocation.getCurrentPosition(async () => {
+                                                            const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Admin';
+                                                            await fetch(`/api/technician/jobs/${job.id}`, {
+                                                                method: 'PUT',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ action: 'mark_on_way', updated_by_name: techName })
+                                                            });
+                                                            const nowStr = new Date().toISOString();
+                                                            setEditedJob(prev => ({ 
+                                                                ...prev, 
+                                                                on_way_at: nowStr,
+                                                                interactions: [
+                                                                    {
+                                                                        type: 'on-way',
+                                                                        performed_by_name: techName,
+                                                                        description: 'Technician is on the way',
+                                                                        timestamp: nowStr
+                                                                    },
+                                                                    ...(prev.interactions || [])
+                                                                ]
+                                                            }));
+                                                        }, () => alert('Please enable GPS permissions.'));
+                                                    }}
+                                                    disabled={loading}
+                                                >
+                                                     Start Job & Share Location
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Mark as Arrived Button */}
+                                        {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && isCurrentlyOnWay && (
+                                            <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #8b5cf6' }}>
+                                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <MapPin size={18} color="#8b5cf6" />
+                                                    At Customer Location?
+                                                </h3>
+                                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                                    Tap when you reach the customer — status will auto-advance to Diagnosing & Quoting (if scheduled) and arrival is recorded.
+                                                </p>
+                                                <button
+                                                    className="btn btn-primary"
+                                                    onClick={handleMarkArrived}
+                                                    disabled={markingArrival}
+                                                    style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
+                                                >
+                                                    {markingArrival ? ' Recording...' : 'Mark as Arrived'}
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Visits Log inside Billing/Actions */}
+                                        {(() => {
+                                            const visitInteractions = (editedJob.interactions || [])
+                                                .filter(i => i.type === 'before-photos-uploaded')
+                                                .map((i, index, arr) => ({
+                                                    visitNumber: arr.length - index,
+                                                    techName: i.performed_by_name || i.user_name || 'Technician',
+                                                    timestamp: i.timestamp,
+                                                    attachments: i.metadata?.attachments || [],
+                                                    description: i.description
+                                                }))
+                                                .reverse();
+
+                                            if (visitInteractions.length === 0) return null;
+
+                                            return (
+                                                <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <Camera size={18} color="#8b5cf6" /> Visits Log ({visitInteractions.length})
+                                                    </h3>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                        {visitInteractions.map((visit) => (
+                                                            <div key={visit.visitNumber} style={{ borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#10b981' }}>
+                                                                        Visit #{visit.visitNumber}
+                                                                    </span>
+                                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                                        {new Date(visit.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                                    Completed by: <strong style={{ color: 'var(--text-primary)' }}>{visit.techName}</strong>
+                                                                </div>
+                                                                {visit.description && (
+                                                                    <p style={{ fontSize: '13px', color: 'var(--text-primary)', background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border-primary)', margin: '0 0 8px 0', whiteSpace: 'pre-wrap' }}>
+                                                                        {visit.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '')}
+                                                                    </p>
+                                                                )}
+                                                                {visit.attachments && visit.attachments.length > 0 && (
+                                                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                                                        {visit.attachments.map((url, idx) => (
+                                                                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                                                <img 
+                                                                                    src={url} 
+                                                                                    alt={`Visit ${visit.visitNumber} attachment ${idx + 1}`} 
+                                                                                    style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                                                                />
+                                                                            </a>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </>
+                                );
+                            })()}
 
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
