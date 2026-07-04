@@ -206,7 +206,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
-        { id: 'interactions', label: 'Interactions', icon: Clock },
+        { id: 'interactions', label: 'Interactions/Visit Log', icon: Clock },
         { id: 'actions', label: 'Actions', icon: CheckSquare }
     ];
 
@@ -1861,19 +1861,75 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             techName = editedJob.technician_name;
                         }
                         
+                        const visitInteractions = (editedJob.interactions || [])
+                            .filter(i => i.type === 'before-photos-uploaded')
+                            .map((i, index, arr) => ({
+                                visitNumber: arr.length - index,
+                                techName: i.performed_by_name || i.user_name || 'Technician',
+                                timestamp: i.timestamp,
+                                attachments: i.metadata?.attachments || [],
+                                description: i.description
+                            }))
+                            .reverse();
+
                         return (
-                            <div className="card" style={{ minHeight: '100%', boxSizing: 'border-box' }}>
-                                 {/* Re-use the Admin interactions tab component, it's perfect for this */}
-                                 <JobInteractionsTab 
-                                    jobId={editedJob.id}
-                                    jobReference={editedJob.job_number}
-                                    interactions={editedJob.interactions || []}
-                                    onAddNote={handleAddNote}
-                                    onEditNote={handleEditNote}
-                                    onUpdate={() => {}} // Not strictly needed, local state updates handle it
-                                    isSubmitting={isAddingNote}
-                                    currentUserName={techName}
-                                 />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                                {visitInteractions.length > 0 && (
+                                    <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Camera size={18} color="#8b5cf6" /> Visits Log ({visitInteractions.length})
+                                        </h3>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                            {visitInteractions.map((visit) => (
+                                                <div key={visit.visitNumber} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#38bdf8' }}>
+                                                            Visit #{visit.visitNumber}
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                            {new Date(visit.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                                                        Completed by: <strong style={{ color: 'var(--text-primary)' }}>{visit.techName}</strong>
+                                                    </div>
+                                                    {visit.description && (
+                                                        <p style={{ fontSize: '13px', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', margin: '0 0 8px 0', whiteSpace: 'pre-wrap' }}>
+                                                            {visit.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '')}
+                                                        </p>
+                                                    )}
+                                                    {visit.attachments && visit.attachments.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                                            {visit.attachments.map((url, idx) => (
+                                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                                    <img 
+                                                                        src={url} 
+                                                                        alt={`Visit ${visit.visitNumber} attachment ${idx + 1}`} 
+                                                                        style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
+                                                                    />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="card" style={{ minHeight: '100%', boxSizing: 'border-box' }}>
+                                     {/* Re-use the Admin interactions tab component, it's perfect for this */}
+                                     <JobInteractionsTab 
+                                        jobId={editedJob.id}
+                                        jobReference={editedJob.job_number}
+                                        interactions={editedJob.interactions || []}
+                                        onAddNote={handleAddNote}
+                                        onEditNote={handleEditNote}
+                                        onUpdate={() => {}} // Not strictly needed, local state updates handle it
+                                        isSubmitting={isAddingNote}
+                                        currentUserName={techName}
+                                     />
+                                </div>
                             </div>
                         );
                     })()}
@@ -1963,6 +2019,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             {/* Start Job & Share Location / Mark as Arrived buttons flow */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
+                                const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
 
                                 return (
                                     <>
@@ -1977,7 +2034,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && !isCurrentlyOnWay && (
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                     Ready to Head Out?
+                                                     Ready to Head Out? (Visit {nextVisitNum})
                                                 </h3>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
                                                     Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
@@ -2013,7 +2070,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                          {
                                                                              type: 'on-way',
                                                                              performed_by_name: techName,
-                                                                             description: 'Technician is on the way',
+                                                                             description: `Technician is on the way (Visit #${nextVisitNum})`,
                                                                              timestamp: nowStr
                                                                          },
                                                                          ...(prev.interactions || [])
@@ -2042,7 +2099,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                      }}
                                                     disabled={loading}
                                                 >
-                                                     {loading ? 'Starting...' : 'Start Job & Share Location'}
+                                                     Start Job & Share Location (Visit {nextVisitNum})
                                                 </button>
                                             </div>
                                         )}
@@ -2052,7 +2109,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #8b5cf6' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <MapPin size={18} color="#8b5cf6" />
-                                                    At Customer Location?
+                                                    At Customer Location? (Visit {nextVisitNum})
                                                 </h3>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
                                                     Tap when you reach the customer — location verification and check-in photos will be required.
@@ -2063,69 +2120,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     disabled={markingArrival}
                                                     style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', whiteSpace: 'normal' }}
                                                 >
-                                                    {markingArrival ? ' Recording...' : 'Mark as Arrived'}
+                                                    {markingArrival ? ' Recording...' : `Mark as Arrived (Visit ${nextVisitNum})`}
                                                 </button>
                                             </div>
                                         )}
-
-                                        {/* Visits Log inside Billing/Actions */}
-                                        {(() => {
-                                            const visitInteractions = (editedJob.interactions || [])
-                                                .filter(i => i.type === 'before-photos-uploaded')
-                                                .map((i, index, arr) => ({
-                                                    visitNumber: arr.length - index,
-                                                    techName: i.performed_by_name || i.user_name || 'Technician',
-                                                    timestamp: i.timestamp,
-                                                    attachments: i.metadata?.attachments || [],
-                                                    description: i.description
-                                                }))
-                                                .reverse();
-
-                                            if (visitInteractions.length === 0) return null;
-
-                                            return (
-                                                <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <Camera size={18} color="#8b5cf6" /> Visits Log ({visitInteractions.length})
-                                                    </h3>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                                        {visitInteractions.map((visit) => (
-                                                            <div key={visit.visitNumber} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '12px' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#38bdf8' }}>
-                                                                        Visit #{visit.visitNumber}
-                                                                    </span>
-                                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                                                        {new Date(visit.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                                    </span>
-                                                                </div>
-                                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                                                                    Completed by: <strong style={{ color: 'var(--text-primary)' }}>{visit.techName}</strong>
-                                                                </div>
-                                                                {visit.description && (
-                                                                    <p style={{ fontSize: '13px', color: 'var(--text-primary)', background: 'rgba(255,255,255,0.02)', padding: '8px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', margin: '0 0 8px 0', whiteSpace: 'pre-wrap' }}>
-                                                                        {visit.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '')}
-                                                                    </p>
-                                                                )}
-                                                                {visit.attachments && visit.attachments.length > 0 && (
-                                                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                                                        {visit.attachments.map((url, idx) => (
-                                                                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-                                                                                <img 
-                                                                                    src={url} 
-                                                                                    alt={`Visit ${visit.visitNumber} attachment ${idx + 1}`} 
-                                                                                    style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
-                                                                                />
-                                                                            </a>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
                                     </>
                                 );
                             })()}
