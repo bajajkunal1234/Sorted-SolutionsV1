@@ -551,6 +551,7 @@ function IncentivesManagement({ initialSubTab }) {
         let totalVisits = 0;
         let totalClosed = 0;
         let totalQuotes = 0;
+        let totalInvoices = 0;
         let totalFeedbacks = 0;
         let totalRatingSum = 0;
         let totalRatingCount = 0;
@@ -566,6 +567,7 @@ function IncentivesManagement({ initialSubTab }) {
                 totalVisits += m.visitsCount || 0;
                 totalClosed += m.closedCount || 0;
                 totalQuotes += m.quotationsCount || 0;
+                totalInvoices += m.techInvoices ? m.techInvoices.length : 0;
                 totalFeedbacks += m.feedbackCount || 0;
                 totalRevenue += m.totalRevenue || 0;
                 totalRepairDone += m.repairDoneCount || 0;
@@ -587,6 +589,7 @@ function IncentivesManagement({ initialSubTab }) {
             totalVisits,
             totalClosed,
             totalQuotes,
+            totalInvoices,
             totalFeedbacks,
             totalRevenue,
             avgRating,
@@ -891,6 +894,7 @@ function IncentivesManagement({ initialSubTab }) {
                             { label: 'Total Visits Done', value: overallStats.totalVisits },
                             { label: 'Total Jobs Closed', value: overallStats.totalClosed },
                             { label: 'Total Quotes Created', value: overallStats.totalQuotes },
+                            { label: 'Total Invoices Created', value: overallStats.totalInvoices },
                             { label: 'Total Feedbacks Taken', value: overallStats.totalFeedbacks },
                             { label: 'Overall Revenue', value: `₹${overallStats.totalRevenue.toLocaleString()}` },
                             { label: 'Avg Rating', value: overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★` },
@@ -919,18 +923,18 @@ function IncentivesManagement({ initialSubTab }) {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', minWidth: '950px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                 <thead>
-                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Technician Name</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Jobs Assigned</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Visits Done</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Jobs Closed</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Quotations Created</th>
+                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Invoices Created</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Feedbacks Taken</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Average Rating</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Avg Days to Close</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Revenue Generated</th>
                                         <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Conversion %</th>
-                                        <th style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Targets Met</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -962,13 +966,14 @@ function IncentivesManagement({ initialSubTab }) {
                                                         className="hover-row"
                                                     >
                                                         <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <User size={15} color="var(--text-secondary)" />
-                                                            {tech.name}
+                                                             <User size={15} color="var(--text-secondary)" />
+                                                             {tech.name}
                                                         </td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.totalJobs || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.visitsCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.closedCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.quotationsCount || 0}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 500 }}>{m.techInvoices ? m.techInvoices.length : 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{m.feedbackCount || 0}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
                                                             {m.avgRating > 0 ? `${m.avgRating} ★` : '—'}
@@ -982,27 +987,12 @@ function IncentivesManagement({ initialSubTab }) {
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
                                                             {m.conversionRatio || 0}%
                                                         </td>
-                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                            <span style={{
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                fontWeight: 700,
-                                                                padding: '2px 8px',
-                                                                borderRadius: 'var(--radius-full)',
-                                                                backgroundColor: tech.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                                color: tech.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
-                                                            }}>
-                                                                {tech.achievedCount} / {tech.totalTargets} ({tech.scorePercent}%)
-                                                            </span>
-                                                        </td>
                                                     </tr>
                                                 );
                                             })}
                                             {/* Combined totals row */}
                                             {(() => {
                                                 const isAllSelected = selectedTechId === 'all';
-                                                const totalAchievedCount = technicians.reduce((sum, t) => sum + (t.achievedCount || 0), 0);
-                                                const totalTargetsCount = technicians.reduce((sum, t) => sum + (t.totalTargets || 0), 0);
-                                                const totalTargetsPercent = totalTargetsCount > 0 ? Math.round((totalAchievedCount / totalTargetsCount) * 100) : 0;
                                                 return (
                                                     <tr
                                                         onClick={() => {
@@ -1027,6 +1017,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalVisits}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalClosed}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalQuotes}</td>
+                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalInvoices}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>{overallStats.totalFeedbacks}</td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: '#eab308' }}>
                                                             {overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★`}
@@ -1039,18 +1030,6 @@ function IncentivesManagement({ initialSubTab }) {
                                                         </td>
                                                         <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
                                                             {overallStats.conversion}%
-                                                        </td>
-                                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                            <span style={{
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                fontWeight: 700,
-                                                                padding: '2px 8px',
-                                                                borderRadius: 'var(--radius-full)',
-                                                                backgroundColor: totalTargetsPercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                                color: totalTargetsPercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
-                                                            }}>
-                                                                {totalAchievedCount} / {totalTargetsCount} ({totalTargetsPercent}%)
-                                                            </span>
                                                         </td>
                                                     </tr>
                                                 );
