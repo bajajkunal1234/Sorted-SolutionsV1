@@ -32,33 +32,88 @@ const isServiceChargeOnlyInvoice = (inv) => {
     });
 };
 
-const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList, quotationsList) => {
-    // 1. Filter jobs for this technician in this month
-    const techJobs = jobsList.filter(j =>
-        (j.technician_id === techId) &&
-        j.scheduled_date >= mStart && j.scheduled_date <= mEnd
-    );
-    const totalJobs = techJobs.length;
+const getISTDateString = (isoString) => {
+    if (!isoString) return null;
+    try {
+        const date = new Date(isoString);
+        // Convert to IST (UTC+5:30)
+        const offsetDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+        return offsetDate.toISOString().split('T')[0];
+    } catch (e) {
+        return null;
+    }
+};
 
-    // 2. Filter invoices for this technician in this month
+const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList, quotationsList) => {
+    // 1. Filter jobs for this technician that had any activity in this range
+    const techJobs = jobsList.filter(j => {
+        if (j.technician_id !== techId) return false;
+        
+        // Scheduled in range
+        if (j.scheduled_date >= mStart && j.scheduled_date <= mEnd) return true;
+        
+        // Visited in range
+        if (j.arrived_at) {
+            const arrDate = getISTDateString(j.arrived_at);
+            if (arrDate && arrDate >= mStart && arrDate <= mEnd) return true;
+        }
+        
+        // Closed in range
+        if (j.status === 'closed') {
+            let closureDate = getISTDateString(j.completed_at);
+            if (!closureDate) {
+                const closureInt = (interactionsList || []).find(i => 
+                    i.job_id === j.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                );
+                if (closureInt) {
+                    closureDate = getISTDateString(closureInt.timestamp);
+                }
+            }
+            if (closureDate && closureDate >= mStart && closureDate <= mEnd) return true;
+        }
+        
+        return false;
+    });
+
+    // 2. Filter assigned jobs (scheduled in range)
+    const assignedJobs = techJobs.filter(j => j.scheduled_date >= mStart && j.scheduled_date <= mEnd);
+    const totalJobs = assignedJobs.length;
+
+    // 3. Filter invoices for this technician in this range
     const techInvoices = invoicesList.filter(inv =>
         (inv.technician_id === techId) &&
         inv.date >= mStart && inv.date <= mEnd
     );
 
-    // 3. Revenue total (excluding service-charge-only invoices)
+    // 4. Revenue total (excluding service-charge-only invoices)
     const repairInvoices = techInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv));
     const totalRevenue = repairInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
-    // 4. Visits Done (arrived_at is set, or status is post-arrival/closed)
-    const visitedJobs = techJobs.filter(j => !!j.arrived_at);
+    // 5. Visits Done in range
+    const visitedJobs = techJobs.filter(j => {
+        if (!j.arrived_at) return false;
+        const arrDate = getISTDateString(j.arrived_at);
+        return arrDate && arrDate >= mStart && arrDate <= mEnd;
+    });
     const visitsCount = visitedJobs.length;
 
-    // 5. Jobs Closed
-    const closedJobs = techJobs.filter(j => j.status === 'closed');
+    // 6. Jobs Closed in range
+    const closedJobs = techJobs.filter(j => {
+        if (j.status !== 'closed') return false;
+        let closureDate = getISTDateString(j.completed_at);
+        if (!closureDate) {
+            const closureInt = (interactionsList || []).find(i => 
+                i.job_id === j.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+            );
+            if (closureInt) {
+                closureDate = getISTDateString(closureInt.timestamp);
+            }
+        }
+        return closureDate && closureDate >= mStart && closureDate <= mEnd;
+    });
     const closedCount = closedJobs.length;
 
-    // 6. Outcomes: Repair Done vs Closed without Repair
+    // 7. Outcomes: Repair Done vs Closed without Repair
     let repairDoneCount = 0;
     let closedWithoutRepairCount = 0;
 
@@ -131,23 +186,23 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
     });
     const avgDaysToClose = closedJobsWithDays > 0 ? parseFloat((totalDaysToClose / closedJobsWithDays).toFixed(1)) : 0;
 
-    // 7. Conversion Ratio
+    // 8. Conversion Ratio
     const conversionRatio = closedCount > 0 ? Math.round((repairDoneCount / closedCount) * 100) : 0;
 
-    // 8. Avg Revenue per Job (among closed jobs)
+    // 9. Avg Revenue per Job (among closed jobs)
     const avgRevenuePerJob = closedCount > 0 ? Math.round(totalRevenue / closedCount) : 0;
 
-    // 9. Feedback rate
-    const feedbackCount = techJobs.filter(j => j.customer_rating > 0).length;
+    // 10. Feedback rate
+    const feedbackCount = closedJobs.filter(j => j.customer_rating > 0).length;
     const feedbackRate = closedCount > 0 ? Math.round((feedbackCount / closedCount) * 100) : 0;
 
-    // 10. Avg rating
-    const ratedJobs = techJobs.filter(j => j.customer_rating > 0);
+    // 11. Avg rating
+    const ratedJobs = closedJobs.filter(j => j.customer_rating > 0);
     const avgRating = ratedJobs.length > 0
         ? parseFloat((ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0) / ratedJobs.length).toFixed(1))
         : 0;
 
-    // 11. Quotations Count
+    // 12. Quotations Count
     const techQuotations = (quotationsList || []).filter(q => {
         if (q.technician_id === techId) return true;
         const linkedJob = (jobsList || []).find(j => j.id === q.job_id);
@@ -243,15 +298,27 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
     }
 
     (techJobs || []).forEach(job => {
-        const dayStr = job.scheduled_date;
-        if (dailyMap[dayStr]) {
-            const isVisited = !!job.arrived_at;
-            if (isVisited) {
-                dailyMap[dayStr].visits++;
+        // 1. If visited, map to visit date
+        if (job.arrived_at) {
+            const visitDate = getISTDateString(job.arrived_at);
+            if (dailyMap[visitDate]) {
+                dailyMap[visitDate].visits++;
             }
+        }
 
-            if (job.status === 'closed') {
-                dailyMap[dayStr].closed++;
+        // 2. If closed, map to closure date
+        if (job.status === 'closed') {
+            let closureDate = getISTDateString(job.completed_at);
+            if (!closureDate) {
+                const closureInt = (interactionsList || []).find(i => 
+                    i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                );
+                if (closureInt) {
+                    closureDate = getISTDateString(closureInt.timestamp);
+                }
+            }
+            if (closureDate && dailyMap[closureDate]) {
+                dailyMap[closureDate].closed++;
 
                 const closureInt = (interactionsList || []).find(i => 
                     i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
@@ -280,9 +347,9 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
                 }
 
                 if (isRepair) {
-                    dailyMap[dayStr].repairDone++;
+                    dailyMap[closureDate].repairDone++;
                 } else {
-                    dailyMap[dayStr].closedWithoutRepair++;
+                    dailyMap[closureDate].closedWithoutRepair++;
                 }
             }
         }
@@ -427,8 +494,7 @@ function IncentivesManagement({ initialSubTab }) {
                 const { data: allJobs } = await supabase
                     .from('jobs')
                     .select('id, job_number, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance, brand')
-                    .gte('scheduled_date', historyStart)
-                    .lte('scheduled_date', endD);
+                    .gte('scheduled_date', historyStart);
 
                 const { data: allInvoices } = await supabase
                     .from('sales_invoices')
@@ -1233,7 +1299,24 @@ function IncentivesManagement({ initialSubTab }) {
                                                     </tr>
                                                 ) : (
                                                     selectedTech.currentMetrics.techJobs
-                                                        .filter(job => !selectedDateFilter || job.scheduled_date === selectedDateFilter)
+                                                        .filter(job => {
+                                                            if (!selectedDateFilter) return true;
+                                                            if (job.scheduled_date === selectedDateFilter) return true;
+                                                            if (job.arrived_at && getISTDateString(job.arrived_at) === selectedDateFilter) return true;
+                                                            if (job.status === 'closed') {
+                                                                let closureDate = getISTDateString(job.completed_at);
+                                                                if (!closureDate) {
+                                                                    const closureInt = allInteractions.find(i => 
+                                                                        i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                                                                    );
+                                                                    if (closureInt) {
+                                                                        closureDate = getISTDateString(closureInt.timestamp);
+                                                                    }
+                                                                }
+                                                                if (closureDate === selectedDateFilter) return true;
+                                                            }
+                                                            return false;
+                                                        })
                                                         .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
                                                         .map((job) => {
                                                             const isVisited = !!job.arrived_at;

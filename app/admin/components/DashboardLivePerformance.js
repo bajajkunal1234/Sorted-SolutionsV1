@@ -4,6 +4,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Briefcase, CheckCircle, TrendingUp, DollarSign, Activity, Loader2 } from 'lucide-react';
 
+const getISTDateString = (isoString) => {
+    if (!isoString) return null;
+    try {
+        const date = new Date(isoString);
+        // Convert to IST (UTC+5:30)
+        const offsetDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+        return offsetDate.toISOString().split('T')[0];
+    } catch (e) {
+        return null;
+    }
+};
+
 export default function DashboardLivePerformance() {
     const [technicians, setTechnicians] = useState([]);
     const [selectedTechId, setSelectedTechId] = useState('all');
@@ -27,19 +39,27 @@ export default function DashboardLivePerformance() {
             if (techsErr) throw techsErr;
             setTechnicians(techs || []);
 
-            // Today's date YYYY-MM-DD
+            // Today's date YYYY-MM-DD in IST
             const localDate = new Date();
-            const year = localDate.getFullYear();
-            const month = String(localDate.getMonth() + 1).padStart(2, '0');
-            const day = String(localDate.getDate()).padStart(2, '0');
+            const utcTime = localDate.getTime() + (localDate.getTimezoneOffset() * 60000);
+            const nowIST = new Date(utcTime + (3600000 * 5.5));
+            const year = nowIST.getFullYear();
+            const month = String(nowIST.getMonth() + 1).padStart(2, '0');
+            const day = String(nowIST.getDate()).padStart(2, '0');
             const todayStr = `${year}-${month}-${day}`;
+
+            // Get start of today in IST as UTC ISO string for db query
+            const startOfTodayIST = new Date(nowIST);
+            startOfTodayIST.setHours(0, 0, 0, 0);
+            const startOfTodayUTC = new Date(startOfTodayIST.getTime() - (3600000 * 5.5));
+            const startOfTodayISO = startOfTodayUTC.toISOString();
 
             // Fetch jobs and invoices concurrently
             const [jobsRes, invoicesRes] = await Promise.all([
                 supabase
                     .from('jobs')
                     .select('id, technician_id, status, arrived_at, completed_at, scheduled_date')
-                    .eq('scheduled_date', todayStr),
+                    .or(`scheduled_date.eq.${todayStr},completed_at.gte.${startOfTodayISO},arrived_at.gte.${startOfTodayISO}`),
                 supabase
                     .from('sales_invoices')
                     .select('total_amount, technician_id, status, date')
@@ -68,13 +88,28 @@ export default function DashboardLivePerformance() {
                 const techId = job.technician_id;
                 if (!byTech[techId]) return;
 
-                byTech[techId].assigned++;
+                // 1. Jobs Assigned: counts if scheduled_date is today
+                if (job.scheduled_date === todayStr) {
+                    byTech[techId].assigned++;
+                }
+
+                // 2. Visits: counts if arrived_at was today in IST
                 if (job.arrived_at) {
-                    byTech[techId].visits++;
+                    const arrDate = getISTDateString(job.arrived_at);
+                    if (arrDate === todayStr) {
+                        byTech[techId].visits++;
+                    }
                 }
-                if (job.status === 'closed') {
-                    byTech[techId].closed++;
+
+                // 3. Closed: counts if status is closed and completed_at was today in IST
+                if (job.status === 'closed' && job.completed_at) {
+                    const compDate = getISTDateString(job.completed_at);
+                    if (compDate === todayStr) {
+                        byTech[techId].closed++;
+                    }
                 }
+
+                // 4. Currently on Job: real-time active diagnosis/work
                 if (job.arrived_at && !job.completed_at && job.status !== 'closed' && job.status !== 'cancelled') {
                     byTech[techId].onJob++;
                 }
