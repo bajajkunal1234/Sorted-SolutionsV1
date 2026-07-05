@@ -2263,121 +2263,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
 
-                            {editedJob.status === 'diagnosing_quoting' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
-                                    {partsOption === 'select' ? (
-                                        <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
-                                            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
-                                                Select Parts Action
-                                            </h3>
-                                            <div style={{ display: 'flex', gap: '12px' }}>
-                                                <button
-                                                    className="btn"
-                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                                    onClick={() => {
-                                                        setPartsActionType('Order Part');
-                                                        setPartsOption(null);
-                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
-                                                    }}
-                                                >
-                                                    📦 Order Part
-                                                </button>
-                                                <button
-                                                    className="btn"
-                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                                    onClick={() => {
-                                                        setPartsActionType('Collect Part');
-                                                        setPartsOption(null);
-                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
-                                                    }}
-                                                >
-                                                    🛒 Collect Part
-                                                </button>
-                                            </div>
-                                            <button
-                                                className="btn"
-                                                style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
-                                                onClick={() => setPartsOption(null)}
-                                            >
-                                                Back
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            {/* 1. Calculate Repair Estimate */}
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(139,92,246,0.2)' }}
-                                                onClick={() => setActiveForm('calculator')}
-                                            >
-                                                ⚡ Calculate Repair Estimate
-                                            </button>
-
-                                            {/* 2. Order or Collect Parts for Repair */}
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
-                                                onClick={() => setPartsOption('select')}
-                                            >
-                                                📦 Order or Collect Parts for Repair
-                                            </button>
-
-                                            {/* 3. Close Call Without Service */}
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '14px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
-                                            >
-                                                ❌ Close Call Without Service
-                                            </button>
-                                        </>
-                                    )}
-
-                                    {/* Camera file input for parts ordering/collecting */}
-                                    <input 
-                                        ref={partsPhotosInputRef}
-                                        type="file"
-                                        accept="image/*"
-                                        capture="environment"
-                                        multiple
-                                        onChange={(e) => {
-                                            const files = Array.from(e.target.files);
-                                            const newPhotos = files.map(file => ({
-                                                id: Date.now() + Math.random(),
-                                                name: file.name,
-                                                url: URL.createObjectURL(file),
-                                                file
-                                            }));
-                                            setPartsPhotos(prev => [...prev, ...newPhotos]);
-                                            setShowPartsNoteModal(true);
-                                        }}
-                                        style={{ display: 'none' }}
-                                    />
+                            {/* 1. Current Status Row (always at the top) */}
+                            <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} color="#3b82f6" />
+                                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Status:</span>
                                 </div>
-                            ) : (
-                                <>
-                                    {/* Read-Only Status Card */}
-                                    <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Activity size={18} color="#3b82f6" />
-                                            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Status:</span>
-                                        </div>
-                                        <span style={{ 
-                                            padding: '4px 10px', 
-                                            borderRadius: '20px', 
-                                            fontSize: '13px', 
-                                            fontWeight: 700, 
-                                            backgroundColor: editedJob.status === 'parts_ordered' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)', 
-                                            color: editedJob.status === 'parts_ordered' ? '#f59e0b' : '#3b82f6',
-                                            textTransform: 'uppercase'
-                                        }}>
-                                            {editedJob.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
+                                <span style={{ 
+                                    padding: '4px 10px', 
+                                    borderRadius: '20px', 
+                                    fontSize: '13px', 
+                                    fontWeight: 700, 
+                                    backgroundColor: editedJob.status === 'parts_ordered' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)', 
+                                    color: editedJob.status === 'parts_ordered' ? '#f59e0b' : '#3b82f6',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    {editedJob.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
+                                </span>
+                            </div>
 
-                            {/* Customer Card */}
+                            {/* 2. Customer Info Section (always second) */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
@@ -2420,10 +2325,102 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </div>
                             </div>
 
-                            {/* Start Job & Share Location / Mark as Arrived buttons flow */}
+                            {/* 3. 3-Button Section (if status is diagnosing_quoting) */}
+                            {editedJob.status === 'diagnosing_quoting' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
+                                    {partsOption === 'select' ? (
+                                        <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
+                                                Select Parts Action
+                                            </h3>
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                    onClick={() => {
+                                                        setPartsActionType('Order Part');
+                                                        setPartsOption(null);
+                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                    }}
+                                                >
+                                                    📦 Order Part
+                                                </button>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                    onClick={() => {
+                                                        setPartsActionType('Collect Part');
+                                                        setPartsOption(null);
+                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                    }}
+                                                >
+                                                    🛒 Collect Part
+                                                </button>
+                                            </div>
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                onClick={() => setPartsOption(null)}
+                                            >
+                                                Back
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(139,92,246,0.2)' }}
+                                                onClick={() => setActiveForm('calculator')}
+                                            >
+                                                ⚡ Calculate Repair Estimate
+                                            </button>
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
+                                                onClick={() => setPartsOption('select')}
+                                            >
+                                                📦 Order or Collect Parts for Repair
+                                            </button>
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '14px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
+                                            >
+                                                ❌ Close Call Without Service
+                                            </button>
+                                        </>
+                                    )}
+
+                                    <input 
+                                        ref={partsPhotosInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files);
+                                            const newPhotos = files.map(file => ({
+                                                id: Date.now() + Math.random(),
+                                                name: file.name,
+                                                url: URL.createObjectURL(file),
+                                                file
+                                            }));
+                                            setPartsPhotos(prev => [...prev, ...newPhotos]);
+                                            setShowPartsNoteModal(true);
+                                        }}
+                                        style={{ display: 'none' }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* 4. Start Job & Share Location / Mark as Arrived buttons flow */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
                                 const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+                                
+                                const showHeadOutSection = editedJob.status !== 'closed' && 
+                                                           editedJob.status !== 'cancelled' && 
+                                                           (editedJob.status === 'scheduled' || editedJob.status === 'parts_ordered');
 
                                 return (
                                     <>
@@ -2435,7 +2432,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         )}
 
                                         {/* Start Job Button */}
-                                        {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && !isCurrentlyOnWay && (
+                                        {showHeadOutSection && !isCurrentlyOnWay && (
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                      Ready to Head Out? (Visit {nextVisitNum})
@@ -2532,26 +2529,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 );
                             })()}
 
-                            {/* Close Call — No Service (shown on diagnosing_quoting, scheduled, or quotation_sent) */}
-                            {(editedJob.status === 'diagnosing_quoting' || editedJob.status === 'scheduled' || editedJob.status === 'quotation_sent') && (
-                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.03)' }}>
-                                    <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
-                                        <X size={16} color="#f87171" /> Close Call — No Service
-                                    </h3>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                        Use this if the customer denied entry, was unavailable, or the visit couldn't proceed. The job will be closed with no service charge.
-                                    </p>
-                                    <button
-                                        className="btn"
-                                        style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'normal' }}
-                                        onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
-                                    >
-                                        <X size={15} /> Close Call Without Service
-                                    </button>
-                                </div>
-                            )}
-
-                            {editedJob.status !== 'scheduled' && (
+                            {/* 5. Quotation Approval & Billing (only displays if a quotation or invoice is created) */}
+                            {(savedQuotation || savedInvoice) && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
@@ -2615,7 +2594,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                         justifyContent: 'center',
                                                         gap: '8px',
                                                         cursor: loading ? 'not-allowed' : 'pointer',
-                                                        whiteSpace: 'normal'
+                                                        whiteSpace: 'normal',
+                                                        marginTop: '12px'
                                                     }}
                                                     onClick={handleRestartProcess}
                                                 >
@@ -2623,7 +2603,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 </button>
                                             )}
                                         </>
-                                    ) : savedQuotation ? (
+                                    ) : (
                                         <>
                                             {/* Quotation Options Tab Selector */}
                                             {savedQuotations.length > 0 && (
@@ -2881,17 +2861,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 </button>
                                             )}
                                         </>
-                                    ) : (
-                                        <button
-                                            className="btn"
-                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
-                                            onClick={() => setActiveForm('calculator')}
-                                        >
-                                             Calculate Repair Estimate
-                                        </button>
                                     )}
+                                    </div>
                                 </div>
-                            </div>
                             )}
                         </div>
                     )}
