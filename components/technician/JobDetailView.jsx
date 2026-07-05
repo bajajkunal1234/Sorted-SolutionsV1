@@ -48,20 +48,71 @@ const deduplicateInteractions = (list) => {
 
 const VisitsLogTab = ({ interactions = [], onTabChange }) => {
     const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
-    const beforeInteractions = list.filter(i => i.type === 'before-photos-uploaded');
-    const afterInteractions = list.filter(i => i.type === 'after-photos-uploaded');
+    const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
+    const startJobEvents = list.filter(i => 
+        i.type === 'on-way' || 
+        i.type === 'job-started' || 
+        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on_way')) ||
+        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on-way'))
+    );
 
-    const visits = beforeInteractions.map((before, idx) => {
-        const after = afterInteractions[idx] || null;
+    const visits = arrivalEvents.map((arrival, idx) => {
+        const startJob = startJobEvents[idx] || null;
+        const startJobTime = startJob ? (startJob.timestamp || startJob.created_at) : arrival.timestamp || arrival.created_at;
+        const visitStart = new Date(startJobTime).getTime();
+        const nextArrival = arrivalEvents[idx + 1] || null;
+        const nextStartJob = nextArrival ? startJobEvents[idx + 1] : null;
+        const nextStartJobTime = nextStartJob ? (nextStartJob.timestamp || nextStartJob.created_at) : (nextArrival ? (nextArrival.timestamp || nextArrival.created_at) : null);
+        const visitEnd = nextStartJobTime ? new Date(nextStartJobTime).getTime() : Infinity;
+        
+        const visitInteractions = list.filter(i => {
+            const time = new Date(i.timestamp || i.created_at || 0).getTime();
+            return time >= visitStart && time < visitEnd;
+        });
+        
+        const statusChanges = visitInteractions.filter(i => 
+            i.type === 'status-changed' || 
+            i.type?.startsWith('job-status-') ||
+            (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
+        );
+        
+        let outStatus = 'In Progress';
+        if (statusChanges.length > 0) {
+            const latestChange = statusChanges[statusChanges.length - 1];
+            const desc = (latestChange.description || latestChange.message || '').toLowerCase();
+            if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
+                outStatus = 'Parts Ordered';
+            } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
+                outStatus = 'Completed / Closed';
+            } else {
+                const parts = latestChange.description?.split(' → ') || latestChange.message?.split(' → ');
+                if (parts && parts.length > 1) {
+                    const toS = parts[1].split(' by ').shift().trim().replace(/_/g, ' ');
+                    outStatus = toS.charAt(0).toUpperCase() + toS.slice(1);
+                } else {
+                    outStatus = latestChange.description || latestChange.message || 'Status Updated';
+                }
+            }
+        } else if (idx < arrivalEvents.length - 1) {
+            outStatus = 'Parts Ordered / Re-assigned';
+        }
+        
+        const beforeNote = arrival.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
+        const beforeImages = arrival.metadata?.attachments || [];
+        const activities = visitInteractions.filter(i => 
+            i.id !== arrival.id && 
+            (!startJob || i.id !== startJob.id)
+        );
+        
         return {
             visitNumber: idx + 1,
-            technician: before.performed_by_name || before.user_name || 'Technician',
-            checkInTime: before.timestamp || before.created_at,
-            checkOutTime: after ? (after.timestamp || after.created_at) : null,
-            beforeNote: before.description ? before.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '',
-            beforeImages: before.metadata?.attachments || [],
-            afterNote: after ? (after.description ? after.description.replace(/^After Photos uploaded\.\nNote:\s*/, '') : 'Completed') : null,
-            afterImages: after ? (after.metadata?.attachments || []) : []
+            technician: arrival.performed_by_name || arrival.user_name || 'Technician',
+            startJobTime,
+            arrivalTime: arrival.timestamp || arrival.created_at,
+            outStatus,
+            beforeNote,
+            beforeImages,
+            activities
         };
     }).reverse();
 
@@ -74,6 +125,16 @@ const VisitsLogTab = ({ interactions = [], onTabChange }) => {
             </div>
         );
     }
+
+    const formatTimeOnly = (t) => {
+        if (!t) return '';
+        return new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    };
+
+    const formatDateOnly = (t) => {
+        if (!t) return '';
+        return new Date(t).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 4px' }}>
@@ -109,91 +170,102 @@ const VisitsLogTab = ({ interactions = [], onTabChange }) => {
                                     Visit #{visit.visitNumber}
                                 </span>
                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                    By: <strong style={{ color: 'var(--text-primary)' }}>{visit.technician}</strong>
+                                    Technician: <strong style={{ color: 'var(--text-primary)' }}>{visit.technician}</strong>
                                 </span>
                             </div>
                             
                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                📅 {new Date(visit.checkInTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                📅 {formatDateOnly(visit.arrivalTime)}
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', backgroundColor: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', backgroundColor: 'var(--bg-secondary)', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
                             <div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: '2px' }}>CHECK-IN</div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>START JOB CLICK</div>
                                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    ⏱️ {new Date(visit.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                    ⏱️ {formatTimeOnly(visit.startJobTime)}
                                 </div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: '2px' }}>CHECK-OUT</div>
-                                <div style={{ fontSize: '13px', fontWeight: 600, color: visit.checkOutTime ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
-                                    {visit.checkOutTime ? (
-                                        `⏱️ ${new Date(visit.checkOutTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`
-                                    ) : (
-                                        '🕒 Active'
-                                    )}
+                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>ARRIVED TIME</div>
+                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    ⏱️ {formatTimeOnly(visit.arrivalTime)}
+                                </div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>OUT STATUS</div>
+                                <div style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 700, 
+                                    color: visit.outStatus.includes('Parts Ordered') ? '#f59e0b' : visit.outStatus.includes('Completed') ? '#10b981' : '#38bdf8' 
+                                }}>
+                                    🏁 {visit.outStatus}
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderRight: '1px solid var(--border-primary)', paddingRight: '16px' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    📸 Check-in
-                                </div>
-                                {visit.beforeNote && (
-                                    <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border-primary)', minHeight: '34px', whiteSpace: 'pre-wrap' }}>
-                                        {visit.beforeNote}
-                                    </p>
-                                )}
-                                {visit.beforeImages && visit.beforeImages.length > 0 && (
-                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                        {visit.beforeImages.map((url, idx) => (
-                                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-                                                <img 
-                                                    src={url} 
-                                                    alt={`Visit ${visit.visitNumber} check-in ${idx + 1}`} 
-                                                    style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
-                                                />
-                                            </a>
-                                        ))}
-                                    </div>
-                                )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderBottom: visit.activities.length > 0 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: visit.activities.length > 0 ? '12px' : '0' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                📸 Before Note & Images
                             </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '4px' }}>
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    ✨ Check-out
+                            {visit.beforeNote && (
+                                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border-primary)', minHeight: '34px', whiteSpace: 'pre-wrap' }}>
+                                    {visit.beforeNote}
+                                </p>
+                            )}
+                            {visit.beforeImages && visit.beforeImages.length > 0 && (
+                                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                    {visit.beforeImages.map((url, idx) => (
+                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                            <img 
+                                                src={url} 
+                                                alt={`Visit ${visit.visitNumber} check-in ${idx + 1}`} 
+                                                style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                            />
+                                        </a>
+                                    ))}
                                 </div>
-                                {visit.checkOutTime ? (
-                                    <>
-                                        {visit.afterNote && (
-                                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, padding: '8px 10px', background: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border-primary)', minHeight: '34px', whiteSpace: 'pre-wrap' }}>
-                                                {visit.afterNote}
-                                            </p>
-                                        )}
-                                        {visit.afterImages && visit.afterImages.length > 0 && (
-                                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                                                {visit.afterImages.map((url, idx) => (
-                                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-                                                        <img 
-                                                            src={url} 
-                                                            alt={`Visit ${visit.visitNumber} check-out ${idx + 1}`} 
-                                                            style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
-                                                        />
-                                                    </a>
-                                                ))}
+                            )}
+                        </div>
+
+                        {visit.activities.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                    ⚡ Click Records & Activities during this Visit
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '8px', borderLeft: '2px solid var(--border-primary)' }}>
+                                    {visit.activities.map((activity, aIdx) => {
+                                        const label = activity.type?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                                        return (
+                                            <div key={activity.id || aIdx} style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                        {formatTimeOnly(activity.timestamp || activity.created_at)}
+                                                    </span>
+                                                    <span style={{ 
+                                                        padding: '1px 6px', 
+                                                        borderRadius: '4px', 
+                                                        fontSize: '10px', 
+                                                        fontWeight: 700, 
+                                                        backgroundColor: 'rgba(255,255,255,0.06)', 
+                                                        color: 'var(--text-primary)',
+                                                        border: '1px solid var(--border-primary)'
+                                                    }}>
+                                                        {label || activity.type}
+                                                    </span>
+                                                    <span style={{ color: 'var(--text-tertiary)' }}>
+                                                        by {activity.performed_by_name || activity.user_name || 'System'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px', fontStyle: activity.type?.includes('note') ? 'italic' : 'normal' }}>
+                                                    {activity.description || activity.message}
+                                                </div>
                                             </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic', padding: '12px', backgroundColor: 'rgba(255,255,255,0.01)', borderRadius: '6px', border: '1px dotted var(--border-primary)', textAlign: 'center' }}>
-                                        Check-out photos/notes pending
-                                    </div>
-                                )}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 ))}
             </div>
