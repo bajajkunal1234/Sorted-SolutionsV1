@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2 } from 'lucide-react';
+import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2, Camera } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
@@ -9,7 +9,119 @@ import QuotationForm from '../accounts/QuotationForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 
-function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false, currentUserName = '' }) {
+const renderDescription = (desc, type = '') => {
+    if (!desc) return null;
+    
+    // Check if it is status changed transition
+    if (desc.includes(' → ') || desc.includes(' -> ')) {
+        const arrow = desc.includes(' → ') ? ' → ' : ' -> ';
+        const parts = desc.split(arrow);
+        let fromStatus = parts[0].split(':').pop().trim();
+        fromStatus = fromStatus.split(' ').pop();
+        
+        let toStatus = parts[1].split(' by ').shift().trim();
+        toStatus = toStatus.split(' ').shift();
+        
+        const byActor = parts[1].includes(' by ') ? parts[1].split(' by ').pop().trim() : '';
+
+        const formatStatusLabel = (status) => {
+            return status.replace(/_/g, ' ').replace(/-/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        };
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '4px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ 
+                        padding: '3px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '11px', 
+                        fontWeight: 600, 
+                        backgroundColor: 'rgba(255,255,255,0.06)', 
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-primary)'
+                    }}>
+                        {formatStatusLabel(fromStatus)}
+                    </span>
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>➔</span>
+                    <span style={{ 
+                        padding: '3px 8px', 
+                        borderRadius: '4px', 
+                        fontSize: '11px', 
+                        fontWeight: 600, 
+                        backgroundColor: 'rgba(16,185,129,0.15)', 
+                        color: '#10b981',
+                        border: '1px solid rgba(16,185,129,0.3)'
+                    }}>
+                        {formatStatusLabel(toStatus)}
+                    </span>
+                </div>
+                {byActor && (
+                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                        Action performed by: <strong style={{ color: 'var(--text-secondary)' }}>{byActor}</strong>
+                    </span>
+                )}
+            </div>
+        );
+    }
+
+    if (type === 'note-added' || type === 'note-edited' || type === 'repair-note-added') {
+        return (
+            <div style={{ 
+                padding: '10px 14px', 
+                backgroundColor: 'var(--bg-secondary)', 
+                borderLeft: '3px solid var(--color-primary, #3b82f6)', 
+                borderRadius: '4px 8px 8px 4px',
+                fontStyle: 'italic',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap'
+            }}>
+                "{desc}"
+            </div>
+        );
+    }
+
+    return <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{desc}</p>;
+};
+
+const renderActorBadge = (name = '') => {
+    const lower = name.toLowerCase();
+    let bg = 'rgba(255,255,255,0.04)';
+    let color = 'var(--text-secondary)';
+    let border = '1px solid var(--border-primary)';
+    
+    if (lower === 'admin' || lower.includes('admin')) {
+        bg = 'rgba(239,68,68,0.1)';
+        color = '#f87171';
+        border = '1px solid rgba(239,68,68,0.2)';
+    } else if (lower.includes('customer') || lower.includes('client')) {
+        bg = 'rgba(16,185,129,0.1)';
+        color = '#34d399';
+        border = '1px solid rgba(16,185,129,0.2)';
+    } else if (name && name !== 'System' && name !== 'Unknown') {
+        bg = 'rgba(59,130,246,0.1)';
+        color = '#60a5fa';
+        border = '1px solid rgba(59,130,246,0.2)';
+    }
+    
+    return (
+        <span style={{
+            padding: '2px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: 600,
+            backgroundColor: bg,
+            color: color,
+            border: border,
+            display: 'inline-block'
+        }}>
+            {name}
+        </span>
+    );
+};
+
+function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false, currentUserName = '', onTabChange }) {
     const [showNoteForm, setShowNoteForm] = useState(false);
     const [noteText, setNoteText] = useState('');
     const [attachments, setAttachments] = useState([]);
@@ -17,6 +129,26 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
     const [editingNote, setEditingNote] = useState(null);
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [activeForm, setActiveForm] = useState(null);
+
+    // Parse visits log list to get start times for each visit
+    const chronologicalList = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+    const visits = chronologicalList.filter(i => i.type === 'before-photos-uploaded').map((before, idx) => ({
+        visitNumber: idx + 1,
+        arrivalTime: before.timestamp || before.created_at
+    }));
+
+    const getVisitNumberForInteraction = (timestamp) => {
+        if (!timestamp || visits.length === 0) return null;
+        const time = new Date(timestamp).getTime();
+        let matchedVisit = null;
+        for (let i = 0; i < visits.length; i++) {
+            const visitArrive = new Date(visits[i].arrivalTime).getTime();
+            if (time >= visitArrive) {
+                matchedVisit = visits[i].visitNumber;
+            }
+        }
+        return matchedVisit;
+    };
 
     // Get category color
     const getCategoryColor = (category) => {
@@ -386,24 +518,67 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                             }} />
 
                             {/* Interaction Card */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                            <div 
+                                className="card" 
+                                style={{ 
+                                    padding: 'var(--spacing-md)', 
+                                    backgroundColor: 'var(--bg-elevated)', 
+                                    border: '1px solid var(--border-primary)',
+                                    borderLeft: `4px solid ${getCategoryColor(interaction.category)}`,
+                                    borderRadius: '8px'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                                         <span style={{ color: getCategoryColor(interaction.category) }}>
                                             {getTypeIcon(interaction.type)}
                                         </span>
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             {getInteractionTypeLabel(interaction.type)}
                                         </h4>
+                                        {(() => {
+                                            const visitNum = getVisitNumberForInteraction(interaction.timestamp);
+                                            if (!visitNum) return null;
+                                            return (
+                                                <button
+                                                    onClick={() => onTabChange && onTabChange('visits')}
+                                                    style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        backgroundColor: 'rgba(139,92,246,0.15)',
+                                                        color: '#c084fc',
+                                                        border: '1px solid rgba(139,92,246,0.3)',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        transition: 'all 0.2s ease'
+                                                    }}
+                                                    title="View in Visits Log"
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.25)';
+                                                        e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'rgba(139,92,246,0.15)';
+                                                        e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)';
+                                                    }}
+                                                >
+                                                    <Camera size={10} /> Visit #{visitNum}
+                                                </button>
+                                            );
+                                        })()}
                                     </div>
-                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
                                         {formatTimestamp(interaction.timestamp)}
                                     </span>
                                 </div>
 
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-                                    {interaction.description}
-                                </p>
+                                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                    {renderDescription(interaction.description, interaction.type)}
+                                </div>
 
                                 {/* Attachments */}
                                 {interaction.metadata?.attachments && interaction.metadata.attachments.length > 0 && (
@@ -434,9 +609,10 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                                 )}
 
                                 {/* Footer with User and Edit Buttons */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                    <div>
-                                        By: <span style={{ fontWeight: 500 }}>{interaction.performed_by_name || interaction.user_name || interaction.performedByName || 'Unknown'}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '8px', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>Performed by:</span>
+                                        {renderActorBadge(interaction.performed_by_name || interaction.user_name || interaction.performedByName || 'System')}
                                     </div>
                                     <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                                         {/* Edit Note Button */}
