@@ -35,7 +35,98 @@ const deduplicateInteractions = (list) => {
     return result.sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
 };
 
-const VisitsLogTab = ({ interactions = [], onTabChange }) => {
+const renderActivityDescription = (activity, onViewDocument) => {
+    const desc = activity.description || activity.message || '';
+    const type = activity.type || '';
+    
+    if (desc.includes('Quotation QUO-') || type.includes('quotation')) {
+        const quoMatch = desc.match(/QUO-\d{4}-\d+/);
+        const amountMatch = desc.match(/Total Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
+        if (quoMatch) {
+            const quoNum = quoMatch[0];
+            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span>📄 Quotation</span>
+                    <button
+                        onClick={() => onViewDocument && onViewDocument('quotation', quoNum)}
+                        style={{
+                            color: '#38bdf8',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            fontWeight: 700
+                        }}
+                    >
+                        {quoNum}
+                    </button>
+                    <span>created {amount && `for ${amount}`}</span>
+                </div>
+            );
+        }
+    }
+
+    if (desc.includes('Invoice INV-') || desc.includes('Sales Invoice INV-') || type.includes('invoice') || type.includes('sales-invoice')) {
+        const invMatch = desc.match(/INV-\d{4}-\d+/);
+        const amountMatch = desc.match(/Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
+        if (invMatch) {
+            const invNum = invMatch[0];
+            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span>🧾 Sales Invoice</span>
+                    <button
+                        onClick={() => onViewDocument && onViewDocument('invoice', invNum)}
+                        style={{
+                            color: '#10b981',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            fontWeight: 700
+                        }}
+                    >
+                        {invNum}
+                    </button>
+                    <span>created {amount && `for ${amount}`}</span>
+                </div>
+            );
+        }
+    }
+
+    if (desc.includes(' → ') || desc.includes(' -> ')) {
+        const arrow = desc.includes(' → ') ? ' → ' : ' -> ';
+        const parts = desc.split(arrow);
+        let fromStatus = parts[0].split(':').pop().trim().split(' ').pop();
+        let toStatus = parts[1].split(' by ').shift().trim().split(' ').shift();
+        
+        const formatStatusLabel = (status) => {
+            return status.replace(/_/g, ' ').replace(/-/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        };
+
+        return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Status changed:</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{formatStatusLabel(fromStatus)}</span>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>➔</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>{formatStatusLabel(toStatus)}</span>
+            </div>
+        );
+    }
+
+    if (type.includes('note')) {
+        return <span style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>"{desc}"</span>;
+    }
+
+    return <span>{desc}</span>;
+};
+
+const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
     const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
     const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
     const startJobEvents = list.filter(i => 
@@ -246,8 +337,8 @@ const VisitsLogTab = ({ interactions = [], onTabChange }) => {
                                                         by {activity.performed_by_name || activity.user_name || 'System'}
                                                     </span>
                                                 </div>
-                                                <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px', fontStyle: activity.type?.includes('note') ? 'italic' : 'normal' }}>
-                                                    {activity.description || activity.message}
+                                                <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px' }}>
+                                                    {renderActivityDescription(activity, onViewDocument)}
                                                 </div>
                                             </div>
                                         );
@@ -451,6 +542,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         jobAddress = jobAddressParts.join(', ');
     }
 
+
+    const handleViewDocument = (type, docNum) => {
+        if (type === 'quotation') {
+            const doc = savedQuotations.find(q => q.quotation_number === docNum || q.number === docNum);
+            if (doc) {
+                setShowWhatsappPopup({ type: 'quotation', doc });
+            } else {
+                setShowWhatsappPopup({ type: 'quotation', doc: { quotation_number: docNum } });
+            }
+        } else if (type === 'invoice') {
+            if (savedInvoice && (savedInvoice.invoice_number === docNum || savedInvoice.number === docNum)) {
+                setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice });
+            } else {
+                setShowWhatsappPopup({ type: 'invoice', doc: { invoice_number: docNum } });
+            }
+        }
+    };
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -1223,6 +1331,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         <VisitsLogTab 
                             interactions={editedJob.interactions || []}
                             onTabChange={setActiveTab}
+                            onViewDocument={handleViewDocument}
                         />
                     )}
 
