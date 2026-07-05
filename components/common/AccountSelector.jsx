@@ -22,7 +22,8 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
                 const ledger = sampleLedgers.find(l => l.id === acc.id);
                 return acc.type === 'customer' ||
                     ledger?.under === 'customer-accounts' ||
-                    ledger?.under === 'sundry-debtors';
+                    ledger?.under === 'sundry-debtors' ||
+                    ledger?.under === 'customers';
             }
             if (accountType === 'vendor') {
                 const ledger = sampleLedgers.find(l => l.id === acc.id);

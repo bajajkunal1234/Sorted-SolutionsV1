@@ -148,7 +148,7 @@ export async function POST(request) {
         if (insertError) throw insertError;
 
         // -- Normalise phone and generate SKU for the new account
-        const newSKU = await generateAccountSKU('customer', 'sundry-debtors');
+        const newSKU = await generateAccountSKU('customer', 'customers');
 
         const { data: accountEntry, error: accountError } = await supabase
             .from('accounts')
@@ -156,7 +156,7 @@ export async function POST(request) {
                 name: name.trim(),
                 mobile: last10,
                 type: 'customer',
-                under: 'sundry-debtors',
+                under: 'customers',
                 source: 'Customer Signup',
                 sku: newSKU,
                 opening_balance: 0,

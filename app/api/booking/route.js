@@ -130,13 +130,13 @@ export async function POST(request) {
                 if (!ledgerId) {
                     // ── Stage 3: Create accounts entry (upsert by mobile) ───────
                     let newSKU = null;
-                    try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch (_) {}
+                    try { newSKU = await generateAccountSKU('customer', 'customers'); } catch (_) {}
 
                     const accountPayload = {
                         name: customerName,
                         mobile: rawPhone10,
                         type: 'customer',
-                        under: 'sundry-debtors',
+                        under: 'customers',
                         acquisition_source: 'Website Booking',
                         opening_balance: 0,
                         balance_type: 'debit',

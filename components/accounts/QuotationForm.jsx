@@ -33,7 +33,8 @@ function QuotationForm({ onClose, onSave }) {
     const customers = sampleLedgers.filter(ledger =>
         ledger.type === 'customer' ||
         ledger.under === 'customer-accounts' ||
-        ledger.under === 'sundry-debtors'
+        ledger.under === 'sundry-debtors' ||
+        ledger.under === 'customers'
     );
 
     const companyState = 'Maharashtra';

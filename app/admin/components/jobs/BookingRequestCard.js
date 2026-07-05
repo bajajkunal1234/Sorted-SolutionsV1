@@ -110,7 +110,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
         name: cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim(),
         mobile: cust.phone || '',
         email: cust.email || '',
-        under: 'sundry-debtors', // Maps to Current Assets > Sundry Debtors
+        under: 'customers', // Maps to Current Assets > Sundry Debtors > Customers
         mailing_address: fullAddress,
         billing_address: fullAddress,
         shipping_address: fullAddress,

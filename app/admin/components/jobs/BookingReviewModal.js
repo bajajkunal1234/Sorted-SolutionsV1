@@ -186,13 +186,13 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
 
     // ── Account group resolution ────────────────────────────────────────────────
     const resolvedCustomerGroup = useMemo(() => {
-        if (groups.length === 0) return 'sundry-debtors';
+        if (groups.length === 0) return 'customers';
         const g = groups.find(g =>
             g.name.toLowerCase() === 'customers' || g.name.toLowerCase() === 'customer accounts'
         );
         if (g) return g.id;
         const d = groups.find(g => g.name.toLowerCase() === 'sundry debtors');
-        return d ? d.id : 'sundry-debtors';
+        return d ? d.id : 'customers';
     }, [groups]);
 
     // ── Property prefill from this booking ──────────────────────────────────────
