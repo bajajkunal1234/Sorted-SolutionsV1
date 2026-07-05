@@ -398,6 +398,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [partsPhotos, setPartsPhotos] = useState([]);
     const [partsActionType, setPartsActionType] = useState('Order Part'); // 'Order Part' | 'Collect Part'
     const [partsOption, setPartsOption] = useState(null); // null | 'select'
+    const [isCloseWithServiceCharge, setIsCloseWithServiceCharge] = useState(false);
     const partsPhotosInputRef = useRef(null);
 
     // Location Verification Modal — shown after Mark as Arrived
@@ -2366,29 +2367,49 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             </button>
                                         </div>
                                     ) : (
-                                        <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            {/* 1. Calculate Repair Estimate */}
                                             <button
                                                 className="btn"
-                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(139,92,246,0.2)' }}
-                                                onClick={() => setActiveForm('calculator')}
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                onClick={() => {
+                                                    setIsCloseWithServiceCharge(false);
+                                                    setActiveForm('calculator');
+                                                }}
                                             >
-                                                ⚡ Calculate Repair Estimate
+                                                ⚡ Estimate Calculator
                                             </button>
+
+                                            {/* 2. Order or Collect Parts for Repair */}
                                             <button
                                                 className="btn"
-                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
                                                 onClick={() => setPartsOption('select')}
                                             >
-                                                📦 Order or Collect Parts for Repair
+                                                📦 Order/Collect Parts
                                             </button>
+
+                                            {/* 3. Close with Service Charge */}
                                             <button
                                                 className="btn"
-                                                style={{ width: '100%', padding: '14px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                onClick={() => {
+                                                    setIsCloseWithServiceCharge(true);
+                                                    setActiveForm('calculator');
+                                                }}
+                                            >
+                                                🛠️ Close with Service Charge
+                                            </button>
+
+                                            {/* 4. Close Call Without Service */}
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
                                                 onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
                                             >
-                                                ❌ Close Call Without Service
+                                                ❌ Close Without Service
                                             </button>
-                                        </>
+                                        </div>
                                     )}
 
                                     <input 
@@ -3461,12 +3482,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         onClose={() => {
                             setActiveForm(null);
                             setQuotationDecisionMode(null);
+                            setIsCloseWithServiceCharge(false);
                         }}
-                        onCreateQuotation={(items) => handleAutoCreateQuotation(items)}
-                        onCreateInvoice={quotationDecisionMode ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
-                        prefillItems={isNewQuotationOption ? calculatorItems : (savedQuotation?.items || calculatorItems)}
+                        onCreateQuotation={isCloseWithServiceCharge ? null : (items) => handleAutoCreateQuotation(items)}
+                        onCreateInvoice={(isCloseWithServiceCharge || quotationDecisionMode) ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
+                        prefillItems={isCloseWithServiceCharge ? [] : (isNewQuotationOption ? calculatorItems : (savedQuotation?.items || calculatorItems))}
                         loading={loading}
                         hideParts={
+                            isCloseWithServiceCharge ||
                             isNewQuotationOption ||
                             quotationDecisionMode === 'denied' ||
                             (savedQuotations.length === 2 && savedQuotation?.id === [...savedQuotations].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[1]?.id)
