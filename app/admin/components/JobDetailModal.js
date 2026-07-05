@@ -384,7 +384,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
-        { id: 'interactions', label: 'Interactions/Visit Log', icon: Clock },
+        { id: 'visits', label: 'Visits Log', icon: Camera },
+        { id: 'interactions', label: 'Interactions', icon: Clock },
         { id: 'actions', label: 'Billing/Actions', icon: Tag }
     ];
 
