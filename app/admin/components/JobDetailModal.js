@@ -339,6 +339,19 @@ const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
                                                 </div>
                                                 <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px' }}>
                                                     {renderActivityDescription(activity, onViewDocument)}
+                                                    {activity.metadata?.attachments && activity.metadata.attachments.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                                            {activity.metadata.attachments.map((url, idx) => (
+                                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                                    <img 
+                                                                        src={url} 
+                                                                        alt={`Activity Attachment ${idx + 1}`} 
+                                                                        style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                                                    />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );

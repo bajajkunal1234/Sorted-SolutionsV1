@@ -350,6 +350,19 @@ const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
                                                 </div>
                                                 <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px' }}>
                                                     {renderActivityDescription(activity, onViewDocument)}
+                                                    {activity.metadata?.attachments && activity.metadata.attachments.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                                            {activity.metadata.attachments.map((url, idx) => (
+                                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                                    <img 
+                                                                        src={url} 
+                                                                        alt={`Activity Attachment ${idx + 1}`} 
+                                                                        style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                                                    />
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -382,6 +395,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
     const [partsNoteText, setPartsNoteText] = useState('');
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
+    const [partsPhotos, setPartsPhotos] = useState([]);
+    const [partsActionType, setPartsActionType] = useState('Order Part'); // 'Order Part' | 'Collect Part'
+    const [partsOption, setPartsOption] = useState(null); // null | 'select'
+    const partsPhotosInputRef = useRef(null);
 
     // Location Verification Modal — shown after Mark as Arrived
     const [showLocationVerifyModal, setShowLocationVerifyModal] = useState(false);
@@ -561,7 +578,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         { id: 'details', label: 'Details', icon: FileText },
         { id: 'visits', label: 'Visits Log', icon: Camera },
         { id: 'interactions', label: 'Interactions', icon: Clock },
-        { id: 'actions', label: 'Actions', icon: CheckSquare }
+        { id: 'actions', label: 'Job Actions', icon: CheckSquare }
     ];
 
     const handleSaveStatus = async (newStatus) => {
@@ -2246,41 +2263,119 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
 
-                            {/* Job Status Card */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Activity size={18} color="#3b82f6" /> Job Status
-                                </h3>
-                                
-                                <select 
-                                    className="form-select" 
-                                    value={editedJob.status}
-                                    onChange={(e) => {
-                                        const newStatus = e.target.value;
-                                        if (newStatus === 'parts_ordered') {
-                                            // Gate: require repair note first
+                            {editedJob.status === 'diagnosing_quoting' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
+                                    {partsOption === 'select' ? (
+                                        <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
+                                                Select Parts Action
+                                            </h3>
+                                            <div style={{ display: 'flex', gap: '12px' }}>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                    onClick={() => {
+                                                        setPartsActionType('Order Part');
+                                                        setPartsOption(null);
+                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                    }}
+                                                >
+                                                    📦 Order Part
+                                                </button>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '14px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                    onClick={() => {
+                                                        setPartsActionType('Collect Part');
+                                                        setPartsOption(null);
+                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                    }}
+                                                >
+                                                    🛒 Collect Part
+                                                </button>
+                                            </div>
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                onClick={() => setPartsOption(null)}
+                                            >
+                                                Back
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* 1. Calculate Repair Estimate */}
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(139,92,246,0.2)' }}
+                                                onClick={() => setActiveForm('calculator')}
+                                            >
+                                                ⚡ Calculate Repair Estimate
+                                            </button>
+
+                                            {/* 2. Order or Collect Parts for Repair */}
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '16px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}
+                                                onClick={() => setPartsOption('select')}
+                                            >
+                                                📦 Order or Collect Parts for Repair
+                                            </button>
+
+                                            {/* 3. Close Call Without Service */}
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '14px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
+                                            >
+                                                ❌ Close Call Without Service
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {/* Camera file input for parts ordering/collecting */}
+                                    <input 
+                                        ref={partsPhotosInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files);
+                                            const newPhotos = files.map(file => ({
+                                                id: Date.now() + Math.random(),
+                                                name: file.name,
+                                                url: URL.createObjectURL(file),
+                                                file
+                                            }));
+                                            setPartsPhotos(prev => [...prev, ...newPhotos]);
                                             setShowPartsNoteModal(true);
-                                        } else {
-                                            handleSaveStatus(newStatus);
-                                        }
-                                    }}
-                                    disabled={loading}
-                                    style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
-                                >
-                                    {/* Tech-settable statuses only */}
-                                    <option value="scheduled">Scheduled</option>
-                                    <option value="diagnosing_quoting">Diagnosing &amp; Quoting</option>
-                                    <option value="quotation_sent">Quotation Sent</option>
-                                    <option value="parts_ordered">Parts Ordered</option>
-                                    <option value="work_in_progress">Work In Progress</option>
-                                    <option value="cx_reschedule">Cx Reschedule</option>
-                                    {/* Read-only states shown for context but disabled */}
-                                    <option value="new_job_request" disabled>New Job Request (admin only)</option>
-                                    <option value="cancelled" disabled>Cancelled (admin only)</option>
-                                    <option value="closed" disabled>Closed (auto on payment)</option>
-                                </select>
-                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
-                            </div>
+                                        }}
+                                        style={{ display: 'none' }}
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Read-Only Status Card */}
+                                    <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Activity size={18} color="#3b82f6" />
+                                            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Status:</span>
+                                        </div>
+                                        <span style={{ 
+                                            padding: '4px 10px', 
+                                            borderRadius: '20px', 
+                                            fontSize: '13px', 
+                                            fontWeight: 700, 
+                                            backgroundColor: editedJob.status === 'parts_ordered' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)', 
+                                            color: editedJob.status === 'parts_ordered' ? '#f59e0b' : '#3b82f6',
+                                            textTransform: 'uppercase'
+                                        }}>
+                                            {editedJob.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
 
                             {/* Customer Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
@@ -3233,15 +3328,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 24px calc(28px + env(safe-area-inset-bottom))' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
                         <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            Parts Ordered — Repair Note Required
+                            {partsActionType} — Repair Note Required
                         </h3>
                         <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 18, lineHeight: 1.5 }}>
-                            Describe the part(s) you have ordered. This note is sent to the customer and logged for admin visibility.
+                            Capture product/part photos and describe the part(s) needed or collected.
                         </p>
+
+                        {/* Parts Photos List */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Captured Part Photos * ({partsPhotos.length} attached)
+                            </label>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                                {partsPhotos.map(photo => (
+                                    <div key={photo.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', width: 70, height: 70 }}>
+                                        <img src={photo.url} alt="part" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <button
+                                            type="button"
+                                            onClick={() => setPartsPhotos(prev => prev.filter(p => p.id !== photo.id))}
+                                            style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => partsPhotosInputRef.current?.click()}
+                                    style={{ width: 70, height: 70, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', color: '#cbd5e1' }}
+                                >
+                                    <Camera size={18} />
+                                    <span style={{ fontSize: 9, fontWeight: 600 }}>Add More</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <textarea
                             value={partsNoteText}
                             onChange={e => setPartsNoteText(e.target.value)}
-                            placeholder="e.g. Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received."
+                            placeholder={`e.g. ${partsActionType === 'Order Part' ? 'Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received.' : 'Collected Microwave magnetron and check electrical connections.'}`}
                             style={{
                                 width: '100%', minHeight: 100, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
                                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
@@ -3250,28 +3375,47 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         />
                         <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                             <button
-                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); }}
+                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); setPartsPhotos([]); }}
                                 style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
                             >
                                 Cancel
                             </button>
                             <button
-                                disabled={!partsNoteText.trim() || partsNoteLoading}
+                                disabled={!partsNoteText.trim() || partsPhotos.length === 0 || partsNoteLoading}
                                 onClick={async () => {
-                                    if (!partsNoteText.trim()) return;
+                                    if (!partsNoteText.trim() || partsPhotos.length === 0) return;
                                     setPartsNoteLoading(true);
                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                     
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
-                                            // 1. Add repair note (sets repair_note_added_at on job)
+                                            // 1. Upload photos
+                                            const uploadedUrls = [];
+                                            for (const photo of partsPhotos) {
+                                                if (photo.file) {
+                                                    const compressed = await compressImage(photo.file);
+                                                    const formData = new FormData();
+                                                    const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'parts_image.jpg';
+                                                    formData.append('file', compressed, safeFileName);
+                                                    const uploadRes = await fetch('/api/upload', {
+                                                        method: 'POST',
+                                                        body: formData
+                                                    });
+                                                    if (!uploadRes.ok) throw new Error('Failed to upload parts photos');
+                                                    const uploadData = await uploadRes.json();
+                                                    if (uploadData.url) uploadedUrls.push(uploadData.url);
+                                                }
+                                            }
+
+                                            // 2. Add repair note (sets repair_note_added_at on job)
+                                            const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()}`;
                                             const noteRes = await apiCall(`/api/technician/jobs/${job.id}`, {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ 
                                                     action: 'add_repair_note', 
-                                                    repair_note: partsNoteText.trim(), 
-                                                    note_text: partsNoteText.trim(),
+                                                    repair_note: detailedNote, 
+                                                    note_text: detailedNote,
                                                     updated_by_name: techName,
                                                     latitude: lat,
                                                     longitude: lng
@@ -3279,13 +3423,36 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             });
                                             const noteData = await noteRes.json();
                                             if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
-                                            // 2. Now set status to parts_ordered
+
+                                            // 3. Log interaction with attachments
+                                            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    type: 'repair-note-added',
+                                                    category: 'job',
+                                                    description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()}`,
+                                                    user_name: techName,
+                                                    metadata: {
+                                                        attachments: uploadedUrls,
+                                                        parts_action: partsActionType,
+                                                        note_text: partsNoteText.trim()
+                                                    }
+                                                })
+                                            }).catch(() => {});
+
+                                            // 4. Set status to parts_ordered
                                             await handleSaveStatus('parts_ordered');
-                                            setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
+
+                                            setEditedJob(prev => ({ 
+                                                ...prev, 
+                                                repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString()
+                                            }));
                                             setShowPartsNoteModal(false);
                                             setPartsNoteText('');
+                                            setPartsPhotos([]);
                                         } catch (err) {
-                                            alert('Could not save repair note: ' + err.message);
+                                            alert('Could not save parts ordered details: ' + err.message);
                                         } finally {
                                             setPartsNoteLoading(false);
                                         }
@@ -3303,8 +3470,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 }}
                                 style={{
                                     flex: 2, padding: '14px', borderRadius: 12,
-                                    background: partsNoteText.trim() ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
-                                    border: 'none', color: '#fff', fontWeight: 700, cursor: partsNoteText.trim() ? 'pointer' : 'not-allowed', fontSize: 14
+                                    background: (partsNoteText.trim() && partsPhotos.length > 0) ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
+                                    border: 'none', color: '#fff', fontWeight: 700, cursor: (partsNoteText.trim() && partsPhotos.length > 0) ? 'pointer' : 'not-allowed', fontSize: 14
                                 }}
                             >
                                 {partsNoteLoading ? 'Saving...' : 'Confirm Parts Ordered'}
