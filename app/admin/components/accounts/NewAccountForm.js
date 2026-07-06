@@ -222,6 +222,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         // Acquisition Source (How did you hear about us?)
         acquisitionSource: initialData?.acquisition_source || '',
         referredBy: initialData?.referred_by || '',
+        leadChannel: '',
 
         // Status
         status: initialData?.status || 'active'
@@ -231,6 +232,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
     const [duplicateWarning, setDuplicateWarning] = useState(null);
     const [imagePreview, setImagePreview] = useState(initialData?.image_url || null);
     const [showGroupForm, setShowGroupForm] = useState(false);
+    const [checkingLead, setCheckingLead] = useState(false);
+    const [leadExists, setLeadExists] = useState(false);
 
 
     // Customer Properties (for Sundry Debtors/Creditors)
@@ -256,6 +259,47 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             }).catch(err => console.error('Failed to pre-fetch account groups in NewAccountForm:', err));
         }
     }, [propGroups]);
+
+    // Check if the typed phone number is already in the leads directory
+    useEffect(() => {
+        const raw = formData.mobile || '';
+        const digits = raw.replace(/\D/g, '');
+        let clean = digits;
+        if (clean.startsWith('91') && clean.length === 12) clean = clean.slice(2);
+        else if (clean.startsWith('0') && clean.length === 11) clean = clean.slice(1);
+
+        if (clean.length === 10 && /^[6-9]/.test(clean)) {
+            let active = true;
+            setCheckingLead(true);
+            
+            fetch(`/api/admin/leads?phone=${clean}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (active && data.success) {
+                        setLeadExists(data.exists);
+                        if (data.exists) {
+                            // Clear leadChannel if already exists
+                            setFormData(prev => ({ ...prev, leadChannel: '' }));
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to check lead:', err);
+                    if (active) setLeadExists(false);
+                })
+                .finally(() => {
+                    if (active) setCheckingLead(false);
+                });
+                
+            return () => { active = false; };
+        } else {
+            setLeadExists(false);
+            setCheckingLead(false);
+            if (formData.leadChannel) {
+                setFormData(prev => ({ ...prev, leadChannel: '' }));
+            }
+        }
+    }, [formData.mobile]);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
@@ -623,6 +667,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             gst_applicable: formData.gstApplicable,
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
+            leadChannel: formData.leadChannel,
             status: initialData?.status || 'active',
             // Fixed Asset Fields
             asset_category: formData.assetCategory,
@@ -1379,21 +1424,20 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                             <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                                 {showField('acquisitionSource') && (
                                                     <div className="form-group">
-                                                        <label className="form-label">Acquisition Source *</label>
+                                                        <label className="form-label">Attribution Source *</label>
                                                         <select
                                                             className="form-select"
                                                             value={formData.acquisitionSource}
                                                             onChange={(e) => setFormData({ ...formData, acquisitionSource: e.target.value })}
-                                                            onBlur={() => { if (!formData.acquisitionSource) setErrors(prev => ({ ...prev, acquisitionSource: 'Acquisition Source is required' })); else setErrors(prev => { const e = {...prev}; delete e.acquisitionSource; return e; }); }}
+                                                            onBlur={() => { if (!formData.acquisitionSource) setErrors(prev => ({ ...prev, acquisitionSource: 'Attribution Source is required' })); else setErrors(prev => { const e = {...prev}; delete e.acquisitionSource; return e; }); }}
                                                             style={{ borderColor: errors.acquisitionSource ? '#ef4444' : undefined }}
                                                         >
                                                             <option value="">-- Select Source --</option>
                                                             <option value="direct">Direct / Walk-in</option>
-                                                            <option value="referral">Referral</option>
-                                                            <option value="google">Google Ads</option>
-                                                            <option value="social">Social Media</option>
-                                                            <option value="website">Website Organic</option>
-                                                            <option value="other">Other</option>
+                                                            <option value="referral">Referral / Word of Mouth</option>
+                                                            <option value="google_ads">Google Ads (Paid)</option>
+                                                            <option value="social_media">Social Media</option>
+                                                            <option value="google_organic">Google Search (Organic)</option>
                                                         </select>
                                                         {errors.acquisitionSource && (
                                                             <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.acquisitionSource}</span>
@@ -1410,6 +1454,28 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                             onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
                                                             placeholder="Name or details"
                                                         />
+                                                    </div>
+                                                )}
+                                                {(!initialData || !initialData.id) && showField('acquisitionSource') && (
+                                                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                                        <label className="form-label">Log Call / WhatsApp Lead Channel</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={formData.leadChannel || ''}
+                                                            onChange={(e) => setFormData({ ...formData, leadChannel: e.target.value })}
+                                                            disabled={leadExists || checkingLead}
+                                                            style={{ borderColor: leadExists ? '#10b981' : undefined }}
+                                                        >
+                                                            <option value="">-- Select Channel --</option>
+                                                            <option value="call">Call Received</option>
+                                                            <option value="whatsapp">WhatsApp Message Received</option>
+                                                        </select>
+                                                        {checkingLead && (
+                                                            <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 4 }}>Checking Leads Directory...</span>
+                                                        )}
+                                                        {leadExists && (
+                                                            <span style={{ color: '#10b981', fontSize: 'var(--font-size-xs)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Already detected in Leads Directory.</span>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

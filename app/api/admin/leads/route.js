@@ -8,10 +8,25 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
+        const phone = searchParams.get('phone');
         const range = searchParams.get('range') || '30d'; // today, yesterday, 7d, 30d, 90d, all, custom
 
         const supabase = createServerSupabase();
         if (!supabase) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
+
+        if (phone) {
+            const cleanPhone = cleanPhone10(phone);
+            if (!cleanPhone) {
+                return NextResponse.json({ success: false, error: 'Invalid phone number' }, { status: 400 });
+            }
+            const { data: lead, error } = await supabase
+                .from('lead_attributions')
+                .select('*')
+                .eq('phone', cleanPhone)
+                .maybeSingle();
+            if (error) throw error;
+            return NextResponse.json({ success: true, exists: !!lead, lead });
+        }
 
         // Calculate date boundaries
         const startDate = new Date();

@@ -673,7 +673,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                     <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: 'var(--spacing-md)' }}>
                                         {showField('acquisitionSource') && (
                                             <div className="form-group">
-                                                <label className="form-label">Acquisition Source</label>
+                                                <label className="form-label">Attribution Source</label>
                                                 <select
                                                     className="form-select"
                                                     value={editedAccount.acquisitionSource || ''}
@@ -683,11 +683,10 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                                 >
                                                     <option value="">-- Select Source --</option>
                                                     <option value="direct">Direct / Walk-in</option>
-                                                    <option value="referral">Referral</option>
-                                                    <option value="google">Google Ads</option>
-                                                    <option value="social">Social Media</option>
-                                                    <option value="website">Website Organic</option>
-                                                    <option value="other">Other</option>
+                                                    <option value="referral">Referral / Word of Mouth</option>
+                                                    <option value="google_ads">Google Ads (Paid)</option>
+                                                    <option value="social_media">Social Media</option>
+                                                    <option value="google_organic">Google Search (Organic)</option>
                                                 </select>
                                             </div>
                                         )}

@@ -2424,7 +2424,8 @@ export default function WebsiteAnalytics() {
                                     <option value="google_ads">Google Ads (Paid)</option>
                                     <option value="google_organic">Google Search (Organic)</option>
                                     <option value="referral">Referral / Word of Mouth</option>
-                                    <option value="direct">Direct / Offline</option>
+                                    <option value="direct">Direct / Walk-in</option>
+                                    <option value="social_media">Social Media</option>
                                 </select>
                             </div>
                             <div style={{ display: 'grid', gap: '4px' }}>

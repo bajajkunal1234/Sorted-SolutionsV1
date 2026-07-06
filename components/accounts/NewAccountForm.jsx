@@ -83,7 +83,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
 
         // Acquisition Source (How did you hear about us?)
         acquisitionSource: '',
-        referredBy: ''
+        referredBy: '',
+        leadChannel: ''
     });
 
     const [errors, setErrors] = useState({});

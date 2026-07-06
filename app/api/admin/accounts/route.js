@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { generateAccountSKU } from '@/lib/generateAccountSKU'
+import { cleanPhone10, trackLeadAttribution } from '@/lib/lead-tracker'
 
 export const dynamic = 'force-dynamic'
 
@@ -220,6 +221,28 @@ export async function POST(request) {
             }, { onConflict: 'ledger_id' });
 
             if (customerError) throw customerError;
+
+            // Log Call/WhatsApp Lead automatically if channel is selected
+            if (body.leadChannel === 'call' || body.leadChannel === 'whatsapp') {
+                const rawPhone = cleanPhone10(body.mobile);
+                if (rawPhone) {
+                    const conversionType = body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call';
+                    const leadNotes = body.mailing_address || body.customerDescription || 'Logged automatically during account creation.';
+                    try {
+                        await trackLeadAttribution(supabase, {
+                            phone: rawPhone,
+                            conversion_type: conversionType,
+                            name: body.name,
+                            status: 'converted', // always converted on account creation
+                            notes: leadNotes,
+                            lead_source: body.acquisitionSource || 'direct',
+                            first_contact_at: new Date().toISOString()
+                        });
+                    } catch (leadError) {
+                        console.error('[accounts POST] Lead tracking failed:', leadError.message);
+                    }
+                }
+            }
         } else if (isTechnician) {
             const { error: techError } = await supabase.from('technicians').upsert({
                 name: body.name,
