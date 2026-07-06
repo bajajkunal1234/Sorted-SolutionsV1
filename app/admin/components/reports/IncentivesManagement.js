@@ -85,9 +85,8 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         inv.date >= mStart && inv.date <= mEnd
     );
 
-    // 4. Revenue total (excluding service-charge-only invoices)
-    const repairInvoices = techInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv));
-    const totalRevenue = repairInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    // 4. Revenue total (including service-charge-only invoices)
+    const totalRevenue = techInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
     // 5. Visits Done in range
     const visitedJobs = techJobs.filter(j => {
@@ -357,7 +356,7 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
 
     (techInvoices || []).forEach(inv => {
         const dayStr = inv.date;
-        if (dailyMap[dayStr] && !isServiceChargeOnlyInvoice(inv)) {
+        if (dailyMap[dayStr]) {
             dailyMap[dayStr].revenue += (inv.total_amount || 0);
         }
     });
@@ -1282,6 +1281,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
                                                     {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
+                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
                                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
@@ -1293,7 +1293,7 @@ function IncentivesManagement({ initialSubTab }) {
                                             <tbody>
                                                 {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
                                                     <tr>
-                                                        <td colSpan={selectedTechId === 'all' ? 9 : 8} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        <td colSpan={selectedTechId === 'all' ? 10 : 9} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                             No jobs logged for this period.
                                                         </td>
                                                     </tr>
@@ -1322,7 +1322,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                             const isVisited = !!job.arrived_at;
                                                             const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
                                                             const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
-                                                            const jobRev = jobInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv)).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                                                            const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
                                                             let closureOutcome = 'In Progress';
                                                             let isRepair = false;
@@ -1367,6 +1367,9 @@ function IncentivesManagement({ initialSubTab }) {
                                                                     )}
                                                                     <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                         {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
+                                                                    </td>
+                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                        {job.locality || '—'}
                                                                     </td>
                                                                     <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                         {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
