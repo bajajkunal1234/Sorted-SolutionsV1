@@ -2685,30 +2685,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                 );
                                                              });
                                                          })()}
-                                                        {savedQuotations.length < 2 && !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                        {savedQuotations.length < 2 && !['parts_ordered', 'work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
                                                                     setIsNewQuotationOption(true);
                                                                     setCalculatorItems([]);
                                                                     setActiveForm('calculator');
-                                                                 }}
-                                                                 style={{
-                                                                     padding: '10px 12px',
-                                                                     fontSize: '13px',
-                                                                     fontWeight: 700,
-                                                                     borderRadius: '8px',
-                                                                     border: '1px dashed #f59e0b',
-                                                                     backgroundColor: 'rgba(245,158,11,0.05)',
-                                                                     color: '#f59e0b',
-                                                                     cursor: 'pointer',
-                                                                     flex: 1,
-                                                                     textAlign: 'center',
-                                                                     transition: 'all 0.15s ease'
-                                                                 }}
-                                                             >
-                                                                 Service Charge Close
-                                                             </button>
+                                                                }}
+                                                                style={{
+                                                                    padding: '10px 12px',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: 700,
+                                                                    borderRadius: '8px',
+                                                                    border: '1px dashed #f59e0b',
+                                                                    backgroundColor: 'rgba(245,158,11,0.05)',
+                                                                    color: '#f59e0b',
+                                                                    cursor: 'pointer',
+                                                                    flex: 1,
+                                                                    textAlign: 'center',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                Service Charge Close
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -2719,7 +2719,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 {/* Edit goes away if approved */}
-                                                {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                {!['parts_ordered', 'work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
                                                     <button
                                                         className="btn"
                                                         style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
@@ -2823,25 +2823,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     );
                                                 } else {
                                                     // Option 1 (Quotation) selected
-                                                    if (['work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
+                                                    if (['parts_ordered', 'work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
                                                         return (
                                                             <>
-                                                                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                                                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: editedJob.status === 'parts_ordered' ? 0 : '10px' }}>
                                                                     <CheckCircle size={16} /> 
                                                                     {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
                                                                         ? 'Cx Approved from App' 
                                                                         : 'Cx Said to Proceed'}
                                                                 </div>
-                                                                <button
-                                                                    className="btn"
-                                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
-                                                                    disabled={loading}
-                                                                    onClick={() => {
-                                                                        setShowAfterPhotosModal(true);
-                                                                    }}
-                                                                >
-                                                                    {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
-                                                                </button>
+                                                                {editedJob.status !== 'parts_ordered' && (
+                                                                    <button
+                                                                        className="btn"
+                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
+                                                                        disabled={loading}
+                                                                        onClick={() => {
+                                                                            setShowAfterPhotosModal(true);
+                                                                        }}
+                                                                    >
+                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
+                                                                    </button>
+                                                                )}
                                                             </>
                                                         );
                                                     } else {
