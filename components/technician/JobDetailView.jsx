@@ -2376,6 +2376,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {/* 3. 3-Button Section (if status is diagnosing_quoting) */}
                                     {editedJob.status === 'diagnosing_quoting' && (
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            {/* 1. Calculate Repair Estimate */}
                                             <button
                                                 className="btn"
                                                 style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
@@ -2386,13 +2387,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             >
                                                 ⚡ Estimate Calculator
                                             </button>
-                                            <button
-                                                className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
-                                                onClick={() => setPartsOption('select')}
-                                            >
-                                                📦 Order/Collect Parts
-                                            </button>
+
+                                            {/* 2. Close with Service Charge */}
                                             <button
                                                 className="btn"
                                                 style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
@@ -2403,9 +2399,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             >
                                                 🛠️ Close with Service Charge
                                             </button>
+
+                                            {/* 3. Close Call Without Service */}
                                             <button
                                                 className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
                                                 onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
                                             >
                                                 ❌ Close Without Service
