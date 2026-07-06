@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Upload, Trash2, AlertCircle } from 'lucide-react';
+import { X, Plus, Upload, Trash2, AlertCircle, UserPlus } from 'lucide-react';
 import { accountGroups as sampleGroups, coaFieldMappings, sampleLedgers as sampleLedgersMock } from '../../data/accountingData';
 import { acquisitionSources } from '../../data/interactionTypes';
 import GroupCreationModal from './GroupCreationModal';
@@ -381,6 +381,43 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
         return null;
     };
 
+    const handleImportFromContacts = async () => {
+        if (typeof window === 'undefined' || !('contacts' in navigator)) {
+            alert('Contact Picker is not supported on this device/browser.');
+            return;
+        }
+
+        try {
+            const props = ['name', 'tel', 'email'];
+            const contacts = await navigator.contacts.select(props, { multiple: false });
+            if (contacts && contacts.length > 0) {
+                const contact = contacts[0];
+                const name = contact.name?.[0] || '';
+                const email = contact.email?.[0] || '';
+                let tel = contact.tel?.[0] || '';
+                
+                // Clean the phone number (keep only digits)
+                const digits = tel.replace(/\D/g, '');
+                
+                // Also format as +91-XXXXX XXXXX on blur / if 10 digits
+                let finalMobile = digits;
+                if (digits.length >= 10) {
+                    const normalized = digits.slice(-10);
+                    finalMobile = `+91-${normalized.slice(0, 5)} ${normalized.slice(5)}`;
+                }
+
+                setFormData(prev => ({
+                    ...prev,
+                    name: name || prev.name,
+                    email: email || prev.email,
+                    mobile: finalMobile || prev.mobile
+                }));
+            }
+        } catch (err) {
+            console.error('Failed to import contact:', err);
+        }
+    };
+
     return (
         <>
             <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
@@ -409,7 +446,31 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                 marginBottom: 'var(--spacing-lg)'
                             }}>
                                 <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                                    <label className="form-label" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600 }}>Name</label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                        <label className="form-label" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600, marginBottom: 0 }}>Name</label>
+                                        {typeof window !== 'undefined' && 'contacts' in navigator && (
+                                            <button
+                                                type="button"
+                                                onClick={handleImportFromContacts}
+                                                className="btn-secondary"
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: '4px',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <UserPlus size={12} />
+                                                Import Contact
+                                            </button>
+                                        )}
+                                    </div>
                                     <input
                                         type="text"
                                         className="form-input"
