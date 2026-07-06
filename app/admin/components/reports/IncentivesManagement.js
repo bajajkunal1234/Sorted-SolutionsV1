@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Settings, Save, BarChart3, Calendar, Users, CheckCircle, AlertCircle, Award, Star, User, ChevronRight, DollarSign, Briefcase, RefreshCcw, Loader2 } from 'lucide-react';
 import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 import JobDetailModal from '../JobDetailModal';
+import { getLocalityFromAddress } from '@/lib/utils/helpers';
 
 const parseSlotStartTime = (slotStr) => {
     if (!slotStr) return null;
@@ -492,7 +493,7 @@ function IncentivesManagement({ initialSubTab }) {
 
                 const { data: allJobs } = await supabase
                     .from('jobs')
-                    .select('id, job_number, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance, brand')
+                    .select('id, job_number, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance, brand, property')
                     .gte('scheduled_date', historyStart);
 
                 const { data: allInvoices } = await supabase
@@ -1369,7 +1370,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                                         {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
                                                                     </td>
                                                                     <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                        {job.locality || '—'}
+                                                                        {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
                                                                     </td>
                                                                     <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                         {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
