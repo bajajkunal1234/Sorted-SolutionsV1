@@ -165,6 +165,11 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     const [showTechniciansLayer, setShowTechniciansLayer] = useState(true);
     const [showSuppliersLayer, setShowSuppliersLayer] = useState(true);
 
+    const handleViewTypeChange = (type) => {
+        setMapViewType(type);
+        localStorage.setItem('mapViewType', type);
+    };
+
     // Load configurations from DB with localStorage fallback
     useEffect(() => {
         const loadConfigs = async () => {
@@ -986,6 +991,54 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                     );
                 })}
             </MapContainer>
+
+            {/* ── Personal Map Base Layer Selector (Floating Right) ── */}
+            <div style={{
+                position: 'absolute',
+                top: '100px',
+                right: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                zIndex: 1000,
+                backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                backdropFilter: 'blur(8px)',
+                padding: '6px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.3)'
+            }}>
+                {[
+                    { id: 'roadmap', label: '🗺️', title: 'Roadmap' },
+                    { id: 'satellite', label: '🛰️', title: 'Satellite' },
+                    { id: 'hybrid', label: '🌓', title: 'Hybrid' },
+                    { id: 'dark', label: '🌙', title: 'Dark Mode' }
+                ].map(opt => (
+                    <button
+                        key={opt.id}
+                        onClick={() => handleViewTypeChange(opt.id)}
+                        style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '6px',
+                            backgroundColor: mapViewType === opt.id ? '#3b82f6' : 'transparent',
+                            border: 'none',
+                            color: '#ffffff',
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            outline: 'none'
+                        }}
+                        title={opt.title}
+                        type="button"
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }
