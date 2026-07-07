@@ -44,6 +44,16 @@ function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState('kanban');
+    const [hasClickedMap, setHasClickedMap] = useState(true);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const clicked = localStorage.getItem('tech_clicked_map_v1');
+            if (!clicked) {
+                setHasClickedMap(false);
+            }
+        }
+    }, []);
 
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1404,9 +1414,37 @@ function TechnicianApp() {
                         <button onClick={() => setViewMode('table')} title="Table View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'table' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'table' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <Table size={16} />
                         </button>
-                        <button onClick={() => setViewMode('map')} title="Map View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'map' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'map' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                            <Map size={16} />
-                        </button>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <button 
+                                onClick={() => {
+                                    setViewMode('map');
+                                    localStorage.setItem('tech_clicked_map_v1', 'true');
+                                    setHasClickedMap(true);
+                                }} 
+                                title="Map View" 
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'map' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'map' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            >
+                                <Map size={16} />
+                            </button>
+                            {!hasClickedMap && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-8px',
+                                    right: '-10px',
+                                    backgroundColor: '#ef4444',
+                                    color: '#ffffff',
+                                    fontSize: '8px',
+                                    fontWeight: 900,
+                                    padding: '1px 3px',
+                                    borderRadius: '3px',
+                                    boxShadow: '0 1px 3px rgba(239, 68, 68, 0.4)',
+                                    pointerEvents: 'none',
+                                    letterSpacing: '0.5px'
+                                }}>
+                                    NEW
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

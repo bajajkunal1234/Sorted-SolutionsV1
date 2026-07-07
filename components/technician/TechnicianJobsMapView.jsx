@@ -212,11 +212,15 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     // Helper: TTS Text-to-speech directions
     const speakInstruction = (text) => {
         if (voiceMuted) return;
-        if (typeof window !== 'undefined' && window.speechSynthesis) {
-            window.speechSynthesis.cancel(); // Mute ongoing speeches
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.95;
-            window.speechSynthesis.speak(utterance);
+        try {
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                window.speechSynthesis.cancel(); // Mute ongoing speeches
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.95;
+                window.speechSynthesis.speak(utterance);
+            }
+        } catch (e) {
+            console.error('Speech synthesis failed:', e);
         }
     };
 
@@ -306,11 +310,16 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const propertiesGroup = Object.values(groupedJobs);
 
     // Filter suppliers (filter if navigating)
-    const geocodedSuppliers = (showSuppliersLayer && (!navigationActive || (activeDestCoords && geocodedSuppliers.some(s => getDistanceBetweenCoords(s.coords.lat, s.coords.lng, activeDestCoords.lat, activeDestCoords.lng) < 5))))
-        ? suppliers.map(s => ({
-            ...s,
-            coords: getSupplierCoordinates(s)
-        })).filter(s => s.coords !== null) : [];
+    const allGeocodedSuppliers = suppliers.map(s => ({
+        ...s,
+        coords: getSupplierCoordinates(s)
+    })).filter(s => s.coords !== null);
+
+    const geocodedSuppliers = showSuppliersLayer 
+        ? (navigationActive && activeDestCoords
+            ? allGeocodedSuppliers.filter(s => getDistanceBetweenCoords(s.coords.lat, s.coords.lng, activeDestCoords.lat, activeDestCoords.lng) < 5)
+            : allGeocodedSuppliers)
+        : [];
 
     // Helper: Customer marker icons creator
     const getCustomerIcon = (group) => {
