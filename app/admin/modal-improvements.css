@@ -368,6 +368,7 @@ button[class*="cancel"]:hover,
         flex-direction: column !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
+        padding-top: env(safe-area-inset-top, 0px) !important;
     }
 
     .modal-overlay,

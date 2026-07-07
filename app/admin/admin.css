@@ -9,6 +9,7 @@
     background: var(--bg-primary);
     color: var(--text-primary);
     overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
 }
 
 .admin-content-area {

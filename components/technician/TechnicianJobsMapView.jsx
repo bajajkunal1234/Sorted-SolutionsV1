@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } fro
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Loader2, Navigation, Map as MapIcon, Compass } from 'lucide-react';
+import { apiCall } from '@/lib/offlineSync';
 
 // Merge default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -118,7 +119,7 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
 
     // Load active spare part suppliers
     useEffect(() => {
-        fetch('/api/admin/accounts?type=supplier')
+        apiCall('/api/admin/accounts?type=supplier')
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
@@ -131,6 +132,12 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     // Helper: Parse job coordinates
     const getJobCoordinates = (job) => {
         if (!job) return null;
+        if (job.location && (job.location.lat || job.location.latitude)) {
+            return {
+                lat: Number(job.location.lat || job.location.latitude),
+                lng: Number(job.location.lng || job.location.longitude)
+            };
+        }
         if (job.lat && job.lng) return { lat: Number(job.lat), lng: Number(job.lng) };
         if (job.latitude && job.longitude) return { lat: Number(job.latitude), lng: Number(job.longitude) };
         const prop = job.property;
@@ -143,6 +150,17 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
 
     // Helper: Parse supplier coordinates
     const getSupplierCoordinates = (s) => {
+        if (!s) return null;
+        const props = s.properties;
+        if (Array.isArray(props) && props.length > 0) {
+            const first = props.find(p => p.lat || p.latitude);
+            if (first) {
+                return {
+                    lat: Number(first.lat || first.latitude),
+                    lng: Number(first.lng || first.longitude)
+                };
+            }
+        }
         if (s.coordinates) {
             if (s.coordinates.lat && s.coordinates.lng) return { lat: Number(s.coordinates.lat), lng: Number(s.coordinates.lng) };
             if (s.coordinates.latitude && s.coordinates.longitude) return { lat: Number(s.coordinates.latitude), lng: Number(s.coordinates.longitude) };
