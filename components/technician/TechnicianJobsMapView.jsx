@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Loader2, Navigation, Map as MapIcon, Compass } from 'lucide-react';
+import { Loader2, Navigation, Map as MapIcon, Compass, Volume2, VolumeX, ArrowLeft, Flag, XCircle } from 'lucide-react';
 import { apiCall } from '@/lib/offlineSync';
 
 // Merge default marker icons
@@ -15,12 +15,61 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
+// Helper to calculate distance between coordinates (Haversine formula) in meters
+const getDistanceBetweenCoords = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // meters
+};
+
+// Helper: Format turn instruction text from OSRM step
+function formatStep(step) {
+    const dir = step.maneuver?.modifier;
+    const street = step.name && step.name !== '' ? ` onto ${step.name}` : '';
+    const type = step.maneuver?.type;
+    
+    if (type === 'depart') return `🚀 Head out${street}`;
+    if (type === 'arrive') return `📍 Arrive at destination`;
+    
+    const dirWords = {
+        left: 'turn left',
+        'slight left': 'slight left turn',
+        'sharp left': 'sharp left turn',
+        right: 'turn right',
+        'slight right': 'slight right turn',
+        'sharp right': 'sharp right turn',
+        straight: 'go straight',
+        uturn: 'make a U-turn'
+    };
+    const action = dirWords[dir] || 'continue';
+    return `${action.charAt(0).toUpperCase() + action.slice(1)}${street}`;
+}
+
+// Helper: Get turn symbol icons
+const getDirectionArrow = (modifier) => {
+    const icons = {
+        left: '↰', 'slight left': '↖', 'sharp left': '↙',
+        right: '↱', 'slight right': '↗', 'sharp right': '↘',
+        straight: '↑', uturn: '↺',
+    };
+    return icons[modifier] || '→';
+};
+
 // Map center and bounds auto-controller
-function MapCenterController({ myLocation, jobsGroup }) {
+function MapCenterController({ myLocation, jobsGroup, active }) {
     const map = useMap();
     const centeredRef = useRef(false);
 
     useEffect(() => {
+        if (active) return; // Let navigation follower center instead
+
         if (centeredRef.current) return;
 
         if (myLocation) {
@@ -31,19 +80,33 @@ function MapCenterController({ myLocation, jobsGroup }) {
             map.fitBounds(bounds, { padding: [50, 50] });
             centeredRef.current = true;
         }
-    }, [myLocation, jobsGroup, map]);
+    }, [myLocation, jobsGroup, map, active]);
+
+    return null;
+}
+
+// Follow live location when in navigation mode
+function MapFollowController({ myLocation, active }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (active && myLocation) {
+            map.setView([myLocation.lat, myLocation.lng], 17, { animate: true });
+        }
+    }, [myLocation, active, map]);
 
     return null;
 }
 
 // Watch navigation bounds controller
-function MapInteractionController({ activeRoute }) {
+function MapInteractionController({ activeRoute, active }) {
     const map = useMap();
     useEffect(() => {
+        if (active) return; // Lock to navigation follower zoom level 17
         if (activeRoute && activeRoute.length > 1) {
             map.fitBounds(L.latLngBounds(activeRoute), { padding: [40, 40] });
         }
-    }, [activeRoute, map]);
+    }, [activeRoute, map, active]);
     return null;
 }
 
@@ -67,6 +130,13 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const [activeRoute, setActiveRoute] = useState(null);
     const [routeInfo, setRouteInfo] = useState(null);
     const [loadingRoute, setLoadingRoute] = useState(false);
+    
+    // Active navigation states
+    const [navigationActive, setNavigationActive] = useState(false);
+    const [navSteps, setNavSteps] = useState([]);
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [voiceMuted, setVoiceMuted] = useState(false);
+    const [activeDestCoords, setActiveDestCoords] = useState(null);
 
     // Load configs from Supabase (with local cache fallback)
     useEffect(() => {
@@ -129,6 +199,37 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
             .catch(err => console.error('Failed to fetch suppliers:', err));
     }, []);
 
+    // Helper: TTS Text-to-speech directions
+    const speakInstruction = (text) => {
+        if (voiceMuted) return;
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.cancel(); // Mute ongoing speeches
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+    };
+
+    // Geolocation advancement observer
+    useEffect(() => {
+        if (!navigationActive || !myLocation || navSteps.length === 0 || currentStepIndex >= navSteps.length - 1) return;
+        
+        const nextStep = navSteps[currentStepIndex + 1];
+        if (nextStep && nextStep.location) {
+            const dist = getDistanceBetweenCoords(
+                myLocation.lat, myLocation.lng,
+                nextStep.location[0], nextStep.location[1]
+            );
+
+            // Auto-advance if within 30 meters of next coordinate node
+            if (dist < 30) {
+                const nextIdx = currentStepIndex + 1;
+                setCurrentStepIndex(nextIdx);
+                speakInstruction(navSteps[nextIdx].instruction);
+            }
+        }
+    }, [myLocation, navigationActive, navSteps, currentStepIndex]);
+
     // Helper: Parse job coordinates
     const getJobCoordinates = (job) => {
         if (!job) return null;
@@ -170,12 +271,17 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
         return null;
     };
 
-    // Group jobs by property coordinates
+    // Group jobs by property coordinates (filter other markers if navigating)
     const groupedJobs = {};
     if (showCustomersLayer) {
         jobs.forEach(job => {
             const coords = getJobCoordinates(job);
             if (!coords) return;
+            // When navigation is active, only render the active destination pin to keep map clean
+            if (navigationActive && activeDestCoords) {
+                const distDest = getDistanceBetweenCoords(coords.lat, coords.lng, activeDestCoords.lat, activeDestCoords.lng);
+                if (distDest > 5) return; // Hide pins further than 5m
+            }
             const key = `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
             if (!groupedJobs[key]) {
                 groupedJobs[key] = {
@@ -189,11 +295,12 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     }
     const propertiesGroup = Object.values(groupedJobs);
 
-    // Filter suppliers
-    const geocodedSuppliers = showSuppliersLayer ? suppliers.map(s => ({
-        ...s,
-        coords: getSupplierCoordinates(s)
-    })).filter(s => s.coords !== null) : [];
+    // Filter suppliers (filter if navigating)
+    const geocodedSuppliers = (showSuppliersLayer && (!navigationActive || (activeDestCoords && geocodedSuppliers.some(s => getDistanceBetweenCoords(s.coords.lat, s.coords.lng, activeDestCoords.lat, activeDestCoords.lng) < 5))))
+        ? suppliers.map(s => ({
+            ...s,
+            coords: getSupplierCoordinates(s)
+        })).filter(s => s.coords !== null) : [];
 
     // Helper: Customer marker icons creator
     const getCustomerIcon = (group) => {
@@ -356,8 +463,11 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
         setLoadingRoute(true);
         setActiveRoute(null);
         setRouteInfo(null);
+        setNavSteps([]);
+        setActiveDestCoords({ lat: destLat, lng: destLng });
+        
         try {
-            const url = `https://router.project-osrm.org/route/v1/driving/${myLocation.lng},${myLocation.lat};${destLng},${destLat}?steps=false&geometries=geojson&overview=full`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${myLocation.lng},${myLocation.lat};${destLng},${destLat}?steps=true&geometries=geojson&overview=full`;
             const res = await fetch(url);
             const data = await res.json();
             if (data.code === 'Ok' && data.routes.length > 0) {
@@ -367,6 +477,15 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                     distance: route.distance,
                     duration: route.duration
                 });
+                
+                // Parse turn by turn steps
+                const parsedSteps = route.legs[0]?.steps?.map(s => ({
+                    instruction: formatStep(s),
+                    distance: s.distance,
+                    modifier: s.maneuver?.modifier || 'straight',
+                    location: [s.maneuver.location[1], s.maneuver.location[0]]
+                })) || [];
+                setNavSteps(parsedSteps);
             }
         } catch (err) {
             console.error('OSRM Route calculation failed:', err);
@@ -385,7 +504,7 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     }
 
     return (
-        <div style={{ height: '500px', width: '100%', position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-primary)', zIndex: 0 }}>
+        <div style={{ height: '540px', width: '100%', position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-primary)', zIndex: 0 }}>
             {/* Inject CSS keyframe animation for marker pulse */}
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes LeafletPulse {
@@ -414,6 +533,79 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                 }
             ` }} />
 
+            {/* ── ACTIVE TURN-BY-TURN HUD (TOP DISPLAY) ── */}
+            {navigationActive && navSteps.length > 0 && (
+                <div style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '16px',
+                    right: '16px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    zIndex: 1000,
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+                        {/* Large Arrow Icon */}
+                        <div style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '12px',
+                            backgroundColor: '#10b981',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '22px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 10px rgba(16,185,129,0.3)',
+                            flexShrink: 0
+                        }}>
+                            {getDirectionArrow(navSteps[currentStepIndex]?.modifier)}
+                        </div>
+                        {/* Instruction text info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f8fafc', lineHeight: '1.3' }}>
+                                {navSteps[currentStepIndex]?.instruction}
+                            </div>
+                            {navSteps[currentStepIndex]?.distance > 0 && (
+                                <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, marginTop: '2px' }}>
+                                    in {navSteps[currentStepIndex].distance >= 1000 
+                                        ? `${(navSteps[currentStepIndex].distance / 1000).toFixed(1)} km` 
+                                        : `${Math.round(navSteps[currentStepIndex].distance)} meters`}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {/* TTS Voice controller toggler */}
+                    <button
+                        onClick={() => setVoiceMuted(!voiceMuted)}
+                        style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: 'none',
+                            padding: '10px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            color: voiceMuted ? '#ef4444' : '#38bdf8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                        }}
+                        title={voiceMuted ? "Unmute Voice Guide" : "Mute Voice Guide"}
+                    >
+                        {voiceMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                    </button>
+                </div>
+            )}
+
             {/* Calculate Route Overlay Loader */}
             {loadingRoute && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)', fontSize: '13px', color: '#7dd3fc', gap: '8px', fontWeight: 600 }}>
@@ -440,8 +632,9 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                     attribution='&copy; Google Maps'
                 />
 
-                <MapCenterController myLocation={myLocation} jobsGroup={propertiesGroup} />
-                <MapInteractionController activeRoute={activeRoute} />
+                <MapCenterController myLocation={myLocation} jobsGroup={propertiesGroup} active={navigationActive} />
+                <MapFollowController myLocation={myLocation} active={navigationActive} />
+                <MapInteractionController activeRoute={activeRoute} active={navigationActive} />
 
                 {/* Polyline Route Overlay */}
                 {activeRoute && (
@@ -520,19 +713,32 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                                                     </div>
                                                 )}
                                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                                    <button 
-                                                        onClick={() => calculateRoute(group.lat, group.lng)}
-                                                        style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
-                                                    >
-                                                        🗺️ Show Route
-                                                    </button>
+                                                    {routeInfo ? (
+                                                        <button 
+                                                            onClick={() => {
+                                                                setNavigationActive(true);
+                                                                setCurrentStepIndex(0);
+                                                                speakInstruction("Starting navigation. " + (navSteps[0]?.instruction || "Head towards your destination."));
+                                                            }}
+                                                            style={{ flex: 1, padding: '5px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+                                                        >
+                                                            🚀 Start
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => calculateRoute(group.lat, group.lng)}
+                                                            style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+                                                        >
+                                                            🗺️ Show Route
+                                                        </button>
+                                                    )}
                                                     <a 
                                                         href={`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${group.lat},${group.lng}&travelmode=driving`}
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
                                                         style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '4px', textDecoration: 'none', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', display: 'block' }}
                                                     >
-                                                        🚀 Google Maps
+                                                        📲 Google Maps
                                                     </a>
                                                 </div>
                                             </div>
@@ -582,19 +788,32 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                                                     </div>
                                                 )}
                                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                                    <button 
-                                                        onClick={() => calculateRoute(lat, lng)}
-                                                        style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
-                                                    >
-                                                        🗺️ Show Route
-                                                    </button>
+                                                    {routeInfo ? (
+                                                        <button 
+                                                            onClick={() => {
+                                                                setNavigationActive(true);
+                                                                setCurrentStepIndex(0);
+                                                                speakInstruction("Starting navigation. " + (navSteps[0]?.instruction || "Head towards your destination."));
+                                                            }}
+                                                            style={{ flex: 1, padding: '5px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+                                                        >
+                                                            🚀 Start
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => calculateRoute(lat, lng)}
+                                                            style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '4px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}
+                                                        >
+                                                            🗺️ Show Route
+                                                        </button>
+                                                    )}
                                                     <a 
                                                         href={`https://www.google.com/maps/dir/?api=1&origin=${myLocation.lat},${myLocation.lng}&destination=${lat},${lng}&travelmode=driving`}
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
                                                         style={{ flex: 1, padding: '5px', backgroundColor: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '4px', textDecoration: 'none', textAlign: 'center', fontSize: '10px', fontWeight: 'bold', display: 'block' }}
                                                     >
-                                                        🚀 Google Maps
+                                                        📲 Google Maps
                                                     </a>
                                                 </div>
                                             </div>
@@ -608,6 +827,69 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                     );
                 })}
             </MapContainer>
+
+            {/* ── NAVIGATION BOTTOM PANEL (STATS & DISMISS) ── */}
+            {navigationActive && routeInfo && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: '16px',
+                    right: '16px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '16px',
+                    padding: '16px',
+                    zIndex: 1000,
+                    boxShadow: '0 -4px 25px rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 900, color: '#10b981' }}>
+                                {Math.round(routeInfo.duration / 60)} min
+                            </span>
+                            <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                ({((routeInfo.distance) / 1000).toFixed(1)} km)
+                            </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '2px', fontWeight: 500 }}>
+                            Arriving at {new Date(Date.now() + routeInfo.duration * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => {
+                            setNavigationActive(false);
+                            setActiveRoute(null);
+                            setRouteInfo(null);
+                            setNavSteps([]);
+                            setActiveDestCoords(null);
+                            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                                window.speechSynthesis.cancel();
+                            }
+                        }}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '10px 18px',
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 10px rgba(239,68,68,0.2)'
+                        }}
+                    >
+                        <XCircle size={16} /> Exit
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
