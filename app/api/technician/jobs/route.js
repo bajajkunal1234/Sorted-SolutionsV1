@@ -114,6 +114,46 @@ export async function GET(request) {
             const customerObj = job.customer || {};
             const enrichedProp = enrichPropertyFromAccount(job.property, customerObj.properties);
             const propData = resolveProperty(enrichedProp);
+
+            // Apply exact coordinates fallbacks as done on admin jobs map
+            let resolvedLat = propData.latitude;
+            let resolvedLng = propData.longitude;
+
+            if (!resolvedLat && !resolvedLng) {
+                const accountProps = customerObj.properties;
+                if (Array.isArray(accountProps) && accountProps.length > 0) {
+                    // Fallback 1: Try matching by building name or address line similarity
+                    const storedProp = job.property || {};
+                    const matchByDetails = accountProps.find(p => 
+                        (p.lat || p.latitude) && (
+                            (p.building_name && storedProp.building_name && String(p.building_name).trim().toLowerCase() === String(storedProp.building_name).trim().toLowerCase()) ||
+                            (p.address && storedProp.address && String(p.address).trim().toLowerCase() === String(storedProp.address).trim().toLowerCase())
+                        )
+                    );
+                    if (matchByDetails) {
+                        resolvedLat = matchByDetails.lat || matchByDetails.latitude;
+                        resolvedLng = matchByDetails.lng || matchByDetails.longitude;
+                    }
+
+                    // Fallback 2: If only 1 property in customer account, use it
+                    if (!resolvedLat && !resolvedLng && accountProps.length === 1) {
+                        const first = accountProps[0];
+                        if (first.lat || first.latitude) {
+                            resolvedLat = first.lat || first.latitude;
+                            resolvedLng = first.lng || first.longitude;
+                        }
+                    }
+
+                    // Fallback 3: Use the first property that has coordinates
+                    if (!resolvedLat && !resolvedLng) {
+                        const firstWithCoords = accountProps.find(p => p.lat || p.latitude);
+                        if (firstWithCoords) {
+                            resolvedLat = firstWithCoords.lat || firstWithCoords.latitude;
+                            resolvedLng = firstWithCoords.lng || firstWithCoords.longitude;
+                        }
+                    }
+                }
+            }
             
             return {
                 id: job.id,
@@ -129,8 +169,8 @@ export async function GET(request) {
                 description: job.description || '',
                 thumbnail: job.thumbnail || null,
                 location: {
-                    lat: propData.latitude,
-                    lng: propData.longitude
+                    lat: resolvedLat ? Number(resolvedLat) : null,
+                    lng: resolvedLng ? Number(resolvedLng) : null
                 },
                 product: {
                     type: job.category || '',
