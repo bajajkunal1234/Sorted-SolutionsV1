@@ -143,6 +143,86 @@ public class GPSBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getCurrentLocation(PluginCall call) {
+        if (getPermissionState("location") != PermissionState.GRANTED) {
+            call.reject("Location permission not granted");
+            return;
+        }
+
+        Context context = getContext();
+        LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            call.reject("Location manager not available");
+            return;
+        }
+
+        try {
+            android.location.Location gpsLoc = null;
+            android.location.Location netLoc = null;
+
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                gpsLoc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            }
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                netLoc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            }
+
+            android.location.Location finalLoc = null;
+            if (gpsLoc != null && netLoc != null) {
+                if (gpsLoc.getTime() > netLoc.getTime()) {
+                    finalLoc = gpsLoc;
+                } else {
+                    finalLoc = netLoc;
+                }
+            } else {
+                finalLoc = gpsLoc != null ? gpsLoc : netLoc;
+            }
+
+            if (finalLoc != null) {
+                JSObject ret = new JSObject();
+                ret.put("latitude", finalLoc.getLatitude());
+                ret.put("longitude", finalLoc.getLongitude());
+                ret.put("accuracy", finalLoc.getAccuracy());
+                call.resolve(ret);
+            } else {
+                final LocationManager lm = locationManager;
+                getBridge().getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            String provider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+                            lm.requestSingleUpdate(provider, new android.location.LocationListener() {
+                                @Override
+                                public void onLocationChanged(android.location.Location location) {
+                                    JSObject ret = new JSObject();
+                                    ret.put("latitude", location.getLatitude());
+                                    ret.put("longitude", location.getLongitude());
+                                    ret.put("accuracy", location.getAccuracy());
+                                    call.resolve(ret);
+                                }
+                                @Override
+                                public void onStatusChanged(String provider, int status, android.os.Bundle extras) {}
+                                @Override
+                                public void onProviderEnabled(String provider) {}
+                                @Override
+                                public void onProviderDisabled(String provider) {}
+                            }, null);
+                        } catch (SecurityException se) {
+                            call.reject("Permission error: " + se.getMessage());
+                        } catch (Exception ex) {
+                            call.reject("GPS Error: " + ex.getMessage());
+                        }
+                    }
+                });
+            }
+        } catch (SecurityException se) {
+            call.reject("Permission error: " + se.getMessage());
+        } catch (Exception e) {
+            call.reject("GPS Error: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void openLocationSettings(PluginCall call) {
         Context context = getContext();
         try {

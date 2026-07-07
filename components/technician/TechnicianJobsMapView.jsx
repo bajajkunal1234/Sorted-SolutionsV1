@@ -6,6 +6,11 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Loader2, Navigation, Map as MapIcon, Compass, Volume2, VolumeX, ArrowLeft, Flag, XCircle } from 'lucide-react';
 import { apiCall } from '@/lib/offlineSync';
+import { registerPlugin } from '@capacitor/core';
+
+const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web'
+    ? registerPlugin('GPSBridgePlugin')
+    : null;
 
 // Merge default marker icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -158,8 +163,26 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const [recenterTrigger, setRecenterTrigger] = useState(0);
     const [refreshingGps, setRefreshingGps] = useState(false);
 
-    const handleRecenterClick = () => {
+    const handleRecenterClick = async () => {
         setRefreshingGps(true);
+
+        // 1. Native app bridge path
+        if (GPSBridgePlugin) {
+            try {
+                const pos = await GPSBridgePlugin.getCurrentLocation();
+                if (pos && pos.latitude && pos.longitude) {
+                    const newLoc = { lat: pos.latitude, lng: pos.longitude };
+                    setMyLocation(newLoc);
+                    setRecenterTrigger(prev => prev + 1);
+                    setRefreshingGps(false);
+                    return;
+                }
+            } catch (err) {
+                console.warn('Native GPS refresh failed, falling back to Web API:', err);
+            }
+        }
+
+        // 2. Web browser fallback path
         if (typeof window !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -215,8 +238,31 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
         loadConfigs();
     }, []);
 
-    // Watch real-time location via standard browser GPS API
+    // Watch real-time location via standard browser GPS API & native GPSBridgePlugin
     useEffect(() => {
+        const fetchNativeLocation = async () => {
+            if (GPSBridgePlugin) {
+                try {
+                    const pos = await GPSBridgePlugin.getCurrentLocation();
+                    if (pos && pos.latitude && pos.longitude) {
+                        setMyLocation({ lat: pos.latitude, lng: pos.longitude });
+                    }
+                } catch (e) {
+                    console.warn('Native GPS fetch failed:', e);
+                }
+            }
+        };
+
+        fetchNativeLocation();
+
+        // Native bridge polling fallback
+        let nativeInterval;
+        if (GPSBridgePlugin) {
+            nativeInterval = setInterval(fetchNativeLocation, 10000);
+        }
+
+        // Web API watcher
+        let watchId;
         if (typeof window !== 'undefined' && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -226,16 +272,19 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                 { enableHighAccuracy: true, timeout: 8000 }
             );
 
-            const watchId = navigator.geolocation.watchPosition(
+            watchId = navigator.geolocation.watchPosition(
                 (pos) => {
                     setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                 },
                 (err) => console.error('Watch position error:', err),
                 { enableHighAccuracy: true }
             );
-
-            return () => navigator.geolocation.clearWatch(watchId);
         }
+
+        return () => {
+            if (nativeInterval) clearInterval(nativeInterval);
+            if (watchId && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
+        };
     }, []);
 
     // Load active spare part suppliers
