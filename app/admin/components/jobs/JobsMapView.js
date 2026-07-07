@@ -169,7 +169,7 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
     useEffect(() => {
         const loadConfigs = async () => {
             try {
-                const res = await fetch('/api/admin/website-settings?key=map_settings');
+                const res = await fetch('/api/admin/website-settings?key=map_settings&t=' + Date.now());
                 const result = await res.json();
                 if (result.success && result.data && result.data.value) {
                     const val = result.data.value;

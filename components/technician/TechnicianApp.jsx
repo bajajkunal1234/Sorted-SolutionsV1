@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Mail } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Mail, Map } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
@@ -29,6 +30,15 @@ const isNativePlatform = () => {
 const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web'
     ? registerPlugin('GPSBridgePlugin')
     : null;
+
+const TechnicianJobsMapView = dynamic(() => import('@/components/technician/TechnicianJobsMapView'), {
+    ssr: false,
+    loading: () => (
+        <div style={{ height: '380px', width: '100%', borderRadius: 12, backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+            🗺️ Loading Map View...
+        </div>
+    )
+});
 
 function TechnicianApp() {
     const router = useRouter();
@@ -1394,6 +1404,9 @@ function TechnicianApp() {
                         <button onClick={() => setViewMode('table')} title="Table View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'table' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'table' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <Table size={16} />
                         </button>
+                        <button onClick={() => setViewMode('map')} title="Map View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'map' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'map' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <Map size={16} />
+                        </button>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1529,7 +1542,12 @@ function TechnicianApp() {
                         No jobs found
                     </div>
                 ) : (
-                    viewMode === 'table' ? (
+                    viewMode === 'map' ? (
+                        <TechnicianJobsMapView
+                            jobs={sortedJobs}
+                            onJobClick={handleOpenJob}
+                        />
+                    ) : viewMode === 'table' ? (
                         <JobsTableView
                             jobs={sortedJobs}
                             onJobClick={handleOpenJob}
