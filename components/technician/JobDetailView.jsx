@@ -1553,11 +1553,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setBeforePhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Upload photos concurrently (no client-side compression needed — handled server-side)
+            // 1. Compress and upload photos concurrently
             const uploadPromises = beforePhotos.filter(photo => photo.file).map(async (photo) => {
+                const compressed = await compressImage(photo.file);
                 const formData = new FormData();
-                const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
-                formData.append('file', photo.file, safeFileName || 'upload.jpg');
+                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
+                formData.append('file', compressed, safeFileName || 'upload.jpg');
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
@@ -1671,11 +1672,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setAfterPhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Upload photos concurrently (no client-side compression needed — handled server-side)
+            // 1. Compress and upload photos concurrently
             const uploadPromises = afterPhotos.filter(photo => photo.file).map(async (photo) => {
+                const compressed = await compressImage(photo.file);
                 const formData = new FormData();
-                const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'after_image.jpg';
-                formData.append('file', photo.file, safeFileName || 'upload.jpg');
+                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'after_image.jpg';
+                formData.append('file', compressed, safeFileName || 'upload.jpg');
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
@@ -1788,16 +1790,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         try {
-            // 1. Upload attachments concurrently (no client-side compression needed — handled server-side)
+            // 1. Compress and upload attachments concurrently
             const uploadedUrls = [];
             if (note.attachments && note.attachments.length > 0) {
                 const uploadPromises = note.attachments.map(async (att) => {
                     if (att.file) {
                         try {
+                            const compressed = await compressImage(att.file);
                             const formData = new FormData();
-                            const safeFileName = att.file.name ? att.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+                            const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
                             const finalFileName = safeFileName || 'upload.jpg';
-                            formData.append('file', att.file, finalFileName);
+                            formData.append('file', compressed, finalFileName);
                             const uploadRes = await fetch('/api/upload', {
                                 method: 'POST',
                                 body: formData
@@ -2407,31 +2410,31 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             {/* 1. Calculate Repair Estimate */}
                                             <button
                                                 className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
                                                 onClick={() => {
                                                     setIsCloseWithServiceCharge(false);
                                                     setActiveForm('calculator');
                                                 }}
                                             >
-                                                ⚡ Estimate Calculator
+                                                ⚡ Repair Estimate
                                             </button>
-
+ 
                                             {/* 2. Close with Service Charge */}
                                             <button
                                                 className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
                                                 onClick={() => {
                                                     setIsCloseWithServiceCharge(true);
                                                     setActiveForm('calculator');
                                                 }}
                                             >
-                                                🛠️ Close with Service Charge
+                                                🛠️ Close with Service
                                             </button>
-
+ 
                                             {/* 3. Close Call Without Service */}
                                             <button
                                                 className="btn"
-                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
                                                 onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
                                             >
                                                 ❌ Close Without Service
@@ -3461,11 +3464,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
-                                            // 1. Upload photos concurrently (no client-side compression needed — handled server-side)
+                                            // 1. Compress and upload photos concurrently
                                             const uploadPromises = partsPhotos.filter(photo => photo.file).map(async (photo) => {
+                                                const compressed = await compressImage(photo.file);
                                                 const formData = new FormData();
-                                                const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'parts_image.jpg';
-                                                formData.append('file', photo.file, safeFileName);
+                                                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'parts_image.jpg';
+                                                formData.append('file', compressed, safeFileName);
                                                 const uploadRes = await fetch('/api/upload', {
                                                     method: 'POST',
                                                     body: formData
