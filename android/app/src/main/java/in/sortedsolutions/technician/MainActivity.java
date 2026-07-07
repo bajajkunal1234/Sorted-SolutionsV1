@@ -10,11 +10,13 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Prevent screenshots / video recordings of the app
+        // Prevent screenshots / video recordings of the app (Commented out to allow screenshots)
+        /*
         getWindow().setFlags(
             android.view.WindowManager.LayoutParams.FLAG_SECURE,
             android.view.WindowManager.LayoutParams.FLAG_SECURE
         );
+        */
 
         registerPlugin(GPSBridgePlugin.class);
         super.onCreate(savedInstanceState);
@@ -24,6 +26,13 @@ public class MainActivity extends BridgeActivity {
         // Workaround: Override the default WindowInsetsListener to prevent 
         // the default Capacitor logic from stacking padding on the WebView.
         getBridge().getWebView().post(() -> {
+            // Lock text zoom to 100% to ignore system font size changes
+            try {
+                getBridge().getWebView().getSettings().setTextZoom(100);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             View parent = (View) getBridge().getWebView().getParent();
             ViewCompat.setOnApplyWindowInsetsListener(parent, (v, insets) -> {
                 v.setPadding(0, 0, 0, 0); // Reset padding to 0 to prevent the WebView from being pushed up/squished
