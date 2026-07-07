@@ -403,6 +403,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [showAdvanceConfirmModal, setShowAdvanceConfirmModal] = useState(false);
     const [showAdvanceCollectPayment, setShowAdvanceCollectPayment] = useState(false);
     const partsPhotosInputRef = useRef(null);
+    const [calledCustomer, setCalledCustomer] = useState(false);
 
     // Location Verification Modal — shown after Mark as Arrived
     const [showLocationVerifyModal, setShowLocationVerifyModal] = useState(false);
@@ -1312,6 +1313,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     };
 
     const handleCallCustomerClick = () => {
+        setCalledCustomer(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const techId = editedJob.assignedTo || job.technician_id || null;
         
@@ -2568,6 +2570,38 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     {markingArrival ? ' Recording...' : `Mark as Arrived (Visit ${nextVisitNum})`}
                                                 </button>
                                             </div>
+                                        )}
+
+                                        {/* Pre-Arrived Close Call No Service option */}
+                                        {showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
+                                            <button
+                                                className="btn"
+                                                onClick={() => {
+                                                    setNoServicePOC('');
+                                                    setNoServiceReason('');
+                                                    setNoChargeChecked(false);
+                                                    setShowNoServiceModal(true);
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 14px',
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                                    color: '#f87171',
+                                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                    fontWeight: 700,
+                                                    fontSize: '13px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'normal',
+                                                    marginTop: '12px'
+                                                }}
+                                            >
+                                                ❌ Close Call — No Service
+                                            </button>
                                         )}
                                     </>
                                 );
