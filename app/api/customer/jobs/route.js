@@ -411,7 +411,7 @@ export async function POST(request) {
         });
 
         // Fire notification so admin sees the incoming booking request immediately
-        await fireNotification('booking_created_website', {
+        fireNotification('booking_created_website', {
             job_id: String(job.id),
             job_number: job.job_number,
             customer_id: account_id ? String(account_id) : undefined,

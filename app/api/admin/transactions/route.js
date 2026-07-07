@@ -328,7 +328,7 @@ export async function POST(request) {
         };
         const notifEvent = notifEventMap[type];
         if (notifEvent && data.account_id) {
-            await fireNotification(notifEvent, {
+            fireNotification(notifEvent, {
                 job_id: data.job_id ? String(data.job_id) : undefined,
                 customer_id: String(data.account_id),
                 customer_name: data.account_name || undefined,

@@ -119,7 +119,7 @@ export async function POST(request) {
             const customerId = data.customer_id ? String(data.customer_id) : undefined
 
             // 1. Immediately: rental contract created — notifies customer + logs
-            await fireNotification('rental_contract_created', {
+            fireNotification('rental_contract_created', {
                 customer_id: customerId,
                 customer_name: customerName,
             }).catch(err => console.error('[rentals/fireNotification] rental_contract_created:', err.message))

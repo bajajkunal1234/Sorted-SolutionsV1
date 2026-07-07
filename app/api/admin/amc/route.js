@@ -129,7 +129,7 @@ export async function POST(request) {
 
         // Notify customer when a new AMC contract is activated
         if (type === 'amc' && data && data.customer_id) {
-            await fireNotification('rental_contract_created', {
+            fireNotification('rental_contract_created', {
                 customer_id: String(data.customer_id),
                 customer_name: data.customer_name || undefined,
             }).catch(err => console.error('[amc/fireNotification]:', err.message));
