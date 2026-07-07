@@ -738,10 +738,10 @@ function TechnicianApp() {
         }
     };
 
-    const fetchJobs = async () => {
+    const fetchJobs = async (isBackground = false) => {
         if (!technicianId) return;
         try {
-            setLoading(true);
+            if (!isBackground) setLoading(true);
             const response = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
 
             if (!response.ok) {
@@ -753,9 +753,9 @@ function TechnicianApp() {
             setError(null);
         } catch (err) {
             console.error('Error fetching jobs:', err);
-            setError('Failed to load jobs. Please try again.');
+            if (!isBackground) setError('Failed to load jobs. Please try again.');
         } finally {
-            setLoading(false);
+            if (!isBackground) setLoading(false);
         }
     };
 
@@ -815,7 +815,7 @@ function TechnicianApp() {
     useEffect(() => {
         if (!technicianId) return;
 
-        fetchJobs();
+        fetchJobs(false);
         fetchIncentives();
         fetchProfile();
         fetchRepeatCalls();
@@ -823,14 +823,14 @@ function TechnicianApp() {
 
         // Listen for offline sync completion to reload jobs list
         const handleSyncComplete = () => {
-            fetchJobs();
+            fetchJobs(true);
         };
         window.addEventListener('offline-sync-complete', handleSyncComplete);
 
         // 30-second polling — fallback in case Supabase realtime misses an event
         // Realtime handles instant updates; polling is just a safety net
         const pollInterval = setInterval(() => {
-            fetchJobs();
+            fetchJobs(true);
             fetchRepeatCalls();
         }, 30000);
 
@@ -846,7 +846,7 @@ function TechnicianApp() {
                     filter: `technician_id=eq.${technicianId}`
                 },
                 () => { 
-                    fetchJobs(); 
+                    fetchJobs(true); 
                     fetchRepeatCalls();
                 }
             )

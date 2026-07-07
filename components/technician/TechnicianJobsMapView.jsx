@@ -110,6 +110,18 @@ function MapInteractionController({ activeRoute, active }) {
     return null;
 }
 
+// Dynamic recenter map trigger controller
+function RecenterController({ trigger, myLocation, onDone }) {
+    const map = useMap();
+    useEffect(() => {
+        if (trigger && myLocation) {
+            map.setView([myLocation.lat, myLocation.lng], 16, { animate: true });
+            onDone();
+        }
+    }, [trigger, myLocation, map, onDone]);
+    return null;
+}
+
 export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     // Configurations state
     const [custMarkerType, setCustMarkerType] = useState('circle');
@@ -141,6 +153,35 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const handleViewTypeChange = (type) => {
         setMapViewType(type);
         localStorage.setItem('techMapViewType', type);
+    };
+
+    const [recenterTrigger, setRecenterTrigger] = useState(0);
+    const [refreshingGps, setRefreshingGps] = useState(false);
+
+    const handleRecenterClick = () => {
+        setRefreshingGps(true);
+        if (typeof window !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    setMyLocation(newLoc);
+                    setRecenterTrigger(prev => prev + 1);
+                    setRefreshingGps(false);
+                },
+                (err) => {
+                    console.error('Manual GPS refresh failed:', err);
+                    if (myLocation) {
+                        setRecenterTrigger(prev => prev + 1);
+                    } else {
+                        alert("GPS Error: Could not retrieve high-accuracy location. Please check phone settings.");
+                    }
+                    setRefreshingGps(false);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            setRefreshingGps(false);
+        }
     };
 
     // Load configs from Supabase (with local cache fallback)
@@ -654,6 +695,7 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                 <MapCenterController myLocation={myLocation} jobsGroup={propertiesGroup} active={navigationActive} />
                 <MapFollowController myLocation={myLocation} active={navigationActive} />
                 <MapInteractionController activeRoute={activeRoute} active={navigationActive} />
+                <RecenterController trigger={recenterTrigger} myLocation={myLocation} onDone={() => setRecenterTrigger(0)} />
 
                 {/* Polyline Route Overlay */}
                 {activeRoute && (
@@ -956,6 +998,39 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                     </button>
                 ))}
             </div>
+
+            {/* ── Recenter on Me Button ── */}
+            <button
+                onClick={handleRecenterClick}
+                disabled={refreshingGps}
+                style={{
+                    position: 'absolute',
+                    top: '280px',
+                    right: '12px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    color: refreshingGps ? '#eab308' : '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                    zIndex: 1000,
+                    transition: 'all 0.2s ease'
+                }}
+                title="Recenter on my location"
+                type="button"
+            >
+                {refreshingGps ? (
+                    <Loader2 className="animate-spin" size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                ) : (
+                    <Compass size={18} />
+                )}
+            </button>
         </div>
     );
 }
