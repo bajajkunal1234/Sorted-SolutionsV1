@@ -186,14 +186,12 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 'var(--spacing-xs)',
-                            textDecoration: 'none',
+                            justifyContent: 'center',
                             padding: '10px 12px'
                         }}
                         title="Download Admin App APK"
                     >
                         <Download size={18} />
-                        <span>Admin APK</span>
                     </a>
                     <a
                         href="/downloads/technician-app.apk"
@@ -202,14 +200,12 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 'var(--spacing-xs)',
-                            textDecoration: 'none',
+                            justifyContent: 'center',
                             padding: '10px 12px'
                         }}
                         title="Download Technician App APK"
                     >
                         <Download size={18} />
-                        <span>Technician APK</span>
                     </a>
                     <button
                         onClick={toggleDarkMode}
