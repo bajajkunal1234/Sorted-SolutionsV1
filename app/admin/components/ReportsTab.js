@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 
@@ -178,7 +178,39 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                    <a
+                        href="/downloads/admin-app.apk"
+                        download="admin-app.apk"
+                        className="btn btn-primary"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--spacing-xs)',
+                            textDecoration: 'none',
+                            padding: '10px 12px'
+                        }}
+                        title="Download Admin App APK"
+                    >
+                        <Download size={18} />
+                        <span>Admin APK</span>
+                    </a>
+                    <a
+                        href="/downloads/technician-app.apk"
+                        download="technician-app.apk"
+                        className="btn btn-secondary"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--spacing-xs)',
+                            textDecoration: 'none',
+                            padding: '10px 12px'
+                        }}
+                        title="Download Technician App APK"
+                    >
+                        <Download size={18} />
+                        <span>Technician APK</span>
+                    </a>
                     <button
                         onClick={toggleDarkMode}
                         className="btn btn-secondary"

@@ -5,6 +5,41 @@ import { createPortal } from 'react-dom';
 import { Bell, X, CheckCheck, ExternalLink, Inbox } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+function playNotificationChime() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Osc 1 (Higher chime)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        gain1.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+        
+        // Osc 2 (Lower bell tone, delayed)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.08); // E6
+        gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain2.gain.setValueAtTime(0.08, audioCtx.currentTime + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.5);
+        
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.4);
+        
+        osc2.start(audioCtx.currentTime + 0.08);
+        osc2.stop(audioCtx.currentTime + 0.5);
+    } catch (e) {
+        console.warn('Notification chime failed to play:', e);
+    }
+}
+
 export default function NotificationBell({ recipientId, recipientType, theme = 'light' }) {
     const router = useRouter();
     const [notifications, setNotifications] = useState([]);
@@ -14,6 +49,7 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
     const [loading, setLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
     const dropdownRef = useRef(null);
+    const isFirstFetchRef = useRef(true);
 
     const isDark = theme === 'dark';
 
@@ -26,7 +62,16 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
             const data = await res.json();
             if (data.success) {
                 setNotifications(data.data || []);
-                setUnreadCount(data.unreadCount || 0);
+                const newCount = data.unreadCount || 0;
+                
+                setUnreadCount(prevCount => {
+                    if (isFirstFetchRef.current) {
+                        isFirstFetchRef.current = false;
+                    } else if (newCount > prevCount) {
+                        playNotificationChime();
+                    }
+                    return newCount;
+                });
             }
         } catch (err) {
             console.error('Failed to fetch inbox:', err);

@@ -332,9 +332,20 @@ button[class*="cancel"]:hover,
         gap: var(--spacing-sm) !important;
     }
 
+    /* 1b. Force generic inline grid columns to stack vertically on mobile */
+    *[style*="grid-template-columns"],
+    *[style*="gridTemplateColumns"] {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-sm) !important;
+    }
+
     /* 2. Overrule hardcoded inline max-width/max-height on Modals for Mobile Fullscreen */
     .modal,
-    .modal-container {
+    .modal-container,
+    div[style*="position: fixed"][style*="inset: 0"] > div,
+    div[style*="position:fixed"][style*="inset:0"] > div,
+    div[style*="position: fixed"][style*="inset: 0px"] > div,
+    div[style*="position:fixed"][style*="inset:0px"] > div {
         max-width: 100% !important;
         width: 100% !important;
         max-height: 100dvh !important;
@@ -343,15 +354,23 @@ button[class*="cancel"]:hover,
         margin: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        overflow-y: auto !important;
         overflow-x: hidden !important;
     }
 
-    .modal-overlay {
+    .modal-overlay,
+    div[style*="position: fixed"][style*="inset: 0"],
+    div[style*="position:fixed"][style*="inset:0"],
+    div[style*="position: fixed"][style*="inset: 0px"],
+    div[style*="position:fixed"][style*="inset:0px"] {
         padding: 0 !important;
         align-items: flex-start !important;
         justify-content: flex-start !important;
         width: 100vw !important;
         max-width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        z-index: 10000 !important;
         overflow-x: hidden !important;
     }
 

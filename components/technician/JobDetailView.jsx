@@ -405,6 +405,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const partsPhotosInputRef = useRef(null);
     const [calledCustomer, setCalledCustomer] = useState(false);
 
+    const getCoordsWithTimeout = (timeoutMs = 1500) => {
+        return new Promise((resolve) => {
+            if (typeof window === 'undefined' || !navigator.geolocation) {
+                resolve(null);
+                return;
+            }
+            let resolved = false;
+            const timer = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    console.warn('[GPS] Geolocation timed out after ' + timeoutMs + 'ms');
+                    resolve(null);
+                }
+            }, timeoutMs);
+            
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        resolve({
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude
+                        });
+                    }
+                },
+                (err) => {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        console.warn('[GPS] Geolocation error:', err.message);
+                        resolve(null);
+                    }
+                },
+                { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000 }
+            );
+        });
+    };
+
     // Location Verification Modal — shown after Mark as Arrived
     const [showLocationVerifyModal, setShowLocationVerifyModal] = useState(false);
     const [locationVerifyStep, setLocationVerifyStep] = useState('ask'); // 'ask' | 'update' | 'before_photos'
@@ -1301,18 +1340,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }
         };
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => performMarkArrived(pos.coords.latitude, pos.coords.longitude),
-                () => performMarkArrived(),
-                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
-            );
+        const coords = await getCoordsWithTimeout(1500);
+        if (coords) {
+            await performMarkArrived(coords.latitude, coords.longitude);
         } else {
-            performMarkArrived();
+            await performMarkArrived();
         }
     };
 
-    const handleCallCustomerClick = () => {
+    const handleCallCustomerClick = async () => {
         setCalledCustomer(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const techId = editedJob.assignedTo || job.technician_id || null;
@@ -1333,18 +1369,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
         };
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
-                () => sendLog(),
-                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
-            );
+        const coords = await getCoordsWithTimeout(1500);
+        if (coords) {
+            sendLog(coords.latitude, coords.longitude);
         } else {
             sendLog();
         }
     };
 
-    const handleMapsNavigateClick = () => {
+    const handleMapsNavigateClick = async () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const techId = editedJob.assignedTo || job.technician_id || null;
         
@@ -1364,12 +1397,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
         };
 
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
-                () => sendLog(),
-                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
-            );
+        const coords = await getCoordsWithTimeout(1500);
+        if (coords) {
+            sendLog(coords.latitude, coords.longitude);
         } else {
             sendLog();
         }
@@ -2527,17 +2557,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                              }
                                                          };
 
-                                                         if (navigator.geolocation) {
-                                                             navigator.geolocation.getCurrentPosition(
-                                                                 (pos) => markOnWay(pos.coords.latitude, pos.coords.longitude),
-                                                                 (err) => {
-                                                                     console.warn('[GPS] Failed to retrieve position for Start Job, falling back without coordinates:', err);
-                                                                     markOnWay();
-                                                                 },
-                                                                 { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
-                                                             );
+                                                         const coords = await getCoordsWithTimeout(1500);
+                                                         if (coords) {
+                                                             await markOnWay(coords.latitude, coords.longitude);
                                                          } else {
-                                                             markOnWay();
+                                                             await markOnWay();
                                                          }
                                                      }}
                                                     disabled={loading}
@@ -3512,14 +3536,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         }
                                     };
 
-                                    if (navigator.geolocation) {
-                                        navigator.geolocation.getCurrentPosition(
-                                            (pos) => saveRepairNote(pos.coords.latitude, pos.coords.longitude),
-                                            () => saveRepairNote(),
-                                            { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
-                                        );
+                                    const coords = await getCoordsWithTimeout(1500);
+                                    if (coords) {
+                                        await saveRepairNote(coords.latitude, coords.longitude);
                                     } else {
-                                        saveRepairNote();
+                                        await saveRepairNote();
                                     }
                                 }}
                                 style={{
