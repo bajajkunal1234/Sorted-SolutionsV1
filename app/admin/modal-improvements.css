@@ -332,9 +332,21 @@ button[class*="cancel"]:hover,
         gap: var(--spacing-sm) !important;
     }
 
-    /* 1b. Force generic inline grid columns to stack vertically on mobile */
-    *[style*="grid-template-columns"],
-    *[style*="gridTemplateColumns"] {
+    /* 1b. Force generic inline grid columns to stack vertically on mobile ONLY inside forms/modals */
+    .modal *[style*="grid-template-columns"],
+    .modal *[style*="gridTemplateColumns"],
+    .modal-container *[style*="grid-template-columns"],
+    .modal-container *[style*="gridTemplateColumns"],
+    .modal-body *[style*="grid-template-columns"],
+    .modal-body *[style*="gridTemplateColumns"],
+    .modal-content *[style*="grid-template-columns"],
+    .modal-content *[style*="gridTemplateColumns"],
+    form *[style*="grid-template-columns"],
+    form *[style*="gridTemplateColumns"],
+    div[style*="position: fixed"][style*="inset: 0"] *[style*="grid-template-columns"],
+    div[style*="position:fixed"][style*="inset:0"] *[style*="grid-template-columns"],
+    div[style*="position: fixed"][style*="inset: 0px"] *[style*="grid-template-columns"],
+    div[style*="position:fixed"][style*="inset:0px"] *[style*="grid-template-columns"] {
         grid-template-columns: 1fr !important;
         gap: var(--spacing-sm) !important;
     }
