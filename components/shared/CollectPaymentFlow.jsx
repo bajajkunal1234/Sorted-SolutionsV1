@@ -61,17 +61,40 @@ export default function CollectPaymentFlow({
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     useEffect(() => {
+        if (prefilledAmount) setAmount(prefilledAmount);
+    }, [prefilledAmount]);
+
+    useEffect(() => {
+        if (prefilledCustomer) setSelectedCustomer(prefilledCustomer);
+    }, [prefilledCustomer]);
+
+    useEffect(() => {
+        if (prefilledJob) setSelectedJob(prefilledJob);
+    }, [prefilledJob]);
+
+    useEffect(() => {
         const loadInitialData = async () => {
             setIsLoadingData(true);
             try {
-                // Determine APIs based on context if applicable. 
-                // Alternatively, admin endpoints usually give comprehensive lists
-                const [accRes, qrcRes] = await Promise.all([
-                    fetch('/api/admin/accounts?type=customer').then(r => r.json()),
+                const needsCustomers = !prefilledCustomer;
+                const needsJobs = !prefilledJob;
+
+                const promises = [
                     fetch('/api/admin/qrcodes').then(r => r.json()).catch(() => ({ success: false }))
-                ]);
-                
-                if (accRes.success) setCustomers(accRes.data || []);
+                ];
+
+                if (needsCustomers) {
+                    promises.push(fetch('/api/admin/accounts?type=customer').then(r => r.json()).catch(() => ({ success: false })));
+                }
+                if (needsJobs) {
+                    const jobsUrl = context === 'technician' 
+                        ? `/api/technician/jobs` 
+                        : `/api/admin/jobs`;
+                    promises.push(fetch(jobsUrl).then(r => r.json()).catch(() => ({ success: false })));
+                }
+
+                const results = await Promise.all(promises);
+                const qrcRes = results[0];
                 
                 if (qrcRes.success && qrcRes.data) {
                     const activeQRs = qrcRes.data.filter(q => q.is_active);
@@ -79,12 +102,21 @@ export default function CollectPaymentFlow({
                     setCompanyQr(primary);
                 }
 
-                // Wait to fetch jobs dynamically based on selected customer below, 
-                // Fetch recent jobs 
-                const jRes = await fetch('/api/admin/jobs').then(r => r.json());
-                if (jRes.success) {
-                    // Filter out completed and cancelled mostly if needed, or leave all
-                    setJobs(jRes.data || []);
+                let resultIdx = 1;
+                if (needsCustomers) {
+                    const accRes = results[resultIdx++];
+                    if (accRes && accRes.success) setCustomers(accRes.data || []);
+                } else {
+                    setCustomers(prefilledCustomer ? [prefilledCustomer] : []);
+                }
+
+                if (needsJobs) {
+                    const jRes = results[resultIdx++];
+                    if (jRes && jRes.success) {
+                        setJobs(jRes.data || []);
+                    }
+                } else {
+                    setJobs(prefilledJob ? [prefilledJob] : []);
                 }
                 
             } catch (err) {
@@ -94,7 +126,7 @@ export default function CollectPaymentFlow({
             }
         };
         loadInitialData();
-    }, []);
+    }, [prefilledCustomer, prefilledJob, context]);
 
     const relevantJobs = context === 'technician'
         ? jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && String(j.technician_id) === String(currentUserId))
