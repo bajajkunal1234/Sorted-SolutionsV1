@@ -41,10 +41,18 @@ export async function POST(request, { params }) {
         const metadata = body.metadata || {};
         if (metadata.latitude && metadata.longitude && !metadata.locality) {
             try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1200);
+                
                 const geoRes = await fetch(
                     `https://nominatim.openstreetmap.org/reverse?lat=${metadata.latitude}&lon=${metadata.longitude}&format=json`,
-                    { headers: { 'Accept-Language': 'en', 'User-Agent': 'SortedSolutions/1.0' } }
+                    { 
+                        headers: { 'Accept-Language': 'en', 'User-Agent': 'SortedSolutions/1.0' },
+                        signal: controller.signal
+                    }
                 );
+                clearTimeout(timeoutId);
+                
                 if (geoRes.ok) {
                     const geo = await geoRes.json();
                     const addr = geo.address || {};
@@ -54,7 +62,7 @@ export async function POST(request, { params }) {
                     }
                 }
             } catch (geoErr) {
-                console.error('[interactions POST] Geocoding error:', geoErr);
+                console.error('[interactions POST] Geocoding error:', geoErr.message);
             }
         }
 
