@@ -1619,10 +1619,11 @@ function TechnicianApp() {
                                         {groupedJobs[groupKey].map(job => {
                                             const timeLeft = getTimeLeft(job.dueDate);
                                             const priority = getPriorityBadge(job.priority);
+                                            const isUrgent = job.priority === 'urgent';
                                             
                                             // Kanban uses standard card view layout inside columns
                                             return (
-                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
@@ -1633,6 +1634,24 @@ function TechnicianApp() {
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}>{job.locality || job.city || 'No location'}</span></div>
+                                                        {job.priority_note && (
+                                                            <div style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                                border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                                color: '#2563eb',
+                                                                fontSize: '10px',
+                                                                fontWeight: 600,
+                                                                padding: '3px 8px',
+                                                                borderRadius: '10px 10px 10px 2px',
+                                                                marginTop: '4px',
+                                                                width: 'fit-content'
+                                                            }}>
+                                                                ☁️ {job.priority_note}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -1658,19 +1677,37 @@ function TechnicianApp() {
                                             const timeLeft = getTimeLeft(job.dueDate);
                                             const priority = getPriorityBadge(job.priority);
                                             const isDetail = viewMode === 'detail';
+                                            const isUrgent = job.priority === 'urgent';
                                             
                                             // LIST MODE RENDERER
                                             if (viewMode === 'list') {
                                                 return (
-                                                    <div key={job.id} onClick={() => handleOpenJob(job)} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', transition: 'all 0.2s', boxShadow: timeLeft.urgent ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none' }}>
+                                                    <div key={job.id} onClick={() => handleOpenJob(job)} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', transition: 'all 0.2s', boxShadow: isUrgent ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none' }}>
                                                         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                             <div style={{ display: 'inline-block', padding: '3px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '6px', fontSize: '11px', fontWeight: 600, width: '90px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                                 {job.status ? job.status.replace(/[-_]/g, ' ').toUpperCase() : 'OPEN'}
                                                             </div>
-                                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2px' }}>
                                                                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                                     {job.customerName} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>· {job.description || job.product?.type || 'Service'}</span>
                                                                 </div>
+                                                                {job.priority_note && (
+                                                                    <div style={{
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px',
+                                                                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                                        border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                                        color: '#2563eb',
+                                                                        fontSize: '9px',
+                                                                        fontWeight: 600,
+                                                                        padding: '2px 6px',
+                                                                        borderRadius: '8px 8px 8px 1px',
+                                                                        width: 'fit-content'
+                                                                    }}>
+                                                                        ☁️ {job.priority_note}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             {job.locality && (
                                                                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1687,7 +1724,7 @@ function TechnicianApp() {
                                             
                                             // CARD & DETAIL MODE RENDERER
                                             return (
-                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: isDetail ? '16px' : '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none', display: 'flex', flexDirection: 'column' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: isDetail ? '16px' : '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', display: 'flex', flexDirection: 'column' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ fontSize: isDetail ? '18px' : '16px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
@@ -1701,6 +1738,24 @@ function TechnicianApp() {
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{job.locality || job.city || job.address || 'No location'}</span></div>
+                                                        {job.priority_note && (
+                                                            <div style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                                border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                                color: '#2563eb',
+                                                                fontSize: '10px',
+                                                                fontWeight: 600,
+                                                                padding: '3px 8px',
+                                                                borderRadius: '10px 10px 10px 2px',
+                                                                marginTop: '4px',
+                                                                width: 'fit-content'
+                                                            }}>
+                                                                ☁️ {job.priority_note}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>

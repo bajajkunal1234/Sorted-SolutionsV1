@@ -36,7 +36,7 @@ function JobsListView({ jobs, onJobClick }) {
                             onClick={() => onJobClick?.(job)}
                             style={{
                                 backgroundColor: 'var(--bg-elevated)',
-                                border: isBooking ? '2px solid #f59e0b' : '1px solid var(--border-primary)',
+                                border: job.priority === 'urgent' ? '2px solid #ef4444' : isBooking ? '2px solid #f59e0b' : '1px solid var(--border-primary)',
                                 borderRadius: 'var(--radius-md)',
                                 padding: 'var(--spacing-md)',
                                 cursor: 'pointer',
@@ -45,18 +45,19 @@ function JobsListView({ jobs, onJobClick }) {
                                 alignItems: 'center',
                                 gap: 'var(--spacing-md)',
                                 position: 'relative',
-                                overflow: 'visible'
+                                overflow: 'visible',
+                                boxShadow: job.priority === 'urgent' ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.transform = 'translateX(4px)';
                                 e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                                e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--color-primary)';
+                                e.currentTarget.style.borderColor = job.priority === 'urgent' ? '#ef4444' : isBooking ? '#f59e0b' : 'var(--color-primary)';
                                 e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.08)' : 'var(--bg-secondary)';
                             }}
                             onMouseLeave={(e) => {
                                 e.currentTarget.style.transform = 'translateX(0)';
-                                e.currentTarget.style.boxShadow = 'none';
-                                e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--border-primary)';
+                                e.currentTarget.style.boxShadow = job.priority === 'urgent' ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none';
+                                e.currentTarget.style.borderColor = job.priority === 'urgent' ? '#ef4444' : isBooking ? '#f59e0b' : 'var(--border-primary)';
                                 e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
                             }}
                         >
@@ -94,6 +95,24 @@ function JobsListView({ jobs, onJobClick }) {
                                 }}>
                                     {jobTitle}
                                 </h3>
+                                {job.priority_note && (
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                        border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                        color: '#2563eb',
+                                        fontSize: '9px',
+                                        fontWeight: 600,
+                                        padding: '2px 6px',
+                                        borderRadius: '8px 8px 8px 1px',
+                                        marginBottom: '6px',
+                                        width: 'fit-content'
+                                    }}>
+                                        ☁️ {job.priority_note}
+                                    </div>
+                                )}
 
                                 {/* Details Row */}
                                 <div style={{

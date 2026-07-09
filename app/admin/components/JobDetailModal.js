@@ -594,6 +594,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         if ((editedJob.scheduled_date || '') !== (job.scheduled_date || '')) changes.push(`Scheduled date updated to ${editedJob.scheduled_date || 'none'}`);
         if ((editedJob.scheduled_time || '') !== (job.scheduled_time || '')) changes.push(`Scheduled time updated to ${editedJob.scheduled_time || 'none'}`);
         if ((editedJob.notes || '') !== (job.notes || '')) changes.push('Notes updated');
+        if ((editedJob.priority_note || '') !== (job.priority_note || '')) changes.push('Priority note updated');
         
         if (editedJob.rental_id !== job.rental_id) {
             changes.push(`Linked Rental Agreement updated`);
@@ -607,6 +608,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             description: editedJob.description,
             status: editedJob.status,
             priority: editedJob.priority,
+            priority_note: editedJob.priority_note,
             technician_id: editedJob.technician_id || null,
             technician_name: editedJob.technician_name,
             scheduled_date: editedJob.scheduled_date,
@@ -1490,6 +1492,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             <option value="normal">🟢 Normal</option>
                                             <option value="low">⚪ Low</option>
                                         </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Priority Note (Max 4-5 words)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={editedJob.priority_note || ''}
+                                            onChange={(e) => setEditedJob({ ...editedJob, priority_note: e.target.value })}
+                                            placeholder="e.g., 4baje ke baad, Prompt Cx"
+                                            style={{ backgroundColor: 'var(--bg-elevated)' }}
+                                            maxLength={50}
+                                        />
                                     </div>
 
                                     {editedJob.status === 'closed' && (() => {

@@ -69,6 +69,10 @@ function JobCard({ job, onClick, onCalculate }) {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
+        ...(job.priority === 'urgent' ? {
+            border: '2px solid #ef4444',
+            boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.15)'
+        } : {})
     };
 
     // Safe accessors for Supabase data
@@ -204,6 +208,27 @@ function JobCard({ job, onClick, onCalculate }) {
                     <span>{locality || 'No location'}</span>
                 </div>
             </div>
+
+            {job.priority_note && (
+                <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                    border: '1px dashed rgba(59, 130, 246, 0.3)',
+                    color: '#2563eb',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '3px 8px',
+                    borderRadius: '10px 10px 10px 2px',
+                    marginTop: '4px',
+                    marginBottom: '4px',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                    width: 'fit-content'
+                }}>
+                    ☁️ {job.priority_note}
+                </div>
+            )}
 
             {/* Footer */}
             <div className="job-card-footer">

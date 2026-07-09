@@ -168,11 +168,11 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                     borderBottom: '1px solid var(--border-primary)',
                     transition: 'background-color var(--transition-fast)',
                     cursor: 'pointer',
-                    borderLeft: isBooking ? '3px solid #f59e0b' : 'none',
-                    backgroundColor: isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'
+                    borderLeft: job.priority === 'urgent' ? '4px solid #ef4444' : isBooking ? '3px solid #f59e0b' : 'none',
+                    backgroundColor: job.priority === 'urgent' ? 'rgba(239,68,68,0.03)' : isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.08)' : 'var(--bg-secondary)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = job.priority === 'urgent' ? 'rgba(239,68,68,0.08)' : isBooking ? 'rgba(245,158,11,0.08)' : 'var(--bg-secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = job.priority === 'urgent' ? 'rgba(239,68,68,0.03)' : isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'}
             >
                 {columnOrder.map(col => {
                     if (!visibleColumns?.[col]) return null;
@@ -194,7 +194,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                                 }}
                                             />
                                         )}
-                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                             {isBooking && (
                                                 <div style={{ color: '#f59e0b', fontSize: '9px', fontWeight: 800, marginBottom: '2px' }}>
                                                     WEBSITE BOOKING
@@ -203,6 +203,24 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                             <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
                                                 {jobTitle}
                                             </div>
+                                            {job.priority_note && (
+                                                <div style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '2px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                    border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                    color: '#2563eb',
+                                                    fontSize: '9px',
+                                                    fontWeight: 600,
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px 8px 8px 1px',
+                                                    marginTop: '2px',
+                                                    width: 'fit-content'
+                                                }}>
+                                                    ☁️ {job.priority_note}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </td>

@@ -2104,15 +2104,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Appliance Details</h3>
-                                    {editedJob.priority && (
-                                        <div style={{
-                                            padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
-                                            backgroundColor: editedJob.priority === 'urgent' ? '#fee2e2' : editedJob.priority === 'high' ? '#ffedd5' : 'var(--bg-elevated)',
-                                            color: editedJob.priority === 'urgent' ? '#ef4444' : editedJob.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
-                                        }}>
-                                            {editedJob.priority}
-                                        </div>
-                                    )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                        {editedJob.priority && (
+                                            <div style={{
+                                                padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
+                                                backgroundColor: editedJob.priority === 'urgent' ? '#fee2e2' : editedJob.priority === 'high' ? '#ffedd5' : 'var(--bg-elevated)',
+                                                color: editedJob.priority === 'urgent' ? '#ef4444' : editedJob.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
+                                            }}>
+                                                {editedJob.priority}
+                                            </div>
+                                        )}
+                                        {editedJob.priority_note && (
+                                            <div style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                color: '#2563eb',
+                                                fontSize: '10px',
+                                                fontWeight: 600,
+                                                padding: '3px 8px',
+                                                borderRadius: '10px 10px 10px 2px',
+                                                width: 'fit-content'
+                                            }}>
+                                                ☁️ {editedJob.priority_note}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Thumbnail */}

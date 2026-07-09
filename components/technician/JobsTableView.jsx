@@ -182,8 +182,28 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                                 }}
                                             />
                                         )}
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
-                                            {jobTitle}
+                                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
+                                                {jobTitle}
+                                            </div>
+                                            {job.priority_note && (
+                                                <div style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '2px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                                    border: '1px dashed rgba(59, 130, 246, 0.3)',
+                                                    color: '#2563eb',
+                                                    fontSize: '9px',
+                                                    fontWeight: 600,
+                                                    padding: '1px 6px',
+                                                    borderRadius: '8px 8px 8px 1px',
+                                                    marginTop: '2px',
+                                                    width: 'fit-content'
+                                                }}>
+                                                    ☁️ {job.priority_note}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </td>
