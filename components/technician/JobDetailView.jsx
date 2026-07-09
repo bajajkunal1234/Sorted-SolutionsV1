@@ -1494,38 +1494,44 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 resolve(file);
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1200;
-                    const MAX_HEIGHT = 1200;
-                    let width = img.width;
-                    let height = img.height;
+            const objectUrl = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
 
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
                     }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    canvas.toBlob((blob) => {
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    URL.revokeObjectURL(objectUrl);
+                    if (blob) {
                         resolve(new File([blob], file.name || 'image.jpeg', { type: 'image/jpeg', lastModified: Date.now() }));
-                    }, 'image/jpeg', 0.85);
-                };
-                img.src = event.target.result;
+                    } else {
+                        resolve(file);
+                    }
+                }, 'image/jpeg', 0.80);
             };
-            reader.readAsDataURL(file);
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+            };
+            img.src = objectUrl;
         });
     };
 
@@ -1582,7 +1588,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 ? `Before Photos uploaded for Visit #${nextVisitNum}.\nNote: ${beforePhotosDescription.trim()}`
                 : `Before Photos uploaded for Visit #${nextVisitNum}.`;
 
-            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+            // 2. Log interaction and update status concurrently
+            const logPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1594,12 +1601,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 })
             });
 
-            // 3. Mark the job as arrived and update status (only advance to diagnosing_quoting if it was scheduled)
             const pending = pendingArrivedDataRef.current;
             const newStatus = editedJob.status === 'scheduled' ? 'diagnosing_quoting' : editedJob.status;
             
-            // Call PUT to update the status on the server
-            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
+            const updatePromise = apiCall(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1608,6 +1613,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     updated_by_name: techName
                 })
             });
+
+            const [logRes, updateRes] = await Promise.all([logPromise, updatePromise]);
             const updateData = await updateRes.json();
             if (!updateRes.ok) throw new Error(updateData.error || 'Failed to update job status');
 
@@ -1693,12 +1700,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
             const uploadedUrls = await Promise.all(uploadPromises);
 
-            // 2. Log interaction with after photos and description
+            // 2. Log interaction and Create the final sales invoice concurrently
             const descText = afterPhotosDescription.trim() 
                 ? `After Photos uploaded.\nNote: ${afterPhotosDescription.trim()}`
                 : `After Photos uploaded.`;
 
-            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+            const logPhotosPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1710,8 +1717,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 })
             });
 
-            // 3. Create the final sales invoice
-            const res = await apiCall(`/api/admin/transactions?type=sales`, {
+            const invoicePromise = apiCall(`/api/admin/transactions?type=sales`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1739,7 +1745,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
                 })
             });
-            const data = await res.json();
+
+            const [photosLogRes, invoiceRes] = await Promise.all([logPhotosPromise, invoicePromise]);
+            const data = await invoiceRes.json();
             if (data.success) {
                 setSavedInvoice(data.data);
                 const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
