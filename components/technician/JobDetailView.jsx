@@ -2412,8 +2412,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
-                                    {/* 3. 3-Button Section (if status is diagnosing_quoting) */}
-                                    {editedJob.status === 'diagnosing_quoting' && (
+                                    {/* 3. 3-Button Section (if status is diagnosing_quoting or any active status without a quotation) */}
+                                    {(editedJob.status === 'diagnosing_quoting' || (!['scheduled', 'closed', 'cancelled'].includes(editedJob.status) && !savedQuotation)) && (
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                             {/* 1. Calculate Repair Estimate */}
                                             <button
