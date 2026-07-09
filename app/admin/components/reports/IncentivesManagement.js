@@ -714,6 +714,7 @@ function IncentivesManagement({ initialSubTab }) {
             'Appliance', 
             'Locality', 
             'Scheduled Date', 
+            'Invoice Date',
             'Visit Status', 
             'Closure Outcome', 
             'Days to Close', 
@@ -726,6 +727,9 @@ function IncentivesManagement({ initialSubTab }) {
             const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
             const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
             const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+            
+            const invoiceDates = jobInvoices.map(inv => inv.date ? new Date(inv.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '').filter(Boolean);
+            const invoiceDateStr = invoiceDates.length > 0 ? invoiceDates.join(', ') : '—';
             
             let closureOutcome = 'In Progress';
             let isRepair = false;
@@ -759,6 +763,7 @@ function IncentivesManagement({ initialSubTab }) {
                 (job.brand ? `${job.brand} ` : '') + (job.appliance || 'Unknown'),
                 job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—',
                 job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+                invoiceDateStr,
                 isVisited ? 'Visited' : 'Not Visited',
                 closureOutcome,
                 job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—',
@@ -1564,6 +1569,7 @@ function IncentivesManagement({ initialSubTab }) {
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Invoice Date</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>
@@ -1574,7 +1580,7 @@ function IncentivesManagement({ initialSubTab }) {
                                     <tbody>
                                         {(!selectedTech.currentMetrics || !selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
                                             <tr>
-                                                <td colSpan={selectedTechId === 'all' ? 10 : 9} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                <td colSpan={selectedTechId === 'all' ? 11 : 10} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                                     No jobs logged for this period.
                                                 </td>
                                             </tr>
@@ -1604,6 +1610,9 @@ function IncentivesManagement({ initialSubTab }) {
                                                     const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
                                                     const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
                                                     const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+                                                    const invoiceDates = jobInvoices.map(inv => inv.date ? new Date(inv.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '').filter(Boolean);
+                                                    const invoiceDateStr = invoiceDates.length > 0 ? invoiceDates.join(', ') : '—';
 
                                                     let closureOutcome = 'In Progress';
                                                     let isRepair = false;
@@ -1654,6 +1663,9 @@ function IncentivesManagement({ initialSubTab }) {
                                                             </td>
                                                             <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                 {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                {invoiceDateStr}
                                                             </td>
                                                             <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                                 <span style={{

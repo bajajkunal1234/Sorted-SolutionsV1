@@ -287,7 +287,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
             </div>
 
             {/* Content Area */}
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: activeSection === 'incentives' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {!activeSection ? (
                     // Reports Homepage
                     <div style={{ padding: 'var(--spacing-lg)' }}>
