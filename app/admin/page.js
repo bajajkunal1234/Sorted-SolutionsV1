@@ -177,7 +177,7 @@ export default function AdminApp() {
             )}
 
             {/* Main Content */}
-            <div className="admin-content-area">
+            <div className="admin-content-area" style={{ overflow: activeTab === 'reports' ? 'hidden' : 'auto' }}>
                 {renderTabContent()}
             </div>
 
