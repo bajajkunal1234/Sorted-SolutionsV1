@@ -687,6 +687,154 @@ function IncentivesManagement({ initialSubTab }) {
         ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs || [], selectedTech.currentMetrics.techInvoices || [], allInteractions, startRange, endRange)
         : [];
 
+    const handleExport = (format) => {
+        if (!selectedTech || !selectedTech.currentMetrics || !selectedTech.currentMetrics.techJobs) return;
+        const jobs = selectedTech.currentMetrics.techJobs
+            .filter(job => {
+                if (!selectedDateFilter) return true;
+                if (job.scheduled_date === selectedDateFilter) return true;
+                if (job.arrived_at && getISTDateString(job.arrived_at) === selectedDateFilter) return true;
+                if (job.status === 'closed') {
+                    let closureDate = getISTDateString(job.completed_at);
+                    if (!closureDate) {
+                        const closureInt = allInteractions.find(i => 
+                            i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                        );
+                        if (closureInt) closureDate = getISTDateString(closureInt.timestamp);
+                    }
+                    if (closureDate === selectedDateFilter) return true;
+                }
+                return false;
+            })
+            .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date));
+
+        const headers = [
+            'Job Number', 
+            ...(selectedTechId === 'all' ? ['Technician'] : []),
+            'Appliance', 
+            'Locality', 
+            'Scheduled Date', 
+            'Visit Status', 
+            'Closure Outcome', 
+            'Days to Close', 
+            'Revenue', 
+            'Feedback'
+        ];
+
+        const rows = jobs.map(job => {
+            const isVisited = !!job.arrived_at;
+            const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
+            const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+            const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+            
+            let closureOutcome = 'In Progress';
+            let isRepair = false;
+            if (job.status === 'closed') {
+                const closureInt = allInteractions.find(i => 
+                    i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                );
+                if (closureInt) {
+                    if (closureInt.type === 'close-call-no-service') {
+                        closureOutcome = 'Closed No Repair';
+                    } else {
+                        const outcome = closureInt.metadata?.repair_outcome;
+                        closureOutcome = outcome || 'Closed';
+                        if (outcome === 'Repair Done') {
+                            isRepair = true;
+                        }
+                    }
+                } else {
+                    if (hasRealRepairInvoice) {
+                        closureOutcome = 'Repair Done';
+                        isRepair = true;
+                    } else {
+                        closureOutcome = 'Closed No Repair';
+                    }
+                }
+            }
+
+            return [
+                job.job_number || job.id.slice(0, 8),
+                ...(selectedTechId === 'all' ? [job.technician_name || 'Unassigned'] : []),
+                (job.brand ? `${job.brand} ` : '') + (job.appliance || 'Unknown'),
+                job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—',
+                job.scheduled_date ? new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+                isVisited ? 'Visited' : 'Not Visited',
+                closureOutcome,
+                job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—',
+                `₹${jobRev}`,
+                job.customer_rating > 0 ? `${job.customer_rating} Stars` : '—'
+            ];
+        });
+
+        if (format === 'csv') {
+            const csvContent = "data:text/csv;charset=utf-8," 
+                + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else if (format === 'excel') {
+            const tsvContent = "data:application/vnd.ms-excel;charset=utf-8," 
+                + [headers.join('\t'), ...rows.map(e => e.map(val => String(val).replace(/\t/g, ' ')).join('\t'))].join('\n');
+            const encodedUri = encodeURI(tsvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.xls`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else if (format === 'print') {
+            const printWindow = window.open('', '_blank');
+            const tableRowsHtml = rows.map(r => `
+                <tr>
+                    ${r.map(val => `<td>${val}</td>`).join('')}
+                </tr>
+            `).join('');
+
+            const tableHeadersHtml = headers.map(h => `<th>${h}</th>`).join('');
+
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Job-Level Details - ${selectedTech.name}</title>
+                        <style>
+                            body { font-family: sans-serif; padding: 20px; color: #333; }
+                            h2 { text-align: center; margin-bottom: 5px; }
+                            p { text-align: center; color: #666; margin-top: 0; margin-bottom: 20px; font-size: 14px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f5f5f5; }
+                            tr:nth-child(even) { background-color: #fafafa; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Job-Level Details Report</h2>
+                        <p>Technician: <strong>${selectedTech.name}</strong> | Range: ${startDate} to ${endDate}</p>
+                        <table>
+                            <thead>
+                                <tr>${tableHeadersHtml}</tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                        </table>
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                window.close();
+                            }
+                        </script>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    };
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Compact Toolbar */}
@@ -696,7 +844,7 @@ function IncentivesManagement({ initialSubTab }) {
                     {[
                         { id: 'configure', label: 'Configure Parameters', icon: Settings },
                         { id: 'performance', label: 'Live Performance', icon: BarChart3 },
-                        { id: 'history', label: '3-Month History', icon: Calendar }
+                        { id: 'job_details', label: 'Job-Level Details', icon: Briefcase }
                     ].map(view => (
                         <button
                             key={view.id}
@@ -725,15 +873,6 @@ function IncentivesManagement({ initialSubTab }) {
 
                 {/* Controls */}
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                    {activeView === 'history' && (
-                        <input
-                            type="month"
-                            value={activeMonth}
-                            onChange={(e) => setActiveMonth(e.target.value)}
-                            className="form-input"
-                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', height: 'auto' }}
-                        />
-                    )}
                     <button
                         className="btn btn-secondary"
                         onClick={fetchData}
@@ -1201,16 +1340,15 @@ function IncentivesManagement({ initialSubTab }) {
                                 </div>
                             </div>
 
-                            {/* Two Column Layout for Breakdown & Jobs */}
-                            <div className="performance-drilldown-grid" style={{ alignItems: 'start' }}>
-                                {/* Daily Performance Breakdown Table */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-md)',
-                                    overflow: 'hidden'
-                                }}>
+                            {/* Daily Performance Breakdown Table */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: 'var(--spacing-md)',
+                                overflow: 'hidden',
+                                width: '100%'
+                            }}>
                                     <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '2px' }}>
                                         Daily Breakdown
                                     </h4>
@@ -1263,172 +1401,7 @@ function IncentivesManagement({ initialSubTab }) {
                                         </table>
                                     </div>
                                 </div>
-
-                                {/* Job-Level Performance Grid */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-md)',
-                                    overflow: 'hidden'
-                                }}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                        Job-Level Details {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-                                    </h4>
-                                    <div style={{ overflowX: 'auto' }}>
-                                        <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                                            <thead>
-                                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
-                                                    {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
-                                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
-                                                    <tr>
-                                                        <td colSpan={selectedTechId === 'all' ? 10 : 9} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                                            No jobs logged for this period.
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    selectedTech.currentMetrics.techJobs
-                                                        .filter(job => {
-                                                            if (!selectedDateFilter) return true;
-                                                            if (job.scheduled_date === selectedDateFilter) return true;
-                                                            if (job.arrived_at && getISTDateString(job.arrived_at) === selectedDateFilter) return true;
-                                                            if (job.status === 'closed') {
-                                                                let closureDate = getISTDateString(job.completed_at);
-                                                                if (!closureDate) {
-                                                                    const closureInt = allInteractions.find(i => 
-                                                                        i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
-                                                                    );
-                                                                    if (closureInt) {
-                                                                        closureDate = getISTDateString(closureInt.timestamp);
-                                                                    }
-                                                                }
-                                                                if (closureDate === selectedDateFilter) return true;
-                                                            }
-                                                            return false;
-                                                        })
-                                                        .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
-                                                        .map((job) => {
-                                                            const isVisited = !!job.arrived_at;
-                                                            const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
-                                                            const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
-                                                            const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-
-                                                            let closureOutcome = 'In Progress';
-                                                            let isRepair = false;
-                                                            if (job.status === 'closed') {
-                                                                const closureInt = allInteractions.find(i => 
-                                                                    i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
-                                                                );
-                                                                if (closureInt) {
-                                                                    if (closureInt.type === 'close-call-no-service') {
-                                                                        closureOutcome = 'Closed No Repair';
-                                                                    } else {
-                                                                        const outcome = closureInt.metadata?.repair_outcome;
-                                                                        closureOutcome = outcome || 'Closed';
-                                                                        if (outcome === 'Repair Done') {
-                                                                            isRepair = true;
-                                                                        }
-                                                                    }
-                                                                } else {
-                                                                    if (hasRealRepairInvoice) {
-                                                                        closureOutcome = 'Repair Done';
-                                                                        isRepair = true;
-                                                                    } else {
-                                                                        closureOutcome = 'Closed No Repair';
-                                                                    }
-                                                                }
-                                                            }
-
-                                                            return (
-                                                                <tr 
-                                                                    key={job.id} 
-                                                                    onClick={() => setViewingJob(job)}
-                                                                    style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer' }}
-                                                                    className="hover-row"
-                                                                >
-                                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                                                        #{job.job_number || job.id.slice(0, 8)}
-                                                                    </td>
-                                                                    {selectedTechId === 'all' && (
-                                                                        <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                                                            {job.technician_name || 'Unassigned'}
-                                                                        </td>
-                                                                    )}
-                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                        {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                        {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                        {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                        <span style={{
-                                                                            fontSize: 'var(--font-size-xs)',
-                                                                            fontWeight: 600,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: 'var(--radius-full)',
-                                                                            backgroundColor: isVisited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                                            color: isVisited ? 'var(--color-success)' : 'var(--color-danger)'
-                                                                        }}>
-                                                                            {isVisited ? 'Visited' : 'Not Visited'}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                        <span style={{
-                                                                            fontSize: 'var(--font-size-xs)',
-                                                                            fontWeight: 600,
-                                                                            padding: '2px 8px',
-                                                                            borderRadius: 'var(--radius-full)',
-                                                                            backgroundColor: job.status === 'closed'
-                                                                                ? (isRepair ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)')
-                                                                                : 'rgba(245, 158, 11, 0.15)',
-                                                                            color: job.status === 'closed'
-                                                                                ? (isRepair ? 'var(--color-success)' : 'var(--text-secondary)')
-                                                                                : 'var(--color-warning)'
-                                                                        }}>
-                                                                            {closureOutcome}
-                                                                        </span>
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                        {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                                        ₹{jobRev.toLocaleString()}
-                                                                    </td>
-                                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                        {job.customer_rating > 0 ? (
-                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
-                                                                                <Star size={14} fill="#eab308" />
-                                                                                {job.customer_rating}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
                             </div>
-                        </div>
                     ) : (
                         <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                             No technician selected.
@@ -1437,90 +1410,308 @@ function IncentivesManagement({ initialSubTab }) {
                 </div>
             )}
 
-            {/* History View */}
-            {activeView === 'history' && (
-                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
-                        {technicians.map(tech => (
-                            <div
-                                key={tech.id}
-                                style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-lg)'
-                                }}
-                            >
-                                <h4 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                    {tech.name} - Performance History
-                                </h4>
+            {/* Job-Level Details View */}
+            {activeView === 'job_details' && (
+                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    {/* Date Selector and Preset row (same as performance) */}
+                    <div className="performance-filters-container" style={{ flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                            {[
+                                { id: 'today', label: 'Today' },
+                                { id: 'yesterday', label: 'Yesterday' },
+                                { id: 'this_week', label: 'This Week' },
+                                { id: 'this_month', label: 'This Month' },
+                                { id: 'custom', label: 'Custom Range' }
+                            ].map(preset => (
+                                <button
+                                    key={preset.id}
+                                    onClick={() => setDatePreset(preset.id)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: 'var(--font-size-xs)',
+                                        fontWeight: 600,
+                                        borderRadius: 'var(--radius-md)',
+                                        border: datePreset === preset.id ? 'none' : '1px solid var(--border-primary)',
+                                        backgroundColor: datePreset === preset.id ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                        color: datePreset === preset.id ? 'var(--text-inverse)' : 'var(--text-primary)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
 
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                                        <thead>
-                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Month</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Assigned</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Conversion %</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total Revenue</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback Rate</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Average Rating</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Avg Days to Close</th>
-                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Goals Achieved</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {tech.history.map((record, idx) => (
-                                                <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                                        {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        {record.totalJobs || 0}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        {record.visitsCount}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        {record.closedCount}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                                                        {record.conversionRatio}%
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                        ₹{record.totalRevenue.toLocaleString()}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        {record.feedbackRate}%
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
-                                                        {record.avgRating} ★
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        {record.avgDaysToClose > 0 ? `${record.avgDaysToClose} days` : '—'}
-                                                    </td>
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                        <span style={{
-                                                            fontSize: 'var(--font-size-xs)',
-                                                            fontWeight: 700,
-                                                            padding: '2px 8px',
-                                                            borderRadius: 'var(--radius-full)',
-                                                            backgroundColor: record.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                                                            color: record.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
-                                                        }}>
-                                                            {record.achievedCount} / {record.totalTargets}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>From:</span>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    disabled={datePreset !== 'custom'}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="form-input"
+                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', width: '130px' }}
+                                />
                             </div>
-                        ))}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>To:</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    disabled={datePreset !== 'custom'}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="form-input"
+                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px', width: '130px' }}
+                                />
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Technician Dropdown Filter & Export buttons */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: 'var(--spacing-md)',
+                        flexWrap: 'wrap',
+                        gap: 'var(--spacing-md)'
+                    }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>Technician Filter:</span>
+                            <select
+                                value={selectedTechId || 'all'}
+                                onChange={(e) => {
+                                    setSelectedTechId(e.target.value);
+                                    setSelectedDateFilter(null);
+                                }}
+                                className="form-input"
+                                style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px', width: '220px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                            >
+                                <option value="all">All Technicians (Combined)</option>
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+
+                            {selectedDateFilter && (
+                                <button
+                                    onClick={() => setSelectedDateFilter(null)}
+                                    style={{
+                                        marginLeft: 'var(--spacing-sm)',
+                                        padding: '4px 8px',
+                                        fontSize: '11px',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                        color: 'var(--color-danger)',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    Clear filter [ {new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} ] ✕
+                                </button>
+                            )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                            <button
+                                onClick={() => handleExport('csv')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                📥 Export CSV
+                            </button>
+                            <button
+                                onClick={() => handleExport('excel')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                📥 Export Excel
+                            </button>
+                            <button
+                                onClick={() => handleExport('print')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                                🖨️ Print / PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Job-Level Performance Grid */}
+                    {selectedTech ? (
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-md)',
+                            overflow: 'hidden'
+                        }}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
+                                Job-Level Details ({selectedTech.name}) {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                            </h4>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
+                                            {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(!selectedTech.currentMetrics || !selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
+                                            <tr>
+                                                <td colSpan={selectedTechId === 'all' ? 10 : 9} style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                    No jobs logged for this period.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            selectedTech.currentMetrics.techJobs
+                                                .filter(job => {
+                                                    if (!selectedDateFilter) return true;
+                                                    if (job.scheduled_date === selectedDateFilter) return true;
+                                                    if (job.arrived_at && getISTDateString(job.arrived_at) === selectedDateFilter) return true;
+                                                    if (job.status === 'closed') {
+                                                        let closureDate = getISTDateString(job.completed_at);
+                                                        if (!closureDate) {
+                                                            const closureInt = allInteractions.find(i => 
+                                                                i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                                                            );
+                                                            if (closureInt) {
+                                                                closureDate = getISTDateString(closureInt.timestamp);
+                                                            }
+                                                        }
+                                                        if (closureDate === selectedDateFilter) return true;
+                                                    }
+                                                    return false;
+                                                })
+                                                .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
+                                                .map((job) => {
+                                                    const isVisited = !!job.arrived_at;
+                                                    const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
+                                                    const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+                                                    const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+                                                    let closureOutcome = 'In Progress';
+                                                    let isRepair = false;
+                                                    if (job.status === 'closed') {
+                                                        const closureInt = allInteractions.find(i => 
+                                                            i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                                                        );
+                                                        if (closureInt) {
+                                                            if (closureInt.type === 'close-call-no-service') {
+                                                                closureOutcome = 'Closed No Repair';
+                                                            } else {
+                                                                const outcome = closureInt.metadata?.repair_outcome;
+                                                                closureOutcome = outcome || 'Closed';
+                                                                if (outcome === 'Repair Done') {
+                                                                    isRepair = true;
+                                                                }
+                                                            }
+                                                        } else {
+                                                            if (hasRealRepairInvoice) {
+                                                                closureOutcome = 'Repair Done';
+                                                                isRepair = true;
+                                                            } else {
+                                                                closureOutcome = 'Closed No Repair';
+                                                            }
+                                                        }
+                                                    }
+
+                                                    return (
+                                                        <tr 
+                                                            key={job.id} 
+                                                            onClick={() => setViewingJob(job)}
+                                                            style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer' }}
+                                                            className="hover-row"
+                                                        >
+                                                            <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                                                #{job.job_number || job.id.slice(0, 8)}
+                                                            </td>
+                                                            {selectedTechId === 'all' && (
+                                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                                                    {job.technician_name || 'Unassigned'}
+                                                                </td>
+                                                            )}
+                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                <span style={{
+                                                                    fontSize: 'var(--font-size-xs)',
+                                                                    fontWeight: 600,
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: 'var(--radius-full)',
+                                                                    backgroundColor: isVisited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                    color: isVisited ? 'var(--color-success)' : 'var(--color-danger)'
+                                                                }}>
+                                                                    {isVisited ? 'Visited' : 'Not Visited'}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                <span style={{
+                                                                    fontSize: 'var(--font-size-xs)',
+                                                                    fontWeight: 600,
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: 'var(--radius-full)',
+                                                                    backgroundColor: job.status === 'closed'
+                                                                        ? (isRepair ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)')
+                                                                        : 'rgba(245, 158, 11, 0.15)',
+                                                                    color: job.status === 'closed'
+                                                                        ? (isRepair ? 'var(--color-success)' : 'var(--text-secondary)')
+                                                                        : 'var(--color-warning)'
+                                                                }}>
+                                                                    {closureOutcome}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
+                                                                ₹{jobRev.toLocaleString()}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                {job.customer_rating > 0 ? (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
+                                                                        <Star size={14} fill="#eab308" />
+                                                                        {job.customer_rating}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            No technician selected.
+                        </div>
+                    )}
                 </div>
             )}
 
