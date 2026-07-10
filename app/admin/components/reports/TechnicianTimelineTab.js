@@ -39,8 +39,26 @@ export default function TechnicianTimelineTab() {
     const [playbackSpeed, setPlaybackSpeed] = useState(1); // multiplier
     const [panTo, setPanTo] = useState(null);
     const [groupMode, setGroupMode] = useState('time'); // 'time' | 'job' | 'location'
+    const [suppliers, setSuppliers] = useState([]);
+    const [showAllSummary, setShowAllSummary] = useState(false);
 
     const playbackIntervalRef = useRef(null);
+
+    // Fetch suppliers list on mount
+    useEffect(() => {
+        const fetchSuppliers = async () => {
+            try {
+                const res = await fetch('/api/admin/accounts?type=supplier');
+                const payload = await res.json();
+                if (payload.success && payload.data) {
+                    setSuppliers(payload.data);
+                }
+            } catch (err) {
+                console.error("Error fetching suppliers:", err);
+            }
+        };
+        fetchSuppliers();
+    }, []);
 
     // Fetch technicians list
     useEffect(() => {
@@ -77,6 +95,21 @@ export default function TechnicianTimelineTab() {
         return R * c; // in meters
     };
 
+    const getSupplierCoordinates = (supplier) => {
+        if (!supplier) return null;
+        const props = supplier.properties;
+        if (Array.isArray(props) && props.length > 0) {
+            const first = props.find(p => p.lat || p.latitude);
+            if (first) {
+                return {
+                    lat: Number(first.lat || first.latitude),
+                    lng: Number(first.lng || first.longitude)
+                };
+            }
+        }
+        return null;
+    };
+
     const enrichTimelineWithLocationAudits = (data) => {
         if (!data || !data.timeline) return data;
 
@@ -109,7 +142,7 @@ export default function TechnicianTimelineTab() {
             return event;
         });
 
-        // Check stop proximity to jobs
+        // Check stop proximity to jobs and suppliers
         const finalTimeline = enrichedTimeline.map(event => {
             if (event.type === 'stop' && event.lat && event.lng) {
                 let nearestJob = null;
@@ -129,15 +162,33 @@ export default function TechnicianTimelineTab() {
                     }
                 });
 
+                let nearestSupplier = null;
+                let minSupplierDist = Infinity;
+                suppliers.forEach(supplier => {
+                    const coords = getSupplierCoordinates(supplier);
+                    if (coords) {
+                        const dist = getDistance(event.lat, event.lng, coords.lat, coords.lng);
+                        if (dist < minSupplierDist) {
+                            minSupplierDist = dist;
+                            nearestSupplier = supplier;
+                        }
+                    }
+                });
+
                 if (nearestJob && minStopDist <= 200) {
                     return {
                         ...event,
                         description: `${event.description} (Stationary at customer ${nearestJob.customerName}'s place for ${nearestJob.jobNumber}).`
                     };
-                } else if (minStopDist > 200 && event.duration > 20) {
+                } else if (nearestSupplier && minSupplierDist <= 200) {
                     return {
                         ...event,
-                        warning: `Long idle stop (${event.duration} mins) away from any assigned customer location.`
+                        description: `${event.description} (Stationary at Supplier ${nearestSupplier.name} for parts pickup).`
+                    };
+                } else if (minStopDist > 200 && minSupplierDist > 200 && event.duration > 20) {
+                    return {
+                        ...event,
+                        warning: `Long idle stop (${event.duration} mins) away from any customer or supplier location.`
                     };
                 }
             }
@@ -442,6 +493,15 @@ export default function TechnicianTimelineTab() {
             }
         });
 
+        let supplierMins = 0;
+        let supplierStopsCount = 0;
+        stopsList.forEach(stop => {
+            if (stop.description && stop.description.includes('Supplier')) {
+                supplierMins += stop.duration || 0;
+                supplierStopsCount++;
+            }
+        });
+
         return {
             visitedCount: uniqueVisitedJobs.size || jobsList.length,
             closedCount: uniqueClosedJobs.size || 0,
@@ -449,6 +509,8 @@ export default function TechnicianTimelineTab() {
             localities: Array.from(visitedLocalities),
             idleMins: totalIdleMins,
             timepassCount,
+            supplierMins,
+            supplierStopsCount,
             alerts
         };
     };
@@ -459,8 +521,13 @@ export default function TechnicianTimelineTab() {
         
         let text = `Technician worked on ${summary.visitedCount} job locations ${locText}, closed ${summary.closedCount} job(s), and collected ₹${summary.revenue} revenue. `;
         
+        if (summary.supplierMins > 0) {
+            text += `Spent ${summary.supplierMins} minutes at ${summary.supplierStopsCount} supplier location(s) for parts pickup. `;
+        }
+
         if (summary.idleMins > 0) {
-            text += `Spent a total of ${summary.idleMins} minutes idle/stationary across ${summary.timepassCount} stop(s). `;
+            const nonSupplierIdle = Math.max(0, summary.idleMins - summary.supplierMins);
+            text += `Spent a total of ${nonSupplierIdle} minutes idle/stationary elsewhere across ${summary.timepassCount - summary.supplierStopsCount} other stop(s). `;
         } else {
             text += `No significant idle stops detected. `;
         }
@@ -725,6 +792,7 @@ export default function TechnicianTimelineTab() {
                         routePath={timelineData?.routePath || []}
                         stops={timelineData?.stopsCount ? timelineData.timeline.filter(t => t.type === 'stop') : []}
                         jobsList={timelineData?.jobsList || []}
+                        suppliersList={suppliers}
                         playbackPosition={activePlaybackPosition}
                         panTo={panTo}
                     />
@@ -879,21 +947,50 @@ export default function TechnicianTimelineTab() {
                 {/* Manager's Audit Performance Summary Card */}
                 {timelineData && (
                     <div style={{
-                        padding: 'var(--spacing-md)',
+                        padding: '8px 12px',
                         backgroundColor: 'rgba(59, 130, 246, 0.05)',
                         border: '1px solid rgba(59, 130, 246, 0.2)',
                         borderRadius: 'var(--radius-lg)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '6px'
+                        gap: '4px'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Activity size={16} style={{ color: 'var(--color-primary)' }} />
-                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-xs)', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                TL Performance Audit Summary
-                            </h4>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Activity size={14} style={{ color: 'var(--color-primary)' }} />
+                                <h4 style={{ margin: 0, fontSize: '10px', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    TL Performance Audit Summary
+                                </h4>
+                            </div>
+                            <button
+                                onClick={() => setShowAllSummary(!showAllSummary)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--color-primary)',
+                                    fontSize: '10px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2px',
+                                    padding: '0 4px'
+                                }}
+                            >
+                                {showAllSummary ? 'Collapse ▴' : 'Expand ▾'}
+                            </button>
                         </div>
-                        <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', lineHeight: '1.45', color: 'var(--text-secondary)' }}>
+                        <p style={{
+                            margin: 0,
+                            fontSize: 'var(--font-size-xs)',
+                            lineHeight: '1.45',
+                            color: 'var(--text-secondary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: showAllSummary ? 'none' : 4,
+                            WebkitBoxOrient: 'vertical'
+                        }}>
                             {getAuditSummaryText(generateDailySummary(timelineData))}
                         </p>
                     </div>

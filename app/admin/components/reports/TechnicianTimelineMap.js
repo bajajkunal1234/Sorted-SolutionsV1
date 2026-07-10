@@ -54,6 +54,29 @@ const playbackIcon = new L.DivIcon({
     iconAnchor: [10, 10],
 });
 
+const supplierIcon = (name) => new L.DivIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:#3b82f6;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 5px rgba(0,0,0,0.3)" title="Supplier: ${name}">🏬</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -15],
+});
+
+function getSupplierCoordinates(supplier) {
+    if (!supplier) return null;
+    const props = supplier.properties;
+    if (Array.isArray(props) && props.length > 0) {
+        const first = props.find(p => p.lat || p.latitude);
+        if (first) {
+            return {
+                lat: Number(first.lat || first.latitude),
+                lng: Number(first.lng || first.longitude)
+            };
+        }
+    }
+    return null;
+}
+
 const MUMBAI = [19.076, 72.8777];
 
 // Fit bounds to route automatically
@@ -83,7 +106,7 @@ function MapPanController({ panTo }) {
     return null;
 }
 
-export default function TechnicianTimelineMap({ routePath = [], stops = [], jobsList = [], playbackPosition = null, panTo = null }) {
+export default function TechnicianTimelineMap({ routePath = [], stops = [], jobsList = [], suppliersList = [], playbackPosition = null, panTo = null }) {
     const defaultCenter = routePath.length > 0 ? [routePath[0].lat, routePath[0].lng] : MUMBAI;
     const [mapType, setMapType] = useState('google-roadmap');
     const [snappedPath, setSnappedPath] = useState([]);
@@ -287,6 +310,22 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                                 <strong>{job.jobNumber} ({job.category})</strong><br />
                                 Customer: {job.customerName}<br />
                                 Address: {job.address}
+                            </Popup>
+                        </Marker>
+                    );
+                })}
+
+                {/* Supplier Marker Pins */}
+                {suppliersList.map((supplier, i) => {
+                    const coords = getSupplierCoordinates(supplier);
+                    if (!coords) return null;
+
+                    return (
+                        <Marker key={`supplier-${supplier.id}-${i}`} position={[coords.lat, coords.lng]} icon={supplierIcon(supplier.name)}>
+                            <Popup>
+                                <strong>🏬 Supplier: {supplier.name}</strong><br />
+                                Type: {supplier.groupName || 'Spare Parts Supplier'}<br />
+                                Address: {supplier.properties?.[0]?.address || 'No address details'}
                             </Popup>
                         </Marker>
                     );
