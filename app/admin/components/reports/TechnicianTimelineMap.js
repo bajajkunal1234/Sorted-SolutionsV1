@@ -297,7 +297,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 ))}
 
                 {/* Job Marker Pins */}
-                {jobsList.map((job, i) => {
+                {jobsList.filter(job => job.status !== 'closed' && job.status !== 'cancelled').map((job, i) => {
                     const loc = job.propertyLocation;
                     if (!loc) return null;
                     const lat = loc.lat || loc.latitude;

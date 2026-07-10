@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { 
     Calendar, Play, Pause, ChevronLeft, ChevronRight, 
     RefreshCcw, AlertTriangle, Clock, MapPin, 
-    PhoneCall, Award, Eye, Briefcase, Activity
+    PhoneCall, Award, Eye, Briefcase, Activity, CheckCircle
 } from 'lucide-react';
 
 const TechnicianTimelineMap = dynamic(() => import('./TechnicianTimelineMap'), { ssr: false });
@@ -41,6 +41,7 @@ export default function TechnicianTimelineTab() {
     const [groupMode, setGroupMode] = useState('time'); // 'time' | 'job' | 'location'
     const [suppliers, setSuppliers] = useState([]);
     const [showAllSummary, setShowAllSummary] = useState(false);
+    const [collapsedGroups, setCollapsedGroups] = useState({});
 
     const playbackIntervalRef = useRef(null);
 
@@ -515,30 +516,75 @@ export default function TechnicianTimelineTab() {
         };
     };
 
-    const getAuditSummaryText = (summary) => {
-        if (!summary) return 'No dynamic activity logs recorded for this day.';
+    const renderAuditSummary = () => {
+        const summary = generateDailySummary(timelineData);
+        if (!summary) return <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>No dynamic activity logs recorded for this day.</div>;
+
         const locText = summary.localities.length > 0 ? `in ${summary.localities.join(', ')}` : '';
-        
-        let text = `Technician worked on ${summary.visitedCount} job locations ${locText}, closed ${summary.closedCount} job(s), and collected ₹${summary.revenue} revenue. `;
-        
-        if (summary.supplierMins > 0) {
-            text += `Spent ${summary.supplierMins} minutes at ${summary.supplierStopsCount} supplier location(s) for parts pickup. `;
-        }
 
-        if (summary.idleMins > 0) {
-            const nonSupplierIdle = Math.max(0, summary.idleMins - summary.supplierMins);
-            text += `Spent a total of ${nonSupplierIdle} minutes idle/stationary elsewhere across ${summary.timepassCount - summary.supplierStopsCount} other stop(s). `;
-        } else {
-            text += `No significant idle stops detected. `;
-        }
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: '1.45' }}>
+                {/* Paragraph 1: Visited & Revenue */}
+                <p style={{ margin: 0 }}>
+                    Technician worked on <strong>{summary.visitedCount} job locations</strong> {locText}, successfully closed <strong>{summary.closedCount} job(s)</strong>, and collected <strong>₹{summary.revenue} revenue</strong>.
+                </p>
 
-        if (summary.alerts.length > 0) {
-            text += `⚠️ Audit notes: ${summary.alerts.slice(0, 3).join('; ')}.`;
-        } else {
-            text += `✅ Process check: Followed job workflow correctly today.`;
-        }
-        
-        return text;
+                {/* Paragraph 2: Supplier & Idle */}
+                <p style={{ margin: 0 }}>
+                    {summary.supplierMins > 0 ? (
+                        <span>Spent <strong>{summary.supplierMins} minutes</strong> at {summary.supplierStopsCount} supplier location(s) for parts pickup. </span>
+                    ) : null}
+                    {summary.idleMins > 0 ? (
+                        <span>Spent a total of <strong>{Math.max(0, summary.idleMins - summary.supplierMins)} minutes</strong> stationary elsewhere across {summary.timepassCount - summary.supplierStopsCount} other stops.</span>
+                    ) : (
+                        <span>No significant idle stops detected today.</span>
+                    )}
+                </p>
+
+                {/* Paragraph 3: Alerts Section */}
+                {summary.alerts.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                         <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#ef4444', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                             <AlertTriangle size={12} /> Resource & Process Alerts ({summary.alerts.length})
+                         </div>
+                         {summary.alerts.slice(0, 5).map((alert, idx) => (
+                             <div key={idx} style={{
+                                 display: 'flex',
+                                 alignItems: 'flex-start',
+                                 gap: '6px',
+                                 padding: '6px 8px',
+                                 backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                 border: '1px solid rgba(239, 68, 68, 0.2)',
+                                 borderRadius: '4px',
+                                 color: '#ef4444',
+                                 fontSize: '10.5px',
+                                 fontWeight: '500'
+                             }}>
+                                 <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: '2.5px' }} />
+                                 <span>{alert}</span>
+                             </div>
+                         ))}
+                    </div>
+                ) : (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 8px',
+                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        borderRadius: '4px',
+                        color: '#10b981',
+                        fontSize: '10.5px',
+                        fontWeight: '500',
+                        marginTop: '4px'
+                    }}>
+                        <CheckCircle size={11} style={{ flexShrink: 0 }} />
+                        <span>Process check: Followed job workflow correctly today.</span>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     // Grouping algorithms
@@ -642,131 +688,150 @@ export default function TechnicianTimelineTab() {
             groups = getLocationGroupedEvents();
         }
 
-        return groups.map(group => (
-            <div key={group.id} style={{
-                marginBottom: 'var(--spacing-md)',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                borderRadius: 'var(--radius-lg)',
-                padding: 'var(--spacing-xs)',
-                border: '1px solid var(--border-color)'
-            }}>
-                {/* Group Header */}
-                <div style={{
-                    padding: 'var(--spacing-xs) var(--spacing-sm)',
-                    borderBottom: '1px solid var(--border-color)',
-                    marginBottom: 'var(--spacing-xs)'
+        return groups.map(group => {
+            const isCollapsed = !!collapsedGroups[group.id];
+
+            return (
+                <div key={group.id} style={{
+                    marginBottom: 'var(--spacing-md)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: 'var(--spacing-xs)',
+                    border: '1px solid var(--border-color)'
                 }}>
-                    <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 'bold', color: 'var(--color-primary)' }}>{group.title}</h4>
-                    {group.subtitle && (
-                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>{group.subtitle}</div>
+                    {/* Group Header - Collapsible Click Target */}
+                    <div 
+                        onClick={() => setCollapsedGroups(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
+                        style={{
+                            padding: 'var(--spacing-xs) var(--spacing-sm)',
+                            borderBottom: isCollapsed ? 'none' : '1px solid var(--border-color)',
+                            marginBottom: isCollapsed ? '0' : 'var(--spacing-xs)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 'bold', color: 'var(--color-primary)' }}>{group.title}</h4>
+                            {group.subtitle && (
+                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>{group.subtitle}</div>
+                            )}
+                        </div>
+                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 'bold', color: 'var(--color-primary)', opacity: 0.8 }}>
+                            {isCollapsed ? 'Expand ▾' : 'Collapse ▴'}
+                        </span>
+                    </div>
+
+                    {/* Group nested timeline cards */}
+                    {!isCollapsed && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                            {group.events.map((event) => {
+                                const idx = timelineData.timeline.indexOf(event);
+                                const isHighlighted = idx === activeTimelineIndex;
+                                const isStop = event.type === 'stop';
+                                const isJob = event.type === 'job_action';
+                                const isCall = event.type === 'interaction' && event.title?.includes('Call');
+                                const isStartEnd = event.type === 'shift_start' || event.type === 'shift_end';
+
+                                let cardBorderColor = 'var(--border-color)';
+                                let iconColor = 'var(--text-secondary)';
+                                let IconComponent = MapPin;
+
+                                if (isStop) {
+                                    cardBorderColor = '#64748b';
+                                    iconColor = '#64748b';
+                                    IconComponent = Clock;
+                                } else if (isJob) {
+                                    cardBorderColor = '#f59e0b';
+                                    iconColor = '#f59e0b';
+                                    IconComponent = Briefcase;
+                                } else if (isCall) {
+                                    cardBorderColor = '#3b82f6';
+                                    iconColor = '#3b82f6';
+                                    IconComponent = PhoneCall;
+                                } else if (isStartEnd) {
+                                    cardBorderColor = '#10b981';
+                                    iconColor = '#10b981';
+                                    IconComponent = Award;
+                                }
+
+                                return (
+                                    <div
+                                        key={`event-card-${idx}`}
+                                        className={`timeline-card ${isHighlighted ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (event.lat && event.lng) {
+                                                setPanTo({ lat: event.lat, lng: event.lng });
+                                            }
+                                        }}
+                                        onMouseEnter={() => {
+                                            if (event.lat && event.lng) {
+                                                setPanTo({ lat: event.lat, lng: event.lng });
+                                            }
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            gap: 'var(--spacing-sm)',
+                                            padding: 'var(--spacing-xs) var(--spacing-sm)',
+                                            backgroundColor: isHighlighted ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-secondary)',
+                                            border: `1px solid ${event.warning ? '#ef4444' : cardBorderColor}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            cursor: 'pointer',
+                                            position: 'relative',
+                                            borderLeft: isHighlighted ? '4px solid var(--color-primary)' : `4px solid ${event.warning ? '#ef4444' : cardBorderColor}`
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            borderRadius: '50%',
+                                            backgroundColor: 'var(--bg-primary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <IconComponent size={12} style={{ color: iconColor }} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{event.title}</span>
+                                                <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                                    {new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                {event.description}
+                                            </div>
+                                            {event.warning && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'flex-start',
+                                                    gap: '4px',
+                                                    marginTop: '4px',
+                                                    padding: '2px 4px',
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    color: '#ef4444',
+                                                    fontSize: '9px',
+                                                    fontWeight: '500'
+                                                }}>
+                                                    <AlertTriangle size={10} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                                    <span>{event.warning}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     )}
                 </div>
-
-                {/* Group nested timeline cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
-                    {group.events.map((event) => {
-                        const idx = timelineData.timeline.indexOf(event);
-                        const isHighlighted = idx === activeTimelineIndex;
-                        const isStop = event.type === 'stop';
-                        const isJob = event.type === 'job_action';
-                        const isCall = event.type === 'interaction' && event.title?.includes('Call');
-                        const isStartEnd = event.type === 'shift_start' || event.type === 'shift_end';
-
-                        let cardBorderColor = 'var(--border-color)';
-                        let iconColor = 'var(--text-secondary)';
-                        let IconComponent = MapPin;
-
-                        if (isStop) {
-                            cardBorderColor = '#64748b';
-                            iconColor = '#64748b';
-                            IconComponent = Clock;
-                        } else if (isJob) {
-                            cardBorderColor = '#f59e0b';
-                            iconColor = '#f59e0b';
-                            IconComponent = Briefcase;
-                        } else if (isCall) {
-                            cardBorderColor = '#3b82f6';
-                            iconColor = '#3b82f6';
-                            IconComponent = PhoneCall;
-                        } else if (isStartEnd) {
-                            cardBorderColor = '#10b981';
-                            iconColor = '#10b981';
-                            IconComponent = Award;
-                        }
-
-                        return (
-                            <div
-                                key={`event-card-${idx}`}
-                                className={`timeline-card ${isHighlighted ? 'active' : ''}`}
-                                onClick={() => {
-                                    if (event.lat && event.lng) {
-                                        setPanTo({ lat: event.lat, lng: event.lng });
-                                    }
-                                }}
-                                onMouseEnter={() => {
-                                    if (event.lat && event.lng) {
-                                        setPanTo({ lat: event.lat, lng: event.lng });
-                                    }
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    gap: 'var(--spacing-sm)',
-                                    padding: 'var(--spacing-xs) var(--spacing-sm)',
-                                    backgroundColor: isHighlighted ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-secondary)',
-                                    border: `1px solid ${event.warning ? '#ef4444' : cardBorderColor}`,
-                                    borderRadius: 'var(--radius-md)',
-                                    cursor: 'pointer',
-                                    position: 'relative',
-                                    borderLeft: isHighlighted ? '4px solid var(--color-primary)' : `4px solid ${event.warning ? '#ef4444' : cardBorderColor}`
-                                }}
-                            >
-                                <div style={{
-                                    width: '24px',
-                                    height: '24px',
-                                    borderRadius: '50%',
-                                    backgroundColor: 'var(--bg-primary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                }}>
-                                    <IconComponent size={12} style={{ color: iconColor }} />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{event.title}</span>
-                                        <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                                            {new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                        {event.description}
-                                    </div>
-                                    {event.warning && (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: '4px',
-                                            marginTop: '4px',
-                                            padding: '2px 4px',
-                                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                                            border: '1px solid rgba(239, 68, 68, 0.2)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            color: '#ef4444',
-                                            fontSize: '9px',
-                                            fontWeight: '500'
-                                        }}>
-                                            <AlertTriangle size={10} style={{ flexShrink: 0, marginTop: '1px' }} />
-                                            <span>{event.warning}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        ));
+            );
+        });
     };
 
     return (
@@ -980,21 +1045,15 @@ export default function TechnicianTimelineTab() {
                                 {showAllSummary ? 'Collapse ▴' : 'Expand ▾'}
                             </button>
                         </div>
-                        <p style={{
+                        <div style={{
                             margin: 0,
-                            fontSize: 'var(--font-size-xs)',
-                            lineHeight: '1.45',
-                            color: 'var(--text-secondary)',
-                            maxHeight: showAllSummary ? '160px' : '75px',
+                            maxHeight: showAllSummary ? '240px' : '75px',
                             overflowY: showAllSummary ? 'auto' : 'hidden',
                             paddingRight: showAllSummary ? '4px' : '0',
-                            textOverflow: 'ellipsis',
-                            display: showAllSummary ? 'block' : '-webkit-box',
-                            WebkitLineClamp: showAllSummary ? 'none' : 4,
-                            WebkitBoxOrient: 'vertical'
+                            transition: 'max-height 0.2s ease-out'
                         }}>
-                            {getAuditSummaryText(generateDailySummary(timelineData))}
-                        </p>
+                            {renderAuditSummary()}
+                        </div>
                     </div>
                 )}
 

@@ -131,6 +131,21 @@ export async function GET(request) {
 
         if (jobsError) throw jobsError
 
+        // Fetch technician name
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('name')
+            .eq('id', technicianId)
+            .maybeSingle()
+        const techName = tech?.name || 'Technician'
+
+        // Fetch suppliers list
+        const { data: rawSuppliers } = await supabase
+            .from('accounts')
+            .select('*')
+            .or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%')
+        const suppliers = rawSuppliers || []
+
         // Resolve properties and customers manually to bypass Supabase schema relationship cache blocks
         let enrichedJobs = []
         if (rawJobs && rawJobs.length > 0) {
@@ -410,6 +425,120 @@ export async function GET(request) {
         // Sort timeline chronologically
         timeline.sort((a, b) => new Date(a.time) - new Date(b.time))
 
+        // 7.5 Detect resource wastage stops and trigger alerts
+        const getSupplierCoordinates = (supplier) => {
+            if (!supplier) return null
+            const props = supplier.properties
+            if (Array.isArray(props) && props.length > 0) {
+                const first = props.find(p => p.lat || p.latitude)
+                if (first) {
+                    return {
+                        lat: Number(first.lat || first.latitude),
+                        lng: Number(first.lng || first.longitude)
+                    }
+                }
+            }
+            return null
+        }
+
+        const wastageStops = []
+        stops.forEach(stop => {
+            if (stop.durationMinutes > 20) {
+                let nearJob = false
+                jobs.forEach(job => {
+                    const loc = job.properties?.location
+                    if (loc) {
+                        const jobLat = loc.lat || loc.latitude
+                        const jobLng = loc.lng || loc.longitude
+                        if (jobLat && jobLng) {
+                            const dist = getDistance(stop.lat, stop.lng, jobLat, jobLng)
+                            if (dist <= 200) nearJob = true
+                        }
+                    }
+                })
+
+                let nearSupplier = false
+                suppliers.forEach(supplier => {
+                    const coords = getSupplierCoordinates(supplier)
+                    if (coords) {
+                        const dist = getDistance(stop.lat, stop.lng, coords.lat, coords.lng)
+                        if (dist <= 200) nearSupplier = true
+                    }
+                })
+
+                if (!nearJob && !nearSupplier) {
+                    wastageStops.push(stop)
+                }
+            }
+        })
+
+        if (wastageStops.length > 0) {
+            for (const stop of wastageStops) {
+                const link = `/admin?tab=reports&subtab=timeline&tech=${technicianId}&date=${date}&stop=${stop.arrivalTime}`
+                
+                // Check if already notified
+                const { data: existingNotif } = await supabase
+                    .from('app_notifications')
+                    .select('id')
+                    .eq('link', link)
+                    .limit(1)
+
+                if (!existingNotif || existingNotif.length === 0) {
+                    // Reverse geocode place name using Google Maps API key
+                    let placeName = `Stop near [${stop.lat.toFixed(4)}, ${stop.lng.toFixed(4)}]`
+                    const geocodeKey = process.env.GOOGLE_GEOCODING_API_KEY
+                    if (geocodeKey) {
+                        try {
+                            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${stop.lat},${stop.lng}&key=${geocodeKey}`
+                            const res = await fetch(url)
+                            const data = await res.json()
+                            if (data.status === 'OK' && data.results.length > 0) {
+                                const addrComponents = data.results[0].address_components
+                                const building = addrComponents.find(c => c.types.includes('premise') || c.types.includes('subpremise') || c.types.includes('point_of_interest'))?.long_name
+                                const routeName = addrComponents.find(c => c.types.includes('route'))?.long_name
+                                const sublocality = addrComponents.find(c => c.types.includes('sublocality_level_1') || c.types.includes('sublocality'))?.long_name
+                                
+                                const parts = [building, routeName, sublocality].filter(Boolean)
+                                if (parts.length > 0) {
+                                    placeName = parts.join(', ')
+                                } else {
+                                    placeName = data.results[0].formatted_address
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Reverse geocoding error in timeline API:", e)
+                        }
+                    }
+
+                    // Save resource wastage alert to DB
+                    await supabase.from('app_notifications').insert({
+                        recipient_type: 'admin',
+                        recipient_id: 'admin',
+                        title: `⚠️ Resource Wastage Alert: ${techName}`,
+                        message: `${techName} spent ${stop.durationMinutes} mins idling at ${placeName} on ${date}.`,
+                        link: link,
+                        is_read: false
+                    }).catch(e => console.error("Error inserting wastage notification:", e))
+
+                    // Broadcast realtime update
+                    try {
+                        const channel = supabase.channel('realtime:admin_updates')
+                        channel.subscribe((subStatus) => {
+                            if (subStatus === 'SUBSCRIBED') {
+                                channel.send({
+                                    type: 'broadcast',
+                                    event: 'notification_received',
+                                    payload: { title: `⚠️ Resource Wastage Alert: ${techName}` }
+                                }).then(() => supabase.removeChannel(channel))
+                            }
+                        })
+                    } catch (broadcastErr) {
+                        console.error("Broadcast failed:", broadcastErr)
+                    }
+                }
+            }
+        }
+
         // 8. Return response payload
         return NextResponse.json({
             success: true,
@@ -425,6 +554,7 @@ export async function GET(request) {
                     id: j.id,
                     jobNumber: j.job_number,
                     category: j.category,
+                    status: j.status,
                     customerName: j.customers?.name || j.customer_name || 'N/A',
                     propertyLocation: j.properties?.location || null,
                     address: [j.properties?.flat_number, j.properties?.building_name, j.properties?.address].filter(Boolean).join(', ').trim() || j.property?.address || ''
