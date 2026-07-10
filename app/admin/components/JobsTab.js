@@ -507,7 +507,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                             />
                         )}
                         {viewType === 'list'  && <JobsListView  jobs={processedJobs} onJobClick={handleJobClick} />}
-                        {viewType === 'map'   && <JobsMapView   jobs={processedJobs} onUpdateJob={handleUpdateJob} />}
+                        {viewType === 'map'   && <JobsMapView   jobs={processedJobs} onUpdateJob={handleUpdateJob} onJobClick={handleJobClick} />}
                     </>
                 )}
             </div>

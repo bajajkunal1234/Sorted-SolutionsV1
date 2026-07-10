@@ -139,7 +139,7 @@ function getHaversineDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-export default function JobsMapView({ jobs, onUpdateJob }) {
+export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
     const [technicians, setTechnicians] = useState([]);
     const [fleetLocations, setFleetLocations] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
@@ -797,7 +797,26 @@ export default function JobsMapView({ jobs, onUpdateJob }) {
                                                         style={{ padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: isExpanded ? 'rgba(56,189,248,0.12)' : 'transparent', transition: 'background-color 0.2s' }}
                                                     >
                                                         <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '70%' }}>
-                                                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#f8fafc' }}>{job.job_number}</span>
+                                                            <button 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onJobClick?.(job);
+                                                                }}
+                                                                style={{ 
+                                                                    fontSize: '12px', 
+                                                                    fontWeight: 800, 
+                                                                    color: '#38bdf8', 
+                                                                    background: 'none', 
+                                                                    border: 'none', 
+                                                                    padding: 0, 
+                                                                    cursor: 'pointer',
+                                                                    textDecoration: 'underline',
+                                                                    textAlign: 'left'
+                                                                }}
+                                                                title="Open Job Details"
+                                                            >
+                                                                {job.job_number}
+                                                            </button>
                                                             <span style={{ fontSize: '10px', color: '#cbd5e1', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{job.category || job.appliance || 'Service Job'}</span>
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
