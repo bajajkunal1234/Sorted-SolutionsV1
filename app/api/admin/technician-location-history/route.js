@@ -86,7 +86,7 @@ export async function GET(request) {
         const endIST = new Date(`${date}T23:59:59+05:30`)
 
         // 2. Fetch all location pings for that day
-        const { data: logs, error: logsError } = await supabase
+        const { data: logsData, error: logsError } = await supabase
             .from('technician_location_logs')
             .select('*')
             .eq('technician_id', technicianId)
@@ -95,6 +95,32 @@ export async function GET(request) {
             .order('created_at', { ascending: true })
 
         if (logsError) throw logsError
+
+        let logs = logsData || []
+
+        // Fallback: If no logs found for today, check the latest live location of the technician
+        if (logs.length === 0) {
+            const { data: liveLoc, error: liveLocError } = await supabase
+                .from('technician_live_locations')
+                .select('*')
+                .eq('technician_id', technicianId)
+                .maybeSingle()
+
+            if (!liveLocError && liveLoc) {
+                logs = [{
+                    latitude: liveLoc.latitude,
+                    longitude: liveLoc.longitude,
+                    is_on_job: liveLoc.is_on_job,
+                    tracking_source: liveLoc.tracking_source,
+                    is_online: liveLoc.is_online,
+                    location_precision: liveLoc.location_precision,
+                    battery_level: liveLoc.battery_level,
+                    connectivity_status: liveLoc.connectivity_status,
+                    is_mocked: liveLoc.is_mocked,
+                    created_at: liveLoc.updated_at
+                }]
+            }
+        }
 
         // 3. Fetch all active jobs scheduled or updated on that day for this tech
         const { data: jobs, error: jobsError } = await supabase

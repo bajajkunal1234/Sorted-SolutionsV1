@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -85,18 +85,111 @@ function MapPanController({ panTo }) {
 
 export default function TechnicianTimelineMap({ routePath = [], stops = [], jobsList = [], playbackPosition = null, panTo = null }) {
     const defaultCenter = routePath.length > 0 ? [routePath[0].lat, routePath[0].lng] : MUMBAI;
+    const [mapType, setMapType] = useState('google-roadmap');
+
+    useEffect(() => {
+        const cachedType = localStorage.getItem('mapViewType');
+        if (cachedType) {
+            if (cachedType === 'satellite' || cachedType === 'hybrid') {
+                setMapType('google-hybrid');
+            } else if (cachedType === 'dark' || cachedType === 'voyager') {
+                setMapType('voyager');
+            } else {
+                setMapType('google-roadmap');
+            }
+        }
+    }, []);
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            {/* Map Style Overlay controls */}
+            <div style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                zIndex: 1000,
+                backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                backdropFilter: 'blur(4px)',
+                padding: '4px 6px',
+                borderRadius: '6px',
+                display: 'flex',
+                gap: '4px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+            }}>
+                <button
+                    onClick={() => setMapType('google-roadmap')}
+                    style={{
+                        padding: '3px 6px',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: mapType === 'google-roadmap' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+                        color: '#fff',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    🗺️ Map
+                </button>
+                <button
+                    onClick={() => setMapType('google-hybrid')}
+                    style={{
+                        padding: '3px 6px',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: mapType === 'google-hybrid' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+                        color: '#fff',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    🛰️ Satellite
+                </button>
+                <button
+                    onClick={() => setMapType('voyager')}
+                    style={{
+                        padding: '3px 6px',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: mapType === 'voyager' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+                        color: '#fff',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    🎨 Classic
+                </button>
+            </div>
+
             <MapContainer
                 center={defaultCenter}
                 zoom={12}
                 style={{ width: '100%', height: '100%' }}
             >
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
+                {mapType === 'google-roadmap' && (
+                    <TileLayer
+                        url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                        attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                    />
+                )}
+                {mapType === 'google-hybrid' && (
+                    <TileLayer
+                        url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                        attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                    />
+                )}
+                {mapType === 'voyager' && (
+                    <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="https://carto.com/">Carto</a>'
+                    />
+                )}
 
                 {/* Draw Route Path */}
                 {routePath.length > 1 && (
