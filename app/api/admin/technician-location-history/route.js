@@ -122,14 +122,22 @@ export async function GET(request) {
             }
         }
 
-        // 3. Fetch all active jobs scheduled or updated on that day for this tech
-        const { data: rawJobs, error: jobsError } = await supabase
+        // 3. Fetch all jobs assigned to this technician
+        // This ensures we get both:
+        //  - Today's scheduled/updated jobs (for timeline)
+        //  - All active outstanding jobs (for map markers)
+        const { data: allJobsData, error: jobsError } = await supabase
             .from('jobs')
             .select('*')
             .eq('technician_id', technicianId)
-            .or(`scheduled_date.eq.${date},updated_at.gte.${startIST.toISOString()}`)
 
         if (jobsError) throw jobsError
+
+        const rawJobs = (allJobsData || []).filter(j => {
+            const isToday = j.scheduled_date === date || new Date(j.updated_at) >= startIST;
+            const isActive = j.status !== 'closed' && j.status !== 'cancelled';
+            return isToday || isActive;
+        });
 
         // Fetch technician name
         const { data: tech } = await supabase
