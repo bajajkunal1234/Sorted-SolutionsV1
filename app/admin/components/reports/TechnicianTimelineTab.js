@@ -60,6 +60,99 @@ export default function TechnicianTimelineTab() {
         fetchTechs();
     }, []);
 
+    // Calculate distance in meters between two lat/lng coordinates (Haversine formula)
+    const getDistance = (lat1, lon1, lat2, lon2) => {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+        const R = 6371e3; // metres
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c; // in meters
+    };
+
+    const enrichTimelineWithLocationAudits = (data) => {
+        if (!data || !data.timeline) return data;
+
+        const enrichedTimeline = data.timeline.map(event => {
+            let jobNum = null;
+            if (event.type === 'job_action') {
+                jobNum = event.title?.match(/JOB-\d+/)?.[0];
+            } else if (event.description) {
+                jobNum = event.description.match(/JOB-\d+/)?.[0];
+            }
+
+            if (jobNum && event.lat && event.lng) {
+                const job = data.jobsList?.find(j => j.jobNumber === jobNum);
+                if (job && job.propertyLocation) {
+                    const jobLat = job.propertyLocation.lat || job.propertyLocation.latitude;
+                    const jobLng = job.propertyLocation.lng || job.propertyLocation.longitude;
+
+                    if (jobLat && jobLng) {
+                        const distMeters = getDistance(event.lat, event.lng, jobLat, jobLng);
+                        if (distMeters > 200) { // 200 meters threshold
+                            const distKm = (distMeters / 1000).toFixed(2);
+                            return {
+                                ...event,
+                                warning: `Action clicked ${distKm} km away from registered customer location (Potential bypass or wrong location).`
+                            };
+                        }
+                    }
+                }
+            }
+            return event;
+        });
+
+        // Check stop proximity to jobs
+        const finalTimeline = enrichedTimeline.map(event => {
+            if (event.type === 'stop' && event.lat && event.lng) {
+                let nearestJob = null;
+                let minStopDist = Infinity;
+
+                data.jobsList?.forEach(job => {
+                    if (job.propertyLocation) {
+                        const jobLat = job.propertyLocation.lat || job.propertyLocation.latitude;
+                        const jobLng = job.propertyLocation.lng || job.propertyLocation.longitude;
+                        if (jobLat && jobLng) {
+                            const dist = getDistance(event.lat, event.lng, jobLat, jobLng);
+                            if (dist < minStopDist) {
+                                minStopDist = dist;
+                                nearestJob = job;
+                            }
+                        }
+                    }
+                });
+
+                if (nearestJob && minStopDist <= 200) {
+                    return {
+                        ...event,
+                        description: `${event.description} (Stationary at customer ${nearestJob.customerName}'s place for ${nearestJob.jobNumber}).`
+                    };
+                } else if (minStopDist > 200 && event.duration > 20) {
+                    return {
+                        ...event,
+                        warning: `Long idle stop (${event.duration} mins) away from any assigned customer location.`
+                    };
+                }
+            }
+            return event;
+        });
+
+        const violationsCount = finalTimeline.filter(e => e.warning).length;
+
+        return {
+            ...data,
+            timeline: finalTimeline,
+            violationsCount
+        };
+    };
+
     // Fetch Timeline route and interactions data
     const fetchTimeline = async () => {
         if (!selectedTechId || !selectedDate) return;
@@ -70,7 +163,8 @@ export default function TechnicianTimelineTab() {
             const res = await fetch(`/api/admin/technician-location-history?technicianId=${selectedTechId}&date=${selectedDate}`);
             const payload = await res.json();
             if (payload.success) {
-                setTimelineData(payload.data);
+                const enriched = enrichTimelineWithLocationAudits(payload.data);
+                setTimelineData(enriched);
             } else {
                 console.error(payload.error);
                 setTimelineData(null);

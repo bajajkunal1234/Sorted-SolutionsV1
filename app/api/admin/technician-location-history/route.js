@@ -134,8 +134,9 @@ export async function GET(request) {
         // Resolve properties and customers manually to bypass Supabase schema relationship cache blocks
         let enrichedJobs = []
         if (rawJobs && rawJobs.length > 0) {
-            const propertyIds = rawJobs.map(j => j.property_id).filter(Boolean)
-            const customerIds = rawJobs.map(j => j.customer_id).filter(Boolean)
+            const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            const propertyIds = rawJobs.map(j => j.property?.id || j.property_id).filter(id => id && UUID_REGEX.test(id))
+            const customerIds = rawJobs.map(j => j.customer_id).filter(id => id && UUID_REGEX.test(id))
 
             let properties = []
             if (propertyIds.length > 0) {
@@ -145,6 +146,8 @@ export async function GET(request) {
                     .in('id', propertyIds)
                 if (!propsError && props) {
                     properties = props
+                } else if (propsError) {
+                    console.error("Timeline API Debug - propsError:", propsError)
                 }
             }
 
@@ -160,8 +163,35 @@ export async function GET(request) {
             }
 
             enrichedJobs = rawJobs.map(job => {
-                const prop = properties.find(p => p.id === job.property_id) || null
-                const cust = customers.find(c => c.id === job.customer_id) || null
+                const propId = job.property?.id || job.property_id
+                let prop = (propId && UUID_REGEX.test(propId)) ? properties.find(p => p.id === propId) : null
+                
+                // Fallback to inline JSONB property if DB lookup was null or wasn't a valid DB UUID
+                if (!prop && job.property) {
+                    prop = {
+                        id: job.property.id,
+                        address: job.property.address,
+                        flat_number: job.property.flat_number,
+                        building_name: job.property.building_name,
+                        locality: job.property.locality,
+                        city: job.property.city || 'Mumbai',
+                        pincode: job.property.pincode,
+                        location: (job.property.latitude && job.property.longitude) ? {
+                            lat: parseFloat(job.property.latitude),
+                            lng: parseFloat(job.property.longitude)
+                        } : null
+                    }
+                } else if (prop) {
+                    prop = {
+                        ...prop,
+                        location: (prop.latitude && prop.longitude) ? {
+                            lat: parseFloat(prop.latitude),
+                            lng: parseFloat(prop.longitude)
+                        } : null
+                    }
+                }
+
+                const cust = (job.customer_id && UUID_REGEX.test(job.customer_id)) ? customers.find(c => c.id === job.customer_id) : null
                 return {
                     ...job,
                     properties: prop,
@@ -395,9 +425,9 @@ export async function GET(request) {
                     id: j.id,
                     jobNumber: j.job_number,
                     category: j.category,
-                    customerName: j.customers?.name || 'N/A',
+                    customerName: j.customers?.name || j.customer_name || 'N/A',
                     propertyLocation: j.properties?.location || null,
-                    address: [j.properties?.flat_number, j.properties?.building_name, j.properties?.address].filter(Boolean).join(', ')
+                    address: [j.properties?.flat_number, j.properties?.building_name, j.properties?.address].filter(Boolean).join(', ').trim() || j.property?.address || ''
                 }))
             }
         })
