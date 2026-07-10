@@ -123,13 +123,54 @@ export async function GET(request) {
         }
 
         // 3. Fetch all active jobs scheduled or updated on that day for this tech
-        const { data: jobs, error: jobsError } = await supabase
+        const { data: rawJobs, error: jobsError } = await supabase
             .from('jobs')
-            .select('*, properties(*), customers(*)')
+            .select('*')
             .eq('technician_id', technicianId)
             .or(`scheduled_date.eq.${date},updated_at.gte.${startIST.toISOString()}`)
 
         if (jobsError) throw jobsError
+
+        // Resolve properties and customers manually to bypass Supabase schema relationship cache blocks
+        let enrichedJobs = []
+        if (rawJobs && rawJobs.length > 0) {
+            const propertyIds = rawJobs.map(j => j.property_id).filter(Boolean)
+            const customerIds = rawJobs.map(j => j.customer_id).filter(Boolean)
+
+            let properties = []
+            if (propertyIds.length > 0) {
+                const { data: props, error: propsError } = await supabase
+                    .from('properties')
+                    .select('*')
+                    .in('id', propertyIds)
+                if (!propsError && props) {
+                    properties = props
+                }
+            }
+
+            let customers = []
+            if (customerIds.length > 0) {
+                const { data: custs, error: custsError } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .in('id', customerIds)
+                if (!custsError && custs) {
+                    customers = custs
+                }
+            }
+
+            enrichedJobs = rawJobs.map(job => {
+                const prop = properties.find(p => p.id === job.property_id) || null
+                const cust = customers.find(c => c.id === job.customer_id) || null
+                return {
+                    ...job,
+                    properties: prop,
+                    customers: cust
+                }
+            })
+        }
+
+        const jobs = enrichedJobs
 
         // Extract job IDs for sub-queries
         const jobIds = (jobs || []).map(j => j.id)
