@@ -209,30 +209,9 @@ function JobCard({ job, onClick, onCalculate }) {
                 </div>
             </div>
 
-            {job.priority_note && (
-                <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                    border: '1px dashed rgba(59, 130, 246, 0.3)',
-                    color: '#2563eb',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '3px 8px',
-                    borderRadius: '10px 10px 10px 2px',
-                    marginTop: '4px',
-                    marginBottom: '4px',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                    width: 'fit-content'
-                }}>
-                    ☁️ {job.priority_note}
-                </div>
-            )}
-
             {/* Footer */}
             <div className="job-card-footer">
-                <div className="job-card-assignee">
+                <div className="job-card-assignee" style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
                     <div 
                         className="assignee-avatar" 
                         title={technicianName}
@@ -240,6 +219,25 @@ function JobCard({ job, onClick, onCalculate }) {
                     >
                         {getInitials(technicianName)}
                     </div>
+                    {job.priority_note && (
+                        <div style={{
+                            backgroundColor: '#ffffff',
+                            color: '#000000',
+                            border: '1.5px solid #000000',
+                            borderRadius: '12px 12px 12px 1px',
+                            padding: '3px 8px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            zIndex: 10
+                        }}>
+                            ☁️ {job.priority_note}
+                        </div>
+                    )}
                 </div>
 
                 {overdue ? (

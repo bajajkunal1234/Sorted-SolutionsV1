@@ -1634,24 +1634,43 @@ function TechnicianApp() {
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}>{job.locality || job.city || 'No location'}</span></div>
-                                                        {job.priority_note && (
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-primary)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
                                                             <div style={{
-                                                                display: 'inline-flex',
+                                                                width: '24px',
+                                                                height: '24px',
+                                                                borderRadius: '50%',
+                                                                background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                                display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '4px',
-                                                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                                                border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                                                color: '#2563eb',
-                                                                fontSize: '10px',
-                                                                fontWeight: 600,
-                                                                padding: '3px 8px',
-                                                                borderRadius: '10px 10px 10px 2px',
-                                                                marginTop: '4px',
-                                                                width: 'fit-content'
+                                                                justifyContent: 'center',
+                                                                color: 'var(--text-inverse)',
+                                                                fontSize: '11px',
+                                                                fontWeight: 600
                                                             }}>
-                                                                ☁️ {job.priority_note}
+                                                                {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
                                                             </div>
-                                                        )}
+                                                            {job.priority_note && (
+                                                                <div style={{
+                                                                    backgroundColor: '#ffffff',
+                                                                    color: '#000000',
+                                                                    border: '1.5px solid #000000',
+                                                                    borderRadius: '12px 12px 12px 1px',
+                                                                    padding: '3px 8px',
+                                                                    fontSize: '11px',
+                                                                    fontWeight: 700,
+                                                                    whiteSpace: 'nowrap',
+                                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px',
+                                                                    zIndex: 10
+                                                                }}>
+                                                                    ☁️ {job.priority_note}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
@@ -1691,23 +1710,30 @@ function TechnicianApp() {
                                                                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                                     {job.customerName} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>· {job.description || job.product?.type || 'Service'}</span>
                                                                 </div>
-                                                                {job.priority_note && (
-                                                                    <div style={{
-                                                                        display: 'inline-flex',
-                                                                        alignItems: 'center',
-                                                                        gap: '4px',
-                                                                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                                                        border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                                                        color: '#2563eb',
-                                                                        fontSize: '9px',
-                                                                        fontWeight: 600,
-                                                                        padding: '2px 6px',
-                                                                        borderRadius: '8px 8px 8px 1px',
-                                                                        width: 'fit-content'
-                                                                    }}>
-                                                                        ☁️ {job.priority_note}
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', marginTop: '2px' }}>
+                                                                    <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 600 }}>
+                                                                        {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
                                                                     </div>
-                                                                )}
+                                                                    {job.priority_note && (
+                                                                        <div style={{
+                                                                            backgroundColor: '#ffffff',
+                                                                            color: '#000000',
+                                                                            border: '1px solid #000000',
+                                                                            borderRadius: '8px 8px 8px 1px',
+                                                                            padding: '2px 5px',
+                                                                            fontSize: '9px',
+                                                                            fontWeight: 700,
+                                                                            whiteSpace: 'nowrap',
+                                                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '2px',
+                                                                            zIndex: 10
+                                                                        }}>
+                                                                            ☁️ {job.priority_note}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             {job.locality && (
                                                                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -1738,29 +1764,47 @@ function TechnicianApp() {
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{job.locality || job.city || job.address || 'No location'}</span></div>
-                                                        {job.priority_note && (
-                                                            <div style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px',
-                                                                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                                                border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                                                color: '#2563eb',
-                                                                fontSize: '10px',
-                                                                fontWeight: 600,
-                                                                padding: '3px 8px',
-                                                                borderRadius: '10px 10px 10px 2px',
-                                                                marginTop: '4px',
-                                                                width: 'fit-content'
-                                                            }}>
-                                                                ☁️ {job.priority_note}
-                                                            </div>
-                                                        )}
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>
                                                         <div style={{ padding: '2px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '12px', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>{job.status ? job.status.replace(/[-_]/g, ' ').toUpperCase() : 'OPEN'}</div>
                                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', flex: 1, whiteSpace: isDetail ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>"{job.defect || 'No defect specified'}"</div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', marginBottom: '8px' }}>
+                                                        <div style={{
+                                                            width: '20px',
+                                                            height: '20px',
+                                                            borderRadius: '50%',
+                                                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: 'var(--text-inverse)',
+                                                            fontSize: '10px',
+                                                            fontWeight: 600
+                                                        }}>
+                                                            {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
+                                                        </div>
+                                                        {job.priority_note && (
+                                                            <div style={{
+                                                                backgroundColor: '#ffffff',
+                                                                color: '#000000',
+                                                                border: '1.5px solid #000000',
+                                                                borderRadius: '12px 12px 12px 1px',
+                                                                padding: '3px 8px',
+                                                                fontSize: '11px',
+                                                                fontWeight: 700,
+                                                                whiteSpace: 'nowrap',
+                                                                boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px',
+                                                                zIndex: 10
+                                                            }}>
+                                                                ☁️ {job.priority_note}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>

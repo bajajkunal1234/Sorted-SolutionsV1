@@ -95,24 +95,6 @@ function JobsListView({ jobs, onJobClick }) {
                                 }}>
                                     {jobTitle}
                                 </h3>
-                                {job.priority_note && (
-                                    <div style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                        border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                        color: '#2563eb',
-                                        fontSize: '9px',
-                                        fontWeight: 600,
-                                        padding: '2px 6px',
-                                        borderRadius: '8px 8px 8px 1px',
-                                        marginBottom: '6px',
-                                        width: 'fit-content'
-                                    }}>
-                                        ☁️ {job.priority_note}
-                                    </div>
-                                )}
 
                                 {/* Details Row */}
                                 <div style={{
@@ -147,11 +129,31 @@ function JobsListView({ jobs, onJobClick }) {
 
                                     {/* Technician */}
                                     {!isBooking && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
                                             <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 600 }}>
                                                 {getInitials(technicianName || 'U')}
                                             </div>
                                             <span>{technicianName || 'Unassigned'}</span>
+                                            {job.priority_note && (
+                                                <div style={{
+                                                    backgroundColor: '#ffffff',
+                                                    color: '#000000',
+                                                    border: '1px solid #000000',
+                                                    borderRadius: '8px 8px 8px 1px',
+                                                    padding: '2px 5px',
+                                                    fontSize: '9px',
+                                                    fontWeight: 700,
+                                                    whiteSpace: 'nowrap',
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '2px',
+                                                    marginLeft: '4px',
+                                                    zIndex: 10
+                                                }}>
+                                                    ☁️ {job.priority_note}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

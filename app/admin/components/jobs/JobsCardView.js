@@ -199,25 +199,6 @@ function JobsCardView({ jobs, onJobClick }) {
                                 </div>
                             )}
 
-                            {job.priority_note && (
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                    border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                    color: '#2563eb',
-                                    fontSize: '10px',
-                                    fontWeight: 600,
-                                    padding: '3px 8px',
-                                    borderRadius: '10px 10px 10px 2px',
-                                    marginTop: '4px',
-                                    width: 'fit-content'
-                                }}>
-                                    ☁️ {job.priority_note}
-                                </div>
-                            )}
-
                             {/* Footer */}
                             <div style={{
                                 paddingTop: 'var(--spacing-sm)',
@@ -235,7 +216,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                     <>
                                         {/* Technician */}
                                         {technicianName && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', position: 'relative' }}>
                                                 <div style={{
                                                     width: '24px',
                                                     height: '24px',
@@ -253,6 +234,26 @@ function JobsCardView({ jobs, onJobClick }) {
                                                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                                     {technicianName}
                                                 </span>
+                                                {job.priority_note && (
+                                                    <div style={{
+                                                        backgroundColor: '#ffffff',
+                                                        color: '#000000',
+                                                        border: '1.5px solid #000000',
+                                                        borderRadius: '12px 12px 12px 1px',
+                                                        padding: '2px 6px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        whiteSpace: 'nowrap',
+                                                        boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '2px',
+                                                        marginLeft: '4px',
+                                                        zIndex: 10
+                                                    }}>
+                                                        ☁️ {job.priority_note}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 

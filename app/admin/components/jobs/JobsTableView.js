@@ -203,24 +203,6 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                             <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
                                                 {jobTitle}
                                             </div>
-                                            {job.priority_note && (
-                                                <div style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '2px',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                                    border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                                    color: '#2563eb',
-                                                    fontSize: '9px',
-                                                    fontWeight: 600,
-                                                    padding: '1px 6px',
-                                                    borderRadius: '8px 8px 8px 1px',
-                                                    marginTop: '2px',
-                                                    width: 'fit-content'
-                                                }}>
-                                                    ☁️ {job.priority_note}
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
                                 </td>
@@ -278,11 +260,31 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                     {isBooking ? (
                                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Waiting</span>
                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'visible', position: 'relative' }}>
                                             <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 600, flexShrink: 0 }}>
                                                 {getInitials(technicianName)}
                                             </div>
                                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={technicianName}>{technicianName}</span>
+                                            {job.priority_note && (
+                                                <div style={{
+                                                    backgroundColor: '#ffffff',
+                                                    color: '#000000',
+                                                    border: '1px solid #000000',
+                                                    borderRadius: '8px 8px 8px 1px',
+                                                    padding: '2px 5px',
+                                                    fontSize: '9px',
+                                                    fontWeight: 700,
+                                                    whiteSpace: 'nowrap',
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '2px',
+                                                    marginLeft: '4px',
+                                                    zIndex: 10
+                                                }}>
+                                                    ☁️ {job.priority_note}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </td>

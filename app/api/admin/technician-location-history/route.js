@@ -177,7 +177,7 @@ export async function GET(request) {
             let customers = []
             if (customerIds.length > 0) {
                 const { data: custs, error: custsError } = await supabase
-                    .from('customers')
+                    .from('accounts')
                     .select('*')
                     .in('id', customerIds)
                 if (!custsError && custs) {
@@ -185,7 +185,7 @@ export async function GET(request) {
                 }
             }
 
-            enrichedJobs = rawJobs.map(job => {
+            const jobsPromises = rawJobs.map(async job => {
                 const propId = job.property?.id || job.property_id
                 let prop = (propId && UUID_REGEX.test(propId)) ? properties.find(p => p.id === propId) : null
                 
@@ -215,12 +215,87 @@ export async function GET(request) {
                 }
 
                 const cust = (job.customer_id && UUID_REGEX.test(job.customer_id)) ? customers.find(c => c.id === job.customer_id) : null
+
+                // Fallback: Resolve coordinate from customer's account properties list if missing
+                if (prop && !prop.location && cust && Array.isArray(cust.properties)) {
+                    const matchById = cust.properties.find(p => String(p.id) === String(propId || job.property?.id))
+                    if (matchById && (matchById.lat || matchById.latitude)) {
+                        prop.location = {
+                            lat: Number(matchById.lat || matchById.latitude),
+                            lng: Number(matchById.lng || matchById.longitude)
+                        }
+                    } else {
+                        const matchByDetails = cust.properties.find(p => 
+                            (p.building_name && prop.building_name && String(p.building_name).trim().toLowerCase() === String(prop.building_name).trim().toLowerCase()) ||
+                            (p.address && prop.address && String(p.address).trim().toLowerCase() === String(prop.address).trim().toLowerCase())
+                        )
+                        if (matchByDetails && (matchByDetails.lat || matchByDetails.latitude)) {
+                            prop.location = {
+                                lat: Number(matchByDetails.lat || matchByDetails.latitude),
+                                lng: Number(matchByDetails.lng || matchByDetails.longitude)
+                            }
+                        } else {
+                            const firstWithCoords = cust.properties.find(p => p.lat || p.latitude)
+                            if (firstWithCoords) {
+                                prop.location = {
+                                    lat: Number(firstWithCoords.lat || firstWithCoords.latitude),
+                                    lng: Number(firstWithCoords.lng || firstWithCoords.longitude)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Final Fallback: Geocode on the fly using Google Geocoding API if coordinates are still missing
+                if (prop && !prop.location) {
+                    const geocodeKey = process.env.GOOGLE_GEOCODING_API_KEY
+                    if (geocodeKey) {
+                        const building = prop.building_name || ''
+                        const street = prop.address || ''
+                        const locality = prop.locality || ''
+                        const pincode = prop.pincode || ''
+                        const city = prop.city || 'Mumbai'
+
+                        const queries = []
+                        if (building && street && locality) queries.push(`${building}, ${street}, ${locality}, ${city}, India`)
+                        if (building && locality)           queries.push(`${building}, ${locality}, ${city}, India`)
+                        if (street && locality)             queries.push(`${street}, ${locality}, ${city}, India`)
+                        if (locality)                       queries.push(`${locality}, ${city}, India`)
+                        if (pincode)                        queries.push(`${pincode}, India`)
+
+                        for (const q of queries) {
+                            try {
+                                const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${geocodeKey}&region=in&components=country:IN`
+                                const res = await fetch(url)
+                                const data = await res.json()
+                                if (data.status === 'OK' && data.results.length > 0) {
+                                    const { lat, lng } = data.results[0].geometry.location
+                                    prop.location = { lat, lng }
+                                    
+                                    // Asynchronously save back to properties table
+                                    if (prop.id && UUID_REGEX.test(prop.id) && !prop.id.startsWith('inline')) {
+                                        supabase.from('properties')
+                                            .update({ latitude: lat, longitude: lng })
+                                            .eq('id', prop.id)
+                                            .then(() => {})
+                                    }
+                                    break
+                                }
+                            } catch (e) {
+                                console.error("On-the-fly geocoding failed:", e)
+                            }
+                        }
+                    }
+                }
+
                 return {
                     ...job,
                     properties: prop,
                     customers: cust
                 }
             })
+
+            enrichedJobs = await Promise.all(jobsPromises)
         }
 
         const jobs = enrichedJobs

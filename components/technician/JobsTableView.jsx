@@ -186,24 +186,41 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                             <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
                                                 {jobTitle}
                                             </div>
-                                            {job.priority_note && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', marginTop: '2px' }}>
                                                 <div style={{
-                                                    display: 'inline-flex',
+                                                    width: '16px',
+                                                    height: '16px',
+                                                    borderRadius: '50%',
+                                                    background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                    display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '2px',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                                    border: '1px dashed rgba(59, 130, 246, 0.3)',
-                                                    color: '#2563eb',
-                                                    fontSize: '9px',
-                                                    fontWeight: 600,
-                                                    padding: '1px 6px',
-                                                    borderRadius: '8px 8px 8px 1px',
-                                                    marginTop: '2px',
-                                                    width: 'fit-content'
+                                                    justifyContent: 'center',
+                                                    color: 'var(--text-inverse)',
+                                                    fontSize: '8px',
+                                                    fontWeight: 600
                                                 }}>
-                                                    ☁️ {job.priority_note}
+                                                    {((job.technician_name || job.assigned_technician?.name || 'T').split(' ').map(n => n[0]).join(''))}
                                                 </div>
-                                            )}
+                                                {job.priority_note && (
+                                                    <div style={{
+                                                        backgroundColor: '#ffffff',
+                                                        color: '#000000',
+                                                        border: '1px solid #000000',
+                                                        borderRadius: '8px 8px 8px 1px',
+                                                        padding: '2px 5px',
+                                                        fontSize: '9px',
+                                                        fontWeight: 700,
+                                                        whiteSpace: 'nowrap',
+                                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '2px',
+                                                        zIndex: 10
+                                                    }}>
+                                                        ☁️ {job.priority_note}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </td>
