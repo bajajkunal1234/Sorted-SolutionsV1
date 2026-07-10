@@ -133,10 +133,13 @@ export async function GET(request) {
 
         if (jobsError) throw jobsError
 
+        const fortyEightHoursAgo = new Date(startIST.getTime() - 48 * 60 * 60 * 1000);
+
         const rawJobs = (allJobsData || []).filter(j => {
             const isToday = j.scheduled_date === date || new Date(j.updated_at) >= startIST;
             const isActive = j.status !== 'closed' && j.status !== 'cancelled';
-            return isToday || isActive;
+            const isRecentClosedCancelled = (j.status === 'closed' || j.status === 'cancelled') && new Date(j.updated_at) >= fortyEightHoursAgo;
+            return isToday || isActive || isRecentClosedCancelled;
         });
 
         // Fetch technician name

@@ -307,7 +307,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 ))}
 
                 {/* Job Marker Pins */}
-                {jobsList.filter(job => job.status !== 'closed' && job.status !== 'cancelled').map((job, i) => {
+                {jobsList.map((job, i) => {
                     const loc = job.propertyLocation;
                     if (!loc) return null;
                     const lat = loc.lat || loc.latitude;
@@ -317,7 +317,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     return (
                         <Marker key={`job-${job.id}-${i}`} position={[lat, lng]} icon={jobIcon(job.jobNumber)}>
                             <Popup>
-                                <strong>{job.jobNumber} ({job.category})</strong><br />
+                                <strong>{job.jobNumber} ({job.category}) - <span style={{ textTransform: 'capitalize' }}>{job.status?.replace(/_/g, ' ')}</span></strong><br />
                                 Customer: {job.customerName}<br />
                                 Address: {job.address}
                             </Popup>
