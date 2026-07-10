@@ -511,14 +511,17 @@ export async function GET(request) {
                     }
 
                     // Save resource wastage alert to DB
-                    await supabase.from('app_notifications').insert({
+                    const { error: insertErr } = await supabase.from('app_notifications').insert({
                         recipient_type: 'admin',
                         recipient_id: 'admin',
                         title: `⚠️ Resource Wastage Alert: ${techName}`,
                         message: `${techName} spent ${stop.durationMinutes} mins idling at ${placeName} on ${date}.`,
                         link: link,
                         is_read: false
-                    }).catch(e => console.error("Error inserting wastage notification:", e))
+                    })
+                    if (insertErr) {
+                        console.error("Error inserting wastage notification:", insertErr)
+                    }
 
                     // Broadcast realtime update
                     try {
