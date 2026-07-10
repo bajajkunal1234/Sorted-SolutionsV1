@@ -38,6 +38,7 @@ export default function TechnicianTimelineTab() {
     const [playbackIndex, setPlaybackIndex] = useState(null);
     const [playbackSpeed, setPlaybackSpeed] = useState(1); // multiplier
     const [panTo, setPanTo] = useState(null);
+    const [groupMode, setGroupMode] = useState('time'); // 'time' | 'job' | 'location'
 
     const playbackIntervalRef = useRef(null);
 
@@ -234,6 +235,379 @@ export default function TechnicianTimelineTab() {
         setCurrentMonth(`${nextYear}-${String(nextMonth).padStart(2, '0')}`);
     };
 
+    // Helper to identify Mumbai localities from address strings
+    const getLocality = (address) => {
+        if (!address) return 'Unknown Locality';
+        const commonLocalities = [
+            'Bandra', 'Khar', 'Santacruz', 'Vile Parle', 'Andheri', 'Jogeshwari', 'Goregaon', 'Malad', 'Kandivali', 'Borivali',
+            'Dahisar', 'Wadala', 'Sewri', 'Dharavi', 'Sion', 'Kurla', 'Ghatkopar', 'Vikhroli', 'Bhandup', 'Mulund', 'Thane',
+            'Dadar', 'Prabhadevi', 'Worli', 'Parel', 'Byculla', 'Mazgaon', 'Colaba', 'Fort', 'Marine Lines', 'Malabar Hill',
+            'Charni Road', 'Grant Road', 'Mumbai Central', 'Mahim', 'Matunga', 'Chembur', 'Trombay', 'Mankhurd', 'Govandi'
+        ];
+        for (const loc of commonLocalities) {
+            if (address.toLowerCase().includes(loc.toLowerCase())) {
+                return loc;
+            }
+        }
+        const parts = address.split(',').map(p => p.trim());
+        if (parts.length > 2) {
+            return parts[parts.length - 2];
+        }
+        return parts[0] || 'Unknown Locality';
+    };
+
+    // Dynamically generate Manager's performance audit metrics
+    const generateDailySummary = (data) => {
+        if (!data || !data.timeline) return null;
+
+        const timeline = data.timeline;
+        const jobsList = data.jobsList || [];
+
+        const visitedLocalities = new Set();
+        jobsList.forEach(job => {
+            if (job.address) {
+                visitedLocalities.add(getLocality(job.address));
+            }
+        });
+        
+        timeline.forEach(event => {
+            if (event.description && event.description.includes('at')) {
+                const loc = getLocality(event.description);
+                if (loc !== 'Unknown Locality') visitedLocalities.add(loc);
+            }
+        });
+
+        const uniqueVisitedJobs = new Set();
+        const uniqueClosedJobs = new Set();
+        
+        timeline.forEach(event => {
+            if (event.type === 'interaction' && event.title === 'job') {
+                if (event.description && event.description.toLowerCase().includes('started job')) {
+                    const jobNum = event.description.match(/JOB-\d+/)?.[0];
+                    if (jobNum) uniqueVisitedJobs.add(jobNum);
+                }
+            }
+            if (event.type === 'job_action') {
+                const jobNum = event.title?.match(/JOB-\d+/)?.[0];
+                if (jobNum) uniqueVisitedJobs.add(jobNum);
+                if (event.description?.toLowerCase().includes('job closed') || event.description?.toLowerCase().includes('status changed: work_in_progress → closed')) {
+                    if (jobNum) uniqueClosedJobs.add(jobNum);
+                }
+            }
+        });
+
+        let totalRevenue = 0;
+        timeline.forEach(event => {
+            if (event.description && event.description.includes('Payment of')) {
+                const match = event.description.match(/₹(\d+)/);
+                if (match) {
+                    totalRevenue += parseInt(match[1]);
+                }
+            }
+        });
+
+        let totalIdleMins = 0;
+        let timepassCount = 0;
+        const stopsList = timeline.filter(e => e.type === 'stop');
+        
+        stopsList.forEach(stop => {
+            totalIdleMins += stop.duration || 0;
+            timepassCount++;
+        });
+
+        const alerts = [];
+        const jobEvents = {};
+        
+        timeline.forEach(event => {
+            let jobNum = null;
+            if (event.type === 'job_action') {
+                jobNum = event.title?.match(/JOB-\d+/)?.[0];
+            } else if (event.description) {
+                jobNum = event.description.match(/JOB-\d+/)?.[0];
+            }
+            if (jobNum) {
+                if (!jobEvents[jobNum]) jobEvents[jobNum] = [];
+                jobEvents[jobNum].push(event);
+            }
+        });
+
+        Object.entries(jobEvents).forEach(([jobNum, events]) => {
+            events.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+            const quotationIndex = events.findIndex(e => e.description?.toLowerCase().includes('quotation_sent') || e.description?.toLowerCase().includes('quotation sent'));
+            const startIndex = events.findIndex(e => e.description?.toLowerCase().includes('started job') || e.description?.toLowerCase().includes('on-way') || e.description?.toLowerCase().includes('diagnosing_quoting'));
+
+            if (quotationIndex !== -1 && startIndex !== -1 && quotationIndex < startIndex) {
+                alerts.push(`Quotation created before starting work for ${jobNum}`);
+            }
+        });
+
+        stopsList.forEach((stop, idx) => {
+            if (stop.duration > 20) {
+                alerts.push(`Parked ${stop.duration} mins idle at Stop #${idx + 1}`);
+            }
+        });
+
+        return {
+            visitedCount: uniqueVisitedJobs.size || jobsList.length,
+            closedCount: uniqueClosedJobs.size || 0,
+            revenue: totalRevenue,
+            localities: Array.from(visitedLocalities),
+            idleMins: totalIdleMins,
+            timepassCount,
+            alerts
+        };
+    };
+
+    const getAuditSummaryText = (summary) => {
+        if (!summary) return 'No dynamic activity logs recorded for this day.';
+        const locText = summary.localities.length > 0 ? `in ${summary.localities.join(', ')}` : '';
+        
+        let text = `Technician worked on ${summary.visitedCount} job locations ${locText}, closed ${summary.closedCount} job(s), and collected ₹${summary.revenue} revenue. `;
+        
+        if (summary.idleMins > 0) {
+            text += `Spent a total of ${summary.idleMins} minutes idle/stationary across ${summary.timepassCount} stop(s). `;
+        } else {
+            text += `No significant idle stops detected. `;
+        }
+
+        if (summary.alerts.length > 0) {
+            text += `⚠️ Audit notes: ${summary.alerts.slice(0, 3).join('; ')}.`;
+        } else {
+            text += `✅ Process check: Followed job workflow correctly today.`;
+        }
+        
+        return text;
+    };
+
+    // Grouping algorithms
+    const getJobGroupedEvents = () => {
+        if (!timelineData || !timelineData.timeline) return [];
+
+        const groups = {};
+        const generalEvents = [];
+
+        timelineData.timeline.forEach(event => {
+            let jobNum = null;
+            if (event.type === 'job_action') {
+                jobNum = event.title?.match(/JOB-\d+/)?.[0];
+            } else if (event.description) {
+                jobNum = event.description.match(/JOB-\d+/)?.[0];
+            }
+
+            if (jobNum) {
+                if (!groups[jobNum]) {
+                    const jobDetails = timelineData.jobsList?.find(j => j.jobNumber === jobNum) || null;
+                    groups[jobNum] = {
+                        title: `Job ${jobNum}`,
+                        subtitle: jobDetails ? `${jobDetails.category} for ${jobDetails.customerName}` : 'Job details',
+                        events: []
+                    };
+                }
+                groups[jobNum].events.push(event);
+            } else {
+                generalEvents.push(event);
+            }
+        });
+
+        const result = [];
+        Object.entries(groups).forEach(([jobNum, group]) => {
+            result.push({
+                id: `job-group-${jobNum}`,
+                title: group.title,
+                subtitle: group.subtitle,
+                events: group.events
+            });
+        });
+
+        if (generalEvents.length > 0) {
+            result.push({
+                id: 'job-group-general',
+                title: 'General Activities',
+                subtitle: 'Shift start, end, and general parking stops',
+                events: generalEvents
+            });
+        }
+
+        return result;
+    };
+
+    const getLocationGroupedEvents = () => {
+        if (!timelineData || !timelineData.timeline) return [];
+
+        const groups = {};
+        let currentLocality = 'General / Transit';
+
+        timelineData.timeline.forEach(event => {
+            let eventLocality = null;
+
+            if (event.lat && event.lng) {
+                eventLocality = getLocality(event.description || '');
+                if (eventLocality === 'Unknown Locality') {
+                    const stop = timelineData.timeline.find(s => s.type === 'stop' && Math.abs(s.lat - event.lat) < 0.005 && Math.abs(s.lng - event.lng) < 0.005);
+                    if (stop) {
+                        eventLocality = getLocality(stop.description || '');
+                    }
+                }
+            } else if (event.description) {
+                eventLocality = getLocality(event.description);
+            }
+
+            if (eventLocality && eventLocality !== 'Unknown Locality') {
+                currentLocality = eventLocality;
+            }
+
+            if (!groups[currentLocality]) {
+                groups[currentLocality] = {
+                    title: `📍 Location: ${currentLocality}`,
+                    events: []
+                };
+            }
+            groups[currentLocality].events.push(event);
+        });
+
+        return Object.entries(groups).map(([name, group]) => ({
+            id: `loc-group-${name}`,
+            title: group.title,
+            events: group.events
+        }));
+    };
+
+    const renderGroupedEvents = () => {
+        let groups = [];
+        if (groupMode === 'job') {
+            groups = getJobGroupedEvents();
+        } else if (groupMode === 'location') {
+            groups = getLocationGroupedEvents();
+        }
+
+        return groups.map(group => (
+            <div key={group.id} style={{
+                marginBottom: 'var(--spacing-md)',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--spacing-xs)',
+                border: '1px solid var(--border-color)'
+            }}>
+                {/* Group Header */}
+                <div style={{
+                    padding: 'var(--spacing-xs) var(--spacing-sm)',
+                    borderBottom: '1px solid var(--border-color)',
+                    marginBottom: 'var(--spacing-xs)'
+                }}>
+                    <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 'bold', color: 'var(--color-primary)' }}>{group.title}</h4>
+                    {group.subtitle && (
+                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>{group.subtitle}</div>
+                    )}
+                </div>
+
+                {/* Group nested timeline cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingLeft: '4px' }}>
+                    {group.events.map((event) => {
+                        const idx = timelineData.timeline.indexOf(event);
+                        const isHighlighted = idx === activeTimelineIndex;
+                        const isStop = event.type === 'stop';
+                        const isJob = event.type === 'job_action';
+                        const isCall = event.type === 'interaction' && event.title?.includes('Call');
+                        const isStartEnd = event.type === 'shift_start' || event.type === 'shift_end';
+
+                        let cardBorderColor = 'var(--border-color)';
+                        let iconColor = 'var(--text-secondary)';
+                        let IconComponent = MapPin;
+
+                        if (isStop) {
+                            cardBorderColor = '#64748b';
+                            iconColor = '#64748b';
+                            IconComponent = Clock;
+                        } else if (isJob) {
+                            cardBorderColor = '#f59e0b';
+                            iconColor = '#f59e0b';
+                            IconComponent = Briefcase;
+                        } else if (isCall) {
+                            cardBorderColor = '#3b82f6';
+                            iconColor = '#3b82f6';
+                            IconComponent = PhoneCall;
+                        } else if (isStartEnd) {
+                            cardBorderColor = '#10b981';
+                            iconColor = '#10b981';
+                            IconComponent = Award;
+                        }
+
+                        return (
+                            <div
+                                key={`event-card-${idx}`}
+                                className={`timeline-card ${isHighlighted ? 'active' : ''}`}
+                                onClick={() => {
+                                    if (event.lat && event.lng) {
+                                        setPanTo({ lat: event.lat, lng: event.lng });
+                                    }
+                                }}
+                                onMouseEnter={() => {
+                                    if (event.lat && event.lng) {
+                                        setPanTo({ lat: event.lat, lng: event.lng });
+                                    }
+                                }}
+                                style={{
+                                    display: 'flex',
+                                    gap: 'var(--spacing-sm)',
+                                    padding: 'var(--spacing-xs) var(--spacing-sm)',
+                                    backgroundColor: isHighlighted ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-secondary)',
+                                    border: `1px solid ${event.warning ? '#ef4444' : cardBorderColor}`,
+                                    borderRadius: 'var(--radius-md)',
+                                    cursor: 'pointer',
+                                    position: 'relative',
+                                    borderLeft: isHighlighted ? '4px solid var(--color-primary)' : `4px solid ${event.warning ? '#ef4444' : cardBorderColor}`
+                                }}
+                            >
+                                <div style={{
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'var(--bg-primary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <IconComponent size={12} style={{ color: iconColor }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '11px', fontWeight: 'bold' }}>{event.title}</span>
+                                        <span style={{ fontSize: '9px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                            {new Date(event.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        {event.description}
+                                    </div>
+                                    {event.warning && (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '4px',
+                                            marginTop: '4px',
+                                            padding: '2px 4px',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                            borderRadius: 'var(--radius-sm)',
+                                            color: '#ef4444',
+                                            fontSize: '9px',
+                                            fontWeight: '500'
+                                        }}>
+                                            <AlertTriangle size={10} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                            <span>{event.warning}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        ));
+    };
+
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 'var(--spacing-md)', height: 'calc(100vh - 180px)', minHeight: '550px' }}>
             <style>{`
@@ -408,6 +782,61 @@ export default function TechnicianTimelineTab() {
                     )}
                 </div>
 
+                {/* Manager's Audit Performance Summary Card */}
+                {timelineData && (
+                    <div style={{
+                        padding: 'var(--spacing-md)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                        borderRadius: 'var(--radius-lg)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Activity size={16} style={{ color: 'var(--color-primary)' }} />
+                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-xs)', fontWeight: 'bold', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                TL Performance Audit Summary
+                            </h4>
+                        </div>
+                        <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', lineHeight: '1.45', color: 'var(--text-secondary)' }}>
+                            {getAuditSummaryText(generateDailySummary(timelineData))}
+                        </p>
+                    </div>
+                )}
+
+                {/* Grouping Selection Bar */}
+                {timelineData && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--spacing-xs)', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--spacing-xs)' }}>
+                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>Group By:</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {[
+                                { mode: 'time', label: '🕒 Time-wise' },
+                                { mode: 'job', label: '💼 Job-wise' },
+                                { mode: 'location', label: '📍 Location-wise' }
+                            ].map(btn => (
+                                <button
+                                    key={btn.mode}
+                                    onClick={() => setGroupMode(btn.mode)}
+                                    style={{
+                                        padding: '4px 8px',
+                                        fontSize: '9.5px',
+                                        fontWeight: 600,
+                                        borderRadius: '4px',
+                                        border: '1px solid var(--border-color)',
+                                        cursor: 'pointer',
+                                        backgroundColor: groupMode === btn.mode ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                        color: groupMode === btn.mode ? 'var(--text-inverse)' : 'var(--text-primary)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    {btn.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Timeline vertical scroll list */}
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                     {loading ? (
@@ -420,6 +849,8 @@ export default function TechnicianTimelineTab() {
                             <Activity size={32} style={{ opacity: 0.5, marginBottom: 'var(--spacing-xs)' }} />
                             <span>No route logs found for this date.</span>
                         </div>
+                    ) : groupMode !== 'time' ? (
+                        renderGroupedEvents()
                     ) : (
                         timelineData.timeline.map((event, idx) => {
                             const isHighlighted = idx === activeTimelineIndex;
