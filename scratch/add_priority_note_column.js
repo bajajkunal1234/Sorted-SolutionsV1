@@ -12,19 +12,16 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkJobsSchema() {
+async function addColumn() {
     const { data, error } = await supabase.rpc('exec_sql', {
-        sql_query: "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'jobs'"
+        sql_query: "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS priority_note TEXT;"
     });
 
     if (error) {
-        console.error('Error fetching schema:', error);
+        console.error('Error adding column:', error);
     } else {
-        console.log('Columns in jobs table:');
-        data.forEach(col => {
-            console.log(`- ${col.column_name} (${col.data_type})`);
-        });
+        console.log('Success adding priority_note column to jobs table:', data);
     }
 }
 
-checkJobsSchema();
+addColumn();

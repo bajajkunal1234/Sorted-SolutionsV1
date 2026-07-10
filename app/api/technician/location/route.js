@@ -89,6 +89,27 @@ export async function POST(request) {
 
         if (error) throw error
 
+        // Also insert into historical logs for routing & timeline review
+        const { error: logError } = await supabase
+            .from('technician_location_logs')
+            .insert({
+                technician_id,
+                latitude,
+                longitude,
+                is_on_job: !!is_on_job,
+                tracking_source: tracking_source || 'web',
+                is_online: finalIsOnline,
+                location_precision: finalPrecision,
+                battery_level: battery_level !== undefined ? battery_level : null,
+                connectivity_status: connectivity_status || null,
+                is_mocked: !!is_mocked,
+                created_at: serverTime.toISOString()
+            })
+
+        if (logError) {
+            console.warn('Failed to insert technician location historical log:', logError.message)
+        }
+
         return NextResponse.json({ ok: true })
     } catch (err) {
         return NextResponse.json({ ok: false }, { status: 500 })

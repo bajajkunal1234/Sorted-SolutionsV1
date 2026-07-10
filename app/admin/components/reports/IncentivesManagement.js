@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Settings, Save, BarChart3, Calendar, Users, CheckCircle, AlertCircle, Award, Star, User, ChevronRight, DollarSign, Briefcase, RefreshCcw, Loader2 } from 'lucide-react';
+import { TrendingUp, Settings, Save, BarChart3, Calendar, Users, CheckCircle, AlertCircle, Award, Star, User, ChevronRight, DollarSign, Briefcase, RefreshCcw, Loader2, History } from 'lucide-react';
 import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 import JobDetailModal from '../JobDetailModal';
 import { getLocalityFromAddress } from '@/lib/utils/helpers';
+import TechnicianTimelineTab from './TechnicianTimelineTab';
 
 const parseSlotStartTime = (slotStr) => {
     if (!slotStr) return null;
@@ -849,7 +850,8 @@ function IncentivesManagement({ initialSubTab }) {
                     {[
                         { id: 'configure', label: 'Configure Parameters', icon: Settings },
                         { id: 'performance', label: 'Live Performance', icon: BarChart3 },
-                        { id: 'job_details', label: 'Job-Level Details', icon: Briefcase }
+                        { id: 'job_details', label: 'Job-Level Details', icon: Briefcase },
+                        { id: 'timeline', label: 'Technician Timeline', icon: History }
                     ].map(view => (
                         <button
                             key={view.id}
@@ -1724,6 +1726,13 @@ function IncentivesManagement({ initialSubTab }) {
                             No technician selected.
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Technician Timeline subtab */}
+            {activeView === 'timeline' && (
+                <div style={{ flex: 1, padding: 'var(--spacing-md)', overflow: 'hidden' }}>
+                    <TechnicianTimelineTab />
                 </div>
             )}
 
