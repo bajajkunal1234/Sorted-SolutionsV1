@@ -86,6 +86,7 @@ function MapPanController({ panTo }) {
 export default function TechnicianTimelineMap({ routePath = [], stops = [], jobsList = [], playbackPosition = null, panTo = null }) {
     const defaultCenter = routePath.length > 0 ? [routePath[0].lat, routePath[0].lng] : MUMBAI;
     const [mapType, setMapType] = useState('google-roadmap');
+    const [snappedPath, setSnappedPath] = useState([]);
 
     useEffect(() => {
         const cachedType = localStorage.getItem('mapViewType');
@@ -99,6 +100,45 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
             }
         }
     }, []);
+
+    useEffect(() => {
+        if (!routePath || routePath.length <= 1) {
+            setSnappedPath(routePath.map(p => [p.lat, p.lng]));
+            return;
+        }
+
+        async function fetchSnappedRoute() {
+            try {
+                // Downsample if coordinates are too numerous for OSRM URL boundaries
+                let sampledPath = routePath;
+                if (routePath.length > 90) {
+                    const factor = Math.ceil(routePath.length / 90);
+                    sampledPath = routePath.filter((_, idx) => idx % factor === 0);
+                    if (sampledPath[sampledPath.length - 1] !== routePath[routePath.length - 1]) {
+                        sampledPath.push(routePath[routePath.length - 1]);
+                    }
+                }
+
+                const coordString = sampledPath.map(p => `${p.lng},${p.lat}`).join(';');
+                const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    const coords = data.routes[0].geometry.coordinates;
+                    const leafletCoords = coords.map(c => [c[1], c[0]]);
+                    setSnappedPath(leafletCoords);
+                } else {
+                    setSnappedPath(routePath.map(p => [p.lat, p.lng]));
+                }
+            } catch (err) {
+                console.error("OSRM Route snapping error:", err);
+                setSnappedPath(routePath.map(p => [p.lat, p.lng]));
+            }
+        }
+
+        fetchSnappedRoute();
+    }, [routePath]);
 
     return (
         <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -192,9 +232,9 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 )}
 
                 {/* Draw Route Path */}
-                {routePath.length > 1 && (
+                {snappedPath.length > 1 && (
                     <Polyline
-                        positions={routePath.map(p => [p.lat, p.lng])}
+                        positions={snappedPath}
                         color="var(--color-primary, #3b82f6)"
                         weight={4}
                         opacity={0.8}
