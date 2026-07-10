@@ -54,6 +54,16 @@ const playbackIcon = new L.DivIcon({
     iconAnchor: [10, 10],
 });
 
+const formatDuration = (totalMins) => {
+    if (!totalMins) return '0 mins';
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs > 0) {
+        return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins > 0 ? `${mins} min${mins > 1 ? 's' : ''}` : ''}`.trim();
+    }
+    return `${mins} min${mins > 1 ? 's' : ''}`;
+};
+
 const supplierIcon = (name) => new L.DivIcon({
     className: '',
     html: `<div style="width:30px;height:30px;border-radius:50%;background:#3b82f6;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 5px rgba(0,0,0,0.3)" title="Supplier: ${name}">🏬</div>`,
@@ -289,7 +299,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     <Marker key={`stop-${i}`} position={[stop.lat, stop.lng]} icon={stopIcon(i + 1, stop.durationMinutes)}>
                         <Popup>
                             <strong>Parking Stop #{i + 1}</strong><br />
-                            Duration: {stop.durationMinutes} minutes<br />
+                            Duration: {formatDuration(stop.durationMinutes)}<br />
                             Arrival: {new Date(stop.arrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br />
                             Departure: {new Date(stop.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Popup>

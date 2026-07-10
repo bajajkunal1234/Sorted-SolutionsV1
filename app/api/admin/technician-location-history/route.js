@@ -510,12 +510,22 @@ export async function GET(request) {
                         }
                     }
 
+                    const formatDuration = (totalMins) => {
+                        if (!totalMins) return '0 mins'
+                        const hrs = Math.floor(totalMins / 60)
+                        const mins = totalMins % 60
+                        if (hrs > 0) {
+                            return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins > 0 ? `${mins} min${mins > 1 ? 's' : ''}` : ''}`.trim()
+                        }
+                        return `${mins} min${mins > 1 ? 's' : ''}`
+                    }
+
                     // Save resource wastage alert to DB
                     const { error: insertErr } = await supabase.from('app_notifications').insert({
                         recipient_type: 'admin',
                         recipient_id: 'admin',
                         title: `⚠️ Resource Wastage Alert: ${techName}`,
-                        message: `${techName} spent ${stop.durationMinutes} mins idling at ${placeName} on ${date}.`,
+                        message: `${techName} spent ${formatDuration(stop.durationMinutes)} idling at ${placeName} on ${date}.`,
                         link: link,
                         is_read: false
                     })

@@ -43,6 +43,16 @@ export default function TechnicianTimelineTab() {
     const [showAllSummary, setShowAllSummary] = useState(false);
     const [collapsedGroups, setCollapsedGroups] = useState({});
 
+    const formatDuration = (totalMins) => {
+        if (!totalMins) return '0 mins';
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        if (hrs > 0) {
+            return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins > 0 ? `${mins} min${mins > 1 ? 's' : ''}` : ''}`.trim();
+        }
+        return `${mins} min${mins > 1 ? 's' : ''}`;
+    };
+
     const playbackIntervalRef = useRef(null);
 
     // Fetch suppliers list on mount
@@ -189,7 +199,7 @@ export default function TechnicianTimelineTab() {
                 } else if (minStopDist > 200 && minSupplierDist > 200 && event.duration > 20) {
                     return {
                         ...event,
-                        warning: `Long idle stop (${event.duration} mins) away from any customer or supplier location.`
+                        warning: `Long idle stop (${formatDuration(event.duration)}) away from any customer or supplier location.`
                     };
                 }
             }
@@ -490,7 +500,7 @@ export default function TechnicianTimelineTab() {
 
         stopsList.forEach((stop, idx) => {
             if (stop.duration > 20) {
-                alerts.push(`Parked ${stop.duration} mins idle at Stop #${idx + 1}`);
+                alerts.push(`Parked ${formatDuration(stop.duration)} idle at Stop #${idx + 1}`);
             }
         });
 
@@ -532,10 +542,10 @@ export default function TechnicianTimelineTab() {
                 {/* Paragraph 2: Supplier & Idle */}
                 <p style={{ margin: 0 }}>
                     {summary.supplierMins > 0 ? (
-                        <span>Spent <strong>{summary.supplierMins} minutes</strong> at {summary.supplierStopsCount} supplier location(s) for parts pickup. </span>
+                        <span>Spent <strong>{formatDuration(summary.supplierMins)}</strong> at {summary.supplierStopsCount} supplier location(s) for parts pickup. </span>
                     ) : null}
                     {summary.idleMins > 0 ? (
-                        <span>Spent a total of <strong>{Math.max(0, summary.idleMins - summary.supplierMins)} minutes</strong> stationary elsewhere across {summary.timepassCount - summary.supplierStopsCount} other stops.</span>
+                        <span>Spent a total of <strong>{formatDuration(Math.max(0, summary.idleMins - summary.supplierMins))}</strong> stationary elsewhere across {summary.timepassCount - summary.supplierStopsCount} other stops.</span>
                     ) : (
                         <span>No significant idle stops detected today.</span>
                     )}
