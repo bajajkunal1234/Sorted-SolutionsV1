@@ -985,9 +985,11 @@ export default function TechnicianTimelineTab() {
                             fontSize: 'var(--font-size-xs)',
                             lineHeight: '1.45',
                             color: 'var(--text-secondary)',
-                            overflow: 'hidden',
+                            maxHeight: showAllSummary ? '160px' : '75px',
+                            overflowY: showAllSummary ? 'auto' : 'hidden',
+                            paddingRight: showAllSummary ? '4px' : '0',
                             textOverflow: 'ellipsis',
-                            display: '-webkit-box',
+                            display: showAllSummary ? 'block' : '-webkit-box',
                             WebkitLineClamp: showAllSummary ? 'none' : 4,
                             WebkitBoxOrient: 'vertical'
                         }}>
