@@ -115,6 +115,8 @@ export async function GET(request) {
         const jobsList = rawJobs.map(job => {
             const invoices = rawInvoices.filter(inv => inv.job_id === job.id)
             const revenue = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+            const quotes = rawQuotations.filter(q => q.job_id === job.id)
+            const visits = (allVisits || []).filter(v => v.job_id === job.id).length
             return {
                 id: job.id,
                 job_number: job.job_number,
@@ -123,7 +125,11 @@ export async function GET(request) {
                 status: job.status,
                 completed_at: job.completed_at,
                 customer_rating: job.customer_rating || null,
-                revenue
+                revenue,
+                visits_count: visits,
+                has_quotation: quotes.length > 0,
+                is_quote_approved: quotes.some(q => q.status === 'approved' || q.status === 'finalized'),
+                has_invoice: invoices.length > 0
             }
         })
 
