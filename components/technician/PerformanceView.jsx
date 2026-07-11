@@ -17,7 +17,7 @@ import {
     ChevronLeft,
     Loader2,
     Info,
-    LayoutGrid,
+    ChevronRight,
     Filter
 } from 'lucide-react';
 import { apiCall } from '@/lib/offlineSync';
@@ -50,6 +50,23 @@ export default function PerformanceView({ technicianId }) {
         },
         jobsList: []
     });
+
+    // Safely retrieve properties with absolute defaults to prevent null-pointer crashes
+    const metrics = performanceData?.metrics || {
+        jobsAssigned: 0,
+        visitsDone: 0,
+        jobsClosed: 0,
+        quotationsCreated: 0,
+        invoicesCreated: 0,
+        feedbacksTaken: 0,
+        avgRating: 0,
+        avgDaysToClose: 0,
+        revenueGenerated: 0,
+        conversionRate: 0,
+        avgRevenuePerJob: 0,
+        feedbackRate: 0
+    };
+    const jobsList = performanceData?.jobsList || [];
 
     const getRangeForPreset = (preset) => {
         const d = new Date();
@@ -121,8 +138,27 @@ export default function PerformanceView({ technicianId }) {
             const response = await apiCall(`/api/technician/performance?technicianId=${technicianId}&startDate=${startStr}&endDate=${endStr}`);
             if (response.ok) {
                 const resData = await response.json();
-                if (resData.success) {
+                if (resData.success && resData.data) {
                     setPerformanceData(resData.data);
+                } else if (resData.success) {
+                    // Fallback empty data if success is true but data block is missing (offline cache fallback)
+                    setPerformanceData({
+                        metrics: {
+                            jobsAssigned: 0,
+                            visitsDone: 0,
+                            jobsClosed: 0,
+                            quotationsCreated: 0,
+                            invoicesCreated: 0,
+                            feedbacksTaken: 0,
+                            avgRating: 0,
+                            avgDaysToClose: 0,
+                            revenueGenerated: 0,
+                            conversionRate: 0,
+                            avgRevenuePerJob: 0,
+                            feedbackRate: 0
+                        },
+                        jobsList: []
+                    });
                 } else {
                     throw new Error(resData.error || 'Failed to load performance metrics');
                 }
@@ -143,22 +179,22 @@ export default function PerformanceView({ technicianId }) {
     }, [technicianId, datePreset, customStart, customEnd]);
 
     const metricsList = [
-        { key: 'revenueGenerated', label: 'Revenue Generated', val: `₹${performanceData.metrics.revenueGenerated.toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#22c55e" />, bg: 'rgba(34, 197, 94, 0.08)', colorTheme: '#22c55e', filterTarget: 'revenue' },
-        { key: 'jobsAssigned', label: 'Jobs Assigned', val: performanceData.metrics.jobsAssigned, icon: <Briefcase size={18} color="#3b82f6" />, bg: 'rgba(59, 130, 246, 0.08)', colorTheme: '#3b82f6', filterTarget: 'all' },
-        { key: 'visitsDone', label: 'Visits Done', val: performanceData.metrics.visitsDone, icon: <Clock size={18} color="#0ea5e9" />, bg: 'rgba(14, 165, 233, 0.08)', colorTheme: '#0ea5e9', filterTarget: 'visits' },
-        { key: 'jobsClosed', label: 'Jobs Closed', val: performanceData.metrics.jobsClosed, icon: <CheckCircle size={18} color="#10b981" />, bg: 'rgba(16, 185, 129, 0.08)', colorTheme: '#10b981', filterTarget: 'closed' },
-        { key: 'quotationsCreated', label: 'Quotations Created', val: performanceData.metrics.quotationsCreated, icon: <FileText size={18} color="#8b5cf6" />, bg: 'rgba(139, 92, 246, 0.08)', colorTheme: '#8b5cf6', filterTarget: 'quotations' },
-        { key: 'invoicesCreated', label: 'Invoices Created', val: performanceData.metrics.invoicesCreated, icon: <FileText size={18} color="#6366f1" />, bg: 'rgba(99, 102, 241, 0.08)', colorTheme: '#6366f1', filterTarget: 'invoices' },
-        { key: 'feedbacksTaken', label: 'Feedbacks Taken', val: performanceData.metrics.feedbacksTaken, icon: <MessageSquare size={18} color="#ec4899" />, bg: 'rgba(236, 72, 153, 0.08)', colorTheme: '#ec4899', filterTarget: 'ratings' },
-        { key: 'avgRating', label: 'Average Rating', val: performanceData.metrics.avgRating > 0 ? `⭐ ${performanceData.metrics.avgRating}` : 'N/A', icon: <Star size={18} color="#eab308" />, bg: 'rgba(234, 179, 8, 0.08)', colorTheme: '#eab308', filterTarget: 'ratings' },
-        { key: 'avgDaysToClose', label: 'Avg Days to Close', val: performanceData.metrics.jobsClosed > 0 ? `${performanceData.metrics.avgDaysToClose} days` : 'N/A', icon: <Clock size={18} color="#a855f7" />, bg: 'rgba(168, 85, 247, 0.08)', colorTheme: '#a855f7', filterTarget: 'closed' },
-        { key: 'conversionRate', label: 'Conversion %', val: `${performanceData.metrics.conversionRate}%`, icon: <Percent size={18} color="#f97316" />, bg: 'rgba(249, 115, 22, 0.08)', colorTheme: '#f97316', filterTarget: 'quotations' },
-        { key: 'avgRevenuePerJob', label: 'Avg Revenue / Job', val: `₹${performanceData.metrics.avgRevenuePerJob.toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#14b8a6" />, bg: 'rgba(20, 184, 166, 0.08)', colorTheme: '#14b8a6', filterTarget: 'revenue' },
-        { key: 'feedbackRate', label: 'Feedback Rate (%)', val: `${performanceData.metrics.feedbackRate}%`, icon: <Award size={18} color="#f43f5e" />, bg: 'rgba(244, 63, 94, 0.08)', colorTheme: '#f43f5e', filterTarget: 'ratings' }
+        { key: 'revenueGenerated', label: 'Revenue Generated', val: `₹${(metrics.revenueGenerated || 0).toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#22c55e" />, bg: 'rgba(34, 197, 94, 0.08)', colorTheme: '#22c55e', filterTarget: 'revenue' },
+        { key: 'jobsAssigned', label: 'Jobs Assigned', val: metrics.jobsAssigned || 0, icon: <Briefcase size={18} color="#3b82f6" />, bg: 'rgba(59, 130, 246, 0.08)', colorTheme: '#3b82f6', filterTarget: 'all' },
+        { key: 'visitsDone', label: 'Visits Done', val: metrics.visitsDone || 0, icon: <Clock size={18} color="#0ea5e9" />, bg: 'rgba(14, 165, 233, 0.08)', colorTheme: '#0ea5e9', filterTarget: 'visits' },
+        { key: 'jobsClosed', label: 'Jobs Closed', val: metrics.jobsClosed || 0, icon: <CheckCircle size={18} color="#10b981" />, bg: 'rgba(16, 185, 129, 0.08)', colorTheme: '#10b981', filterTarget: 'closed' },
+        { key: 'quotationsCreated', label: 'Quotations Created', val: metrics.quotationsCreated || 0, icon: <FileText size={18} color="#8b5cf6" />, bg: 'rgba(139, 92, 246, 0.08)', colorTheme: '#8b5cf6', filterTarget: 'quotations' },
+        { key: 'invoicesCreated', label: 'Invoices Created', val: metrics.invoicesCreated || 0, icon: <FileText size={18} color="#6366f1" />, bg: 'rgba(99, 102, 241, 0.08)', colorTheme: '#6366f1', filterTarget: 'invoices' },
+        { key: 'feedbacksTaken', label: 'Feedbacks Taken', val: metrics.feedbacksTaken || 0, icon: <MessageSquare size={18} color="#ec4899" />, bg: 'rgba(236, 72, 153, 0.08)', colorTheme: '#ec4899', filterTarget: 'ratings' },
+        { key: 'avgRating', label: 'Average Rating', val: (metrics.avgRating || 0) > 0 ? `⭐ ${metrics.avgRating}` : 'N/A', icon: <Star size={18} color="#eab308" />, bg: 'rgba(234, 179, 8, 0.08)', colorTheme: '#eab308', filterTarget: 'ratings' },
+        { key: 'avgDaysToClose', label: 'Avg Days to Close', val: (metrics.jobsClosed || 0) > 0 ? `${metrics.avgDaysToClose || 0} days` : 'N/A', icon: <Clock size={18} color="#a855f7" />, bg: 'rgba(168, 85, 247, 0.08)', colorTheme: '#a855f7', filterTarget: 'closed' },
+        { key: 'conversionRate', label: 'Conversion %', val: `${metrics.conversionRate || 0}%`, icon: <Percent size={18} color="#f97316" />, bg: 'rgba(249, 115, 22, 0.08)', colorTheme: '#f97316', filterTarget: 'quotations' },
+        { key: 'avgRevenuePerJob', label: 'Avg Revenue / Job', val: `₹${(metrics.avgRevenuePerJob || 0).toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#14b8a6" />, bg: 'rgba(20, 184, 166, 0.08)', colorTheme: '#14b8a6', filterTarget: 'revenue' },
+        { key: 'feedbackRate', label: 'Feedback Rate (%)', val: `${metrics.feedbackRate || 0}%`, icon: <Award size={18} color="#f43f5e" />, bg: 'rgba(244, 63, 94, 0.08)', colorTheme: '#f43f5e', filterTarget: 'ratings' }
     ];
 
     const getFilteredJobs = () => {
-        const jobs = performanceData.jobsList;
+        const jobs = jobsList;
         switch (activeFilter) {
             case 'revenue':
                 return jobs.filter(j => j.revenue > 0);
@@ -255,8 +291,8 @@ export default function PerformanceView({ technicianId }) {
                     overflowX: 'auto', 
                     paddingBottom: '12px', 
                     marginBottom: 'var(--spacing-md)',
-                    scrollbarWidth: 'none', // Firefox
-                    msOverflowStyle: 'none' // IE/Edge
+                    scrollbarWidth: 'none', 
+                    msOverflowStyle: 'none' 
                 }}>
                     {filterOptions.map((opt) => (
                         <button
