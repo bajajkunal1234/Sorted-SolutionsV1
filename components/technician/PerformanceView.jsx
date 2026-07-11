@@ -52,30 +52,49 @@ export default function PerformanceView({ technicianId }) {
     });
 
     const getRangeForPreset = (preset) => {
-        const today = new Date();
-        const start = new Date(today);
-        const end = new Date(today);
+        const d = new Date();
+        const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const nowIST = new Date(utc + (3600000 * 5.5));
+        
+        let start = '';
+        let end = '';
 
-        switch (preset) {
-            case 'today':
-                break;
-            case 'yesterday':
-                start.setDate(today.getDate() - 1);
-                end.setDate(today.getDate() - 1);
-                break;
-            case 'week':
-                start.setDate(today.getDate() - 7);
-                break;
-            case 'month':
-                start.setDate(today.getDate() - 30);
-                break;
-            default:
-                break;
+        const formatDate = (dateObj) => {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        if (preset === 'today') {
+            start = formatDate(nowIST);
+            end = formatDate(nowIST);
+        } else if (preset === 'yesterday') {
+            const yest = new Date(nowIST);
+            yest.setDate(yest.getDate() - 1);
+            start = formatDate(yest);
+            end = formatDate(yest);
+        } else if (preset === 'this_week') {
+            const currentDay = nowIST.getDay();
+            const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+            const monday = new Date(nowIST);
+            monday.setDate(nowIST.getDate() + distanceToMonday);
+            
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            
+            start = formatDate(monday);
+            end = formatDate(sunday);
+        } else if (preset === 'this_month') {
+            const firstDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1);
+            const lastDay = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 0);
+            start = formatDate(firstDay);
+            end = formatDate(lastDay);
         }
 
         return {
-            startStr: start.toISOString().split('T')[0],
-            endStr: end.toISOString().split('T')[0]
+            startStr: start,
+            endStr: end
         };
     };
 
@@ -376,7 +395,7 @@ export default function PerformanceView({ technicianId }) {
 
             {/* Date Preset Selector */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
-                {['today', 'yesterday', 'week', 'month', 'custom'].map((preset) => (
+                {['today', 'yesterday', 'this_week', 'this_month', 'custom'].map((preset) => (
                     <button
                         key={preset}
                         onClick={() => setDatePreset(preset)}
@@ -393,7 +412,7 @@ export default function PerformanceView({ technicianId }) {
                             transition: 'all 0.15s ease'
                         }}
                     >
-                        {preset === 'week' ? 'Last 7 Days' : preset === 'month' ? 'Last 30 Days' : preset}
+                        {preset === 'this_week' ? 'This Week' : preset === 'this_month' ? 'This Month' : preset === 'custom' ? 'Custom Range' : preset}
                     </button>
                 ))}
             </div>
