@@ -245,7 +245,11 @@ export async function PUT(request, { params }) {
         // Tech clicked "Mark as Arrived" — auto-advances to diagnosing_quoting if scheduled
         if (action === 'mark_arrived') {
             const now = new Date().toISOString();
-            const newStatus = existing?.status === 'scheduled' ? 'diagnosing_quoting' : existing?.status;
+            const newStatus = 
+                existing?.status === 'scheduled' ? 'diagnosing_quoting' : 
+                existing?.status === 'parts_ordered' ? 'work_in_progress' : 
+                existing?.status;
+                
             const { data: job, error } = await supabase
                 .from('jobs')
                 .update({ arrived_at: now, status: newStatus })
@@ -254,16 +258,22 @@ export async function PUT(request, { params }) {
                 .single();
             if (error) return NextResponse.json({ error: 'Failed to record arrival' }, { status: 500 });
 
-            const statusMsg = `Status changed: ${existing?.status} → diagnosing_quoting by ${techName} (arrived)`;
-            supabase.from('job_interactions').insert([{
-                job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
-            }]).then(null, () => {});
+            const statusMsg = newStatus !== existing?.status 
+                ? `Status changed: ${existing?.status} → ${newStatus} by ${techName} (arrived)`
+                : null;
+
+            if (statusMsg) {
+                supabase.from('job_interactions').insert([{
+                    job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
+                }]).then(null, () => {});
+            }
+
             logInteractionServer({
-                type: 'job-status-diagnosing_quoting', category: 'job', jobId: String(id),
+                type: `job-status-${newStatus}`, category: 'job', jobId: String(id),
                 customerId, customerName,
                 performedBy: existing?.technician_id || null,
                 performedByName: techName,
-                description: `Job #${jobRef} — ${statusMsg}`,
+                description: `Job #${jobRef} — Arrived at customer location${statusMsg ? `. ${statusMsg}` : ''}`,
                 metadata: { latitude: body.latitude || null, longitude: body.longitude || null },
                 source: 'Technician App'
             });
@@ -274,7 +284,7 @@ export async function PUT(request, { params }) {
                 customer_name: customerName || undefined, technician_name: techName,
             }).catch(() => {});
 
-            return NextResponse.json({ success: true, job, message: 'Arrived — status set to Diagnosing & Quoting' });
+            return NextResponse.json({ success: true, job, message: `Arrived — status set to ${newStatus}` });
         }
 
         // ── Special action: add_repair_note ────────────────────────────────

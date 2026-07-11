@@ -2918,7 +2918,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         ? 'Cx Approved from App' 
                                                                         : 'Cx Said to Proceed'}
                                                                 </div>
-                                                                {editedJob.status !== 'parts_ordered' && (
+                                                                {editedJob.status !== 'parts_ordered' ? (
                                                                     <button
                                                                         className="btn"
                                                                         style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
@@ -2928,6 +2928,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         }}
                                                                     >
                                                                         {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        className="btn"
+                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(59,130,246,0.2)', whiteSpace: 'normal', marginTop: '10px' }}
+                                                                        disabled={loading}
+                                                                        onClick={async () => {
+                                                                            await handleSaveStatus('work_in_progress');
+                                                                        }}
+                                                                    >
+                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Start Repair / Install Parts'}
                                                                     </button>
                                                                 )}
                                                             </>
