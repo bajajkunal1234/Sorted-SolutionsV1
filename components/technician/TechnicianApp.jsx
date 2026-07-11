@@ -2310,16 +2310,6 @@ function TechnicianApp() {
                 onClick: () => setShowCollectPayment(true)
             },
             {
-                title: 'Purchase Spare Parts',
-                description: 'Log parts purchased from local vendors / suppliers',
-                icon: <Package size={20} color="#f59e0b" />,
-                color: '#f59e0b',
-                onClick: () => {
-                    setShowPurchaseRequestsList(true);
-                    fetchPurchaseRequests();
-                }
-            },
-            {
                 title: 'Calendar & Leaves',
                 description: 'View assigned jobs timeline and apply for leaves',
                 icon: <Calendar size={20} color="#ec4899" />,
