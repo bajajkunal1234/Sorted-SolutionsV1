@@ -8,6 +8,7 @@ import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
+import PerformanceView from '@/components/technician/PerformanceView';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import JobsTableView from '@/components/technician/JobsTableView';
 import NotificationBell from '@/components/common/NotificationBell';
@@ -2780,6 +2781,7 @@ function TechnicianApp() {
                         {activeTab === 'jobs' && renderJobsTab()}
                         {activeTab === 'expenses' && <ExpensesList technicianId={technicianId} />}
                         {activeTab === 'incentives' && renderIncentivesTab()}
+                        {activeTab === 'performance' && <PerformanceView technicianId={technicianId} />}
                         {activeTab === 'settings' && renderSettingsTab()}
                     </>
                 )}
@@ -2809,6 +2811,17 @@ function TechnicianApp() {
                 >
                     <Briefcase size={20} />
                     <span>Jobs</span>
+                </button>
+                <button
+                    className={`tab-item ${(activeTab === 'performance' && !showSupport && !showEmailInbox) ? 'active' : ''}`}
+                    onClick={() => {
+                        setShowSupport(false);
+                        setShowEmailInbox(false);
+                        setActiveTab('performance');
+                    }}
+                >
+                    <TrendingUp size={20} />
+                    <span>Performance</span>
                 </button>
                 <button
                     className={`tab-item ${(activeTab === 'settings' || showSupport || showEmailInbox) ? 'active' : ''}`}
