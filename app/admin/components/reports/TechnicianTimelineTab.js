@@ -800,11 +800,7 @@ export default function TechnicianTimelineTab() {
                                                 setPanTo({ lat: event.lat, lng: event.lng });
                                             }
                                         }}
-                                        onMouseEnter={() => {
-                                            if (event.lat && event.lng) {
-                                                setPanTo({ lat: event.lat, lng: event.lng });
-                                            }
-                                        }}
+
                                         style={{
                                             display: 'flex',
                                             gap: 'var(--spacing-sm)',
@@ -1176,11 +1172,7 @@ export default function TechnicianTimelineTab() {
                                             setPanTo({ lat: event.lat, lng: event.lng });
                                         }
                                     }}
-                                    onMouseEnter={() => {
-                                        if (event.lat && event.lng) {
-                                            setPanTo({ lat: event.lat, lng: event.lng });
-                                        }
-                                    }}
+
                                     style={{
                                         display: 'flex',
                                         gap: 'var(--spacing-sm)',

@@ -512,13 +512,26 @@ export async function GET(request) {
 
         // D. Add Calls and general actions
         interactions.forEach(int => {
-            // Find coordinates at timestamp
             const techLoc = getTechLocAtTime(int.timestamp)
+            const job = jobs.find(j => j.id === int.job_id)
+            const jobNum = job ? job.job_number : null
+            
+            let desc = int.description || 'Performed action'
+            if (int.customer_name) {
+                if (desc.toLowerCase().includes('called the customer')) {
+                    desc = `Technician called customer ${int.customer_name}${jobNum ? ` for ${jobNum}` : ''}`
+                } else if (!desc.includes(int.customer_name)) {
+                    desc = `${desc} (${int.customer_name}${jobNum ? `, ${jobNum}` : ''})`
+                }
+            } else if (jobNum && !desc.includes(jobNum)) {
+                desc = `${desc} (${jobNum})`
+            }
+
             timeline.push({
                 type: 'interaction',
                 time: int.timestamp,
-                title: int.type === 'call' ? `Called Customer` : int.category || 'Interaction',
-                description: int.description || `Interaction details: ${int.status || ''}`,
+                title: int.type === 'call' || int.type === 'customer-called' ? `Called Customer` : int.category || 'Interaction',
+                description: desc,
                 lat: techLoc ? techLoc.lat : null,
                 lng: techLoc ? techLoc.lng : null,
                 customerId: int.customer_id,

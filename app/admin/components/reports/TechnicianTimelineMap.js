@@ -34,9 +34,9 @@ function getBearing(lat1, lng1, lat2, lng2) {
 // Custom Icons
 const arrowIcon = (angle) => new L.DivIcon({
     className: '',
-    html: `<div style="transform: rotate(${angle - 90}deg); font-size: 16px; color: #1e40af; text-shadow: 0 0 3px #ffffff; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer;">➤</div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    html: `<div style="transform: rotate(${angle}deg); font-size: 8px; color: #ffffff; width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; text-shadow: 0px 0px 2px rgba(0,0,0,0.85);">▲</div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5]
 });
 
 const startIcon = new L.DivIcon({
@@ -156,7 +156,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
             const pt2 = routePath[i];
             
             const dist = getDistance(lastArrowPt.lat, lastArrowPt.lng, pt2.lat, pt2.lng);
-            if (dist >= 300) {
+            if (dist >= 80) {
                 const angle = getBearing(pt1.lat, pt1.lng, pt2.lat, pt2.lng);
                 const formattedTime = new Date(pt2.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 
@@ -320,7 +320,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     <Polyline
                         positions={snappedPath}
                         color="var(--color-primary, #3b82f6)"
-                        weight={4}
+                        weight={6}
                         opacity={0.8}
                     />
                 )}
