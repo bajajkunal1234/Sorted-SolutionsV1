@@ -418,7 +418,7 @@ export async function GET(request) {
                 type: 'shift_start',
                 time: routePath[0].time,
                 title: 'Start of Day',
-                description: `Technician phone GPS registered initial log.`,
+                description: `${techName} phone GPS registered initial log.`,
                 lat: routePath[0].lat,
                 lng: routePath[0].lng
             })
@@ -427,7 +427,7 @@ export async function GET(request) {
                     type: 'shift_end',
                     time: routePath[routePath.length - 1].time,
                     title: 'End of Day',
-                    description: `Technician phone GPS registered final log of the day.`,
+                    description: `${techName} phone GPS registered final log of the day.`,
                     lat: routePath[routePath.length - 1].lat,
                     lng: routePath[routePath.length - 1].lng
                 })
@@ -502,7 +502,7 @@ export async function GET(request) {
                 type: 'job_action',
                 time: ji.created_at,
                 title: `${jobNum} - ${ji.type?.replace(/_/g, ' ') || 'Action'}`,
-                description: ji.message || `Performed interaction on job`,
+                description: (ji.message || `Performed interaction on job`).replace(/\bTechnician\b/g, techName).replace(/\btechnician\b/g, techName),
                 warning: warning,
                 lat: lat,
                 lng: lng,
@@ -519,13 +519,15 @@ export async function GET(request) {
             let desc = int.description || 'Performed action'
             if (int.customer_name) {
                 if (desc.toLowerCase().includes('called the customer')) {
-                    desc = `Technician called customer ${int.customer_name}${jobNum ? ` for ${jobNum}` : ''}`
+                    desc = `${techName} called customer ${int.customer_name}${jobNum ? ` for ${jobNum}` : ''}`
                 } else if (!desc.includes(int.customer_name)) {
                     desc = `${desc} (${int.customer_name}${jobNum ? `, ${jobNum}` : ''})`
                 }
             } else if (jobNum && !desc.includes(jobNum)) {
                 desc = `${desc} (${jobNum})`
             }
+
+            desc = desc.replace(/\bTechnician\b/g, techName).replace(/\btechnician\b/g, techName);
 
             timeline.push({
                 type: 'interaction',
