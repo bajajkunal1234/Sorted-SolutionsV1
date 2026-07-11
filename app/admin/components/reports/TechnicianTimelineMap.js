@@ -194,7 +194,9 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
         if (cachedType) {
             if (cachedType === 'satellite' || cachedType === 'hybrid') {
                 setMapType('google-hybrid');
-            } else if (cachedType === 'dark' || cachedType === 'voyager') {
+            } else if (cachedType === 'dark') {
+                setMapType('google-dark');
+            } else if (cachedType === 'voyager') {
                 setMapType('voyager');
             } else {
                 setMapType('google-roadmap');
@@ -249,6 +251,9 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     border: none !important;
                     box-shadow: none !important;
                 }
+                .dark-map-tiles {
+                    filter: grayscale(100%) invert(90%) brightness(95%) contrast(100%) !important;
+                }
             `}</style>
             {/* Map Style Overlay controls */}
             <div style={{
@@ -266,7 +271,10 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
             }}>
                 <button
-                    onClick={() => setMapType('google-roadmap')}
+                    onClick={() => {
+                        setMapType('google-roadmap');
+                        localStorage.setItem('mapViewType', 'roadmap');
+                    }}
                     style={{
                         padding: '3px 6px',
                         fontSize: '9px',
@@ -282,7 +290,10 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     🗺️ Map
                 </button>
                 <button
-                    onClick={() => setMapType('google-hybrid')}
+                    onClick={() => {
+                        setMapType('google-hybrid');
+                        localStorage.setItem('mapViewType', 'satellite');
+                    }}
                     style={{
                         padding: '3px 6px',
                         fontSize: '9px',
@@ -298,7 +309,29 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     🛰️ Satellite
                 </button>
                 <button
-                    onClick={() => setMapType('voyager')}
+                    onClick={() => {
+                        setMapType('google-dark');
+                        localStorage.setItem('mapViewType', 'dark');
+                    }}
+                    style={{
+                        padding: '3px 6px',
+                        fontSize: '9px',
+                        fontWeight: 600,
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        backgroundColor: mapType === 'google-dark' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+                        color: '#fff',
+                        transition: 'all 0.2s'
+                    }}
+                >
+                    🌑 Dark
+                </button>
+                <button
+                    onClick={() => {
+                        setMapType('voyager');
+                        localStorage.setItem('mapViewType', 'voyager');
+                    }}
                     style={{
                         padding: '3px 6px',
                         fontSize: '9px',
@@ -329,6 +362,13 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 {mapType === 'google-hybrid' && (
                     <TileLayer
                         url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                        attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                    />
+                )}
+                {mapType === 'google-dark' && (
+                    <TileLayer
+                        className="dark-map-tiles"
+                        url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
                         attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
                     />
                 )}
