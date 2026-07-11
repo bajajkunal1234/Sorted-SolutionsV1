@@ -132,7 +132,14 @@ export default function TechnicianTimelineTab() {
                 jobNum = event.description.match(/JOB-\d+/)?.[0];
             }
 
-            if (jobNum && event.lat && event.lng) {
+            const isTechAction = 
+                event.title?.toLowerCase().includes('technician') || 
+                event.description?.toLowerCase().includes('by technician') || 
+                event.type === 'on-way' || 
+                event.type === 'on_way' || 
+                event.type === 'arrived';
+
+            if (!event.warning && isTechAction && jobNum && event.lat && event.lng) {
                 const job = data.jobsList?.find(j => j.jobNumber === jobNum);
                 if (job && job.propertyLocation) {
                     const jobLat = job.propertyLocation.lat || job.propertyLocation.latitude;
@@ -142,9 +149,26 @@ export default function TechnicianTimelineTab() {
                         const distMeters = getDistance(event.lat, event.lng, jobLat, jobLng);
                         if (distMeters > 200) { // 200 meters threshold
                             const distKm = (distMeters / 1000).toFixed(2);
+                            
+                            const isArrived = event.type === 'arrived' || event.description?.toLowerCase().includes('arrived') || event.description?.toLowerCase().includes('diagnosing_quoting');
+                            const isOnWay = event.type === 'on-way' || event.type === 'on_way' || event.description?.toLowerCase().includes('on the way');
+                            const isQuotation = event.type === 'quotation_created' || event.description?.toLowerCase().includes('quotation');
+                            const isComplete = event.type === 'complete_job' || event.type === 'complete-job' || event.description?.toLowerCase().includes('complete') || event.description?.toLowerCase().includes('closed');
+
+                            let warningMsg = `Action clicked ${distKm} km away from registered customer location (Potential bypass or wrong location).`;
+                            if (isArrived) {
+                                warningMsg = `Marked arrived ${distKm} km away from customer's site.`;
+                            } else if (isOnWay) {
+                                warningMsg = `Started on-way ${distKm} km away from customer's site.`;
+                            } else if (isQuotation) {
+                                warningMsg = `Created quotation ${distKm} km away from customer's site.`;
+                            } else if (isComplete) {
+                                warningMsg = `Completed job ${distKm} km away from customer's site.`;
+                            }
+
                             return {
                                 ...event,
-                                warning: `Action clicked ${distKm} km away from registered customer location (Potential bypass or wrong location).`
+                                warning: warningMsg
                             };
                         }
                     }

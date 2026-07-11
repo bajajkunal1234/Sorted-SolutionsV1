@@ -405,6 +405,10 @@ export async function GET(request) {
                     closestPt = pt
                 }
             }
+
+            // Only return location if the nearest ping is within 15 minutes of the action
+            if (minDelta > 15 * 60 * 1000) return null
+
             return closestPt
         }
 
@@ -453,8 +457,15 @@ export async function GET(request) {
             let lng = null
             let warning = null
 
-            // If we have job property coordinates, audit the location
-            if (job && job.properties && job.properties.location) {
+            // Audit distance only for actual technician actions
+            const isTechAction = 
+                ji.user_name?.toLowerCase().includes('technician') || 
+                ji.message?.toLowerCase().includes('by technician') ||
+                ji.type === 'on-way' || 
+                ji.type === 'on_way' || 
+                ji.type === 'arrived';
+
+            if (isTechAction && job && job.properties && job.properties.location) {
                 let propLat = job.properties.location.lat || job.properties.location.latitude
                 let propLng = job.properties.location.lng || job.properties.location.longitude
 
@@ -468,11 +479,18 @@ export async function GET(request) {
 
                         // If distance is > 150m, flag as process violation
                         if (distMeters > 150) {
-                            if (ji.type === 'start_job' || ji.type === 'on_way') {
-                                warning = `Started job before reaching customer site. Distance was ${(distMeters / 1000).toFixed(2)} km away.`
-                            } else if (ji.type === 'quotation_created' || ji.message?.toLowerCase().includes('quotation')) {
+                            const isArrived = ji.type === 'arrived' || ji.message?.toLowerCase().includes('arrived') || ji.message?.toLowerCase().includes('diagnosing_quoting');
+                            const isOnWay = ji.type === 'on-way' || ji.type === 'on_way' || ji.message?.toLowerCase().includes('on the way');
+                            const isQuotation = ji.type === 'quotation_created' || ji.message?.toLowerCase().includes('quotation');
+                            const isComplete = ji.type === 'complete_job' || ji.type === 'complete-job' || ji.message?.toLowerCase().includes('complete') || ji.message?.toLowerCase().includes('closed');
+
+                            if (isArrived) {
+                                warning = `Marked arrived away from customer's site. Distance was ${(distMeters / 1000).toFixed(2)} km away.`
+                            } else if (isOnWay) {
+                                warning = `Started on-way before reaching customer site. Distance was ${(distMeters / 1000).toFixed(2)} km away.`
+                            } else if (isQuotation) {
                                 warning = `Created quotation away from customer's site. Distance was ${(distMeters / 1000).toFixed(2)} km away.`
-                            } else if (ji.type === 'complete_job') {
+                            } else if (isComplete) {
                                 warning = `Completed job away from customer's site. Distance was ${(distMeters / 1000).toFixed(2)} km away.`
                             }
                         }
