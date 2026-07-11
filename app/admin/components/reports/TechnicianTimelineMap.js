@@ -1,19 +1,44 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet default icon behavior
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+// Mathematical Helpers for Heading & Distance
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371e3; // meters
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in meters
+}
+
+function getBearing(lat1, lng1, lat2, lng2) {
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    const y = Math.sin(dLng) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+    const brng = Math.atan2(y, x) * 180 / Math.PI;
+    return (brng + 360) % 360;
+}
 
 // Custom Icons
+const arrowIcon = (angle) => new L.DivIcon({
+    className: '',
+    html: `<div style="transform: rotate(${angle - 90}deg); font-size: 16px; color: #1e40af; text-shadow: 0 0 3px #ffffff; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer;">➤</div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+});
+
 const startIcon = new L.DivIcon({
     className: '',
     html: `<div style="width:26px;height:26px;border-radius:50%;background:#10b981;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3)">S</div>`,
@@ -120,6 +145,32 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
     const defaultCenter = routePath.length > 0 ? [routePath[0].lat, routePath[0].lng] : MUMBAI;
     const [mapType, setMapType] = useState('google-roadmap');
     const [snappedPath, setSnappedPath] = useState([]);
+
+    const arrows = useMemo(() => {
+        if (!routePath || routePath.length < 2) return [];
+        const result = [];
+        let lastArrowPt = routePath[0];
+        
+        for (let i = 1; i < routePath.length; i++) {
+            const pt1 = routePath[i - 1];
+            const pt2 = routePath[i];
+            
+            const dist = getDistance(lastArrowPt.lat, lastArrowPt.lng, pt2.lat, pt2.lng);
+            if (dist >= 300) {
+                const angle = getBearing(pt1.lat, pt1.lng, pt2.lat, pt2.lng);
+                const formattedTime = new Date(pt2.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                result.push({
+                    id: `arrow-${i}`,
+                    position: [pt2.lat, pt2.lng],
+                    angle: angle,
+                    time: formattedTime
+                });
+                lastArrowPt = pt2;
+            }
+        }
+        return result;
+    }, [routePath]);
 
     useEffect(() => {
         const cachedType = localStorage.getItem('mapViewType');
@@ -273,6 +324,15 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                         opacity={0.8}
                     />
                 )}
+
+                {/* Direction Arrows with Hover Timestamps */}
+                {arrows.map(arrow => (
+                    <Marker key={arrow.id} position={arrow.position} icon={arrowIcon(arrow.angle)}>
+                        <Tooltip direction="top" offset={[0, -5]} opacity={1} permanent={false}>
+                            <span>Passed at: {arrow.time}</span>
+                        </Tooltip>
+                    </Marker>
+                ))}
 
                 {/* Start Marker */}
                 {routePath.length > 0 && (
