@@ -115,6 +115,7 @@ export default function PerformanceView({ technicianId }) {
     }, [technicianId, datePreset, customStart, customEnd]);
 
     const metricsList = [
+        { key: 'revenueGenerated', label: 'Revenue Generated', val: `₹${performanceData.metrics.revenueGenerated.toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#22c55e" />, bg: 'rgba(34, 197, 94, 0.08)' },
         { key: 'jobsAssigned', label: 'Jobs Assigned', val: performanceData.metrics.jobsAssigned, icon: <Briefcase size={18} color="#3b82f6" />, bg: 'rgba(59, 130, 246, 0.08)' },
         { key: 'visitsDone', label: 'Visits Done', val: performanceData.metrics.visitsDone, icon: <Clock size={18} color="#0ea5e9" />, bg: 'rgba(14, 165, 233, 0.08)' },
         { key: 'jobsClosed', label: 'Jobs Closed', val: performanceData.metrics.jobsClosed, icon: <CheckCircle size={18} color="#10b981" />, bg: 'rgba(16, 185, 129, 0.08)' },
@@ -123,7 +124,6 @@ export default function PerformanceView({ technicianId }) {
         { key: 'feedbacksTaken', label: 'Feedbacks Taken', val: performanceData.metrics.feedbacksTaken, icon: <MessageSquare size={18} color="#ec4899" />, bg: 'rgba(236, 72, 153, 0.08)' },
         { key: 'avgRating', label: 'Average Rating', val: performanceData.metrics.avgRating > 0 ? `⭐ ${performanceData.metrics.avgRating}` : 'N/A', icon: <Star size={18} color="#eab308" />, bg: 'rgba(234, 179, 8, 0.08)' },
         { key: 'avgDaysToClose', label: 'Avg Days to Close', val: performanceData.metrics.jobsClosed > 0 ? `${performanceData.metrics.avgDaysToClose} days` : 'N/A', icon: <Clock size={18} color="#a855f7" />, bg: 'rgba(168, 85, 247, 0.08)' },
-        { key: 'revenueGenerated', label: 'Revenue Generated', val: `₹${performanceData.metrics.revenueGenerated.toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#22c55e" />, bg: 'rgba(34, 197, 94, 0.08)' },
         { key: 'conversionRate', label: 'Conversion %', val: `${performanceData.metrics.conversionRate}%`, icon: <Percent size={18} color="#f97316" />, bg: 'rgba(249, 115, 22, 0.08)' },
         { key: 'avgRevenuePerJob', label: 'Avg Revenue / Job', val: `₹${performanceData.metrics.avgRevenuePerJob.toLocaleString('en-IN')}`, icon: <DollarSign size={18} color="#14b8a6" />, bg: 'rgba(20, 184, 166, 0.08)' },
         { key: 'feedbackRate', label: 'Feedback Rate (%)', val: `${performanceData.metrics.feedbackRate}%`, icon: <Award size={18} color="#f43f5e" />, bg: 'rgba(244, 63, 94, 0.08)' }
@@ -256,32 +256,36 @@ export default function PerformanceView({ technicianId }) {
 
             {/* Metrics Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-lg)' }}>
-                {metricsList.map((m) => (
-                    <div
-                        key={m.key}
-                        style={{
-                            padding: '14px var(--spacing-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-primary)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ padding: '6px', borderRadius: '6px', background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {m.icon}
+                {metricsList.map((m, index) => {
+                    const isDouble = index === 0;
+                    return (
+                        <div
+                            key={m.key}
+                            style={{
+                                padding: isDouble ? '16px var(--spacing-md)' : '14px var(--spacing-sm)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border-primary)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                gridColumn: isDouble ? 'span 2' : 'span 1'
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ padding: '6px', borderRadius: '6px', background: m.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {m.icon}
+                                </div>
+                                <span style={{ fontSize: isDouble ? '12px' : '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.2 }}>
+                                    {m.label}
+                                </span>
                             </div>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.2 }}>
-                                {m.label}
-                            </span>
+                            <div style={{ fontSize: isDouble ? '24px' : '18px', fontWeight: 700, color: isDouble ? '#22c55e' : 'var(--text-primary)', paddingLeft: '2px' }}>
+                                {loading ? '...' : m.val}
+                            </div>
                         </div>
-                        <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', paddingLeft: '2px' }}>
-                            {loading ? '...' : m.val}
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Job-Level Details Section */}
