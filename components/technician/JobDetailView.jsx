@@ -2121,33 +2121,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                 {/* Content Area */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)' }}>
-                    {advancePaymentInt && (
-                        <div className="card" style={{ 
-                            padding: '14px', 
-                            background: 'rgba(239, 68, 68, 0.08)', 
-                            border: '1.5px solid rgba(239, 68, 68, 0.35)', 
-                            borderRadius: '12px', 
-                            color: '#f87171', 
-                            fontSize: '14px', 
-                            fontWeight: 700, 
-                            textAlign: 'center',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '6px',
-                            marginBottom: '16px',
-                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '18px' }}>💳</span>
-                                <span>Advance Payment Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
-                            </div>
-                            {advancePaymentInt.metadata?.method && (
-                                <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                    Payment Mode: {advancePaymentInt.metadata.method.toUpperCase()}
-                                </div>
-                            )}
-                        </div>
-                    )}
                     {error && (
                         <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <AlertCircle size={18} /> {error}
@@ -2387,8 +2360,98 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         );
                     })()}
 
-                    {activeTab === 'actions' && (
+                                        {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            {/* 2. Customer Info Section (always second) */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Phone size={16} color="var(--text-secondary)" />
+                                        {isOnline ? (
+                                            <a href={`tel:${editedJob.mobile}`} onClick={handleCallCustomerClick} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '14px' }}>•••••••••• (Go online to view)</span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
+                                            {editedJob.address && (
+                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
+                                            )}
+                                            {(editedJob.locality || editedJob.city) && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
+                                                </div>
+                                            )}
+                                            {!editedJob.address && !editedJob.locality && (
+                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
+                                            )}
+                                            <a
+                                                href={
+                                                    storedLat && storedLng
+                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
+                                                }
+                                                onClick={handleMapsNavigateClick}
+                                                target="_blank" rel="noreferrer"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
+                                            >
+                                                {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 1. Current Status Row (always at the top) */}
+                            <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} color="#3b82f6" />
+                                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Status:</span>
+                                </div>
+                                <span style={{ 
+                                    padding: '4px 10px', 
+                                    borderRadius: '20px', 
+                                    fontSize: '13px', 
+                                    fontWeight: 700, 
+                                    backgroundColor: editedJob.status === 'parts_ordered' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)', 
+                                    color: editedJob.status === 'parts_ordered' ? '#f59e0b' : '#3b82f6',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    {editedJob.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
+                                </span>
+                            </div>
+
+                            {/* 3. Advance Payment Collected red card (always third if any) */}
+                            {advancePaymentInt && (
+                                <div className="card" style={{ 
+                                    padding: '14px', 
+                                    background: 'rgba(239, 68, 68, 0.08)', 
+                                    border: '1.5px solid rgba(239, 68, 68, 0.35)', 
+                                    borderRadius: '12px', 
+                                    color: '#f87171', 
+                                    fontSize: '14px', 
+                                    fontWeight: 700, 
+                                    textAlign: 'center',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '18px' }}>💳</span>
+                                        <span>Advance Payment Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
+                                    </div>
+                                    {advancePaymentInt.metadata?.method && (
+                                        <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                            Payment Mode: {advancePaymentInt.metadata.method.toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {latestEndedVisit && (
                                 <div className="card" style={{ 
                                     padding: '14px', 
@@ -2435,68 +2498,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     )}
                                 </div>
                             )}
-
-                            {/* 1. Current Status Row (always at the top) */}
-                            <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Activity size={18} color="#3b82f6" />
-                                    <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Current Status:</span>
-                                </div>
-                                <span style={{ 
-                                    padding: '4px 10px', 
-                                    borderRadius: '20px', 
-                                    fontSize: '13px', 
-                                    fontWeight: 700, 
-                                    backgroundColor: editedJob.status === 'parts_ordered' ? 'rgba(245,158,11,0.15)' : 'rgba(59,130,246,0.15)', 
-                                    color: editedJob.status === 'parts_ordered' ? '#f59e0b' : '#3b82f6',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {editedJob.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
-                                </span>
-                            </div>
-
-                            {/* 2. Customer Info Section (always second) */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
-                                <div style={{ display: 'grid', gap: '12px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Phone size={16} color="var(--text-secondary)" />
-                                        {isOnline ? (
-                                            <a href={`tel:${editedJob.mobile}`} onClick={handleCallCustomerClick} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '14px' }}>•••••••••• (Go online to view)</span>
-                                        )}
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
-                                            {editedJob.address && (
-                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
-                                            )}
-                                            {(editedJob.locality || editedJob.city) && (
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
-                                                </div>
-                                            )}
-                                            {!editedJob.address && !editedJob.locality && (
-                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
-                                            )}
-                                            <a
-                                                href={
-                                                    storedLat && storedLng
-                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
-                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
-                                                }
-                                                onClick={handleMapsNavigateClick}
-                                                target="_blank" rel="noreferrer"
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
-                                            >
-                                                {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
                             {/* Start Job / Mark as Arrived / On Way Banner Section */}
                             {(() => {
