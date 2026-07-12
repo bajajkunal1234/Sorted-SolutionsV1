@@ -328,6 +328,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [partsNoteText, setPartsNoteText] = useState('');
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
     const [partsPhotos, setPartsPhotos] = useState([]);
+    const [partsMinPrice, setPartsMinPrice] = useState('');
+    const [partsMaxPrice, setPartsMaxPrice] = useState('');
+    const [partsMinDays, setPartsMinDays] = useState('');
+    const [partsMaxDays, setPartsMaxDays] = useState('');
     const [partsActionType, setPartsActionType] = useState('Order Part'); // 'Order Part' | 'Collect Part'
     const [partsOption, setPartsOption] = useState(null); // null | 'select'
     const [isCloseWithServiceCharge, setIsCloseWithServiceCharge] = useState(false);
@@ -2607,7 +2611,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         )}
 
                                         {/* Pre-Arrived Close Call No Service option */}
-                                        {showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
+                                        {!advancePaymentInt && showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
                                             <button
                                                 className="btn"
                                                 onClick={() => {
@@ -2709,13 +2713,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             </button>
  
                                             {/* 3. Close Call Without Service */}
-                                            <button
-                                                className="btn"
-                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
-                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
-                                            >
-                                                ❌ Close Without Service
-                                            </button>
+                                            {!advancePaymentInt && (
+                                                <button
+                                                    className="btn"
+                                                    style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                    onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
+                                                >
+                                                    ❌ Close Without Service
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
@@ -3635,6 +3641,70 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             </div>
                         </div>
 
+                        {/* Price Range Inputs */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Price Range Given to Customer (₹) *
+                            </label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    placeholder="Min Price (e.g. 2000)"
+                                    value={partsMinPrice}
+                                    onChange={e => setPartsMinPrice(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 13 }}>to</span>
+                                <input
+                                    type="number"
+                                    placeholder="Max Price (e.g. 2800)"
+                                    value={partsMaxPrice}
+                                    onChange={e => setPartsMaxPrice(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Time Range Inputs */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Time Range to Source/Repair (Days) *
+                            </label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    placeholder="Min Days (e.g. 2)"
+                                    value={partsMinDays}
+                                    onChange={e => setPartsMinDays(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 13 }}>to</span>
+                                <input
+                                    type="number"
+                                    placeholder="Max Days (e.g. 4)"
+                                    value={partsMaxDays}
+                                    onChange={e => setPartsMaxDays(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                        </div>
+
                         <textarea
                             value={partsNoteText}
                             onChange={e => setPartsNoteText(e.target.value)}
@@ -3647,15 +3717,46 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         />
                         <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                             <button
-                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); setPartsPhotos([]); }}
+                                onClick={() => { 
+                                    setShowPartsNoteModal(false); 
+                                    setPartsNoteText(''); 
+                                    setPartsPhotos([]); 
+                                    setPartsMinPrice('');
+                                    setPartsMaxPrice('');
+                                    setPartsMinDays('');
+                                    setPartsMaxDays('');
+                                }}
                                 style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
                             >
                                 Cancel
                             </button>
                             <button
-                                disabled={!partsNoteText.trim() || partsPhotos.length === 0 || partsNoteLoading}
+                                disabled={
+                                    !partsNoteText.trim() || 
+                                    partsPhotos.length === 0 || 
+                                    partsMinPrice === '' || 
+                                    partsMaxPrice === '' || 
+                                    parseFloat(partsMaxPrice) < parseFloat(partsMinPrice) || 
+                                    parseFloat(partsMinPrice) <= 0 || 
+                                    partsMinDays === '' || 
+                                    partsMaxDays === '' || 
+                                    parseInt(partsMaxDays) < parseInt(partsMinDays) || 
+                                    parseInt(partsMinDays) <= 0 || 
+                                    partsNoteLoading
+                                }
                                 onClick={async () => {
-                                    if (!partsNoteText.trim() || partsPhotos.length === 0) return;
+                                    if (
+                                        !partsNoteText.trim() || 
+                                        partsPhotos.length === 0 || 
+                                        partsMinPrice === '' || 
+                                        partsMaxPrice === '' || 
+                                        parseFloat(partsMaxPrice) < parseFloat(partsMinPrice) || 
+                                        parseFloat(partsMinPrice) <= 0 || 
+                                        partsMinDays === '' || 
+                                        partsMaxDays === '' || 
+                                        parseInt(partsMaxDays) < parseInt(partsMinDays) || 
+                                        parseInt(partsMinDays) <= 0
+                                    ) return;
                                     setPartsNoteLoading(true);
                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                     
@@ -3679,7 +3780,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             const uploadedUrls = await Promise.all(uploadPromises);
 
                                             // 2. Add repair note (sets repair_note_added_at on job)
-                                            const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()}`;
+                                            const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()} | Est. Price Range: ₹${partsMinPrice} to ₹${partsMaxPrice} | Est. Time Range: ${partsMinDays} to ${partsMaxDays} days`;
                                             const noteRes = await apiCall(`/api/technician/jobs/${job.id}`, {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
@@ -3702,12 +3803,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 body: JSON.stringify({
                                                     type: 'repair-note-added',
                                                     category: 'job',
-                                                    description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()}`,
+                                                    description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
                                                     user_name: techName,
                                                     metadata: {
                                                         attachments: uploadedUrls,
                                                         parts_action: partsActionType,
-                                                        note_text: partsNoteText.trim()
+                                                        note_text: partsNoteText.trim(),
+                                                        min_price: partsMinPrice,
+                                                        max_price: partsMaxPrice,
+                                                        min_days: partsMinDays,
+                                                        max_days: partsMaxDays
                                                     }
                                                 })
                                             }).catch(() => {});
@@ -3722,6 +3827,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             setShowPartsNoteModal(false);
                                             setPartsNoteText('');
                                             setPartsPhotos([]);
+                                            setPartsMinPrice('');
+                                            setPartsMaxPrice('');
+                                            setPartsMinDays('');
+                                            setPartsMaxDays('');
 
                                             // Enforce quotation/advance payment flow rules
                                             if (!savedQuotation) {
@@ -3746,8 +3855,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 }}
                                 style={{
                                     flex: 2, padding: '14px', borderRadius: 12,
-                                    background: (partsNoteText.trim() && partsPhotos.length > 0) ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
-                                    border: 'none', color: '#fff', fontWeight: 700, cursor: (partsNoteText.trim() && partsPhotos.length > 0) ? 'pointer' : 'not-allowed', fontSize: 14
+                                    background: (
+                                        partsNoteText.trim() && 
+                                        partsPhotos.length > 0 && 
+                                        partsMinPrice !== '' && 
+                                        partsMaxPrice !== '' && 
+                                        parseFloat(partsMaxPrice) >= parseFloat(partsMinPrice) && 
+                                        parseFloat(partsMinPrice) > 0 && 
+                                        partsMinDays !== '' && 
+                                        partsMaxDays !== '' && 
+                                        parseInt(partsMaxDays) >= parseInt(partsMinDays) && 
+                                        parseInt(partsMinDays) > 0
+                                    ) ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
+                                    border: 'none', color: '#fff', fontWeight: 700, cursor: (
+                                        partsNoteText.trim() && 
+                                        partsPhotos.length > 0 && 
+                                        partsMinPrice !== '' && 
+                                        partsMaxPrice !== '' && 
+                                        parseFloat(partsMaxPrice) >= parseFloat(partsMinPrice) && 
+                                        parseFloat(partsMinPrice) > 0 && 
+                                        partsMinDays !== '' && 
+                                        partsMaxDays !== '' && 
+                                        parseInt(partsMaxDays) >= parseInt(partsMinDays) && 
+                                        parseInt(partsMinDays) > 0
+                                    ) ? 'pointer' : 'not-allowed', fontSize: 14
                                 }}
                             >
                                 {partsNoteLoading ? 'Saving...' : 'Confirm Parts Ordered'}
