@@ -3671,6 +3671,36 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     }}
                                 />
                             </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                {[
+                                    { min: 500, max: 1500, label: '500-1.5k' },
+                                    { min: 1000, max: 2000, label: '1k-2k' },
+                                    { min: 2000, max: 3000, label: '2k-3k' },
+                                    { min: 3000, max: 5000, label: '3k-5k' },
+                                    { min: 5000, max: 8000, label: '5k-8k' }
+                                ].map((p, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                            setPartsMinPrice(p.min.toString());
+                                            setPartsMaxPrice(p.max.toString());
+                                        }}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            background: (partsMinPrice === p.min.toString() && partsMaxPrice === p.max.toString()) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)',
+                                            color: (partsMinPrice === p.min.toString() && partsMaxPrice === p.max.toString()) ? '#60a5fa' : '#cbd5e1',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Time Range Inputs */}
@@ -3702,6 +3732,36 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         color: '#f8fafc', boxSizing: 'border-box'
                                     }}
                                 />
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                {[
+                                    { min: 1, max: 2, label: '1-2 Days' },
+                                    { min: 2, max: 4, label: '2-4 Days' },
+                                    { min: 3, max: 5, label: '3-5 Days' },
+                                    { min: 5, max: 7, label: '5-7 Days' },
+                                    { min: 7, max: 10, label: '7-10 Days' }
+                                ].map((t, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                            setPartsMinDays(t.min.toString());
+                                            setPartsMaxDays(t.max.toString());
+                                        }}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            background: (partsMinDays === t.min.toString() && partsMaxDays === t.max.toString()) ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.03)',
+                                            color: (partsMinDays === t.min.toString() && partsMaxDays === t.max.toString()) ? '#fbbf24' : '#cbd5e1',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
