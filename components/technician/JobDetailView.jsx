@@ -137,75 +137,7 @@ const renderActivityDescription = (activity, onViewDocument) => {
     return <span>{desc}</span>;
 };
 
-const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
-    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
-    const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
-    const startJobEvents = list.filter(i => 
-        i.type === 'on-way' || 
-        i.type === 'job-started' || 
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on_way')) ||
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on-way'))
-    );
-
-    const visits = arrivalEvents.map((arrival, idx) => {
-        const startJob = startJobEvents[idx] || null;
-        const startJobTime = startJob ? (startJob.timestamp || startJob.created_at) : arrival.timestamp || arrival.created_at;
-        const visitStart = new Date(startJobTime).getTime();
-        const nextArrival = arrivalEvents[idx + 1] || null;
-        const nextStartJob = nextArrival ? startJobEvents[idx + 1] : null;
-        const nextStartJobTime = nextStartJob ? (nextStartJob.timestamp || nextStartJob.created_at) : (nextArrival ? (nextArrival.timestamp || nextArrival.created_at) : null);
-        const visitEnd = nextStartJobTime ? new Date(nextStartJobTime).getTime() : Infinity;
-        
-        const visitInteractions = list.filter(i => {
-            const time = new Date(i.timestamp || i.created_at || 0).getTime();
-            return time >= visitStart && time < visitEnd;
-        });
-        
-        const statusChanges = visitInteractions.filter(i => 
-            i.type === 'status-changed' || 
-            i.type?.startsWith('job-status-') ||
-            (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
-        );
-        
-        let outStatus = 'In Progress';
-        if (statusChanges.length > 0) {
-            const latestChange = statusChanges[statusChanges.length - 1];
-            const desc = (latestChange.description || latestChange.message || '').toLowerCase();
-            if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
-                outStatus = 'Parts Ordered';
-            } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
-                outStatus = 'Completed / Closed';
-            } else {
-                const parts = latestChange.description?.split(' → ') || latestChange.message?.split(' → ');
-                if (parts && parts.length > 1) {
-                    const toS = parts[1].split(' by ').shift().trim().replace(/_/g, ' ');
-                    outStatus = toS.charAt(0).toUpperCase() + toS.slice(1);
-                } else {
-                    outStatus = latestChange.description || latestChange.message || 'Status Updated';
-                }
-            }
-        } else if (idx < arrivalEvents.length - 1) {
-            outStatus = 'Parts Ordered / Re-assigned';
-        }
-        
-        const beforeNote = arrival.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
-        const beforeImages = arrival.metadata?.attachments || [];
-        const activities = visitInteractions.filter(i => 
-            i.id !== arrival.id && 
-            (!startJob || i.id !== startJob.id)
-        );
-        
-        return {
-            visitNumber: idx + 1,
-            technician: arrival.performed_by_name || arrival.user_name || 'Technician',
-            startJobTime,
-            arrivalTime: arrival.timestamp || arrival.created_at,
-            outStatus,
-            beforeNote,
-            beforeImages,
-            activities
-        };
-    }).reverse();
+const VisitsLogTab = ({ visits = [], onTabChange, onViewDocument }) => {
 
     if (visits.length === 0) {
         return (
@@ -630,6 +562,92 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const lastEditInt = (editedJob.interactions || []).find(i => i.type === 'quotation-created' || i.type === 'quotation-edited');
     const lastApproveInt = (editedJob.interactions || []).find(i => i.type === 'approve_quotation');
     const needsConfirmation = !lastApproveInt || (lastEditInt && new Date(lastEditInt.timestamp) > new Date(lastApproveInt.timestamp));
+
+    const sortedInteractions = [...(editedJob.interactions || [])].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+    const startJobEvents = sortedInteractions.filter(i => 
+        i.type === 'on-way' || 
+        i.type === 'job-started' || 
+        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on_way')) ||
+        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on-way'))
+    );
+    const computedVisits = startJobEvents.map((startEvent, idx) => {
+        const startJobTime = startEvent.timestamp || startEvent.created_at;
+        const nextStartEvent = startJobEvents[idx + 1] || null;
+        const nextStartJobTime = nextStartEvent ? (nextStartEvent.timestamp || nextStartEvent.created_at) : null;
+        const visitStart = new Date(startJobTime).getTime();
+        const visitEnd = nextStartJobTime ? new Date(nextStartJobTime).getTime() : Infinity;
+        const arrival = sortedInteractions.find(i => {
+            if (i.type !== 'before-photos-uploaded') return false;
+            const time = new Date(i.timestamp || i.created_at || 0).getTime();
+            return time >= visitStart && time < visitEnd;
+        });
+        const visitInteractions = sortedInteractions.filter(i => {
+            const time = new Date(i.timestamp || i.created_at || 0).getTime();
+            return time >= visitStart && time < visitEnd;
+        });
+        const statusChanges = visitInteractions.filter(i => 
+            i.type === 'status-changed' || 
+            i.type?.startsWith('job-status-') ||
+            (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
+        );
+        let outStatus = 'In Progress';
+        let resolvedTime = null;
+        if (statusChanges.length > 0) {
+            const latestChange = statusChanges[statusChanges.length - 1];
+            const desc = (latestChange.description || latestChange.message || '').toLowerCase();
+            resolvedTime = latestChange.timestamp || latestChange.created_at;
+            if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
+                outStatus = 'Parts Ordered';
+            } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
+                outStatus = 'Completed / Closed';
+            } else {
+                const parts = latestChange.description?.split(' → ') || latestChange.message?.split(' → ');
+                if (parts && parts.length > 1) {
+                    const toS = parts[1].split(' by ').shift().trim().replace(/_/g, ' ');
+                    outStatus = toS.charAt(0).toUpperCase() + toS.slice(1);
+                } else {
+                    outStatus = latestChange.description || latestChange.message || 'Status Updated';
+                }
+            }
+        } else if (idx < startJobEvents.length - 1) {
+            outStatus = 'Parts Ordered / Re-assigned';
+            resolvedTime = nextStartJobTime;
+        }
+        const advPayment = visitInteractions.find(i => 
+            i.type === 'payment-received' && 
+            (String(i.description).toLowerCase().includes('advance') || String(i.description).toLowerCase().includes('part 1') || i.description?.toLowerCase().includes('advance payment'))
+        );
+        const quoteCreated = visitInteractions.find(i => i.type === 'quotation-created');
+        const quoteEdited = visitInteractions.find(i => i.type === 'quotation-edited');
+        const quotationDetails = quoteEdited || quoteCreated;
+        const beforeNote = arrival?.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
+        const beforeImages = arrival?.metadata?.attachments || [];
+        const activities = visitInteractions.filter(i => 
+            i.id !== arrival?.id && 
+            i.id !== startEvent.id
+        );
+        let durationStr = 'Ongoing';
+        if (resolvedTime) {
+            const diffMs = new Date(resolvedTime).getTime() - new Date(startJobTime).getTime();
+            const diffMins = Math.round(diffMs / 60000);
+            durationStr = diffMins > 60 ? `${Math.floor(diffMins / 60)}h ${diffMins % 60}m` : `${diffMins} mins`;
+        }
+        return {
+            visitNumber: idx + 1,
+            technician: startEvent.performed_by_name || startEvent.user_name || 'Technician',
+            startJobTime,
+            arrivalTime: arrival?.timestamp || arrival?.created_at || null,
+            endTime: resolvedTime,
+            outStatus,
+            beforeNote,
+            beforeImages,
+            activities,
+            advPayment,
+            quotationDetails,
+            durationStr
+        };
+    }).reverse();
+    const latestEndedVisit = computedVisits.find(v => v.endTime !== null);
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -2103,6 +2121,33 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                 {/* Content Area */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)' }}>
+                    {advancePaymentInt && (
+                        <div className="card" style={{ 
+                            padding: '14px', 
+                            background: 'rgba(239, 68, 68, 0.08)', 
+                            border: '1.5px solid rgba(239, 68, 68, 0.35)', 
+                            borderRadius: '12px', 
+                            color: '#f87171', 
+                            fontSize: '14px', 
+                            fontWeight: 700, 
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            marginBottom: '16px',
+                            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '18px' }}>💳</span>
+                                <span>Advance Payment Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                            {advancePaymentInt.metadata?.method && (
+                                <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                    Payment Mode: {advancePaymentInt.metadata.method.toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {error && (
                         <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <AlertCircle size={18} /> {error}
@@ -2307,7 +2352,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                     {activeTab === 'visits' && (
                         <VisitsLogTab 
-                            interactions={editedJob.interactions || []}
+                            visits={computedVisits}
                             onTabChange={setActiveTab}
                             onViewDocument={handleViewDocument}
                         />
@@ -2344,6 +2389,52 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            {latestEndedVisit && (
+                                <div className="card" style={{ 
+                                    padding: '14px', 
+                                    backgroundColor: 'rgba(56, 189, 248, 0.05)', 
+                                    border: '1.5px solid rgba(56, 189, 248, 0.25)', 
+                                    borderRadius: '12px', 
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '10px'
+                                }}>
+                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#38bdf8', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>📋</span>
+                                        <span>Visit #{latestEndedVisit.visitNumber} Summary</span>
+                                    </h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px', fontSize: '13px' }}>
+                                        <div>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Status: </span>
+                                            <strong style={{ color: latestEndedVisit.outStatus.includes('Parts Ordered') ? '#f59e0b' : '#10b981' }}>{latestEndedVisit.outStatus}</strong>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Duration: </span>
+                                            <strong style={{ color: 'var(--text-primary)' }}>{latestEndedVisit.durationStr}</strong>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Started: </span>
+                                            <strong style={{ color: 'var(--text-primary)' }}>{new Date(latestEndedVisit.startJobTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong>
+                                        </div>
+                                        {latestEndedVisit.arrivalTime && (
+                                            <div>
+                                                <span style={{ color: 'var(--text-secondary)' }}>Arrived: </span>
+                                                <strong style={{ color: 'var(--text-primary)' }}>{new Date(latestEndedVisit.arrivalTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {latestEndedVisit.advPayment && (
+                                        <div style={{ fontSize: '12px', padding: '6px 10px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', color: '#10b981', fontWeight: 600 }}>
+                                            💰 Advance Collected: ₹{(latestEndedVisit.advPayment.metadata?.amount || latestEndedVisit.advPayment.amount || 0).toLocaleString('en-IN')}
+                                        </div>
+                                    )}
+                                    {latestEndedVisit.beforeNote && (
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
+                                            Note: "{latestEndedVisit.beforeNote}"
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* 1. Current Status Row (always at the top) */}
                             <div className="card" style={{ padding: '14px 16px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2643,31 +2734,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {/* Collect Advance Payment Button (shown when status is parts_ordered and quotation exists) */}
                                     {editedJob.status === 'parts_ordered' && savedQuotation && (
                                         <div style={{ padding: '0 4px' }}>
-                                            {advancePaymentInt ? (
-                                                <div style={{ 
-                                                    padding: '12px', 
-                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                                                    border: '1px solid rgba(16, 185, 129, 0.2)', 
-                                                    borderRadius: '8px', 
-                                                    color: '#10b981', 
-                                                    fontSize: '13px', 
-                                                    fontWeight: 600, 
-                                                    textAlign: 'center',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '4px'
-                                                }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                                        <CheckCircle size={14} />
-                                                        <span>Advance Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
-                                                    </div>
-                                                    {advancePaymentInt.metadata?.method && (
-                                                        <div style={{ fontSize: '11px', opacity: 0.8, fontWeight: 400 }}>
-                                                            Mode: {advancePaymentInt.metadata.method.toUpperCase()}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
+                                            {!advancePaymentInt && (
                                                 <button
                                                     className="btn"
                                                     style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(139,92,246,0.15)' }}
