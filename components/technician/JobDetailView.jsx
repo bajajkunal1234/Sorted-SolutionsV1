@@ -618,6 +618,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
     if (!job) return null;
 
+    const advancePaymentInt = (editedJob.interactions || []).find(i => 
+        i.type === 'payment-received' && 
+        (
+            String(i.description).toLowerCase().includes('advance') || 
+            String(i.description).toLowerCase().includes('part 1') || 
+            (!savedInvoice && i.metadata?.amount)
+        )
+    );
+
+    const lastEditInt = (editedJob.interactions || []).find(i => i.type === 'quotation-created' || i.type === 'quotation-edited');
+    const lastApproveInt = (editedJob.interactions || []).find(i => i.type === 'approve_quotation');
+    const needsConfirmation = !lastApproveInt || (lastEditInt && new Date(lastEditInt.timestamp) > new Date(lastApproveInt.timestamp));
+
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
         { id: 'visits', label: 'Visits Log', icon: Camera },
@@ -2394,130 +2407,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </div>
                             </div>
 
-                            {partsOption === 'select' ? (
-                                <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
-                                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
-                                        Select Parts Action
-                                    </h3>
-                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                        <button
-                                            className="btn"
-                                            style={{ flex: 1, padding: '14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                            onClick={() => {
-                                                setPartsActionType('Order Part');
-                                                setPartsOption(null);
-                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
-                                            }}
-                                        >
-                                            📦 Order Part
-                                        </button>
-                                        <button
-                                            className="btn"
-                                            style={{ flex: 1, padding: '14px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                            onClick={() => {
-                                                setPartsActionType('Collect Part');
-                                                setPartsOption(null);
-                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
-                                            }}
-                                        >
-                                            🛒 Collect Part
-                                        </button>
-                                    </div>
-                                    <button
-                                        className="btn"
-                                        style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
-                                        onClick={() => setPartsOption(null)}
-                                    >
-                                        Back
-                                    </button>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
-                                    {/* 3. 3-Button Section (if status is diagnosing_quoting or any active status without a quotation) */}
-                                    {(editedJob.status === 'diagnosing_quoting' || (!['scheduled', 'closed', 'cancelled'].includes(editedJob.status) && !savedQuotation)) && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                            {/* 1. Calculate Repair Estimate */}
-                                            <button
-                                                className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
-                                                onClick={() => {
-                                                    setIsCloseWithServiceCharge(false);
-                                                    setActiveForm('calculator');
-                                                }}
-                                            >
-                                                ⚡ Repair Estimate
-                                            </button>
- 
-                                            {/* 2. Close with Service Charge */}
-                                            <button
-                                                className="btn"
-                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
-                                                onClick={() => {
-                                                    setIsCloseWithServiceCharge(true);
-                                                    setActiveForm('calculator');
-                                                }}
-                                            >
-                                                🛠️ Close with Service
-                                            </button>
- 
-                                            {/* 3. Close Call Without Service */}
-                                            <button
-                                                className="btn"
-                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
-                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
-                                            >
-                                                ❌ Close Without Service
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Order/Collect Parts Button (shown after quotation is created, status is quotation_sent) */}
-                                    {editedJob.status === 'quotation_sent' && (
-                                        <div style={{ padding: '0 4px' }}>
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
-                                                onClick={() => setPartsOption('select')}
-                                            >
-                                                📦 Order/Collect Parts for Repair
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Collect Advance Payment Button (shown when status is parts_ordered and quotation exists) */}
-                                    {editedJob.status === 'parts_ordered' && savedQuotation && (
-                                        <div style={{ padding: '0 4px' }}>
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(139,92,246,0.15)' }}
-                                                onClick={() => setShowAdvanceCollectPayment(true)}
-                                            >
-                                                💳 Collect Advance Payment
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <input 
-                                ref={partsPhotosInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                multiple
-                                onChange={(e) => {
-                                    const files = Array.from(e.target.files);
-                                    const newPhotos = files.map(file => ({
-                                        id: Date.now() + Math.random(),
-                                        name: file.name,
-                                        url: URL.createObjectURL(file),
-                                        file
-                                    }));
-                                    setPartsPhotos(prev => [...prev, ...newPhotos]);
-                                    setShowPartsNoteModal(true);
-                                }}
-                                style={{ display: 'none' }}
-                            />
+                            {/* Start Job / Mark as Arrived / On Way Banner Section */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
                                 const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
@@ -2542,7 +2432,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                      Ready to Head Out? (Visit {nextVisitNum})
                                                 </h3>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                                    Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
+                                                     Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
                                                 </p>
                                                 <button
                                                     className="btn btn-primary"
@@ -2649,7 +2539,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     gap: '8px',
                                                     cursor: 'pointer',
                                                     whiteSpace: 'normal',
-                                                    marginTop: '12px'
+                                                    marginTop: '12px',
+                                                    marginBottom: '12px'
                                                 }}
                                             >
                                                 ❌ Close Call — No Service
@@ -2658,6 +2549,157 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     </>
                                 );
                             })()}
+
+                            {partsOption === 'select' ? (
+                                <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
+                                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
+                                        Select Parts Action
+                                    </h3>
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button
+                                            className="btn"
+                                            style={{ flex: 1, padding: '14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                            onClick={() => {
+                                                setPartsActionType('Order Part');
+                                                setPartsOption(null);
+                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                            }}
+                                        >
+                                            📦 Order Part
+                                        </button>
+                                        <button
+                                            className="btn"
+                                            style={{ flex: 1, padding: '14px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                            onClick={() => {
+                                                setPartsActionType('Collect Part');
+                                                setPartsOption(null);
+                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                            }}
+                                        >
+                                            🛒 Collect Part
+                                        </button>
+                                    </div>
+                                    <button
+                                        className="btn"
+                                        style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                        onClick={() => setPartsOption(null)}
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '10px 4px' }}>
+                                    {/* 3. 3-Button Section (if status is diagnosing_quoting or any active status without a quotation) */}
+                                    {(editedJob.status === 'diagnosing_quoting' || (!['scheduled', 'closed', 'cancelled'].includes(editedJob.status) && !savedQuotation)) && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                            {/* 1. Calculate Repair Estimate */}
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                onClick={() => {
+                                                    setIsCloseWithServiceCharge(false);
+                                                    setActiveForm('calculator');
+                                                }}
+                                            >
+                                                ⚡ Repair Estimate
+                                            </button>
+ 
+                                            {/* 2. Close with Service Charge */}
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                onClick={() => {
+                                                    setIsCloseWithServiceCharge(true);
+                                                    setActiveForm('calculator');
+                                                }}
+                                            >
+                                                🛠️ Close with Service
+                                            </button>
+ 
+                                            {/* 3. Close Call Without Service */}
+                                            <button
+                                                className="btn"
+                                                style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
+                                            >
+                                                ❌ Close Without Service
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Order/Collect Parts Button (shown after quotation is created, status is quotation_sent) */}
+                                    {editedJob.status === 'quotation_sent' && (
+                                        <div style={{ padding: '0 4px' }}>
+                                            <button
+                                                className="btn"
+                                                style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                onClick={() => setPartsOption('select')}
+                                            >
+                                                📦 Order/Collect Parts for Repair
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Collect Advance Payment Button (shown when status is parts_ordered and quotation exists) */}
+                                    {editedJob.status === 'parts_ordered' && savedQuotation && (
+                                        <div style={{ padding: '0 4px' }}>
+                                            {advancePaymentInt ? (
+                                                <div style={{ 
+                                                    padding: '12px', 
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                                                    border: '1px solid rgba(16, 185, 129, 0.2)', 
+                                                    borderRadius: '8px', 
+                                                    color: '#10b981', 
+                                                    fontSize: '13px', 
+                                                    fontWeight: 600, 
+                                                    textAlign: 'center',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '4px'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                        <CheckCircle size={14} />
+                                                        <span>Advance Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    {advancePaymentInt.metadata?.method && (
+                                                        <div style={{ fontSize: '11px', opacity: 0.8, fontWeight: 400 }}>
+                                                            Mode: {advancePaymentInt.metadata.method.toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className="btn"
+                                                    style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(139,92,246,0.15)' }}
+                                                    onClick={() => setShowAdvanceCollectPayment(true)}
+                                                >
+                                                    💳 Collect Advance Payment
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <input 
+                                ref={partsPhotosInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files);
+                                    const newPhotos = files.map(file => ({
+                                        id: Date.now() + Math.random(),
+                                        name: file.name,
+                                        url: URL.createObjectURL(file),
+                                        file
+                                    }));
+                                    setPartsPhotos(prev => [...prev, ...newPhotos]);
+                                    setShowPartsNoteModal(true);
+                                }}
+                                style={{ display: 'none' }}
+                            />
 
                             {/* 5. Quotation Approval & Billing (only displays if a quotation or invoice is created) */}
                             {(savedQuotation || savedInvoice) && (
@@ -2805,7 +2847,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 {/* Edit goes away if approved */}
-                                                {!['parts_ordered', 'work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
                                                     <button
                                                         className="btn"
                                                         style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
@@ -2912,24 +2954,60 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     if (['parts_ordered', 'work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
                                                         return (
                                                             <>
-                                                                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: editedJob.status === 'parts_ordered' ? 0 : '10px' }}>
-                                                                    <CheckCircle size={16} /> 
-                                                                    {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
-                                                                        ? 'Cx Approved from App' 
-                                                                        : 'Cx Said to Proceed'}
-                                                                </div>
-                                                                {editedJob.status !== 'parts_ordered' ? (
+                                                                {((editedJob.status !== 'parts_ordered') || (editedJob.status === 'parts_ordered' && !needsConfirmation)) && (
+                                                                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginBottom: editedJob.status === 'parts_ordered' ? 0 : '10px' }}>
+                                                                        <CheckCircle size={16} /> 
+                                                                        {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
+                                                                            ? 'Cx Approved from App' 
+                                                                            : 'Cx Said to Proceed'}
+                                                                    </div>
+                                                                )}
+                                                                {editedJob.status === 'parts_ordered' && needsConfirmation ? (
                                                                     <button
                                                                         className="btn"
-                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
+                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', marginTop: '10px' }}
                                                                         disabled={loading}
-                                                                        onClick={() => {
-                                                                            setShowAfterPhotosModal(true);
+                                                                        onClick={async () => {
+                                                                            setLoading(true);
+                                                                            try {
+                                                                                const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                                                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                    method: 'POST',
+                                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify({ 
+                                                                                        type: 'approve_quotation', 
+                                                                                        category: 'billing', 
+                                                                                        description: `Quotation ${savedQuotation.quote_number} approved by customer (confirmed by ${techName})`, 
+                                                                                        user_name: techName 
+                                                                                    })
+                                                                                }).catch(() => {});
+                                                                                
+                                                                                const [intRes, jobIntRes] = await Promise.all([
+                                                                                    apiCall(`/api/admin/interactions?job_id=${editedJob.id}`),
+                                                                                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`)
+                                                                                ]);
+                                                                                const intData = await intRes.json().catch(() => ({ data: [] }));
+                                                                                const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
+                                                                                const allInt = deduplicateInteractions([
+                                                                                    ...(intData.data || []),
+                                                                                    ...(jobIntData.data || []).map(ji => ({
+                                                                                        ...ji,
+                                                                                        performed_by_name: ji.user_name || ji.performed_by_name || 'Technician',
+                                                                                        description: ji.message || ji.description || '',
+                                                                                        timestamp: ji.created_at || ji.timestamp,
+                                                                                    }))
+                                                                                ]);
+                                                                                setEditedJob(prev => ({ ...prev, interactions: allInt }));
+                                                                            } catch (e) {
+                                                                                console.error(e);
+                                                                            } finally {
+                                                                                setLoading(false);
+                                                                            }
                                                                         }}
                                                                     >
-                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
+                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Confirm Updated Quotation'}
                                                                     </button>
-                                                                ) : (
+                                                                ) : editedJob.status === 'parts_ordered' ? (
                                                                     <button
                                                                         className="btn"
                                                                         style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(59,130,246,0.2)', whiteSpace: 'normal', marginTop: '10px' }}
@@ -2939,6 +3017,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         }}
                                                                     >
                                                                         {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Start Repair / Install Parts'}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        className="btn"
+                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
+                                                                        disabled={loading}
+                                                                        onClick={() => {
+                                                                            setShowAfterPhotosModal(true);
+                                                                        }}
+                                                                    >
+                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
                                                                     </button>
                                                                 )}
                                                             </>
@@ -3704,7 +3793,52 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         <button
                             className="btn"
                             style={{ flex: 1, padding: '12px', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', borderRadius: '8px', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-                            onClick={() => setShowAdvanceConfirmModal(false)}
+                            disabled={loading}
+                            onClick={async () => {
+                                setShowAdvanceConfirmModal(false);
+                                setLoading(true);
+                                try {
+                                    const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                    await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            type: 'advance-skipped',
+                                            category: 'job',
+                                            description: `Technician skipped collecting advance payment for ordering parts.`,
+                                            user_name: techName
+                                        })
+                                    });
+                                    // Refresh data
+                                    const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                                    const data = await res.json();
+                                    if (data.success && data.job) {
+                                        // Reload interactions
+                                        const [intRes, jobIntRes] = await Promise.all([
+                                            apiCall(`/api/admin/interactions?job_id=${editedJob.id}`),
+                                            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`)
+                                        ]);
+                                        const intData = await intRes.json().catch(() => ({ data: [] }));
+                                        const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
+                                        const allInt = deduplicateInteractions([
+                                            ...(intData.data || []),
+                                            ...(jobIntData.data || []).map(ji => ({
+                                                ...ji,
+                                                performed_by_name: ji.user_name || ji.performed_by_name || 'Technician',
+                                                description: ji.message || ji.description || '',
+                                                timestamp: ji.created_at || ji.timestamp,
+                                            }))
+                                        ]);
+                                        const freshJob = { ...data.job, interactions: allInt };
+                                        setEditedJob(freshJob);
+                                        if (onJobUpdate) onJobUpdate(freshJob);
+                                    }
+                                } catch (e) {
+                                    console.error(e);
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }}
                         >
                             No, Skip
                         </button>
@@ -3777,7 +3911,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
                     technician_id: techId,
                 }}
-                prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                prefilledAmount={(() => {
+                    if (!savedInvoice?.total_amount) return '';
+                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
+                    return String(pending);
+                })()}
                 onSuccess={() => {
                     setShowCollectPayment(false);
                     setShowFeedbackCloseFlow(true);
@@ -3949,7 +4088,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
                     technician_id: techId,
                 }}
-                prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                prefilledAmount={(() => {
+                    if (!savedInvoice?.total_amount) return '';
+                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
+                    return String(pending);
+                })()}
                 onSuccess={async () => {
                     setShowServiceChargeCollectPayment(false);
                     try {
