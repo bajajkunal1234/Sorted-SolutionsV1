@@ -85,6 +85,38 @@ function TechnicianApp() {
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
     const [apkSize, setApkSize] = useState('6.53 MB');
     const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyLink = () => {
+        const url = 'https://sortedsolutions.in/downloads/technician-app.apk';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url)
+                .then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 3000);
+                })
+                .catch(() => fallbackCopy(url));
+        } else {
+            fallbackCopy(url);
+        }
+    };
+
+    const fallbackCopy = (text) => {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 3000);
+        } catch (err) {
+            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app.apk');
+        }
+    };
 
     useEffect(() => {
         const checkAppVersion = async () => {
@@ -2826,6 +2858,47 @@ function TechnicianApp() {
                     >
                         Download & Install Update
                     </button>
+
+                    <button
+                        onClick={handleCopyLink}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '12px',
+                            backgroundColor: copied ? '#059669' : '#4b5563',
+                            color: 'white',
+                            fontWeight: 600,
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'background-color 0.2s'
+                        }}
+                    >
+                        {copied ? '✓ Link Copied!' : '📋 Copy Download Link'}
+                    </button>
+
+                    <div style={{
+                        marginTop: '12px',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-primary)',
+                        textAlign: 'left',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.5,
+                        width: '100%'
+                    }}>
+                        <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>💡 How to install:</strong>
+                        1. Click <strong>Download</strong> or copy the link to your clipboard.<br />
+                        2. Open **Google Chrome** or **Samsung Internet** on your phone.<br />
+                        3. Paste the link into Chrome's address bar and download the APK.<br />
+                        4. Once downloaded, open the file and tap **Install / Update**.
+                    </div>
                 </div>
             </div>
         );
