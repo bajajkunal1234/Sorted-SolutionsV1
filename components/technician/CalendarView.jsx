@@ -12,30 +12,33 @@ const getLocalDateString = (d) => {
     return `${year}-${month}-${day}`;
 };
 
-// Skip next 6 working days (Mon-Sat, Sunday off) to find min date
-function getMinLeaveDate() {
+// Skip next 6 working days (skipping weekly off day) to find min date
+function getMinLeaveDate(weeklyOffDay = 'Sunday') {
     const d = new Date();
     // Adjust to India Standard Time (UTC+5:30)
     const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
     const istDate = new Date(utc + (3600000 * 5.5));
     
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const weeklyOffIndex = dayNames.indexOf(weeklyOffDay);
+    
     let workingDays = 0;
     let checkDate = new Date(istDate);
     while (workingDays < 6) {
         checkDate.setDate(checkDate.getDate() + 1);
-        if (checkDate.getDay() !== 0) { // Not Sunday
+        if (checkDate.getDay() !== weeklyOffIndex) {
             workingDays++;
         }
     }
     let minDate = new Date(checkDate);
     minDate.setDate(minDate.getDate() + 1);
-    if (minDate.getDay() === 0) { // Sunday fallback
+    if (minDate.getDay() === weeklyOffIndex) {
         minDate.setDate(minDate.getDate() + 1);
     }
     return minDate;
 }
 
-export default function CalendarView({ technicianId, jobs = [], onSelectJob, setActiveTab }) {
+export default function CalendarView({ technicianId, jobs = [], onSelectJob, setActiveTab, technicianData }) {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [selectedDateStr, setSelectedDateStr] = useState(getLocalDateString(new Date()));
@@ -49,7 +52,8 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState(null);
 
-    const minLeaveDateObj = getMinLeaveDate();
+    const weeklyOffDay = technicianData?.weekly_off_day || 'Sunday';
+    const minLeaveDateObj = getMinLeaveDate(weeklyOffDay);
     const minLeaveDateStr = getLocalDateString(minLeaveDateObj);
 
     // Fetch applied leaves
@@ -271,7 +275,8 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                         const dateJobs = getJobsForDate(dateStr);
                         const dateLeave = getLeaveForDate(dateStr);
                         const dayOfWeek = new Date(currentYear, currentMonth, day).getDay();
-                        const isSunday = dayOfWeek === 0;
+                        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                        const isWeeklyOff = dayNames[dayOfWeek] === weeklyOffDay;
 
                         let borderStyle = '1px solid var(--border-primary)';
                         let bgColor = 'transparent';
@@ -281,7 +286,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                             borderStyle = '1px solid #3b82f6';
                             textColor = '#3b82f6';
                         }
-                        if (isSunday) {
+                        if (isWeeklyOff) {
                             bgColor = 'rgba(255,255,255,0.01)';
                             textColor = 'var(--text-tertiary)';
                         }

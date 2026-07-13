@@ -81,8 +81,21 @@ export default function TechnicianTimelineTab() {
                 .order('name');
             if (!error && data) {
                 setTechnicians(data);
-                if (data.length > 0) {
+                
+                // Read redirection targets if any
+                const redirTechId = localStorage.getItem('timeline_redirect_tech');
+                const redirDate = localStorage.getItem('timeline_redirect_date');
+                
+                if (redirTechId && data.some(t => t.id === redirTechId)) {
+                    setSelectedTechId(redirTechId);
+                    localStorage.removeItem('timeline_redirect_tech');
+                } else if (data.length > 0) {
                     setSelectedTechId(data[0].id);
+                }
+                
+                if (redirDate) {
+                    setSelectedDate(redirDate);
+                    localStorage.removeItem('timeline_redirect_date');
                 }
             }
         };

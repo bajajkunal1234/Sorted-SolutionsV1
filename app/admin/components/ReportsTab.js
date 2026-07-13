@@ -33,6 +33,7 @@ import SQLRunnerPage from '../system/sql/page';
 function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
     const [subSection, setSubSection] = useState(null);
+    const [customSubTab, setCustomSubTab] = useState(null);
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -105,9 +106,11 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
         if (item.type === 'section') {
             setActiveSection(item.id);
             setSubSection(null);
+            setCustomSubTab(null);
         } else if (item.type === 'website-setting') {
             setActiveSection(item.parentId);
             setSubSection(item.id);
+            setCustomSubTab(null);
         }
         setSearchTerm('');
     };
@@ -254,6 +257,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                     onClick={() => {
                         setActiveSection(null);
                         setSubSection(null);
+                        setCustomSubTab(null);
                     }}
                 >
                     Reports
@@ -313,7 +317,12 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                                 return (
                                     <button
                                         key={section.id}
-                                        onClick={() => section.component && setActiveSection(section.id)}
+                                        onClick={() => {
+                                            if (section.component) {
+                                                setActiveSection(section.id);
+                                                setCustomSubTab(null);
+                                            }
+                                        }}
                                         disabled={isDisabled}
                                         className="card"
                                         style={{
@@ -434,10 +443,14 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
                         initialSubTab={
-                            activeSection === 'technicians' || activeSection === 'incentives'
+                            customSubTab || (activeSection === 'technicians' || activeSection === 'incentives'
                                 ? initialTechSubTab
-                                : null
+                                : null)
                         }
+                        navigateToSection={(sectionId, subTabId) => {
+                            setActiveSection(sectionId);
+                            setCustomSubTab(subTabId);
+                        }}
                     />
                 ) : (
                     <div style={{

@@ -11,7 +11,7 @@ export async function GET(request) {
     try {
         let query = supabase
             .from('technicians')
-            .select('id, name, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day')
+            .select('id, name, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day')
             .order('name', { ascending: true })
 
         if (id) query = query.eq('id', id).single()
@@ -50,7 +50,7 @@ export async function PATCH(request) {
             .from('technicians')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
-            .select('id, name, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day')
+            .select('id, name, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day')
             .single()
 
         if (error) throw error

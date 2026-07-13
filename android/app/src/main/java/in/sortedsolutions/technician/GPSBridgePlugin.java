@@ -276,4 +276,11 @@ public class GPSBridgePlugin extends Plugin {
         }
         call.resolve(ret);
     }
+
+    @PluginMethod
+    public void getAppVersion(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("version", "1.1.0");
+        call.resolve(ret);
+    }
 }

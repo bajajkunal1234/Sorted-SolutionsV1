@@ -84,6 +84,33 @@ function TechnicianApp() {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
     const [apkSize, setApkSize] = useState('6.53 MB');
+    const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
+
+    useEffect(() => {
+        const checkAppVersion = async () => {
+            const isNative = isNativePlatform();
+            if (isNative && GPSBridgePlugin) {
+                try {
+                    // Check if getAppVersion method exists on the plugin
+                    if (GPSBridgePlugin.getAppVersion) {
+                        const res = await GPSBridgePlugin.getAppVersion();
+                        if (res && res.version === '1.1.0') {
+                            // Up to date!
+                            return;
+                        }
+                    }
+                    // Old version or missing method -> Force update
+                    setShowForceUpdateModal(true);
+                } catch (e) {
+                    // Failed to call -> Force update
+                    setShowForceUpdateModal(true);
+                }
+            }
+        };
+        // Run check after a short delay to ensure native plugins are initialized
+        const timer = setTimeout(checkAppVersion, 1000);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -480,8 +507,12 @@ function TechnicianApp() {
 
     const isSupposedToBeOnDutyToday = () => {
         const todayStr = getTodayLocalString();
-        const isSunday = new Date().getDay() === 0;
-        if (isSunday) return false;
+        const weeklyOffDay = technicianData?.weekly_off_day || 'Sunday';
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const todayDayName = dayNames[new Date().getDay()];
+        const isWeeklyOff = todayDayName === weeklyOffDay;
+        
+        if (isWeeklyOff) return false;
 
         const hasApprovedLeave = leaves.some(
             (leave) => leave.leave_date === todayStr && leave.status === 'approved'
@@ -2732,6 +2763,69 @@ function TechnicianApp() {
         );
     }
 
+    if (showForceUpdateModal) {
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'var(--bg-primary)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '30px',
+                zIndex: 99999,
+                color: 'var(--text-primary)',
+                fontFamily: 'Inter, sans-serif',
+                textAlign: 'center'
+            }}>
+                <div style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    maxWidth: '450px',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '16px'
+                }}>
+                    <span style={{ fontSize: '48px' }}>⚠️</span>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, margin: 0, color: '#ef4444' }}>App Update Required</h2>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                        You are using an outdated version of the Sorted Technician app. 
+                        A mandatory update is required to continue. This update contains critical fixes for GPS tracking.
+                    </p>
+                    <a
+                        href="/downloads/technician-app.apk"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            width: '100%',
+                            padding: '14px',
+                            borderRadius: '12px',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                            fontSize: '15px',
+                            marginTop: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)'
+                        }}
+                    >
+                        Download & Install Update
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <>
         {/* PWA install + notification permission prompt — shown once on first load */}
@@ -2794,6 +2888,7 @@ function TechnicianApp() {
                                 jobs={jobs} 
                                 onSelectJob={setSelectedJob}
                                 setActiveTab={setActiveTab}
+                                technicianData={technicianData}
                             />
                         )}
                         {activeTab === 'jobs' && renderJobsTab()}

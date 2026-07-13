@@ -16,7 +16,7 @@ export async function GET(request) {
         const sessionToken = request.headers.get('x-session-token')
         const { data: technician, error } = await supabase
             .from('technicians')
-            .select('id, name, email, phone, is_active, created_at, current_session_token')
+            .select('id, name, email, phone, is_active, created_at, current_session_token, weekly_off_day')
             .eq('id', technicianId)
             .single()
 

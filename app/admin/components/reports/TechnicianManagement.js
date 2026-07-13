@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff, Package, Calendar } from 'lucide-react';
+import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff, Package, Calendar, ChevronLeft, ChevronRight, Clock, Activity, CheckCircle } from 'lucide-react';
 import { websiteSettingsAPI, accountsAPI, accountGroupsAPI, transactionsAPI } from '@/lib/adminAPI';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
@@ -24,7 +24,7 @@ const CUSTOMER_CARD_FIELDS = [
     { id: 'bio', label: 'Bio / Tagline', icon: '💬' },
 ];
 
-function TechnicianManagement({ initialSubTab }) {
+function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const [activeTab, setActiveTab] = useState('profile');
     const [isMobile, setIsMobile] = useState(false);
 
@@ -141,6 +141,20 @@ function TechnicianManagement({ initialSubTab }) {
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [leavesFilter, setLeavesFilter] = useState('all');
 
+    // ─── Attendance & Calendar state ─────────────────────────────────────────
+    const [selectedCalendarMonth, setSelectedCalendarMonth] = useState(() => {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [selectedCalendarTechId, setSelectedCalendarTechId] = useState('');
+    const [attendanceData, setAttendanceData] = useState([]);
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [attendanceDistanceData, setAttendanceDistanceData] = useState({});
+    const [calendarJobs, setCalendarJobs] = useState([]);
+    const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
+    const [savingAttendance, setSavingAttendance] = useState(false);
+    const [editingNotes, setEditingNotes] = useState('');
+
     useEffect(() => {
         if (initialSubTab) {
             if (initialSubTab === 'spares-post') {
@@ -160,6 +174,12 @@ function TechnicianManagement({ initialSubTab }) {
         }
     }, [initialSubTab]);
 
+    useEffect(() => {
+        if (technicians.length > 0 && !selectedCalendarTechId) {
+            setSelectedCalendarTechId(technicians[0].id);
+        }
+    }, [technicians]);
+
     useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
     useEffect(() => { 
         if (activeTab === 'expenses') { 
@@ -169,9 +189,17 @@ function TechnicianManagement({ initialSubTab }) {
         } else if (activeTab === 'spares') {
             fetchSpares();
         } else if (activeTab === 'leaves') {
-            fetchLeaves();
+            fetchCalendarData();
         }
-    }, [activeTab, expenseFilter, sparesFilter, selectedTechFilter, leavesFilter]);
+    }, [activeTab, expenseFilter, sparesFilter, selectedTechFilter, leavesFilter, selectedCalendarTechId, selectedCalendarMonth]);
+
+    useEffect(() => {
+        if (activeTab === 'leaves') {
+            setSelectedCalendarDate(null);
+            setEditingNotes('');
+            fetchCalendarData();
+        }
+    }, [selectedCalendarTechId, selectedCalendarMonth, activeTab]);
 
     useEffect(() => {
         if (activeTab === 'expenses' && selectedTechFilter && adminExpenseViewMode === 'ledger') {
@@ -198,7 +226,11 @@ function TechnicianManagement({ initialSubTab }) {
 
         channel.on('broadcast', { event: 'leave_submitted' }, () => {
             console.log('Realtime broadcast: leave submitted');
-            fetchLeaves();
+            if (activeTab === 'leaves') {
+                fetchCalendarData();
+            } else {
+                fetchLeaves();
+            }
         });
 
         channel.subscribe();
@@ -313,6 +345,115 @@ function TechnicianManagement({ initialSubTab }) {
         } catch (err) {
             console.error('Update leave error:', err);
             alert('Error: ' + err.message);
+        }
+    };
+
+    const fetchCalendarData = async () => {
+        if (!selectedCalendarTechId || !selectedCalendarMonth) return;
+        setAttendanceLoading(true);
+        try {
+            // 1. Fetch attendance & leaves
+            const res = await fetch(`/api/admin/attendance?technicianId=${selectedCalendarTechId}&month=${selectedCalendarMonth}`);
+            const payload = await res.json();
+            if (payload.success) {
+                setAttendanceData(payload.attendance || []);
+                setLeaves(payload.leaves || []);
+            }
+
+            // 2. Fetch monthly distances
+            const distRes = await fetch(`/api/admin/technician-location-history?technicianId=${selectedCalendarTechId}&month=${selectedCalendarMonth}`);
+            const distPayload = await distRes.json();
+            if (distPayload.success) {
+                setAttendanceDistanceData(distPayload.data || {});
+            } else {
+                setAttendanceDistanceData({});
+            }
+
+            // 3. Fetch jobs scheduled for this month
+            const [yearStr, monthStr] = selectedCalendarMonth.split('-');
+            const year = parseInt(yearStr);
+            const monthNum = parseInt(monthStr);
+            const lastDay = new Date(year, monthNum, 0).getDate();
+            const startDate = `${selectedCalendarMonth}-01`;
+            const endDate = `${selectedCalendarMonth}-${String(lastDay).padStart(2, '0')}`;
+
+            const { data: jobsData, error: jobsError } = await supabase
+                .from('jobs')
+                .eq('technician_id', selectedCalendarTechId)
+                .gte('scheduled_date', startDate)
+                .lte('scheduled_date', endDate);
+
+            if (!jobsError && jobsData) {
+                setCalendarJobs(jobsData);
+            } else {
+                setCalendarJobs([]);
+            }
+
+        } catch (err) {
+            console.error('Error fetching calendar data:', err);
+        } finally {
+            setAttendanceLoading(false);
+        }
+    };
+
+    const handleSaveAttendance = async (status) => {
+        if (!selectedCalendarTechId || !selectedCalendarDate) return;
+        setSavingAttendance(true);
+        try {
+            const res = await fetch('/api/admin/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    technicianId: selectedCalendarTechId,
+                    date: selectedCalendarDate,
+                    status,
+                    notes: editingNotes
+                })
+            });
+            const payload = await res.json();
+            if (payload.success) {
+                // Update local attendance state
+                setAttendanceData(prev => {
+                    const existsIndex = prev.findIndex(a => a.date === selectedCalendarDate);
+                    if (existsIndex > -1) {
+                        const updated = [...prev];
+                        updated[existsIndex] = payload.attendance;
+                        return updated;
+                    } else {
+                        return [...prev, payload.attendance];
+                    }
+                });
+                alert(`✅ Attendance updated successfully!`);
+            } else {
+                alert(`Error: ${payload.error}`);
+            }
+        } catch (err) {
+            console.error('Error saving attendance:', err);
+            alert(`Error saving attendance: ${err.message}`);
+        } finally {
+            setSavingAttendance(false);
+        }
+    };
+
+    const handleSaveWeeklyOff = async (day) => {
+        if (!selectedCalendarTechId) return;
+        try {
+            const res = await fetch(`/api/admin/technicians?id=${selectedCalendarTechId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ weekly_off_day: day })
+            });
+            const payload = await res.json();
+            if (payload.success) {
+                // Update technicians state local copy
+                setTechnicians(prev => prev.map(t => t.id === selectedCalendarTechId ? { ...t, weekly_off_day: day } : t));
+                alert(`✅ Weekly off day updated to ${day} for this technician.`);
+            } else {
+                alert(`Error: ${payload.error}`);
+            }
+        } catch (err) {
+            console.error('Error saving weekly off day:', err);
+            alert(`Error saving weekly off day: ${err.message}`);
         }
     };
 
@@ -823,7 +964,7 @@ function TechnicianManagement({ initialSubTab }) {
                     { id: 'profile', label: '👤 Technician Profile' },
                     { id: 'expenses', label: '💰 Technician Expenses' },
                     { id: 'spares', label: '⚙️ Spares Purchases' },
-                    { id: 'leaves', label: '📅 Leave Requests' },
+                    { id: 'leaves', label: '📅 Calendar' },
                     { id: 'livefleet', label: '🗺️ Technicians on Map' }
                 ].map(t => (
                     <button
@@ -1914,125 +2055,562 @@ function TechnicianManagement({ initialSubTab }) {
                 );
             })()}
 
-            {/* ──────────────── LEAVE REQUESTS TAB ──────────────── */}
+            {/* ──────────────── CALENDAR & ATTENDANCE TAB ──────────────── */}
             {activeTab === 'leaves' && (
-                <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', padding: 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                        <div>
-                            <h3 style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Calendar size={18} color="var(--color-primary)" /> Leave Requests
-                            </h3>
-                            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Review and approve/reject technician leave schedules.</p>
-                        </div>
+                (() => {
+                    const getCalendarStats = () => {
+                        let present = 0;
+                        let half = 0;
+                        let absent = 0;
+                        let leavesCount = 0;
+                        let weeklyOff = 0;
                         
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                            {/* Technician Filter */}
-                            <select
-                                value={selectedTechFilter}
-                                onChange={e => setSelectedTechFilter(e.target.value)}
-                                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none' }}
-                            >
-                                <option value="">All Technicians</option>
-                                {technicians.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
+                        const [yearStr, monthStr] = selectedCalendarMonth.split('-');
+                        const year = parseInt(yearStr);
+                        const monthNum = parseInt(monthStr);
+                        const daysInMonth = new Date(year, monthNum, 0).getDate();
+                        
+                        const tech = technicians.find(t => t.id === selectedCalendarTechId);
+                        const weeklyOffDayName = tech?.weekly_off_day || 'Sunday';
+                        
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const dateStr = `${selectedCalendarMonth}-${String(day).padStart(2, '0')}`;
+                            const attRecord = attendanceData.find(a => a.date === dateStr);
+                            const leaveRecord = leaves.find(l => l.leave_date === dateStr);
+                            
+                            let status = attRecord?.status || '';
+                            const dayOfWeekName = new Date(year, monthNum - 1, day).toLocaleDateString('en-US', { weekday: 'long' });
+                            
+                            if (!status) {
+                                if (leaveRecord && leaveRecord.status === 'approved') {
+                                    status = 'leave';
+                                } else if (dayOfWeekName === weeklyOffDayName) {
+                                    status = 'weekly_off';
+                                }
+                            }
+                            
+                            if (status === 'present') present++;
+                            else if (status === 'half_day') half++;
+                            else if (status === 'absent') absent++;
+                            else if (status === 'leave') leavesCount++;
+                            else if (status === 'weekly_off') weeklyOff++;
+                        }
+                        
+                        const worked = present + 0.5 * half;
+                        const workingDays = daysInMonth - weeklyOff;
+                        
+                        return {
+                            present,
+                            half,
+                            absent,
+                            leavesCount,
+                            weeklyOff,
+                            worked,
+                            workingDays,
+                            daysInMonth
+                        };
+                    };
+
+                    const renderCalendarGrid = () => {
+                        const [yearStr, monthStr] = selectedCalendarMonth.split('-');
+                        const year = parseInt(yearStr);
+                        const monthNum = parseInt(monthStr);
+                        
+                        const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                        const firstDayIndex = new Date(year, monthNum - 1, 1).getDay();
+                        const daysInMonth = new Date(year, monthNum, 0).getDate();
+                        
+                        const cells = [];
+                        for (let i = 0; i < firstDayIndex; i++) {
+                            cells.push({ day: '', dateStr: '', isOffset: true });
+                        }
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            const dateStr = `${selectedCalendarMonth}-${String(day).padStart(2, '0')}`;
+                            cells.push({ day, dateStr, isOffset: false });
+                        }
+                        
+                        return (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginTop: 8 }}>
+                                {daysOfWeek.map(d => (
+                                    <div key={d} style={{ textAlign: 'center', fontWeight: 'bold', fontSize: 11, color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px solid var(--border-primary)' }}>
+                                        {d}
+                                    </div>
                                 ))}
-                            </select>
-
-                            {/* Status Filter */}
-                            <select
-                                value={leavesFilter}
-                                onChange={e => setLeavesFilter(e.target.value)}
-                                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none' }}
-                            >
-                                <option value="all">All Statuses</option>
-                                <option value="pending">Pending</option>
-                                <option value="approved">Approved</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-
-                            {/* Refresh Button */}
-                            <button onClick={fetchLeaves} disabled={leavesLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                                <RefreshCcw size={14} style={{ animation: leavesLoading ? 'spin 0.8s linear infinite' : 'none' }} /> Refresh
-                            </button>
-                        </div>
-                    </div>
-
-                    {leavesLoading ? (
-                        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>Loading leaves...</div>
-                    ) : leaves.filter(l => {
-                        const matchesTech = selectedTechFilter ? l.technician_id === selectedTechFilter : true;
-                        const matchesStatus = leavesFilter === 'all' ? true : l.status === leavesFilter;
-                        return matchesTech && matchesStatus;
-                    }).length === 0 ? (
-                        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: 10 }}>No leave requests found.</div>
-                    ) : (
-                        <div className="admin-sticky-table-container">
-                            <table className="admin-sticky-table" style={{ minWidth: '800px' }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
-                                        <th style={{ textAlign: 'left' }}>Technician</th>
-                                        <th style={{ textAlign: 'left' }}>Leave Date</th>
-                                        <th style={{ textAlign: 'left' }}>Reason</th>
-                                        <th style={{ textAlign: 'left' }}>Applied On</th>
-                                        <th style={{ textAlign: 'left' }}>Status</th>
-                                        <th style={{ textAlign: 'right' }}>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {leaves.filter(l => {
-                                        const matchesTech = selectedTechFilter ? l.technician_id === selectedTechFilter : true;
-                                        const matchesStatus = leavesFilter === 'all' ? true : l.status === leavesFilter;
-                                        return matchesTech && matchesStatus;
-                                    }).map(l => {
-                                        const appliedDate = new Date(l.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                                        const leaveDateFormatted = new Date(l.leave_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-                                        
-                                        return (
-                                            <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                <td style={{ padding: '12px 16px', fontWeight: 600 }}>{l.technician_name}</td>
-                                                <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{leaveDateFormatted}</td>
-                                                <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{l.reason || '-'}</td>
-                                                <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: 11 }}>{appliedDate}</td>
-                                                <td style={{ padding: '12px 16px' }}>
+                                {cells.map((cell, idx) => {
+                                    if (cell.isOffset) {
+                                        return <div key={`offset-${idx}`} style={{ minHeight: 60, opacity: 0.1, backgroundColor: 'transparent' }} />;
+                                    }
+                                    
+                                    const dateStr = cell.dateStr;
+                                    const attRecord = attendanceData.find(a => a.date === dateStr);
+                                    const leaveRecord = leaves.find(l => l.leave_date === dateStr);
+                                    
+                                    let status = attRecord?.status || '';
+                                    const tech = technicians.find(t => t.id === selectedCalendarTechId);
+                                    const weeklyOffDayName = tech?.weekly_off_day || 'Sunday';
+                                    const dayOfWeekName = new Date(year, monthNum - 1, cell.day).toLocaleDateString('en-US', { weekday: 'long' });
+                                    
+                                    if (!status) {
+                                        if (leaveRecord && leaveRecord.status === 'approved') {
+                                            status = 'leave';
+                                        } else if (dayOfWeekName === weeklyOffDayName) {
+                                            status = 'weekly_off';
+                                        }
+                                    }
+                                    
+                                    const km = attendanceDistanceData[dateStr];
+                                    
+                                    let bgColor = 'var(--bg-secondary)';
+                                    let borderColor = 'var(--border-primary)';
+                                    let textColor = 'var(--text-primary)';
+                                    
+                                    if (status === 'present') {
+                                        bgColor = 'rgba(16, 185, 129, 0.15)';
+                                        borderColor = 'rgba(16, 185, 129, 0.4)';
+                                        textColor = '#10b981';
+                                    } else if (status === 'absent') {
+                                        bgColor = 'rgba(239, 68, 68, 0.15)';
+                                        borderColor = 'rgba(239, 68, 68, 0.4)';
+                                        textColor = '#ef4444';
+                                    } else if (status === 'half_day') {
+                                        bgColor = 'rgba(16, 185, 129, 0.08)';
+                                        borderColor = 'rgba(16, 185, 129, 0.25)';
+                                        textColor = '#34d399';
+                                    } else if (status === 'weekly_off') {
+                                        bgColor = 'rgba(100, 116, 139, 0.1)';
+                                        borderColor = 'rgba(100, 116, 139, 0.25)';
+                                        textColor = '#64748b';
+                                    } else if (status === 'leave') {
+                                        bgColor = 'rgba(236, 72, 153, 0.12)';
+                                        borderColor = 'rgba(236, 72, 153, 0.3)';
+                                        textColor = '#ec4899';
+                                    }
+                                    
+                                    const isSelected = selectedCalendarDate === dateStr;
+                                    if (isSelected) {
+                                        borderColor = 'var(--color-primary)';
+                                        bgColor = 'rgba(59, 130, 246, 0.2)';
+                                    }
+                                    
+                                    const isPendingLeave = leaveRecord && leaveRecord.status === 'pending';
+                                    
+                                    return (
+                                        <button
+                                            key={dateStr}
+                                            onClick={() => {
+                                                setSelectedCalendarDate(dateStr);
+                                                setEditingNotes(attRecord?.notes || '');
+                                            }}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                minHeight: 65,
+                                                padding: 6,
+                                                borderRadius: 6,
+                                                border: `1px solid ${borderColor}`,
+                                                backgroundColor: bgColor,
+                                                color: textColor,
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'all 0.15s ease',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-primary)' }}>{cell.day}</span>
+                                                {isPendingLeave && (
                                                     <span style={{
-                                                        padding: '4px 10px',
-                                                        borderRadius: 12,
-                                                        fontSize: 11,
-                                                        fontWeight: 700,
-                                                        backgroundColor: l.status === 'approved' ? 'rgba(16,185,129,0.1)' : (l.status === 'rejected' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)'),
-                                                        color: l.status === 'approved' ? '#10b981' : (l.status === 'rejected' ? '#ef4444' : '#f59e0b')
-                                                    }}>
-                                                        {l.status.toUpperCase()}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                    {l.status === 'pending' ? (
-                                                        <div style={{ display: 'inline-flex', gap: 8 }}>
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: '50%',
+                                                        backgroundColor: '#f59e0b',
+                                                        display: 'inline-block'
+                                                    }} title="Pending Leave Request" />
+                                                )}
+                                            </div>
+                                            
+                                            <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', opacity: 0.85, marginTop: 4 }}>
+                                                {status || '-'}
+                                            </div>
+                                            
+                                            {km && km > 0 ? (
+                                                <div style={{ fontSize: 8.5, fontWeight: '600', color: '#0ea5e9', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <span>🚗 {km.toFixed(1)} km</span>
+                                                </div>
+                                            ) : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        );
+                    };
+
+                    const stats = getCalendarStats();
+
+                    return (
+                        <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', padding: isMobile ? 'var(--spacing-md)' : 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            
+                            {/* Calendar Header Controls */}
+                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: 16 }}>
+                                <div>
+                                    <h3 style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <Calendar size={18} color="var(--color-primary)" /> Technician Calendar & Attendance
+                                    </h3>
+                                    <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Configure weekly offs, log daily attendance, review schedules & track route timelines.</p>
+                                </div>
+                                
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                                    {/* Select Technician */}
+                                    <select
+                                        value={selectedCalendarTechId}
+                                        onChange={e => setSelectedCalendarTechId(e.target.value)}
+                                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', flex: isMobile ? 1 : 'none' }}
+                                    >
+                                        {technicians.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                        ))}
+                                    </select>
+
+                                    {/* Month Select Buttons */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, backgroundColor: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-primary)', padding: '2px 4px' }}>
+                                        <button 
+                                            onClick={() => {
+                                                const [y, m] = selectedCalendarMonth.split('-').map(Number);
+                                                const prevDate = new Date(y, m - 2, 1);
+                                                setSelectedCalendarMonth(`${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`);
+                                            }}
+                                            style={{ border: 'none', background: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center' }}
+                                        >
+                                            <ChevronLeft size={16} />
+                                        </button>
+                                        <span style={{ fontSize: 13, fontWeight: 'bold', padding: '0 8px', minWidth: 80, textAlign: 'center' }}>
+                                            {new Date(parseInt(selectedCalendarMonth.split('-')[0]), parseInt(selectedCalendarMonth.split('-')[1]) - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                                        </span>
+                                        <button 
+                                            onClick={() => {
+                                                const [y, m] = selectedCalendarMonth.split('-').map(Number);
+                                                const nextDate = new Date(y, m, 1);
+                                                setSelectedCalendarMonth(`${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`);
+                                            }}
+                                            style={{ border: 'none', background: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center' }}
+                                        >
+                                            <ChevronRight size={16} />
+                                        </button>
+                                    </div>
+
+                                    {/* Refresh Button */}
+                                    <button onClick={fetchCalendarData} disabled={attendanceLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                                        <RefreshCcw size={14} style={{ animation: attendanceLoading ? 'spin 0.8s linear infinite' : 'none' }} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Weekly Off Settings */}
+                            {selectedCalendarTechId && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, backgroundColor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.15)', borderRadius: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Set Weekly Off:</span>
+                                    <select
+                                        value={technicians.find(t => t.id === selectedCalendarTechId)?.weekly_off_day || 'Sunday'}
+                                        onChange={(e) => handleSaveWeeklyOff(e.target.value)}
+                                        style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 12, outline: 'none' }}
+                                    >
+                                        <option value="Sunday">Sunday</option>
+                                        <option value="Monday">Monday</option>
+                                        <option value="Tuesday">Tuesday</option>
+                                        <option value="Wednesday">Wednesday</option>
+                                        <option value="Thursday">Thursday</option>
+                                        <option value="Friday">Friday</option>
+                                        <option value="Saturday">Saturday</option>
+                                        <option value="None">None</option>
+                                    </select>
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Note: Used by Technician App to enforce rest days.</span>
+                                </div>
+                            )}
+
+                            {attendanceLoading ? (
+                                <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    <Loader2 size={32} style={{ margin: '0 auto 12px', animation: 'spin 1.5s linear infinite' }} />
+                                    <span>Loading technician attendance and schedule data...</span>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 20 }}>
+                                    {/* Left Side: Calendar Grid */}
+                                    <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column' }}>
+                                        {renderCalendarGrid()}
+                                        
+                                        {/* Monthly Stats summary */}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+                                            gap: 8,
+                                            marginTop: 16,
+                                            padding: 12,
+                                            borderRadius: 8,
+                                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                            border: '1px solid var(--border-primary)'
+                                        }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Present Days</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: '#10b981' }}>{stats.present} days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Half Days</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: '#34d399' }}>{stats.half} days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Absent Days</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: '#ef4444' }}>{stats.absent} days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Leaves (Approved)</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: '#ec4899' }}>{stats.leavesCount} days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Weekly Offs</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: '#64748b' }}>{stats.weeklyOff} days</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span style={{ fontSize: 10, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Expected Work Days</span>
+                                                <span style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--text-primary)' }}>{stats.workingDays} days</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Side: Selected Date Detail Pane */}
+                                    <div style={{ flex: 1, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 16, minHeight: 280 }}>
+                                        {selectedCalendarDate ? (
+                                            (() => {
+                                                const attRecord = attendanceData.find(a => a.date === selectedCalendarDate);
+                                                const leaveRecord = leaves.find(l => l.leave_date === selectedCalendarDate);
+                                                
+                                                let status = attRecord?.status || '';
+                                                const dateJobs = calendarJobs.filter(j => j.scheduled_date === selectedCalendarDate);
+                                                const dateKm = attendanceDistanceData[selectedCalendarDate];
+                                                
+                                                const tech = technicians.find(t => t.id === selectedCalendarTechId);
+                                                const weeklyOffDayName = tech?.weekly_off_day || 'Sunday';
+                                                
+                                                const [y, m, d] = selectedCalendarDate.split('-').map(Number);
+                                                const dayOfWeekName = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long' });
+                                                
+                                                if (!status) {
+                                                    if (leaveRecord && leaveRecord.status === 'approved') {
+                                                        status = 'leave';
+                                                    } else if (dayOfWeekName === weeklyOffDayName) {
+                                                        status = 'weekly_off';
+                                                    }
+                                                }
+
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                                        <div>
+                                                            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                📅 Details for {new Date(y, m - 1, d).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </h4>
+                                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                                                                System rest day check: <span style={{ fontWeight: 'bold' }}>{dayOfWeekName === weeklyOffDayName ? 'Rest Day (Weekly Off)' : 'Regular Working Day'}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Distance / Route Timeline */}
+                                                        <div style={{ padding: 12, backgroundColor: 'rgba(14, 165, 233, 0.05)', border: '1px solid rgba(14, 165, 233, 0.15)', borderRadius: 8 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 'bold', color: '#0ea5e9' }}>
+                                                                <Activity size={14} /> GPS Distance Tracker
+                                                            </div>
+                                                            <div style={{ marginTop: 6, fontSize: 12 }}>
+                                                                {dateKm && dateKm > 0 ? (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                        <div>
+                                                                            Travelled: <strong>{dateKm.toFixed(1)} km</strong>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                if (navigateToSection) {
+                                                                                    localStorage.setItem('timeline_redirect_tech', selectedCalendarTechId);
+                                                                                    localStorage.setItem('timeline_redirect_date', selectedCalendarDate);
+                                                                                    navigateToSection('incentives', 'timeline');
+                                                                                }
+                                                                            }}
+                                                                            style={{
+                                                                                alignSelf: 'flex-start',
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                color: '#0ea5e9',
+                                                                                fontSize: 11,
+                                                                                fontWeight: 600,
+                                                                                textDecoration: 'underline',
+                                                                                cursor: 'pointer',
+                                                                                padding: 0,
+                                                                                textAlign: 'left',
+                                                                                marginTop: 2
+                                                                            }}
+                                                                        >
+                                                                            Click to view route simulator on map 🗺
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span style={{ color: 'var(--text-tertiary)' }}>No GPS travel data logged for this date.</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Pending Leave Review */}
+                                                        {leaveRecord && leaveRecord.status === 'pending' && (
+                                                            <div style={{ backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                    <AlertCircle size={14} /> Pending Leave Request
+                                                                </div>
+                                                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                                                    Reason: <em>"{leaveRecord.reason || 'Not specified'}"</em>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                                    <button
+                                                                        onClick={() => handleUpdateLeaveStatus(leaveRecord.id, 'approved')}
+                                                                        style={{ flex: 1, backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 12, fontWeight: 'bold', cursor: 'pointer' }}
+                                                                    >
+                                                                        Approve
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleUpdateLeaveStatus(leaveRecord.id, 'rejected')}
+                                                                        style={{ flex: 1, backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: 6, padding: '6px 10px', fontSize: 12, fontWeight: 'bold', cursor: 'pointer' }}
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Attendance selection */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Mark Status:</span>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                                                                {[
+                                                                    { id: 'present', label: 'Present 🟢', color: '#10b981' },
+                                                                    { id: 'half_day', label: 'Half Day 🟡', color: '#34d399' },
+                                                                    { id: 'absent', label: 'Absent 🔴', color: '#ef4444' },
+                                                                    { id: 'weekly_off', label: 'Weekly Off 🔵', color: '#64748b' },
+                                                                    { id: 'leave', label: 'On Leave 🌸', color: '#ec4899' }
+                                                                ].map(opt => {
+                                                                    const isCurrent = status === opt.id;
+                                                                    return (
+                                                                        <button
+                                                                            key={opt.id}
+                                                                            onClick={() => handleSaveAttendance(opt.id)}
+                                                                            disabled={savingAttendance}
+                                                                            style={{
+                                                                                padding: '8px 10px',
+                                                                                borderRadius: 6,
+                                                                                border: `1.5px solid ${opt.color}`,
+                                                                                backgroundColor: isCurrent ? opt.color : 'transparent',
+                                                                                color: isCurrent ? '#fff' : 'var(--text-primary)',
+                                                                                fontWeight: 'bold',
+                                                                                fontSize: 11,
+                                                                                cursor: 'pointer',
+                                                                                transition: 'all 0.15s ease'
+                                                                            }}
+                                                                        >
+                                                                            {opt.label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Notes */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Admin Notes:</span>
+                                                            <textarea
+                                                                value={editingNotes}
+                                                                onChange={(e) => setEditingNotes(e.target.value)}
+                                                                placeholder="Add attendance comments, late logins..."
+                                                                style={{
+                                                                    width: '100%',
+                                                                    minHeight: 60,
+                                                                    borderRadius: 8,
+                                                                    border: '1px solid var(--border-primary)',
+                                                                    backgroundColor: 'var(--bg-secondary)',
+                                                                    color: 'var(--text-primary)',
+                                                                    padding: '8px 10px',
+                                                                    fontSize: 12,
+                                                                    outline: 'none',
+                                                                    resize: 'vertical'
+                                                                }}
+                                                            />
                                                             <button
-                                                                onClick={() => handleUpdateLeaveStatus(l.id, 'approved')}
-                                                                style={{ padding: '6px 12px', borderRadius: 6, border: 'none', backgroundColor: '#10b981', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                                                                onClick={() => handleSaveAttendance(status)}
+                                                                disabled={savingAttendance}
+                                                                style={{
+                                                                    alignSelf: 'flex-end',
+                                                                    padding: '6px 14px',
+                                                                    borderRadius: 6,
+                                                                    backgroundColor: 'var(--color-primary)',
+                                                                    color: '#fff',
+                                                                    border: 'none',
+                                                                    fontWeight: 'bold',
+                                                                    fontSize: 11,
+                                                                    cursor: 'pointer',
+                                                                    marginTop: 2
+                                                                }}
                                                             >
-                                                                Approve
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleUpdateLeaveStatus(l.id, 'rejected')}
-                                                                style={{ padding: '6px 12px', borderRadius: 6, border: 'none', backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
-                                                            >
-                                                                Reject
+                                                                {savingAttendance ? 'Saving...' : 'Save Notes'}
                                                             </button>
                                                         </div>
-                                                    ) : (
-                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>Resolved</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    }).reverse()}
-                                </tbody>
-                            </table>
+
+                                                        {/* Scheduled Jobs for the Date */}
+                                                        <div style={{ marginTop: 6 }}>
+                                                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Jobs Scheduled ({dateJobs.length}):</span>
+                                                            {dateJobs.length === 0 ? (
+                                                                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', padding: '10px 0', fontStyle: 'italic' }}>
+                                                                    No jobs scheduled for this date.
+                                                                </div>
+                                                            ) : (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+                                                                    {dateJobs.map(job => (
+                                                                        <div 
+                                                                            key={job.id} 
+                                                                            style={{
+                                                                                padding: 10,
+                                                                                borderRadius: 8,
+                                                                                backgroundColor: 'var(--bg-secondary)',
+                                                                                border: '1px solid var(--border-primary)',
+                                                                                fontSize: 11
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: 2 }}>
+                                                                                <span style={{ color: 'var(--text-primary)' }}>{job.job_number}</span>
+                                                                                <span style={{
+                                                                                    fontSize: 10,
+                                                                                    padding: '1px 6px',
+                                                                                    borderRadius: 10,
+                                                                                    backgroundColor: job.status === 'closed' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                                                                                    color: job.status === 'closed' ? '#10b981' : '#3b82f6'
+                                                                                }}>{job.status.toUpperCase()}</span>
+                                                                            </div>
+                                                                            <div style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>👤 {job.customer_name}</div>
+                                                                            <div style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>Confirmed Slot: {job.scheduled_time || 'Not set'}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                    </div>
+                                                );
+                                            })()
+                                        ) : (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 0', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                                                <Calendar size={48} style={{ opacity: 0.2, marginBottom: 12 }} />
+                                                <h5 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>No Date Selected</h5>
+                                                <p style={{ margin: '4px 0 0', fontSize: 12 }}>Click a date on the calendar grid to log attendance, review notes, and check routes.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    );
+                })()
             )}
 
             {/* ──────────────── FLEET MAP TAB ──────────────── */}

@@ -82,7 +82,7 @@ export async function POST(request) {
         const sessionToken = request.headers.get('x-session-token');
         const { data: tech } = await supabase
             .from('technicians')
-            .select('current_session_token, name')
+            .select('current_session_token, name, weekly_off_day')
             .eq('id', technician_id)
             .single();
 
@@ -90,10 +90,14 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 });
         }
 
-        // Validate date is not a Sunday
+        // Validate date is not their weekly off day
         const reqDate = new Date(leave_date);
-        if (reqDate.getDay() === 0) {
-            return NextResponse.json({ success: false, error: 'Sundays are fixed rest days. Leave applications for Sundays are not allowed.' }, { status: 400 });
+        const weeklyOffDay = tech?.weekly_off_day || 'Sunday';
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const reqDayName = dayNames[reqDate.getDay()];
+        
+        if (reqDayName === weeklyOffDay) {
+            return NextResponse.json({ success: false, error: `${weeklyOffDay}s are fixed rest days. Leave applications for ${weeklyOffDay}s are not allowed.` }, { status: 400 });
         }
 
         // Validate 6-working-day advance notice rule
