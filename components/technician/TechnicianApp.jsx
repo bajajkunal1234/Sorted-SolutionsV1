@@ -2800,8 +2800,12 @@ function TechnicianApp() {
                         You are using an outdated version of the Sorted Technician app. 
                         A mandatory update is required to continue. This update contains critical fixes for GPS tracking.
                     </p>
-                    <a
-                        href="/downloads/technician-app.apk"
+                    <button
+                        onClick={() => {
+                            if (typeof window !== 'undefined') {
+                                window.open('https://sortedsolutions.in/downloads/technician-app.apk', '_system');
+                            }
+                        }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -2813,14 +2817,15 @@ function TechnicianApp() {
                             backgroundColor: '#10b981',
                             color: 'white',
                             fontWeight: 700,
-                            textDecoration: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
                             fontSize: '15px',
                             marginTop: '8px',
                             boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)'
                         }}
                     >
                         Download & Install Update
-                    </a>
+                    </button>
                 </div>
             </div>
         );
