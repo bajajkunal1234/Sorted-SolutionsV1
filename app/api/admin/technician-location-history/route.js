@@ -43,7 +43,7 @@ export async function GET(request) {
 
             const { data: logs, error: logsError } = await supabase
                 .from('technician_location_logs')
-                .select('latitude, longitude, created_at')
+                .select('latitude, longitude, created_at, location_precision')
                 .eq('technician_id', technicianId)
                 .gte('created_at', startMonth.toISOString())
                 .lte('created_at', endMonth.toISOString())
@@ -56,18 +56,30 @@ export async function GET(request) {
             const pointsByDay = {}
 
             logs.forEach(log => {
+                // Ignore approximate triangulation pings from distance calculation
+                if (log.location_precision === 'approx') return;
+
                 // Format in local Indian timezone
                 const dateIST = new Date(log.created_at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
                 if (!pointsByDay[dateIST]) {
                     pointsByDay[dateIST] = []
                 }
-                pointsByDay[dateIST].push({ lat: log.latitude, lng: log.longitude })
+                pointsByDay[dateIST].push({ lat: log.latitude, lng: log.longitude, time: log.created_at })
             })
 
             for (const [day, pts] of Object.entries(pointsByDay)) {
                 let dist = 0
                 for (let i = 1; i < pts.length; i++) {
-                    dist += getDistance(pts[i-1].lat, pts[i-1].lng, pts[i].lat, pts[i].lng)
+                    const prev = pts[i-1];
+                    const curr = pts[i];
+                    const segmentDist = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+                    
+                    const timeDiffSec = (new Date(curr.time) - new Date(prev.time)) / 1000;
+                    const speedKmh = timeDiffSec > 0 ? (segmentDist / 1000) / (timeDiffSec / 3600) : 0;
+                    
+                    if (speedKmh <= 100) {
+                        dist += segmentDist;
+                    }
                 }
                 dailyDistances[day] = Number((dist / 1000).toFixed(1))
             }
@@ -334,19 +346,32 @@ export async function GET(request) {
 
         // 6. Process Route, Total Distance and Stops (Idle Detection)
         let totalDistance = 0 // in meters
-        const routePath = (logs || []).map(log => ({
+        
+        // Filter out approximate triangulation/cell-tower pings to keep route lines clean
+        const cleanLogs = (logs || []).filter(log => log.location_precision !== 'approx');
+        
+        // If everything is approximate (fallback), use all logs so we don't display empty map
+        const finalRouteLogs = cleanLogs.length > 0 ? cleanLogs : (logs || []);
+
+        const routePath = finalRouteLogs.map(log => ({
             lat: log.latitude,
             lng: log.longitude,
             time: log.created_at,
             isOnJob: log.is_on_job
         }))
 
-        // Calculate total distance traveled
+        // Calculate total distance traveled, filtering out physically impossible jumps (> 100 km/h)
         for (let i = 1; i < routePath.length; i++) {
-            totalDistance += getDistance(
-                routePath[i-1].lat, routePath[i-1].lng,
-                routePath[i].lat, routePath[i].lng
-            )
+            const prev = routePath[i-1];
+            const curr = routePath[i];
+            const dist = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+            
+            const timeDiffSec = (new Date(curr.time) - new Date(prev.time)) / 1000;
+            const speedKmh = timeDiffSec > 0 ? (dist / 1000) / (timeDiffSec / 3600) : 0;
+            
+            if (speedKmh <= 100) {
+                totalDistance += dist;
+            }
         }
 
         // Idle Stop Algorithm

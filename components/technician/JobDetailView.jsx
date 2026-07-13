@@ -341,7 +341,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const partsPhotosInputRef = useRef(null);
     const [calledCustomer, setCalledCustomer] = useState(false);
 
-    const getCoordsWithTimeout = (timeoutMs = 1500) => {
+    const getCoordsWithTimeout = (timeoutMs = 5000) => {
+        // Enforce a minimum robust timeout of 5000ms for job actions
+        const finalTimeout = Math.max(timeoutMs, 5000);
         return new Promise((resolve) => {
             if (typeof window === 'undefined' || !navigator.geolocation) {
                 resolve(null);
@@ -351,20 +353,47 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             const timer = setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
-                    console.warn('[GPS] Geolocation timed out after ' + timeoutMs + 'ms');
+                    console.warn('[GPS] Geolocation timed out after ' + finalTimeout + 'ms');
                     resolve(null);
                 }
-            }, timeoutMs);
+            }, finalTimeout);
             
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
+                async (pos) => {
                     if (!resolved) {
                         resolved = true;
                         clearTimeout(timer);
-                        resolve({
-                            latitude: pos.coords.latitude,
-                            longitude: pos.coords.longitude
-                        });
+                        
+                        const latitude = pos.coords.latitude;
+                        const longitude = pos.coords.longitude;
+
+                        // Asynchronously ping location API to record this precise coordinate in the DB historical logs
+                        if (technicianId) {
+                            let sessionToken = null;
+                            try {
+                                const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                                if (session) {
+                                    sessionToken = JSON.parse(session).session_token;
+                                }
+                            } catch (e) {}
+
+                            fetch('/api/technician/location', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    technician_id: technicianId,
+                                    latitude,
+                                    longitude,
+                                    is_on_job: true,
+                                    tracking_source: 'web',
+                                    is_online: true,
+                                    location_precision: 'precise',
+                                    session_token: sessionToken
+                                })
+                            }).catch(() => {});
+                        }
+
+                        resolve({ latitude, longitude });
                     }
                 },
                 (err) => {
@@ -375,7 +404,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         resolve(null);
                     }
                 },
-                { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000 }
+                { enableHighAccuracy: true, timeout: finalTimeout, maximumAge: 10000 }
             );
         });
     };
