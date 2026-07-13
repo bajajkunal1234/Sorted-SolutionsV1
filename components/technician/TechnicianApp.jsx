@@ -233,7 +233,7 @@ function TechnicianApp() {
         if (typeof window !== 'undefined') localStorage.setItem('techDashboardView', dashboardView);
     }, [dashboardView]);
 
-    const [repeatCallsCount, setRepeatCallsCount] = useState(0);
+    const [scheduledJobsCount, setScheduledJobsCount] = useState(0);
     const [showPurchaseRequestsList, setShowPurchaseRequestsList] = useState(false);
     const [purchaseRequests, setPurchaseRequests] = useState([]);
     const [purchaseRequestsLoading, setPurchaseRequestsLoading] = useState(false);
@@ -704,19 +704,19 @@ function TechnicianApp() {
         if (config.activeTags) setActiveTags(config.activeTags);
     };
 
-    const fetchRepeatCalls = async () => {
+    const fetchScheduledJobs = async () => {
         if (!technicianId) return;
         try {
             const { data, error } = await supabase
                 .from('jobs')
                 .select('id')
                 .eq('technician_id', technicianId)
-                .eq('warranty', true);
+                .eq('status', 'scheduled');
             
             if (error) throw error;
-            setRepeatCallsCount(data ? data.length : 0);
+            setScheduledJobsCount(data ? data.length : 0);
         } catch (err) {
-            console.error('Error fetching repeat calls count:', err);
+            console.error('Error fetching scheduled jobs count:', err);
         }
     };
 
@@ -819,7 +819,7 @@ function TechnicianApp() {
         fetchJobs(false);
         fetchIncentives();
         fetchProfile();
-        fetchRepeatCalls();
+        fetchScheduledJobs();
         fetchPurchaseRequests();
 
         // Listen for offline sync completion to reload jobs list
@@ -832,7 +832,7 @@ function TechnicianApp() {
         // Realtime handles instant updates; polling is just a safety net
         const pollInterval = setInterval(() => {
             fetchJobs(true);
-            fetchRepeatCalls();
+            fetchScheduledJobs();
         }, 30000);
 
         // Setup real-time listener (best-effort; polling handles missed events)
@@ -848,7 +848,7 @@ function TechnicianApp() {
                 },
                 () => { 
                     fetchJobs(true); 
-                    fetchRepeatCalls();
+                    fetchScheduledJobs();
                 }
             )
             .subscribe();
@@ -2461,9 +2461,16 @@ function TechnicianApp() {
                             <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>{openJobsCount}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
                         </div>
-                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{repeatCallsCount}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Repeat Calls</div>
+                        <div style={{ 
+                            backgroundColor: 'var(--bg-secondary)', 
+                            padding: '12px', 
+                            borderRadius: '8px', 
+                            textAlign: 'center', 
+                            border: scheduledJobsCount > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--border-primary)',
+                            boxShadow: scheduledJobsCount > 0 ? '0 0 8px rgba(239, 68, 68, 0.15)' : 'none'
+                        }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#ef4444' }}>{scheduledJobsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Scheduled Jobs</div>
                         </div>
                     </div>
                 </div>
