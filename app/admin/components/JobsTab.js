@@ -315,7 +315,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
 
     // ── CRUD ──────────────────────────────────────────────────────
     const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); } catch (err) { alert('Failed to create job: ' + err.message); } };
-    const handleUpdateJob   = async (updated) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); setSelectedJob(null); } catch (err) { alert('Failed to update job: ' + err.message); } };
+    const handleUpdateJob   = async (updated, keepOpen = false) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); if (keepOpen) { setSelectedJob(updated); } else { setSelectedJob(null); } } catch (err) { alert('Failed to update job: ' + err.message); } };
     const handleUpdateJobFromForm = async (updated) => { try { await jobsAPI.update(editJobFormJob.id, updated); await fetchJobs(); setEditJobFormJob(null); } catch (err) { alert('Failed to update job: ' + err.message); } };
 
     const handleJobClick    = (job) => { 

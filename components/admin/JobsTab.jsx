@@ -130,7 +130,7 @@ function JobsTab() {
         }
     };
 
-    const handleUpdateJob = async (updatedJob) => {
+    const handleUpdateJob = async (updatedJob, keepOpen = false) => {
         try {
             const response = await fetch('/api/admin/jobs', {
                 method: 'PUT',
@@ -146,7 +146,11 @@ function JobsTab() {
 
             // Refresh jobs list
             await fetchJobs();
-            setSelectedJob(null);
+            if (keepOpen) {
+                setSelectedJob(updatedJob);
+            } else {
+                setSelectedJob(null);
+            }
         } catch (err) {
             console.error('Error updating job:', err);
             alert(`Failed to update job: ${err.message}`);

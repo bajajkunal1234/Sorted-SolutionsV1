@@ -837,13 +837,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             if (!res.ok) throw new Error(data.error || 'Failed to delete interaction');
 
             // Filter out of local state
-            setEditedJob(prev => ({
-                ...prev,
-                interactions: (prev.interactions || []).filter(i => i.id !== interactionId)
-            }));
+            const updatedJob = {
+                ...editedJob,
+                interactions: (editedJob.interactions || []).filter(i => i.id !== interactionId)
+            };
+            setEditedJob(updatedJob);
             
             if (onUpdate) {
-                onUpdate();
+                onUpdate(updatedJob, true);
             }
         } catch (err) {
             console.error('Failed to delete interaction:', err);
@@ -878,13 +879,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             await Promise.all(deletePromises);
             
             // Filter local state
-            setEditedJob(prev => ({
-                ...prev,
-                interactions: (prev.interactions || []).filter(i => !idsToDelete.includes(i.id))
-            }));
+            const updatedJob = {
+                ...editedJob,
+                interactions: (editedJob.interactions || []).filter(i => !idsToDelete.includes(i.id))
+            };
+            setEditedJob(updatedJob);
             
             if (onUpdate) {
-                onUpdate();
+                onUpdate(updatedJob, true);
             }
         } catch (err) {
             console.error('Failed to delete visit:', err);
