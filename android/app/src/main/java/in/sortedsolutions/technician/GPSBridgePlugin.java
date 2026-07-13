@@ -249,4 +249,31 @@ public class GPSBridgePlugin extends Plugin {
             call.reject("Could not open app settings: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void checkAndRequestBatteryOptimization(PluginCall call) {
+        Context context = getContext();
+        JSObject ret = new JSObject();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.os.PowerManager pm = (android.os.PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                boolean isIgnoring = pm.isIgnoringBatteryOptimizations(context.getPackageName());
+                ret.put("isIgnoring", isIgnoring);
+                if (!isIgnoring) {
+                    try {
+                        Intent intent = new Intent();
+                        intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        intent.setData(android.net.Uri.parse("package:" + context.getPackageName()));
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        context.startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        } else {
+            ret.put("isIgnoring", true);
+        }
+        call.resolve(ret);
+    }
 }

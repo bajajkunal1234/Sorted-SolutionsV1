@@ -362,9 +362,9 @@ function TechnicianApp() {
                 // Web/PWA: post coordinates.
                 if (!isNative) {
                     const activeWorkingHours = isWorkingHoursCheck();
-                    const currentOnline = isOnlineRef.current;
-                    const pingOnline = activeWorkingHours ? currentOnline : false;
-                    const pingPrecision = pingOnline ? 'precise' : 'approx';
+                    // Web PWA fallback: Force precise location tracking during working/shift hours (8 AM - 9 PM)
+                    // regardless of online/offline status toggle.
+                    const pingPrecision = activeWorkingHours ? 'precise' : 'approx';
 
                     let sessionToken = null;
                     try {
@@ -668,6 +668,17 @@ function TechnicianApp() {
                 .then(() => {
                     console.log('[Native GPS] Technician ID registered on native service');
                     setGpsStatus('granted');
+                    
+                    // Request battery optimization bypass for continuous background tracking on Android
+                    if (GPSBridgePlugin.checkAndRequestBatteryOptimization) {
+                        GPSBridgePlugin.checkAndRequestBatteryOptimization()
+                            .then(res => {
+                                console.log('[Native GPS] Battery optimization status:', res);
+                            })
+                            .catch(err => {
+                                console.warn('[Native GPS] Failed to check battery optimization:', err);
+                            });
+                    }
                 })
                 .catch(err => {
                     console.error('[Native GPS] Failed to register technician ID:', err);
