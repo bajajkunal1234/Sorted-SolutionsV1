@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2, Camera } from 'lucide-react';
+import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2, Camera, Trash2 } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
@@ -121,7 +121,7 @@ const renderActorBadge = (name = '') => {
     );
 };
 
-function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false, currentUserName = '', onTabChange }) {
+function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, onDeleteInteraction, isSubmitting = false, currentUserName = '', onTabChange }) {
     const [showNoteForm, setShowNoteForm] = useState(false);
     const [noteText, setNoteText] = useState('');
     const [attachments, setAttachments] = useState([]);
@@ -657,6 +657,27 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                                                 Edit {getInteractionTypeLabel(interaction.type).split(' ')[0]} →
                                             </button>
                                         )}
+                                        
+                                        {/* Delete Button */}
+                                        <button
+                                            onClick={() => onDeleteInteraction && onDeleteInteraction(interaction.id)}
+                                            style={{
+                                                padding: '4px 8px',
+                                                fontSize: 'var(--font-size-xs)',
+                                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                                cursor: 'pointer',
+                                                color: '#ef4444',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                            title="Delete Interaction"
+                                        >
+                                            <Trash2 size={12} />
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             </div>

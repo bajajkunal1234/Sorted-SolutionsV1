@@ -93,3 +93,26 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
+
+// DELETE - Delete an interaction
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ success: false, error: 'Interaction ID is required' }, { status: 400 });
+        }
+
+        const { error } = await supabase
+            .from('interactions')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true, message: 'Interaction deleted successfully' });
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}

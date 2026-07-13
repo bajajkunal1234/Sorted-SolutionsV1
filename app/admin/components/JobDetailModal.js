@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle, Camera } from 'lucide-react';
+import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle, Camera, Trash2 } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress, formatRelativeTime } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
@@ -126,7 +126,7 @@ const renderActivityDescription = (activity, onViewDocument) => {
     return <span>{desc}</span>;
 };
 
-const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
+const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDeleteInteraction, onDeleteVisit }) => {
     const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
     const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
     const startJobEvents = list.filter(i => 
@@ -252,6 +252,29 @@ const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                                     Technician: <strong style={{ color: 'var(--text-primary)' }}>{visit.technician}</strong>
                                 </span>
+                                <button
+                                    onClick={async () => {
+                                        if (onDeleteVisit) {
+                                            await onDeleteVisit(visit);
+                                        }
+                                    }}
+                                    style={{
+                                        background: 'rgba(239, 68, 68, 0.08)',
+                                        color: '#f87171',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                        borderRadius: '4px',
+                                        padding: '3px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        marginLeft: '8px'
+                                    }}
+                                >
+                                    <Trash2 size={11} /> Delete Visit
+                                </button>
                             </div>
                             
                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
@@ -336,6 +359,13 @@ const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument }) => {
                                                     <span style={{ color: 'var(--text-tertiary)' }}>
                                                         by {activity.performed_by_name || activity.user_name || 'System'}
                                                     </span>
+                                                    <button 
+                                                        onClick={() => onDeleteInteraction && onDeleteInteraction(activity.id)}
+                                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px', display: 'inline-flex', alignItems: 'center' }}
+                                                        title="Delete Activity"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
                                                 </div>
                                                 <div style={{ color: 'var(--text-secondary)', paddingLeft: '8px' }}>
                                                     {renderActivityDescription(activity, onViewDocument)}
@@ -794,6 +824,74 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const handleInteractionsUpdate = () => {
         console.log('Interactions updated');
+    };
+
+    const handleDeleteInteraction = async (interactionId) => {
+        if (!confirm('Are you sure you want to delete this interaction? This action cannot be undone.')) return;
+        try {
+            setLoading(true);
+            const res = await fetch(`/api/admin/interactions?id=${interactionId}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to delete interaction');
+
+            // Filter out of local state
+            setEditedJob(prev => ({
+                ...prev,
+                interactions: (prev.interactions || []).filter(i => i.id !== interactionId)
+            }));
+            
+            if (onUpdate) {
+                onUpdate();
+            }
+        } catch (err) {
+            console.error('Failed to delete interaction:', err);
+            alert(`Failed to delete interaction: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteVisit = async (visit) => {
+        if (!confirm(`Are you sure you want to delete Visit #${visit.visitNumber} and all its recorded activities? This action cannot be undone.`)) return;
+        try {
+            setLoading(true);
+            const idsToDelete = [];
+            if (visit.arrivalId) idsToDelete.push(visit.arrivalId);
+            if (visit.startJobId) idsToDelete.push(visit.startJobId);
+            if (visit.activities && visit.activities.length > 0) {
+                visit.activities.forEach(act => {
+                    if (act.id) idsToDelete.push(act.id);
+                });
+            }
+            
+            if (idsToDelete.length === 0) return;
+            
+            const deletePromises = idsToDelete.map(async (id) => {
+                const res = await fetch(`/api/admin/interactions?id=${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || 'Failed to delete entry');
+                }
+            });
+            await Promise.all(deletePromises);
+            
+            // Filter local state
+            setEditedJob(prev => ({
+                ...prev,
+                interactions: (prev.interactions || []).filter(i => !idsToDelete.includes(i.id))
+            }));
+            
+            if (onUpdate) {
+                onUpdate();
+            }
+        } catch (err) {
+            console.error('Failed to delete visit:', err);
+            alert(`Failed to delete visit: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleSaveStatus = async (newStatus) => {
@@ -1347,6 +1445,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             interactions={editedJob.interactions || []}
                             onTabChange={setActiveTab}
                             onViewDocument={handleViewDocument}
+                            onDeleteInteraction={handleDeleteInteraction}
+                            onDeleteVisit={handleDeleteVisit}
                         />
                     )}
 
@@ -1358,6 +1458,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             onAddNote={handleAddNote}
                             onEditNote={handleEditNote}
                             onUpdate={handleInteractionsUpdate}
+                            onDeleteInteraction={handleDeleteInteraction}
                             onTabChange={setActiveTab}
                         />
                     )}
