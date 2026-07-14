@@ -1752,7 +1752,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Technician Timeline subtab */}
             {activeView === 'timeline' && (
-                <div style={{ flex: 1, padding: 'var(--spacing-md)', overflow: 'hidden' }}>
+                <div style={{ flex: 1, padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-md)', overflow: isMobile ? 'auto' : 'hidden', minHeight: 0 }}>
                     <TechnicianTimelineTab />
                 </div>
             )}

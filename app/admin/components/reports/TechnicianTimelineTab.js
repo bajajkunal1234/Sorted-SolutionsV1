@@ -892,8 +892,8 @@ export default function TechnicianTimelineTab() {
             display: 'grid', 
             gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', 
             gap: 'var(--spacing-md)', 
-            height: isMobile ? 'auto' : 'calc(100vh - 180px)', 
-            minHeight: isMobile ? 'auto' : '550px' 
+            height: isMobile ? 'auto' : '100%', 
+            minHeight: isMobile ? 'auto' : '0' 
         }}>
             <style>{`
                 @keyframes ping {
@@ -932,8 +932,8 @@ export default function TechnicianTimelineTab() {
                 {timelineData?.routePath && timelineData.routePath.length > 0 && (
                     <div style={{
                         display: 'flex',
-                        flexDirection: isMobile ? 'column' : 'row',
-                        alignItems: isMobile ? 'stretch' : 'center',
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
                         justifyContent: 'space-between',
                         padding: 'var(--spacing-sm) var(--spacing-md)',
                         backgroundColor: 'var(--bg-secondary)',
@@ -941,29 +941,53 @@ export default function TechnicianTimelineTab() {
                         borderRadius: 'var(--radius-lg)',
                         gap: 'var(--spacing-sm)'
                     }}>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                            <button
-                                className="btn btn-primary"
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', padding: '0', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center' }}
-                                onClick={() => setIsPlaying(!isPlaying)}
-                            >
-                                {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '2px' }} />}
-                            </button>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ width: '32px', height: '32px', borderRadius: '50%', padding: '0', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center' }}
+                                    onClick={() => setIsPlaying(!isPlaying)}
+                                >
+                                    {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '2px' }} />}
+                                </button>
 
-                            <button
-                                className="btn btn-secondary"
-                                style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px' }}
-                                onClick={() => {
-                                    setPlaybackIndex(null);
-                                    setIsPlaying(false);
-                                }}
-                            >
-                                Reset
-                            </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 8px' }}
+                                    onClick={() => {
+                                        setPlaybackIndex(null);
+                                        setIsPlaying(false);
+                                    }}
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                            
+                            {/* Playback speed selector */}
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                {[1, 2, 5, 10, 20].map(speed => (
+                                    <button
+                                        key={`speed-${speed}`}
+                                        onClick={() => setPlaybackSpeed(speed)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            fontSize: '9.5px',
+                                            fontWeight: 'bold',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border-color)',
+                                            backgroundColor: playbackSpeed === speed ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                            color: playbackSpeed === speed ? 'var(--text-inverse)' : 'var(--text-primary)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {speed}x
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Progress slider */}
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', width: isMobile ? '100%' : 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', width: '100%' }}>
                             <input
                                 type="range"
                                 min={0}
@@ -972,35 +996,13 @@ export default function TechnicianTimelineTab() {
                                 onChange={(e) => {
                                     setPlaybackIndex(parseInt(e.target.value));
                                 }}
-                                style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                                style={{ flex: 1, accentColor: 'var(--color-primary)' }}
                             />
-                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', fontFamily: 'monospace', whiteSpace: 'nowrap', fontWeight: 'bold' }}>
                                 {activePlaybackPosition 
                                     ? new Date(activePlaybackPosition.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
                                     : '00:00:00'}
                             </span>
-                        </div>
-
-                        {/* Playback speed selector */}
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
-                            {[1, 2, 5, 10, 20].map(speed => (
-                                <button
-                                    key={`speed-${speed}`}
-                                    onClick={() => setPlaybackSpeed(speed)}
-                                    style={{
-                                        padding: '4px 8px',
-                                        fontSize: '9px',
-                                        fontWeight: 'bold',
-                                        borderRadius: 'var(--radius-sm)',
-                                        border: '1px solid var(--border-color)',
-                                        backgroundColor: playbackSpeed === speed ? 'var(--color-primary)' : 'var(--bg-secondary)',
-                                        color: playbackSpeed === speed ? 'var(--text-inverse)' : 'var(--text-primary)',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {speed}x
-                                </button>
-                            ))}
                         </div>
                     </div>
                 )}
