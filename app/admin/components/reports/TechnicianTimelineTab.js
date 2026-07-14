@@ -892,8 +892,8 @@ export default function TechnicianTimelineTab() {
             display: 'grid', 
             gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', 
             gap: 'var(--spacing-md)', 
-            height: isMobile ? 'auto' : '100%', 
-            minHeight: isMobile ? 'auto' : '0' 
+            height: 'auto', 
+            minHeight: '0' 
         }}>
             <style>{`
                 @keyframes ping {
@@ -915,7 +915,7 @@ export default function TechnicianTimelineTab() {
                 flexDirection: 'column', 
                 gap: 'var(--spacing-sm)', 
                 position: 'relative',
-                height: isMobile ? '350px' : 'auto' 
+                height: isMobile ? '350px' : '500px' 
             }}>
                 <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <TechnicianTimelineMap
@@ -1013,8 +1013,8 @@ export default function TechnicianTimelineTab() {
                 display: 'flex', 
                 flexDirection: 'column', 
                 gap: 'var(--spacing-md)', 
-                overflow: isMobile ? 'visible' : 'hidden',
-                height: isMobile ? 'auto' : '100%'
+                overflow: 'visible',
+                height: 'auto'
             }}>
                 {/* Header Filter Panel */}
                 <div style={{
@@ -1165,13 +1165,11 @@ export default function TechnicianTimelineTab() {
 
                 {/* Timeline vertical scroll list */}
                 <div style={{ 
-                    flex: 1, 
-                    overflowY: 'auto', 
                     paddingRight: '4px', 
                     display: 'flex', 
                     flexDirection: 'column', 
                     gap: 'var(--spacing-sm)',
-                    height: isMobile ? '350px' : 'auto'
+                    height: 'auto'
                 }}>
                     {loading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>

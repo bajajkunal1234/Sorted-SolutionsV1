@@ -177,14 +177,7 @@ export default function AdminApp() {
             )}
 
             {/* Main Content */}
-            <div className="admin-content-area" style={{ 
-                overflow: activeTab === 'reports' ? 'hidden' : 'auto',
-                display: activeTab === 'reports' ? 'flex' : 'block',
-                flexDirection: 'column',
-                height: activeTab === 'reports' ? 'calc(100dvh - 60px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px))' : 'auto',
-                minHeight: 0,
-                paddingBottom: activeTab === 'reports' ? 0 : 'calc(60px + env(safe-area-inset-bottom, 0px) + 16px)'
-            }}>
+            <div className="admin-content-area">
                 {renderTabContent()}
             </div>
 

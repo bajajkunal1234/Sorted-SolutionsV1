@@ -850,7 +850,7 @@ function IncentivesManagement({ initialSubTab }) {
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
             {/* Compact Toolbar */}
             <div className="performance-toolbar">
                 {/* View Tabs */}
@@ -902,7 +902,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Configure View */}
             {activeView === 'configure' && (
-                <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
                     {/* Parameters Configuration */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                         <div style={{
@@ -1050,7 +1050,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Live Performance View */}
             {activeView === 'performance' && (
-                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     {/* Date Selector and Preset row */}
                     <div className="performance-filters-container" style={{ flexShrink: 0 }}>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
@@ -1427,7 +1427,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Job-Level Details View */}
             {activeView === 'job_details' && (
-                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     {/* Date Selector and Preset row (same as performance) */}
                     <div className="performance-filters-container" style={{ flexShrink: 0 }}>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
@@ -1752,7 +1752,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Technician Timeline subtab */}
             {activeView === 'timeline' && (
-                <div style={{ flex: 1, padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-md)', overflow: isMobile ? 'auto' : 'hidden', minHeight: 0 }}>
+                <div style={{ padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-md)' }}>
                     <TechnicianTimelineTab />
                 </div>
             )}

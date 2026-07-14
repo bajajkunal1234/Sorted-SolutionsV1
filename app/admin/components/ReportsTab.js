@@ -119,7 +119,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
     const activeLabel = sections.find(s => s.id === activeSection)?.label;
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
             <div style={{
                 padding: 'var(--spacing-md)',
@@ -291,7 +291,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
             </div>
 
             {/* Content Area */}
-            <div style={{ flex: 1, overflow: activeSection === 'incentives' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 {!activeSection ? (
                     // Reports Homepage
                     <div style={{ padding: 'var(--spacing-lg)' }}>
