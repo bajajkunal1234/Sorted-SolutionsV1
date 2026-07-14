@@ -69,6 +69,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
         return 'grid';
     });
 
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const handleViewModeChange = (mode) => {
         setViewMode(mode);
         localStorage.setItem('customer_payments_view_mode', mode);
@@ -188,8 +196,15 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
     }
 
     return (
-        <div style={{ padding: 'var(--spacing-lg)', height: '100%', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xl)' }}>
+        <div style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-lg)', height: '100%', overflowY: 'auto' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: isMobile ? 'column' : 'row',
+                justifyContent: 'space-between', 
+                alignItems: isMobile ? 'stretch' : 'flex-start', 
+                gap: isMobile ? 'var(--spacing-md)' : 'var(--spacing-sm)',
+                marginBottom: 'var(--spacing-xl)' 
+            }}>
                 <div>
                     <h2 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ShieldCheck size={28} color="var(--color-primary)" />
@@ -200,7 +215,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                     </p>
                 </div>
                 
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                <div style={{ 
+                    display: 'flex', 
+                    gap: 'var(--spacing-sm)', 
+                    alignItems: 'center',
+                    justifyContent: isMobile ? 'space-between' : 'flex-end',
+                    width: isMobile ? '100%' : 'auto',
+                    flexWrap: 'wrap'
+                }}>
                     <div style={{ 
                         display: 'flex', 
                         backgroundColor: 'var(--bg-secondary)', 
@@ -285,16 +307,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Total Pending Amount</div>
                     </div>
                 </div>
-            </div>
-
-            {filteredPayments.length === 0 ? (
+            </div>            {filteredPayments.length === 0 ? (
                 <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
                     <ShieldCheck size={48} color="var(--text-tertiary)" style={{ margin: '0 auto var(--spacing-md)' }} />
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>All Caught Up!</h3>
                     <p style={{ color: 'var(--text-secondary)' }}>There are no pending payments waiting for your verification.</p>
                 </div>
             ) : viewMode === 'grid' ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 'var(--spacing-lg)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(360px, 1fr))', gap: 'var(--spacing-lg)' }}>
                     {filteredPayments.map(payment => (
                         <div key={payment.id} className="card" style={{
                             padding: 'var(--spacing-md)',
@@ -498,14 +518,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                 backgroundColor: 'var(--bg-secondary)',
                                 borderBottom: '2px solid var(--border-primary)'
                             }}>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Date</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Customer</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Receipt No / Job</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Collector</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Payment Mode</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Proof / Status</th>
-                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, textAlign: 'center' }}>Actions</th>
+                                {!isMobile && <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Date</th>}
+                                <th style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', fontWeight: 600 }}>Customer</th>
+                                {!isMobile && <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Receipt No / Job</th>}
+                                {!isMobile && <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Collector</th>}
+                                <th style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', fontWeight: 600 }}>Payment Mode</th>
+                                <th style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
+                                {!isMobile && <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Proof / Status</th>}
+                                <th style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', fontWeight: 600, textAlign: 'center' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -525,83 +545,141 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                     >
-                                        <td style={{ padding: 'var(--spacing-md)', whiteSpace: 'nowrap' }}>
-                                            {new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </td>
-                                        <td style={{ padding: 'var(--spacing-md)', fontWeight: 500, color: 'var(--text-primary)' }}>
-                                            {payment.account_name}
-                                        </td>
-                                        <td style={{ padding: 'var(--spacing-md)' }}>
-                                            <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                                {payment.receipt_number || payment.id.slice(0, 8)}
+                                        {!isMobile && (
+                                            <td style={{ padding: 'var(--spacing-md)', whiteSpace: 'nowrap' }}>
+                                                {new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </td>
+                                        )}
+                                        <td style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)' }}>
+                                            <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                {payment.account_name}
                                             </div>
-                                            {payment.reference_number && (
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                            {isMobile && (
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                                                    <span>{new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                                                    •
+                                                    <span>{payment.receipt_number || payment.id.slice(0, 8)}</span>
+                                                    {collector && collector !== 'Unknown' && (
+                                                        <>
+                                                            •
+                                                            <span>{collector}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {isMobile && payment.reference_number && (
+                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                                     Job: {payment.reference_number}
                                                 </div>
                                             )}
+                                            {/* For mobile, display inline Proof / Status information */}
+                                            {isMobile && (
+                                                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    {payment.narration?.includes('[LinkID:') && (
+                                                        <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
+                                                    )}
+                                                    {payment.payment_mode === 'Cash' && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '10px', fontWeight: 500 }}>
+                                                            <Banknote size={10} /> Verify Cash Handover
+                                                        </span>
+                                                    )}
+                                                    {payment.payment_mode === 'UPI' && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '10px', fontWeight: 500 }}>
+                                                                <QrCode size={10} /> QR Proof
+                                                            </span>
+                                                            {payment.narration?.includes('[Screenshot:') && (
+                                                                <a 
+                                                                    href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer"
+                                                                    style={{ color: '#6366f1', textDecoration: 'underline', fontSize: '10px', fontWeight: 600 }}
+                                                                >
+                                                                    View Proof
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
-                                            {collector}
-                                        </td>
-                                        <td style={{ padding: 'var(--spacing-md)' }}>
+                                        {!isMobile && (
+                                            <td style={{ padding: 'var(--spacing-md)' }}>
+                                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
+                                                    {payment.receipt_number || payment.id.slice(0, 8)}
+                                                </div>
+                                                {payment.reference_number && (
+                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                        Job: {payment.reference_number}
+                                                    </div>
+                                                )}
+                                            </td>
+                                        )}
+                                        {!isMobile && (
+                                            <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
+                                                {collector}
+                                            </td>
+                                        )}
+                                        <td style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)' }}>
                                             <span style={{ 
                                                 padding: '2px 8px', 
                                                 backgroundColor: modeBg, 
                                                 color: modeColor,
                                                 borderRadius: '6px', 
                                                 fontWeight: 700,
-                                                fontSize: 'var(--font-size-xs)',
+                                                fontSize: isMobile ? '10px' : 'var(--font-size-xs)',
                                                 border: `1px solid ${modeBorder}`
                                             }}>
                                                 {payment.payment_mode || 'Money'}
                                             </span>
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontWeight: 700, color: 'var(--color-primary)' }}>
+                                        <td style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', textAlign: 'right', fontWeight: 700, color: 'var(--color-primary)' }}>
                                             ₹{(parseFloat(payment.amount) || 0).toFixed(2)}
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-md)' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                {payment.narration?.includes('[LinkID:') && (
-                                                    <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
-                                                )}
-                                                {payment.payment_mode === 'Cash' && (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '11px', fontWeight: 500 }}>
-                                                        <Banknote size={12} /> Verify Cash Handover
-                                                    </span>
-                                                )}
-                                                {payment.payment_mode === 'UPI' && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '11px', fontWeight: 500 }}>
-                                                            <QrCode size={12} /> QR Proof
+                                        {!isMobile && (
+                                            <td style={{ padding: 'var(--spacing-md)' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    {payment.narration?.includes('[LinkID:') && (
+                                                        <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
+                                                    )}
+                                                    {payment.payment_mode === 'Cash' && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '11px', fontWeight: 500 }}>
+                                                            <Banknote size={12} /> Verify Cash Handover
                                                         </span>
-                                                        {payment.narration?.includes('[Screenshot:') && (
-                                                            <a 
-                                                                href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
-                                                                target="_blank" 
-                                                                rel="noreferrer"
-                                                                style={{ color: '#6366f1', textDecoration: 'underline', fontSize: '11px', fontWeight: 600 }}
-                                                            >
-                                                                View Proof
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {payment.narration && (
-                                                    <div 
-                                                        style={{ fontStyle: 'italic', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} 
-                                                        title={payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}
-                                                    >
-                                                        "{payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}"
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
+                                                    )}
+                                                    {payment.payment_mode === 'UPI' && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '11px', fontWeight: 500 }}>
+                                                                <QrCode size={12} /> QR Proof
+                                                            </span>
+                                                            {payment.narration?.includes('[Screenshot:') && (
+                                                                <a 
+                                                                    href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer"
+                                                                    style={{ color: '#6366f1', textDecoration: 'underline', fontSize: '11px', fontWeight: 600 }}
+                                                                >
+                                                                    View Proof
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {payment.narration && (
+                                                        <div 
+                                                            style={{ fontStyle: 'italic', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} 
+                                                            title={payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}
+                                                        >
+                                                            "{payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}"
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        )}
+                                        <td style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-md)', textAlign: 'center' }}>
                                             <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
                                                 <button 
                                                     className="btn btn-secondary" 
-                                                    style={{ padding: '6px', color: 'var(--error)', borderColor: 'var(--error)', backgroundColor: 'transparent', minWidth: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    style={{ padding: '6px', color: 'var(--error)', borderColor: 'var(--error)', backgroundColor: 'transparent', minWidth: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                                     onClick={() => handleReject(payment)}
                                                     disabled={submittingId === payment.id}
                                                     title="Reject and delete receipt"
@@ -610,13 +688,23 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                                 </button>
                                                 <button 
                                                     className="btn btn-primary" 
-                                                    style={{ padding: '6px 12px', backgroundColor: '#6366f1', borderColor: '#6366f1', color: 'white', fontSize: 'var(--font-size-xs)', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    style={{ 
+                                                        padding: isMobile ? '6px' : '6px 12px', 
+                                                        backgroundColor: '#6366f1', 
+                                                        borderColor: '#6366f1', 
+                                                        color: 'white', 
+                                                        fontSize: isMobile ? '10px' : 'var(--font-size-xs)', 
+                                                        height: '28px', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '4px' 
+                                                    }}
                                                     onClick={() => setEditingReceipt(payment)}
                                                     disabled={submittingId === payment.id}
                                                     title="Open form to link invoices and verify"
                                                 >
                                                     <Edit size={12} />
-                                                    Review & Post
+                                                    {!isMobile && "Review & Post"}
                                                 </button>
                                             </div>
                                         </td>
