@@ -370,6 +370,7 @@ function IncentivesManagement({ initialSubTab }) {
     const [activeView, setActiveView] = useState(initialSubTab || 'configure'); // configure, performance, history
 
     const [isMobile, setIsMobile] = useState(false);
+    const [showAllMobileColumns, setShowAllMobileColumns] = useState(false);
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
         handleResize();
@@ -1570,9 +1571,28 @@ function IncentivesManagement({ initialSubTab }) {
                             padding: 'var(--spacing-md)',
                             overflow: 'hidden'
                         }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
-                                Job-Level Details ({selectedTech.name}) {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
-                            </h4>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: '8px' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                                    Job-Level Details ({selectedTech.name}) {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                                </h4>
+                                {isMobile && (
+                                    <button
+                                        onClick={() => setShowAllMobileColumns(!showAllMobileColumns)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            fontSize: '10px',
+                                            fontWeight: 600,
+                                            borderRadius: '4px',
+                                            border: '1px solid var(--border-color)',
+                                            backgroundColor: showAllMobileColumns ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                            color: showAllMobileColumns ? 'var(--text-inverse)' : 'var(--text-primary)',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {showAllMobileColumns ? '👁️ Hide Columns' : '👁️ Show All Columns'}
+                                    </button>
+                                )}
+                            </div>
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', minWidth: isMobile ? '450px' : '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                     <thead>
@@ -1580,14 +1600,14 @@ function IncentivesManagement({ initialSubTab }) {
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
                                             {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
-                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>}
-                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>}
-                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Invoice Date</th>}
+                                            {(!isMobile || showAllMobileColumns) && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>}
+                                            {(!isMobile || showAllMobileColumns) && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>}
+                                            {(!isMobile || showAllMobileColumns) && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Invoice Date</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
-                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>}
+                                            {(!isMobile || showAllMobileColumns) && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
-                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>}
+                                            {(!isMobile || showAllMobileColumns) && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1671,17 +1691,17 @@ function IncentivesManagement({ initialSubTab }) {
                                                             <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                 {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
                                                             </td>
-                                                            {!isMobile && (
+                                                            {(!isMobile || showAllMobileColumns) && (
                                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                     {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
                                                                 </td>
                                                             )}
-                                                            {!isMobile && (
+                                                            {(!isMobile || showAllMobileColumns) && (
                                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                     {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                                 </td>
                                                             )}
-                                                            {!isMobile && (
+                                                            {(!isMobile || showAllMobileColumns) && (
                                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                     {invoiceDateStr}
                                                                 </td>
@@ -1714,7 +1734,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                                     {closureOutcome}
                                                                 </span>
                                                             </td>
-                                                            {!isMobile && (
+                                                            {(!isMobile || showAllMobileColumns) && (
                                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                                     {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
                                                                 </td>
@@ -1722,7 +1742,7 @@ function IncentivesManagement({ initialSubTab }) {
                                                             <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
                                                                 ₹{jobRev.toLocaleString()}
                                                             </td>
-                                                            {!isMobile && (
+                                                            {(!isMobile || showAllMobileColumns) && (
                                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                                     {job.customer_rating > 0 ? (
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
