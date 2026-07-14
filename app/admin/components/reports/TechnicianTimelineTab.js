@@ -13,6 +13,15 @@ const TechnicianTimelineMap = dynamic(() => import('./TechnicianTimelineMap'), {
 
 export default function TechnicianTimelineTab() {
     const [technicians, setTechnicians] = useState([]);
+
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const [selectedTechId, setSelectedTechId] = useState('');
     const [selectedDate, setSelectedDate] = useState(() => {
         const d = new Date();
@@ -879,7 +888,13 @@ export default function TechnicianTimelineTab() {
     };
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 'var(--spacing-md)', height: 'calc(100vh - 180px)', minHeight: '550px' }}>
+        <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', 
+            gap: 'var(--spacing-md)', 
+            height: isMobile ? 'auto' : 'calc(100vh - 180px)', 
+            minHeight: isMobile ? 'auto' : '550px' 
+        }}>
             <style>{`
                 @keyframes ping {
                     0% { transform: scale(1); opacity: 1; }
@@ -895,7 +910,13 @@ export default function TechnicianTimelineTab() {
             `}</style>
 
             {/* LEFT CONTAINER: Map & Playback Controls */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', position: 'relative' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 'var(--spacing-sm)', 
+                position: 'relative',
+                height: isMobile ? '350px' : 'auto' 
+            }}>
                 <div style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                     <TechnicianTimelineMap
                         routePath={timelineData?.routePath || []}
@@ -911,15 +932,16 @@ export default function TechnicianTimelineTab() {
                 {timelineData?.routePath && timelineData.routePath.length > 0 && (
                     <div style={{
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: isMobile ? 'stretch' : 'center',
                         justifyContent: 'space-between',
                         padding: 'var(--spacing-sm) var(--spacing-md)',
                         backgroundColor: 'var(--bg-secondary)',
                         border: '1px solid var(--border-color)',
                         borderRadius: 'var(--radius-lg)',
-                        gap: 'var(--spacing-md)'
+                        gap: 'var(--spacing-sm)'
                     }}>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
                             <button
                                 className="btn btn-primary"
                                 style={{ width: '32px', height: '32px', borderRadius: '50%', padding: '0', display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center' }}
@@ -941,7 +963,7 @@ export default function TechnicianTimelineTab() {
                         </div>
 
                         {/* Progress slider */}
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', width: isMobile ? '100%' : 'auto' }}>
                             <input
                                 type="range"
                                 min={0}
@@ -960,7 +982,7 @@ export default function TechnicianTimelineTab() {
                         </div>
 
                         {/* Playback speed selector */}
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
                             {[1, 2, 5, 10, 20].map(speed => (
                                 <button
                                     key={`speed-${speed}`}
@@ -985,7 +1007,13 @@ export default function TechnicianTimelineTab() {
             </div>
 
             {/* RIGHT CONTAINER: Timeline Sidebar details */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', overflow: 'hidden' }}>
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 'var(--spacing-md)', 
+                overflow: isMobile ? 'visible' : 'hidden',
+                height: isMobile ? 'auto' : '100%'
+            }}>
                 {/* Header Filter Panel */}
                 <div style={{
                     padding: 'var(--spacing-md)',
@@ -1134,7 +1162,15 @@ export default function TechnicianTimelineTab() {
                 )}
 
                 {/* Timeline vertical scroll list */}
-                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                <div style={{ 
+                    flex: 1, 
+                    overflowY: 'auto', 
+                    paddingRight: '4px', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: 'var(--spacing-sm)',
+                    height: isMobile ? '350px' : 'auto'
+                }}>
                     {loading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
                             <RefreshCcw size={28} className="spin" style={{ marginBottom: 'var(--spacing-sm)' }} />

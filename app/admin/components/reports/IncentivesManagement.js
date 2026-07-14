@@ -369,6 +369,14 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
 function IncentivesManagement({ initialSubTab }) {
     const [activeView, setActiveView] = useState(initialSubTab || 'configure'); // configure, performance, history
 
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         if (initialSubTab) {
             setActiveView(initialSubTab);
@@ -842,7 +850,7 @@ function IncentivesManagement({ initialSubTab }) {
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Compact Toolbar */}
             <div className="performance-toolbar">
                 {/* View Tabs */}
@@ -894,7 +902,7 @@ function IncentivesManagement({ initialSubTab }) {
 
             {/* Configure View */}
             {activeView === 'configure' && (
-                <div style={{ flex: 1, overflow: 'auto', display: 'flex', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
+                <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)' }}>
                     {/* Parameters Configuration */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                         <div style={{
@@ -1479,8 +1487,9 @@ function IncentivesManagement({ initialSubTab }) {
                     {/* Technician Dropdown Filter & Export buttons */}
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
+                        alignItems: isMobile ? 'stretch' : 'center',
                         backgroundColor: 'var(--bg-elevated)',
                         border: '1px solid var(--border-primary)',
                         borderRadius: 'var(--radius-lg)',
@@ -1488,7 +1497,7 @@ function IncentivesManagement({ initialSubTab }) {
                         flexWrap: 'wrap',
                         gap: 'var(--spacing-md)'
                     }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap', width: isMobile ? '100%' : 'auto' }}>
                             <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>Technician Filter:</span>
                             <select
                                 value={selectedTechId || 'all'}
@@ -1497,7 +1506,7 @@ function IncentivesManagement({ initialSubTab }) {
                                     setSelectedDateFilter(null);
                                 }}
                                 className="form-input"
-                                style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px', width: '220px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px', width: isMobile ? '100%' : '220px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                             >
                                 <option value="all">All Technicians (Combined)</option>
                                 {technicians.map(t => (
@@ -1509,7 +1518,9 @@ function IncentivesManagement({ initialSubTab }) {
                                 <button
                                     onClick={() => setSelectedDateFilter(null)}
                                     style={{
-                                        marginLeft: 'var(--spacing-sm)',
+                                        marginLeft: isMobile ? '0' : 'var(--spacing-sm)',
+                                        marginTop: isMobile ? '8px' : '0',
+                                        width: isMobile ? '100%' : 'auto',
                                         padding: '4px 8px',
                                         fontSize: '11px',
                                         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -1525,25 +1536,25 @@ function IncentivesManagement({ initialSubTab }) {
                             )}
                         </div>
 
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
                             <button
                                 onClick={() => handleExport('csv')}
                                 className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
                             >
                                 📥 Export CSV
                             </button>
                             <button
                                 onClick={() => handleExport('excel')}
                                 className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
                             >
                                 📥 Export Excel
                             </button>
                             <button
                                 onClick={() => handleExport('print')}
                                 className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? '100%' : 'none', justifyContent: 'center', marginTop: isMobile ? '4px' : '0' }}
                             >
                                 🖨️ Print / PDF
                             </button>
@@ -1563,20 +1574,20 @@ function IncentivesManagement({ initialSubTab }) {
                                 Job-Level Details ({selectedTech.name}) {selectedDateFilter ? `for ${new Date(selectedDateFilter).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
                             </h4>
                             <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                <table style={{ width: '100%', minWidth: isMobile ? '450px' : '850px', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                     <thead>
                                         <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
                                             {selectedTechId === 'all' && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Technician</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Invoice Date</th>
+                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Locality</th>}
+                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>}
+                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Invoice Date</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>
+                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Days to Close</th>}
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
+                                            {!isMobile && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1660,15 +1671,21 @@ function IncentivesManagement({ initialSubTab }) {
                                                             <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                 {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
                                                             </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
-                                                            </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                            </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                {invoiceDateStr}
-                                                            </td>
+                                                            {!isMobile && (
+                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                    {job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || '—'}
+                                                                </td>
+                                                            )}
+                                                            {!isMobile && (
+                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                    {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                </td>
+                                                            )}
+                                                            {!isMobile && (
+                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                    {invoiceDateStr}
+                                                                </td>
+                                                            )}
                                                             <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                                 <span style={{
                                                                     fontSize: 'var(--font-size-xs)',
@@ -1697,22 +1714,26 @@ function IncentivesManagement({ initialSubTab }) {
                                                                     {closureOutcome}
                                                                 </span>
                                                             </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
-                                                            </td>
+                                                            {!isMobile && (
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                    {job.days_to_close ? `${job.days_to_close} ${job.days_to_close === 1 ? 'day' : 'days'}` : '—'}
+                                                                </td>
+                                                            )}
                                                             <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
                                                                 ₹{jobRev.toLocaleString()}
                                                             </td>
-                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                                                {job.customer_rating > 0 ? (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
-                                                                        <Star size={14} fill="#eab308" />
-                                                                        {job.customer_rating}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
-                                                                )}
-                                                            </td>
+                                                            {!isMobile && (
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                    {job.customer_rating > 0 ? (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
+                                                                            <Star size={14} fill="#eab308" />
+                                                                            {job.customer_rating}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
+                                                                    )}
+                                                                </td>
+                                                            )}
                                                         </tr>
                                                     );
                                                 })
