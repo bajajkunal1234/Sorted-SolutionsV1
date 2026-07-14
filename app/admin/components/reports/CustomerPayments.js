@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon, Banknote, QrCode } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon, Banknote, QrCode, LayoutGrid, List } from 'lucide-react';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 
 // Helper component to display live Razorpay status
@@ -62,6 +62,17 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
     const [loading, setLoading] = useState(true);
     const [submittingId, setSubmittingId] = useState(null);
     const [editingReceipt, setEditingReceipt] = useState(null);
+    const [viewMode, setViewMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('customer_payments_view_mode') || 'grid';
+        }
+        return 'grid';
+    });
+
+    const handleViewModeChange = (mode) => {
+        setViewMode(mode);
+        localStorage.setItem('customer_payments_view_mode', mode);
+    };
 
     const loadPendingPayments = async () => {
         setLoading(true);
@@ -189,7 +200,60 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                     </p>
                 </div>
                 
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        backgroundColor: 'var(--bg-secondary)', 
+                        padding: '4px', 
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        gap: '2px',
+                        marginRight: 'var(--spacing-xs)'
+                    }}>
+                        <button 
+                            onClick={() => handleViewModeChange('grid')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: viewMode === 'grid' ? 'var(--bg-elevated)' : 'transparent',
+                                color: viewMode === 'grid' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: 'var(--font-size-xs)',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all var(--transition-fast)'
+                            }}
+                            title="Grid/Card View"
+                        >
+                            <LayoutGrid size={14} />
+                            Cards
+                        </button>
+                        <button 
+                            onClick={() => handleViewModeChange('table')}
+                            style={{
+                                padding: '6px 12px',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: viewMode === 'table' ? 'var(--bg-elevated)' : 'transparent',
+                                color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: 'var(--font-size-xs)',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                transition: 'all var(--transition-fast)'
+                            }}
+                            title="Table View"
+                        >
+                            <List size={14} />
+                            Table
+                        </button>
+                    </div>
+
                     <button onClick={loadPendingPayments} className="btn btn-secondary">
                         <RefreshCw size={16} style={{ marginRight: '6px' }} />
                         Refresh Queue
@@ -229,7 +293,7 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>All Caught Up!</h3>
                     <p style={{ color: 'var(--text-secondary)' }}>There are no pending payments waiting for your verification.</p>
                 </div>
-            ) : (
+            ) : viewMode === 'grid' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 'var(--spacing-lg)' }}>
                     {filteredPayments.map(payment => (
                         <div key={payment.id} className="card" style={{
@@ -415,6 +479,152 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                             </div>
                         </div>
                     ))}
+                </div>
+            ) : (
+                <div style={{ 
+                    overflowX: 'auto', 
+                    backgroundColor: 'var(--bg-elevated)', 
+                    borderRadius: 'var(--radius-lg)', 
+                    border: '1px solid var(--border-primary)'
+                }}>
+                    <table style={{
+                        width: '100%',
+                        borderCollapse: 'collapse',
+                        fontSize: 'var(--font-size-sm)',
+                        textAlign: 'left'
+                    }}>
+                        <thead>
+                            <tr style={{
+                                backgroundColor: 'var(--bg-secondary)',
+                                borderBottom: '2px solid var(--border-primary)'
+                            }}>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Date</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Customer</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Receipt No / Job</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Collector</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Payment Mode</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Proof / Status</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600, textAlign: 'center' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredPayments.map(payment => {
+                                const collector = getCollectorName(payment);
+                                const modeColor = payment.payment_mode === 'Cash' ? '#10b981' : (payment.payment_mode === 'UPI' ? '#3b82f6' : '#8b5cf6');
+                                const modeBg = payment.payment_mode === 'Cash' ? '#10b98115' : (payment.payment_mode === 'UPI' ? '#3b82f615' : '#8b5cf615');
+                                const modeBorder = payment.payment_mode === 'Cash' ? '#10b98130' : (payment.payment_mode === 'UPI' ? '#3b82f630' : '#8b5cf630');
+
+                                return (
+                                    <tr 
+                                        key={payment.id} 
+                                        style={{ 
+                                            borderBottom: '1px solid var(--border-primary)',
+                                            transition: 'background-color var(--transition-fast)'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                        <td style={{ padding: 'var(--spacing-md)', whiteSpace: 'nowrap' }}>
+                                            {new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                            {payment.account_name}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)' }}>
+                                            <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
+                                                {payment.receipt_number || payment.id.slice(0, 8)}
+                                            </div>
+                                            {payment.reference_number && (
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                    Job: {payment.reference_number}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
+                                            {collector}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)' }}>
+                                            <span style={{ 
+                                                padding: '2px 8px', 
+                                                backgroundColor: modeBg, 
+                                                color: modeColor,
+                                                borderRadius: '6px', 
+                                                fontWeight: 700,
+                                                fontSize: 'var(--font-size-xs)',
+                                                border: `1px solid ${modeBorder}`
+                                            }}>
+                                                {payment.payment_mode || 'Money'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontWeight: 700, color: 'var(--color-primary)' }}>
+                                            ₹{(parseFloat(payment.amount) || 0).toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {payment.narration?.includes('[LinkID:') && (
+                                                    <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
+                                                )}
+                                                {payment.payment_mode === 'Cash' && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#10b981', fontSize: '11px', fontWeight: 500 }}>
+                                                        <Banknote size={12} /> Verify Cash Handover
+                                                    </span>
+                                                )}
+                                                {payment.payment_mode === 'UPI' && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '11px', fontWeight: 500 }}>
+                                                            <QrCode size={12} /> QR Proof
+                                                        </span>
+                                                        {payment.narration?.includes('[Screenshot:') && (
+                                                            <a 
+                                                                href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
+                                                                target="_blank" 
+                                                                rel="noreferrer"
+                                                                style={{ color: '#6366f1', textDecoration: 'underline', fontSize: '11px', fontWeight: 600 }}
+                                                            >
+                                                                View Proof
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {payment.narration && (
+                                                    <div 
+                                                        style={{ fontStyle: 'italic', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} 
+                                                        title={payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}
+                                                    >
+                                                        "{payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}"
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
+                                            <div style={{ display: 'inline-flex', gap: 'var(--spacing-xs)' }}>
+                                                <button 
+                                                    className="btn btn-secondary" 
+                                                    style={{ padding: '6px', color: 'var(--error)', borderColor: 'var(--error)', backgroundColor: 'transparent', minWidth: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                    onClick={() => handleReject(payment)}
+                                                    disabled={submittingId === payment.id}
+                                                    title="Reject and delete receipt"
+                                                >
+                                                    <XCircle size={14} />
+                                                </button>
+                                                <button 
+                                                    className="btn btn-primary" 
+                                                    style={{ padding: '6px 12px', backgroundColor: '#6366f1', borderColor: '#6366f1', color: 'white', fontSize: 'var(--font-size-xs)', height: '32px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    onClick={() => setEditingReceipt(payment)}
+                                                    disabled={submittingId === payment.id}
+                                                    title="Open form to link invoices and verify"
+                                                >
+                                                    <Edit size={12} />
+                                                    Review & Post
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
