@@ -76,21 +76,22 @@ export default function TechnicianTimelineTab() {
         const fetchTechs = async () => {
             const { data, error } = await supabase
                 .from('technicians')
-                .select('id, name')
+                .select('id, name, is_fired')
                 .eq('is_active', true)
                 .order('name');
             if (!error && data) {
-                setTechnicians(data);
+                const activeNonFired = data.filter(t => !t.is_fired);
+                setTechnicians(activeNonFired);
                 
                 // Read redirection targets if any
                 const redirTechId = localStorage.getItem('timeline_redirect_tech');
                 const redirDate = localStorage.getItem('timeline_redirect_date');
                 
-                if (redirTechId && data.some(t => t.id === redirTechId)) {
+                if (redirTechId && activeNonFired.some(t => t.id === redirTechId)) {
                     setSelectedTechId(redirTechId);
                     localStorage.removeItem('timeline_redirect_tech');
-                } else if (data.length > 0) {
-                    setSelectedTechId(data[0].id);
+                } else if (activeNonFired.length > 0) {
+                    setSelectedTechId(activeNonFired[0].id);
                 }
                 
                 if (redirDate) {

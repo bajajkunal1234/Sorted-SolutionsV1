@@ -1156,7 +1156,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             onChange={(e) => setEditedJob({ ...editedJob, technician_id: e.target.value || null })}
                                         >
                                             <option value="">— Unassigned —</option>
-                                            {technicians.filter(tech => tech.is_active !== false || tech.id === editedJob.technician_id).map(tech => (
+                                            {technicians.filter(tech => (tech.is_active !== false && !tech.is_fired) || tech.id === editedJob.technician_id).map(tech => (
                                                 <option key={tech.id} value={tech.id}>
                                                     {tech.name} ({tech.phone || tech.username || tech.id.slice(0, 8)})
                                                 </option>

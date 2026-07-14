@@ -37,12 +37,16 @@ export async function POST(request) {
         // Validate active session
         const { data: tech, error: techError } = await supabase
             .from('technicians')
-            .select('current_session_token')
+            .select('current_session_token, is_active, is_fired')
             .eq('id', technician_id)
             .single()
 
         if (techError || !tech || !tech.current_session_token || tech.current_session_token !== finalToken) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+        }
+
+        if (tech.is_active === false || tech.is_fired === true) {
+            return NextResponse.json({ error: 'Location tracking disabled' }, { status: 403 })
         }
 
         // Extract client IP address

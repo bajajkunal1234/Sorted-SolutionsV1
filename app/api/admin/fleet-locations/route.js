@@ -25,13 +25,13 @@ export async function GET() {
         if (ids.length > 0) {
             const { data: techs } = await supabase
                 .from('technicians')
-                .select('id, name, current_session_token, is_active')
+                .select('id, name, current_session_token, is_active, is_fired')
                 .in('id', ids)
             for (const t of techs || []) {
                 techMap[t.id] = { 
                     name: t.name, 
                     current_session_token: t.current_session_token,
-                    is_active: t.is_active !== false
+                    is_active: t.is_active !== false && !t.is_fired
                 }
             }
         }

@@ -22,7 +22,7 @@ export async function POST(request) {
             .eq('is_active', true)
             .single()
 
-        if (error || !technician) {
+        if (error || !technician || technician.is_fired) {
             return NextResponse.json(
                 { error: 'Invalid username or password' },
                 { status: 401 }

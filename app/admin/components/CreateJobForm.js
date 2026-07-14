@@ -1508,7 +1508,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 style={{ borderColor: errors.assignedTo ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">{loadingStates.technicians ? 'Loading technicians...' : 'Unassigned'}</option>
-                                {technicians.filter(tech => tech.is_active !== false || tech.id === formData.assignedTo).map(tech => (
+                                {technicians.filter(tech => (tech.is_active !== false && !tech.is_fired) || tech.id === formData.assignedTo).map(tech => (
                                     <option key={tech.id} value={tech.id}>
                                         {tech.name} {tech.status === 'busy' ? '(Busy)' : ''}
                                     </option>

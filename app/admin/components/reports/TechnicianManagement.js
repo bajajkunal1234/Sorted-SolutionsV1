@@ -52,6 +52,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const [profileDraft, setProfileDraft] = useState(null);
     const [newSpecialization, setNewSpecialization] = useState('');
     const fileInputRef = useRef(null);
+    const [documentUploading, setDocumentUploading] = useState({ aadhaar_url: false, pan_url: false, appointment_letter_url: false });
 
     // ─── Expenses state ───────────────────────────────────────────────────────
     const [categories, setCategories] = useState([]);
@@ -516,6 +517,10 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             is_active: tech.is_active !== false,
             date_joined: tech.date_joined || '',
             last_working_day: tech.last_working_day || '',
+            aadhaar_url: tech.aadhaar_url || '',
+            pan_url: tech.pan_url || '',
+            appointment_letter_url: tech.appointment_letter_url || '',
+            is_fired: !!tech.is_fired
         });
     };
 
@@ -563,6 +568,10 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const handleToggleActive = async (tech) => {
         if (tech.last_working_day) {
             alert('Cannot make technician active because a last working day is set.');
+            return;
+        }
+        if (tech.is_fired) {
+            alert('Cannot make technician active because they are marked as fired.');
             return;
         }
         try {
@@ -1018,7 +1027,12 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                               </div>
                                         }
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>{tech.name}</div>
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {tech.name}
+                                                {tech.is_fired && (
+                                                    <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>FIRED</span>
+                                                )}
+                                            </div>
                                             <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }} onClick={e => e.stopPropagation()}>
@@ -1026,7 +1040,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                 <input
                                                     type="checkbox"
                                                     checked={tech.is_active !== false}
-                                                    disabled={!!tech.last_working_day}
+                                                    disabled={!!tech.last_working_day || !!tech.is_fired}
                                                     onChange={() => handleToggleActive(tech)}
                                                 />
                                                 <span className="switch-slider"></span>
@@ -1199,7 +1213,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                 <input
                                                     type="checkbox"
                                                     checked={profileDraft.is_active}
-                                                    disabled={!!profileDraft.last_working_day}
+                                                    disabled={!!profileDraft.last_working_day || !!profileDraft.is_fired}
                                                     onChange={e => {
                                                         const val = e.target.checked;
                                                         setProfileDraft(p => ({ ...p, is_active: val }));
@@ -1212,7 +1226,9 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                             </span>
                                         </div>
                                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 2 }}>
-                                            {profileDraft.last_working_day ? (
+                                            {profileDraft.is_fired ? (
+                                                <span style={{ color: '#ef4444' }}>⚠️ Locked to Inactive: Technician is marked as fired.</span>
+                                            ) : profileDraft.last_working_day ? (
                                                 <span style={{ color: '#ef4444' }}>⚠️ Locked to Inactive: Technician has a set last working day.</span>
                                             ) : profileDraft.is_active ? (
                                                 <span>🟢 Active: Technician can log in to the mobile app and receive active job bookings.</span>
@@ -1221,6 +1237,118 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Fired / Terminated toggle */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, padding: '12px 14px', borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <label className="switch-container">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!profileDraft.is_fired}
+                                                    onChange={e => {
+                                                        const val = e.target.checked;
+                                                        setProfileDraft(p => {
+                                                            const updated = { ...p, is_fired: val };
+                                                            if (val) {
+                                                                updated.is_active = false; // Stay inactive if fired
+                                                            }
+                                                            return updated;
+                                                        });
+                                                    }}
+                                                />
+                                                <span className="switch-slider" style={{ backgroundColor: profileDraft.is_fired ? '#ef4444' : undefined }}></span>
+                                            </label>
+                                            <span style={{ fontSize: 14, fontWeight: 600, color: profileDraft.is_fired ? '#ef4444' : 'var(--text-primary)' }}>
+                                                Flag as Fired / Terminated
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                            {profileDraft.is_fired ? (
+                                                <span style={{ color: '#ef4444' }}>⚠️ Fired: Technician cannot log in, will not track location, and is excluded from assignments & performance.</span>
+                                            ) : (
+                                                <span>Technician is in good standing.</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Verification Documents Upload Section */}
+                            <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>📁 Verification Documents (PDF)</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Upload Aadhaar Card, PAN Card, and Appointment Letter (PDF format only).</div>
+                                </div>
+                                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {[
+                                        { id: 'aadhaar_url', label: 'Aadhaar Card', icon: '🪪' },
+                                        { id: 'pan_url', label: 'PAN Card', icon: '💳' },
+                                        { id: 'appointment_letter_url', label: 'Appointment Letter', icon: '📄' }
+                                    ].map(doc => (
+                                        <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {doc.icon} {doc.label}
+                                                </span>
+                                                {profileDraft[doc.id] && (
+                                                    <a 
+                                                        href={profileDraft[doc.id]} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                                                    >
+                                                        👁️ View PDF
+                                                    </a>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                <input 
+                                                    type="file"
+                                                    accept="application/pdf"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        if (file.type !== 'application/pdf') {
+                                                            alert('Only PDF files are allowed.');
+                                                            return;
+                                                        }
+                                                        setDocumentUploading(prev => ({ ...prev, [doc.id]: true }));
+                                                        try {
+                                                            const formData = new FormData();
+                                                            formData.append('file', file);
+                                                            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                                                            const data = await res.json();
+                                                            if (data.url) {
+                                                                setProfileDraft(prev => ({ ...prev, [doc.id]: data.url }));
+                                                            } else throw new Error(data.error || 'Upload failed');
+                                                        } catch (err) {
+                                                            alert(`Failed to upload ${doc.label}: ${err.message}`);
+                                                        } finally {
+                                                            setDocumentUploading(prev => ({ ...prev, [doc.id]: false }));
+                                                        }
+                                                    }}
+                                                    style={{ display: 'none' }}
+                                                    id={`file-input-${doc.id}`}
+                                                />
+                                                <label 
+                                                    htmlFor={`file-input-${doc.id}`}
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', margin: 0 }}
+                                                >
+                                                    {documentUploading[doc.id] ? 'Uploading...' : (profileDraft[doc.id] ? 'Replace PDF' : 'Upload PDF')}
+                                                </label>
+                                                {profileDraft[doc.id] && (
+                                                    <button
+                                                        onClick={() => setProfileDraft(prev => ({ ...prev, [doc.id]: '' }))}
+                                                        className="btn"
+                                                        style={{ padding: '4px 10px', fontSize: 11, color: '#ef4444', backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
@@ -2069,6 +2197,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                         const year = parseInt(yearStr);
                         const monthNum = parseInt(monthStr);
                         const daysInMonth = new Date(year, monthNum, 0).getDate();
+                        let totalDaysEvaluated = daysInMonth;
                         
                         const tech = technicians.find(t => t.id === selectedCalendarTechId);
                         const weeklyOffDayName = tech?.weekly_off_day || 'Sunday';
@@ -2081,7 +2210,12 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                             let status = attRecord?.status || '';
                             const dayOfWeekName = new Date(year, monthNum - 1, day).toLocaleDateString('en-US', { weekday: 'long' });
                             
-                            if (!status) {
+                            const isPastLastWorkingDay = tech?.last_working_day && dateStr > tech.last_working_day;
+                            
+                            if (isPastLastWorkingDay) {
+                                status = 'terminated';
+                                totalDaysEvaluated--;
+                            } else if (!status) {
                                 if (leaveRecord && leaveRecord.status === 'approved') {
                                     status = 'leave';
                                 } else if (dayOfWeekName === weeklyOffDayName) {
@@ -2097,7 +2231,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                         }
                         
                         const worked = present + 0.5 * half;
-                        const workingDays = daysInMonth - weeklyOff;
+                        const workingDays = totalDaysEvaluated - weeklyOff;
                         
                         return {
                             present,
@@ -2150,7 +2284,11 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                     const weeklyOffDayName = tech?.weekly_off_day || 'Sunday';
                                     const dayOfWeekName = new Date(year, monthNum - 1, cell.day).toLocaleDateString('en-US', { weekday: 'long' });
                                     
-                                    if (!status) {
+                                    const isPastLastWorkingDay = tech?.last_working_day && dateStr > tech.last_working_day;
+                                    
+                                    if (isPastLastWorkingDay) {
+                                        status = 'terminated';
+                                    } else if (!status) {
                                         if (leaveRecord && leaveRecord.status === 'approved') {
                                             status = 'leave';
                                         } else if (dayOfWeekName === weeklyOffDayName) {
@@ -2184,6 +2322,10 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                         bgColor = 'rgba(236, 72, 153, 0.12)';
                                         borderColor = 'rgba(236, 72, 153, 0.3)';
                                         textColor = '#ec4899';
+                                    } else if (status === 'terminated') {
+                                        bgColor = 'rgba(148, 163, 184, 0.05)';
+                                        borderColor = 'rgba(148, 163, 184, 0.15)';
+                                        textColor = 'var(--text-secondary)';
                                     }
                                     
                                     const isSelected = selectedCalendarDate === dateStr;
@@ -2197,6 +2339,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                     return (
                                         <button
                                             key={dateStr}
+                                            disabled={isPastLastWorkingDay}
                                             onClick={() => {
                                                 setSelectedCalendarDate(dateStr);
                                                 setEditingNotes(attRecord?.notes || '');
@@ -2231,7 +2374,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                             </div>
                                             
                                             <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', opacity: 0.85, marginTop: 4 }}>
-                                                {status || '-'}
+                                                {status === 'terminated' ? 'Terminated' : (status || '-')}
                                             </div>
                                             
                                             {km && km > 0 ? (
@@ -2268,7 +2411,9 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                         style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none', flex: isMobile ? 1 : 'none' }}
                                     >
                                         {technicians.map(t => (
-                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                            <option key={t.id} value={t.id}>
+                                                {t.name} {t.is_fired ? ' (Fired)' : ''}
+                                            </option>
                                         ))}
                                     </select>
 

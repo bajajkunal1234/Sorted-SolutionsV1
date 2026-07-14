@@ -32,12 +32,13 @@ export default function DashboardLivePerformance() {
             // Fetch active technicians
             const { data: techs, error: techsErr } = await supabase
                 .from('technicians')
-                .select('id, name')
+                .select('id, name, is_fired')
                 .eq('is_active', true)
                 .order('name', { ascending: true });
 
             if (techsErr) throw techsErr;
-            setTechnicians(techs || []);
+            const activeTechs = (techs || []).filter(t => !t.is_fired);
+            setTechnicians(activeTechs);
 
             // Today's date YYYY-MM-DD in IST
             const localDate = new Date();
@@ -72,7 +73,7 @@ export default function DashboardLivePerformance() {
 
             // Compute metrics
             const byTech = {};
-            (techs || []).forEach(t => {
+            activeTechs.forEach(t => {
                 byTech[t.id] = {
                     name: t.name,
                     revenue: 0,
