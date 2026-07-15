@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export async function GET(request) {
     try {
         let query = supabase
             .from('technicians')
-            .select('id, name, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
+            .select('id, name, username, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
             .order('name', { ascending: true })
 
         if (id) query = query.eq('id', id).single()
@@ -38,8 +39,28 @@ export async function PATCH(request) {
 
         if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-        delete updates.password_hash
-        delete updates.username
+        // Check if username is already taken by another technician
+        if (updates.username) {
+            const { data: existingTech } = await supabase
+                .from('technicians')
+                .select('id')
+                .eq('username', updates.username)
+                .neq('id', id)
+                .maybeSingle()
+
+            if (existingTech) {
+                return NextResponse.json({ success: false, error: 'Username is already taken' }, { status: 400 })
+            }
+        }
+
+        // Hash password if provided, otherwise protect password_hash field
+        if (updates.password) {
+            updates.password_hash = await bcrypt.hash(updates.password, 12)
+            delete updates.password
+        } else {
+            delete updates.password_hash
+            delete updates.password
+        }
 
         if (updates.date_joined === '') updates.date_joined = null
         if (updates.last_working_day === '') updates.last_working_day = null
@@ -50,7 +71,7 @@ export async function PATCH(request) {
             .from('technicians')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
-            .select('id, name, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
+            .select('id, name, username, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
             .single()
 
         if (error) throw error

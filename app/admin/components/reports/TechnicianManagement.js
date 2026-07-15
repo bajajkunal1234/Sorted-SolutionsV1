@@ -508,6 +508,8 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
         setSelectedTech(tech);
         setProfileDraft({
             name: tech.name || '',
+            username: tech.username || '',
+            password: '',
             photo_url: tech.photo_url || '',
             rating: tech.rating || '',
             years_experience: tech.years_experience || '',
@@ -1067,9 +1069,9 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                     ← Back to Technicians
                                 </button>
                             )}
-                            {/* OTP Login notice */}
-                            <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, fontSize: 13, color: '#6ee7b7', display: 'flex', gap: 8, alignItems: 'center' }}>
-                                📱 <span><strong>{selectedTech.name}</strong> logs in via <strong>OTP</strong> on their registered mobile number — no password needed.</span>
+                            {/* App access notice */}
+                            <div style={{ padding: '10px 14px', backgroundColor: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, fontSize: 13, color: '#a5b4fc', display: 'flex', gap: 8, alignItems: 'center' }}>
+                                🔑 <span><strong>{selectedTech.name}</strong> logs in to the mobile app using their <strong>username</strong> and <strong>password</strong>.</span>
                             </div>
 
                             {/* Photo + basic info */}
@@ -1386,6 +1388,41 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                             </label>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            {/* Credentials Management */}
+                            <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>🔑 App Access Credentials</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Set username and password for the technician mobile app login</div>
+                                </div>
+                                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <div>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Username</label>
+                                        <input
+                                            type="text"
+                                            value={profileDraft.username || ''}
+                                            onChange={e => setProfileDraft(p => ({ ...p, username: e.target.value.toLowerCase().replace(/\s+/g, '') }))}
+                                            className="form-input"
+                                            placeholder="e.g. kunal_bajaj"
+                                            style={{ width: '100%', fontSize: 13, padding: '8px 12px', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Set New Password</label>
+                                        <input
+                                            type="password"
+                                            value={profileDraft.password || ''}
+                                            onChange={e => setProfileDraft(p => ({ ...p, password: e.target.value }))}
+                                            className="form-input"
+                                            placeholder="Enter new password to change or set"
+                                            style={{ width: '100%', fontSize: 13, padding: '8px 12px', boxSizing: 'border-box' }}
+                                        />
+                                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, display: 'block' }}>
+                                            Leave password field empty if you do not wish to change it.
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
