@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { apiCall } from '@/lib/offlineSync';
+import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
 
 const getLocalDateString = () => {
     const d = new Date();
@@ -129,26 +129,12 @@ export default function ExpensesList({ technicianId }) {
         setUploading(true);
         setError(null);
         try {
-            const formDataUpload = new FormData();
             const safeFileName = file.name ? file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
-            formDataUpload.append('file', file, safeFileName);
-            formDataUpload.append('bucket', 'media');
-            formDataUpload.append('folder', 'receipts');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formDataUpload
-            });
-
-            if (!res.ok) {
-                throw new Error('Upload failed with status ' + res.status);
-            }
-
-            const data = await res.json();
-            if (data.success) {
-                setReceiptUrl(data.url);
+            const url = await uploadOrQueueFile(file, safeFileName);
+            if (url) {
+                setReceiptUrl(url);
             } else {
-                throw new Error(data.error || 'Failed to get public URL');
+                throw new Error('Upload failed');
             }
         } catch (err) {
             console.error('Receipt upload error:', err);

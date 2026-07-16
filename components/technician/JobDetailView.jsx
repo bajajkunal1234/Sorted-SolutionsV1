@@ -14,7 +14,7 @@ import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { apiCall } from '@/lib/offlineSync';
+import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
 
 const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -1623,24 +1623,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setBeforePhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Compress and upload photos concurrently
+            // 1. Compress and upload/queue photos concurrently
             const uploadPromises = beforePhotos.filter(photo => photo.file).map(async (photo) => {
                 const compressed = await compressImage(photo.file);
-                const formData = new FormData();
                 const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
-                formData.append('file', compressed, safeFileName || 'upload.jpg');
-                const uploadRes = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!uploadRes.ok) {
-                    throw new Error('Upload failed');
-                }
-                const uploadData = await uploadRes.json();
-                if (!uploadData.success) {
-                    throw new Error(uploadData.error || 'Upload failed');
-                }
-                return uploadData.url;
+                return uploadOrQueueFile(compressed, safeFileName);
             });
             const uploadedUrls = await Promise.all(uploadPromises);
 
@@ -1743,24 +1730,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setAfterPhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Compress and upload photos concurrently
+            // 1. Compress and upload/queue photos concurrently
             const uploadPromises = afterPhotos.filter(photo => photo.file).map(async (photo) => {
                 const compressed = await compressImage(photo.file);
-                const formData = new FormData();
                 const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'after_image.jpg';
-                formData.append('file', compressed, safeFileName || 'upload.jpg');
-                const uploadRes = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!uploadRes.ok) {
-                    throw new Error('Upload failed');
-                }
-                const uploadData = await uploadRes.json();
-                if (!uploadData.success) {
-                    throw new Error(uploadData.error || 'Upload failed');
-                }
-                return uploadData.url;
+                return uploadOrQueueFile(compressed, safeFileName);
             });
             const uploadedUrls = await Promise.all(uploadPromises);
 
@@ -1869,30 +1843,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     if (att.file) {
                         try {
                             const compressed = await compressImage(att.file);
-                            const formData = new FormData();
                             const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
-                            const finalFileName = safeFileName || 'upload.jpg';
-                            formData.append('file', compressed, finalFileName);
-                            const uploadRes = await fetch('/api/upload', {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            if (!uploadRes.ok) {
-                                console.error('Upload failed with status:', uploadRes.status);
-                                return null;
-                            }
-                            
-                            const uploadData = await uploadRes.json();
-                            if (uploadData.success) {
-                                return uploadData.url;
-                            } else {
-                                console.error('Upload false success:', uploadData.error);
-                                return null;
-                            }
+                            return await uploadOrQueueFile(compressed, safeFileName);
                         } catch (uploadErr) {
-                            console.error('Error during fetch or json parse of /api/upload:', uploadErr);
-                            alert('Warning: Image attachment failed to upload. The note will be saved without it. (Error: ' + uploadErr.message + ')');
+                            console.error('Error during uploadOrQueueFile:', uploadErr);
                             return null;
                         }
                     } else if (att.url && !att.url.startsWith('blob:')) {
@@ -1962,27 +1916,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 for (const att of editedNote.attachments) {
                     if (att.file) {
                         try {
-                            const formData = new FormData();
                             const safeFileName = att.file.name ? att.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
-                            const finalFileName = safeFileName || 'upload.jpg';
-                            formData.append('file', att.file, finalFileName);
-                            const uploadRes = await fetch('/api/upload', {
-                                method: 'POST',
-                                body: formData
-                            });
-                            
-                            if (!uploadRes.ok) {
-                                console.error('Upload failed with status in edit:', uploadRes.status);
-                                continue;
-                            }
-                            
-                            const uploadData = await uploadRes.json();
-                            if (uploadData.success) {
-                                uploadedUrls.push(uploadData.url);
-                            }
+                            const url = await uploadOrQueueFile(att.file, safeFileName);
+                            if (url) uploadedUrls.push(url);
                         } catch (uploadErr) {
                             console.error('Edit upload error:', uploadErr);
-                            alert('Warning: Image failed to upload. The note edit will continue without new images. (Error: ' + uploadErr.message + ')');
                         }
                     } else if (att.url && !att.url.startsWith('blob:')) {
                         uploadedUrls.push(att.url);
@@ -3851,20 +3789,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
-                                            // 1. Compress and upload photos concurrently
+                                            // 1. Compress and upload/queue photos concurrently
                                             const uploadPromises = partsPhotos.filter(photo => photo.file).map(async (photo) => {
                                                 const compressed = await compressImage(photo.file);
-                                                const formData = new FormData();
                                                 const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'parts_image.jpg';
-                                                formData.append('file', compressed, safeFileName);
-                                                const uploadRes = await fetch('/api/upload', {
-                                                    method: 'POST',
-                                                    body: formData
-                                                });
-                                                if (!uploadRes.ok) throw new Error('Failed to upload parts photos');
-                                                const uploadData = await uploadRes.json();
-                                                if (!uploadData.success) throw new Error(uploadData.error || 'Failed to upload parts photos');
-                                                return uploadData.url;
+                                                return uploadOrQueueFile(compressed, safeFileName);
                                             });
                                             const uploadedUrls = await Promise.all(uploadPromises);
 
