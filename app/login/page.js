@@ -150,6 +150,7 @@ function LoginContent() {
     const [pendingConfirm, setPendingConfirm] = useState(null);
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
+    const [recaptchaVisible, setRecaptchaVisible] = useState(false);
 
     // Auto-redirect if already logged in
     const initializedRef = useRef(false);
@@ -185,10 +186,29 @@ function LoginContent() {
             const container = document.getElementById('recaptcha-container');
             if (!container) { recaptchaInitRef.current = false; return null; }
             container.innerHTML = '';
+            
+            const isNative = typeof window !== 'undefined' && (
+                window.Capacitor !== undefined || 
+                window.location.hostname === 'localhost' || 
+                window.location.hostname === '127.0.0.1' ||
+                window.location.protocol === 'capacitor:'
+            );
+            
+            if (isNative) {
+                setRecaptchaVisible(true);
+            }
+
             const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                size: 'invisible', 
-                callback: () => setError(''),
-                'expired-callback': () => { setError('reCAPTCHA expired. Please try again.'); recaptchaInitRef.current = false; }
+                size: isNative ? 'normal' : 'invisible', 
+                callback: () => {
+                    setError('');
+                    if (isNative) setRecaptchaVisible(false);
+                },
+                'expired-callback': () => { 
+                    setError('reCAPTCHA expired. Please try again.'); 
+                    recaptchaInitRef.current = false; 
+                    if (isNative) setRecaptchaVisible(true);
+                }
             });
             await verifier.render();
             window.recaptchaVerifier = verifier;
@@ -196,6 +216,7 @@ function LoginContent() {
             return verifier;
         } catch (e) {
             recaptchaInitRef.current = false;
+            setRecaptchaVisible(false);
             return null;
         }
     };
@@ -431,8 +452,6 @@ function LoginContent() {
             {/* Subtle glow behind card */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
 
-            <div id="recaptcha-container"></div>
-
             <Header />
 
             <main style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -515,6 +534,18 @@ function LoginContent() {
 
                     {error && <div style={{ padding: '12px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, color: '#fca5a5', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>{error}</div>}
                     {successMsg && <div style={{ padding: '12px 16px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, color: '#6ee7b7', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>{successMsg}</div>}
+
+                    {/* reCAPTCHA widget container (visible on native apps during verification check) */}
+                    <div 
+                        id="recaptcha-container" 
+                        style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center', 
+                            marginBottom: recaptchaVisible ? 20 : 0, 
+                            height: recaptchaVisible ? 'auto' : 0, 
+                            overflow: 'hidden' 
+                        }}
+                    ></div>
 
                     {/* ── 1. INITIAL PHONE ── */}
                     {step === 'phone' && (
