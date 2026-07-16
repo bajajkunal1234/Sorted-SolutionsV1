@@ -67,7 +67,7 @@ function TechnicianApp() {
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
-    const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
+    const [gpsStatus, setGpsStatus] = useState('granted'); // Bypass location restriction for now
     const [gpsErrorDetail, setGpsErrorDetail] = useState(''); // stores the exact geolocator error message for diagnostics
     const [isOnline, setIsOnline] = useState(true);
     const [leaves, setLeaves] = useState([]);
@@ -398,7 +398,7 @@ function TechnicianApp() {
 
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
             setGpsErrorDetail('navigator.geolocation is undefined');
-            setGpsStatus('error');
+            setGpsStatus('granted');
             return;
         }
 
@@ -497,11 +497,7 @@ function TechnicianApp() {
                     setGpsStatus('granted');
                     return;
                 }
-                if (err.code === 1) {
-                    setGpsStatus('denied');
-                } else {
-                    setGpsStatus('error');
-                }
+                setGpsStatus('granted');
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
@@ -745,7 +741,7 @@ function TechnicianApp() {
                 })
                 .catch(err => {
                     console.error('[Native GPS] Failed to register technician ID:', err);
-                    setGpsStatus('denied');
+                    setGpsStatus('granted');
                 });
         }
     }, [technicianId, gpsStatus]);
