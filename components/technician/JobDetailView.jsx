@@ -358,54 +358,63 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 }
             }, finalTimeout);
             
-            navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timer);
-                        
-                        const latitude = pos.coords.latitude;
-                        const longitude = pos.coords.longitude;
+            try {
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            
+                            const latitude = pos.coords.latitude;
+                            const longitude = pos.coords.longitude;
 
-                        // Asynchronously ping location API to record this precise coordinate in the DB historical logs
-                        if (technicianId) {
-                            let sessionToken = null;
-                            try {
-                                const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
-                                if (session) {
-                                    sessionToken = JSON.parse(session).session_token;
-                                }
-                            } catch (e) {}
+                            // Asynchronously ping location API to record this precise coordinate in the DB historical logs
+                            if (technicianId) {
+                                let sessionToken = null;
+                                try {
+                                    const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                                    if (session) {
+                                        sessionToken = JSON.parse(session).session_token;
+                                    }
+                                } catch (e) {}
 
-                            fetch('/api/technician/location', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    technician_id: technicianId,
-                                    latitude,
-                                    longitude,
-                                    is_on_job: true,
-                                    tracking_source: 'web',
-                                    is_online: true,
-                                    location_precision: 'precise',
-                                    session_token: sessionToken
-                                })
-                            }).catch(() => {});
+                                fetch('/api/technician/location', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        technician_id: technicianId,
+                                        latitude,
+                                        longitude,
+                                        is_on_job: true,
+                                        tracking_source: 'web',
+                                        is_online: true,
+                                        location_precision: 'precise',
+                                        session_token: sessionToken
+                                    })
+                                }).catch(() => {});
+                            }
+
+                            resolve({ latitude, longitude });
                         }
-
-                        resolve({ latitude, longitude });
-                    }
-                },
-                (err) => {
-                    if (!resolved) {
-                        resolved = true;
-                        clearTimeout(timer);
-                        console.warn('[GPS] Geolocation error:', err.message);
-                        resolve(null);
-                    }
-                },
-                { enableHighAccuracy: true, timeout: finalTimeout, maximumAge: 10000 }
-            );
+                    },
+                    (err) => {
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            console.warn('[GPS] Geolocation error:', err.message);
+                            resolve(null);
+                        }
+                    },
+                    { enableHighAccuracy: true, timeout: finalTimeout, maximumAge: 10000 }
+                );
+            } catch (syncErr) {
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timer);
+                    console.warn('[GPS] Geolocation synchronous error:', syncErr);
+                    resolve(null);
+                }
+            }
         });
     };
 
