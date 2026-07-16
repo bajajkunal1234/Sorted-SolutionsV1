@@ -342,8 +342,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [calledCustomer, setCalledCustomer] = useState(false);
 
     const getCoordsWithTimeout = (timeoutMs = 5000) => {
-        // Enforce a minimum robust timeout of 5000ms for job actions
-        const finalTimeout = Math.max(timeoutMs, 5000);
+        // Enforce a minimum robust timeout of 2000ms for job actions
+        const finalTimeout = Math.max(timeoutMs, 2000);
         return new Promise((resolve) => {
             if (typeof window === 'undefined' || !navigator.geolocation) {
                 resolve(null);
