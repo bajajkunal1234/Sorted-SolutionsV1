@@ -1379,14 +1379,25 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
-    const handleMarkArrived = async () => {
-        setMarkingArrival(true);
+    const handleMarkArrived = () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         
-        const performMarkArrived = async (lat = null, lng = null) => {
+        // 1. Instantly open the location verification check-in modal!
+        const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
+        const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
+        setVerifyLat(existingLat);
+        setVerifyLng(existingLng);
+        setLocationVerifyStep('ask');
+        setShowLocationVerifyModal(true);
+
+        // 2. Perform the actual check-in API call and location recording asynchronously in the background
+        (async () => {
             try {
+                const coords = await getCoordsWithTimeout(1500);
+                const lat = coords?.latitude || null;
+                const lng = coords?.longitude || null;
                 arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
-                // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
+
                 const res = await apiCall(`/api/technician/jobs/${job.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1398,27 +1409,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
-                pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
-                const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
-                const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
-                setVerifyLat(existingLat);
-                setVerifyLng(existingLng);
-                setLocationVerifyStep('ask');
-                setShowLocationVerifyModal(true);
+                if (res.ok) {
+                    pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
+                }
             } catch (err) {
-                alert('Could not mark arrival: ' + err.message);
-            } finally {
-                setMarkingArrival(false);
+                console.warn('[Offline] Failed to sync arrival in background:', err);
             }
-        };
-
-        const coords = await getCoordsWithTimeout(1500);
-        if (coords) {
-            await performMarkArrived(coords.latitude, coords.longitude);
-        } else {
-            await performMarkArrived();
-        }
+        })();
     };
 
     const handleCallCustomerClick = async () => {
@@ -2509,55 +2506,48 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 <button
                                                     className="btn btn-primary"
                                                     style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', whiteSpace: 'normal' }}
-                                                    onClick={async () => {
-                                                         if (loading) return;
-                                                         setLoading(true);
-                                                         
-                                                         const markOnWay = async (lat = null, lng = null) => {
-                                                             try {
-                                                                 const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                                                 const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                                                                     method: 'PUT',
-                                                                     headers: { 'Content-Type': 'application/json' },
-                                                                     body: JSON.stringify({ 
-                                                                         action: 'mark_on_way', 
-                                                                         updated_by_name: techName,
-                                                                         latitude: lat,
-                                                                         longitude: lng
-                                                                     })
-                                                                 });
-                                                                 const data = await res.json();
-                                                                 if (!res.ok) throw new Error(data.error || 'Failed to start job');
-                                                                 
-                                                                 const nowStr = new Date().toISOString();
-                                                                 setEditedJob(prev => ({ 
-                                                                     ...prev, 
-                                                                     on_way_at: nowStr,
-                                                                     interactions: [
-                                                                         {
-                                                                             type: 'on-way',
-                                                                             performed_by_name: techName,
-                                                                             description: `Technician is on the way (Visit #${nextVisitNum})`,
-                                                                             timestamp: nowStr
-                                                                         },
-                                                                         ...(prev.interactions || [])
-                                                                     ]
-                                                                 }));
-                                                                 if (onJobUpdate && data.job) onJobUpdate(data.job);
-                                                             } catch (err) {
-                                                                 alert('Failed to start job: ' + err.message);
-                                                             } finally {
-                                                                 setLoading(false);
-                                                             }
-                                                         };
+                                                    onClick={() => {
+                                                          const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                          const nowStr = new Date().toISOString();
+                                                          
+                                                          // 1. Instantly update the local UI state so the button disappears and "On Way" state is visible!
+                                                          setEditedJob(prev => ({ 
+                                                              ...prev, 
+                                                              on_way_at: nowStr,
+                                                              interactions: [
+                                                                  {
+                                                                      type: 'on-way',
+                                                                      performed_by_name: techName,
+                                                                      description: `Technician is on the way (Visit #${nextVisitNum})`,
+                                                                      timestamp: nowStr
+                                                                  },
+                                                                  ...(prev.interactions || [])
+                                                              ]
+                                                          }));
 
-                                                         const coords = await getCoordsWithTimeout(1500);
-                                                         if (coords) {
-                                                             await markOnWay(coords.latitude, coords.longitude);
-                                                         } else {
-                                                             await markOnWay();
-                                                         }
-                                                     }}
+                                                          // 2. Perform the location fetching and API call in the background asynchronously
+                                                          (async () => {
+                                                              try {
+                                                                  const coords = await getCoordsWithTimeout(1500);
+                                                                  const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                                                                      method: 'PUT',
+                                                                      headers: { 'Content-Type': 'application/json' },
+                                                                      body: JSON.stringify({ 
+                                                                          action: 'mark_on_way', 
+                                                                          updated_by_name: techName,
+                                                                          latitude: coords?.latitude || null,
+                                                                          longitude: coords?.longitude || null
+                                                                      })
+                                                                  });
+                                                                  const data = await res.json();
+                                                                  if (res.ok && onJobUpdate && data.job) {
+                                                                      onJobUpdate(data.job);
+                                                                  }
+                                                              } catch (err) {
+                                                                  console.warn('[Offline] Failed to sync on-way status in background:', err);
+                                                              }
+                                                          })();
+                                                      }}
                                                     disabled={loading}
                                                 >
                                                      Start Job & Share Location (Visit {nextVisitNum})
