@@ -20,7 +20,7 @@ import TechSupportTab from '@/components/technician/TechSupportTab';
 import TechEmailInbox from '@/components/technician/TechEmailInbox';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
-import { apiCall } from '@/lib/offlineSync';
+import { apiCall, syncOfflineQueue } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
 
 const isNativePlatform = () => {
@@ -82,6 +82,8 @@ function TechnicianApp() {
 
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [syncItems, setSyncItems] = useState([]);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
     const [apkSize, setApkSize] = useState('6.53 MB');
     const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
@@ -163,19 +165,31 @@ function TechnicianApp() {
 
         const handleOnline = () => setIsDeviceOnline(true);
         const handleOffline = () => setIsDeviceOnline(false);
-        const handleQueueChange = (e) => setPendingSyncCount(e.detail.count || 0);
+        const handleQueueChange = (e) => {
+            const count = e.detail.count || 0;
+            setPendingSyncCount(count);
+            const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+            setSyncItems(queue);
+        };
+        const handleSyncComplete = () => {
+            setPendingSyncCount(0);
+            setSyncItems([]);
+        };
 
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
         window.addEventListener('offline-queue-changed', handleQueueChange);
+        window.addEventListener('offline-sync-complete', handleSyncComplete);
 
         const initialQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
         setPendingSyncCount(initialQueue.length);
+        setSyncItems(initialQueue);
 
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
             window.removeEventListener('offline-queue-changed', handleQueueChange);
+            window.removeEventListener('offline-sync-complete', handleSyncComplete);
         };
     }, []);
 
@@ -1954,6 +1968,42 @@ function TechnicianApp() {
         </div>
     );
 
+    const getQueueItemLabel = (item) => {
+        try {
+            if (!item.body) return `API Request (${item.method})`;
+            const bodyObj = typeof item.body === 'string' ? JSON.parse(item.body) : item.body;
+            
+            if (bodyObj.action) {
+                switch (bodyObj.action) {
+                    case 'mark_on_way':
+                        return 'Start Job / Sharing GPS';
+                    case 'mark_arrived':
+                        return 'Arrive at Destination';
+                    case 'before-photos-uploaded':
+                        return 'Upload Check-in Photos';
+                    case 'close_visit':
+                        return 'Check-out & Close Visit';
+                    case 'approve_quotation':
+                        return 'Approve Quotation';
+                    default:
+                        return `Status Update: ${bodyObj.action}`;
+                }
+            }
+            if (bodyObj.type === 'approve_quotation') {
+                return 'Quotation Approval Log';
+            }
+            if (item.url.includes('/api/technician/jobs/') && item.url.includes('/interactions')) {
+                return `Log Interaction: ${bodyObj.type || 'Activity'}`;
+            }
+            if (item.url.includes('/api/technician/jobs/') && bodyObj.total_amount !== undefined) {
+                return 'Save Invoice details';
+            }
+            return `${item.method} Request to ${item.url.split('/').pop()}`;
+        } catch (e) {
+            return `Queued Request (${item.method})`;
+        }
+    };
+
     // Settings Tab Content
     const renderSettingsTab = () => (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
@@ -1961,6 +2011,104 @@ function TechnicianApp() {
                 <Settings size={24} color="#3b82f6" />
                 {firstName}'s Settings
             </h2>
+
+            {/* Sync Center Section */}
+            <div style={{
+                padding: 'var(--spacing-md)',
+                backgroundColor: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: 'var(--spacing-md)'
+            }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Activity size={18} color="#3b82f6" />
+                        <span>Sync Center</span>
+                    </div>
+                    <span style={{
+                        fontSize: '11px',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: isDeviceOnline ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                        color: isDeviceOnline ? '#10b981' : '#ef4444',
+                        fontWeight: 700
+                    }}>
+                        {isDeviceOnline ? '● Online' : '● Offline Mode'}
+                    </span>
+                </h3>
+
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', lineHeight: '1.4' }}>
+                    Actions taken offline are saved to your device and sync automatically in the background when internet connectivity returns.
+                </p>
+
+                {pendingSyncCount === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px 0', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
+                        <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>✅</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Up to Date</span>
+                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', margin: 0 }}>All actions and photos are fully synced.</p>
+                    </div>
+                ) : (
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Pending Changes ({pendingSyncCount})</span>
+                            <button
+                                onClick={async () => {
+                                    if (isSyncing || !isDeviceOnline) return;
+                                    setIsSyncing(true);
+                                    try {
+                                        await syncOfflineQueue();
+                                        // Refresh state after sync attempt
+                                        const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+                                        setPendingSyncCount(queue.length);
+                                        setSyncItems(queue);
+                                    } catch (err) {
+                                        console.warn('Manual sync failed:', err);
+                                    } finally {
+                                        setIsSyncing(false);
+                                    }
+                                }}
+                                disabled={isSyncing || !isDeviceOnline}
+                                className="btn btn-primary"
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    height: 'auto',
+                                    backgroundColor: isDeviceOnline ? '#3b82f6' : 'var(--bg-tertiary)',
+                                    color: isDeviceOnline ? 'white' : 'var(--text-tertiary)',
+                                    opacity: (isSyncing || !isDeviceOnline) ? 0.6 : 1,
+                                    cursor: (isSyncing || !isDeviceOnline) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isSyncing ? 'Syncing...' : 'Sync Now'}
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '8px', backgroundColor: 'var(--bg-primary)' }}>
+                            {syncItems.map((item, idx) => {
+                                const hasFiles = typeof item.body === 'string' && item.body.includes('/offline-file-placeholder?id=');
+                                return (
+                                    <div key={item.id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px', backgroundColor: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                {getQueueItemLabel(item)}
+                                            </span>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>
+                                                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        {hasFiles && (
+                                            <span style={{ fontSize: '10px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
+                                                📸 Attachment(s) Queued Locally
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Profile Section */}
             <div style={{
