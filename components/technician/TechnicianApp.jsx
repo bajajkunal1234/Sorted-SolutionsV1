@@ -2012,6 +2012,54 @@ function TechnicianApp() {
                 {firstName}'s Settings
             </h2>
 
+            {/* Profile Section */}
+            <div style={{
+                padding: 'var(--spacing-lg)',
+                backgroundColor: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: 'var(--spacing-md)'
+            }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                    Profile Information
+                </h3>
+
+                {/* Profile Picture */}
+                <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-md)' }}>
+                    <div style={{
+                        width: '100px',
+                        height: '100px',
+                        borderRadius: '50%',
+                        backgroundColor: '#3b82f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto var(--spacing-sm)',
+                        fontSize: '2rem',
+                        fontWeight: 700,
+                        color: 'white'
+                    }}>
+                        {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
+                    </div>
+                </div>
+
+                {/* Profile Details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                        { label: 'Name', value: technicianData?.name || 'Loading...' },
+                        { label: 'Employee ID', value: technicianData?.id || '...' },
+                        { label: 'Phone', value: technicianData?.phone || '...' },
+                        { label: 'Email', value: technicianData?.email || '...', breakWord: true },
+                        { label: 'Joined', value: technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...' }
+                    ].map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx !== 4 ? '1px solid var(--border-primary)' : 'none', paddingBottom: idx !== 4 ? '8px' : '0' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{item.label}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', wordBreak: item.breakWord ? 'break-all' : 'normal', maxWidth: '70%' }}>{item.value}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {/* Sync Center Section */}
             <div style={{
                 padding: 'var(--spacing-md)',
@@ -2110,75 +2158,6 @@ function TechnicianApp() {
                 )}
             </div>
 
-            {/* Profile Section */}
-            <div style={{
-                padding: 'var(--spacing-lg)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-primary)',
-                marginBottom: 'var(--spacing-md)'
-            }}>
-                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                    Profile Information
-                </h3>
-
-                {/* Profile Picture */}
-                <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-md)' }}>
-                    <div style={{
-                        width: '100px',
-                        height: '100px',
-                        borderRadius: '50%',
-                        backgroundColor: '#3b82f6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto var(--spacing-sm)',
-                        fontSize: '2rem',
-                        fontWeight: 700,
-                        color: 'white'
-                    }}>
-                        {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
-                    </div>
-                </div>
-
-                {/* Profile Details */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {[
-                        { label: 'Name', value: technicianData?.name || 'Loading...' },
-                        { label: 'Employee ID', value: technicianData?.id || '...' },
-                        { label: 'Phone', value: technicianData?.phone || '...' },
-                        { label: 'Email', value: technicianData?.email || '...', breakWord: true },
-                        { label: 'Joined', value: technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...' }
-                    ].map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx !== 4 ? '1px solid var(--border-primary)' : 'none', paddingBottom: idx !== 4 ? '8px' : '0' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{item.label}</span>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', wordBreak: item.breakWord ? 'break-all' : 'normal', maxWidth: '70%' }}>{item.value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Leave Marking */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-primary)',
-                marginBottom: 'var(--spacing-md)'
-            }}>
-                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                    Leave Management
-                </h3>
-                <button
-                    onClick={() => setShowLeaveModal(true)}
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--spacing-xs)' }}
-                >
-                    <Calendar size={16} />
-                    Mark Leave / Request Time Off
-                </button>
-            </div>
-
             {/* Appearance */}
             <div style={{
                 padding: 'var(--spacing-md)',
@@ -2272,11 +2251,12 @@ function TechnicianApp() {
                     Android App
                 </h3>
                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)', lineHeight: '1.4' }}>
-                    Install the native Android app for 24/7 background location tracking, thermal printer support, and reliable push notifications.
+                    Install the native Android app for thermal printer support and reliable push notifications.
                 </p>
                 <a
                     href="/downloads/technician-app.apk"
                     download="SortedTechnician.apk"
+                    target="_blank"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -2293,13 +2273,14 @@ function TechnicianApp() {
                         fontSize: 'var(--font-size-sm)',
                         transition: 'background-color 0.2s',
                         border: 'none',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        marginBottom: '12px'
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
                 >
-                    <Package size={16} />
-                    Download APK (Latest Version - {apkSize})
+                    <Download size={16} />
+                    Download APK (Latest Version - 6.55 MB)
                 </a>
             </div>
 
