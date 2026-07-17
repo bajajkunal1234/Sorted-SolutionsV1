@@ -1,9 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
 // GET - Fetch all inventory items
 export async function GET(request) {
     try {
+        const supabase = createServerSupabase();
         const { searchParams } = new URL(request.url)
         const category = searchParams.get('category')
         const lowStock = searchParams.get('low_stock')
@@ -37,6 +38,7 @@ export async function GET(request) {
 // POST - Create new inventory item
 export async function POST(request) {
     try {
+        const supabase = createServerSupabase();
         const body = await request.json()
 
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
@@ -178,6 +180,7 @@ export async function POST(request) {
 // PUT - Update inventory item (also used for archive)
 export async function PUT(request) {
     try {
+        const supabase = createServerSupabase();
         const body = await request.json()
         const { id, ...rawUpdates } = body
 
@@ -240,6 +243,7 @@ export async function PUT(request) {
 // DELETE - Delete inventory item (with dependency check)
 export async function DELETE(request) {
     try {
+        const supabase = createServerSupabase();
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
         const force = searchParams.get('force') === 'true'
