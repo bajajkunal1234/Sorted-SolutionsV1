@@ -40,6 +40,36 @@ export async function GET(request) {
             const res = await getDeviceProfiles(technician.mdm_device_id)
             if (res && res.profiles) {
                 mdmProfiles = res.profiles
+
+                // Self-healing: Compare actual live duty status with MDM server profiles list
+                const { data: liveLoc } = await supabase
+                    .from('technician_live_locations')
+                    .select('is_online')
+                    .eq('technician_id', technicianId)
+                    .maybeSingle()
+
+                const isOnline = liveLoc ? liveLoc.is_online === true : false
+                
+                // Trigger background self-healing if profiles mismatch
+                const onDutyProfileId = process.env.MANAGEENGINE_ON_DUTY_PROFILE_ID || "51167000000097017"
+                const offDutyProfileId = process.env.MANAGEENGINE_OFF_DUTY_PROFILE_ID || "5116700000101018"
+                
+                const hasOnDuty = mdmProfiles.some(p => p.profile_id === onDutyProfileId)
+                const hasOffDuty = mdmProfiles.some(p => p.profile_id === offDutyProfileId)
+
+                if (isOnline) {
+                    if (!hasOnDuty || hasOffDuty) {
+                        // Should have On-Duty, but either lacks it or still has Off-Duty
+                        console.log(`[MDM SELF-HEALING] Aligning device ${technician.mdm_device_id} to ON-DUTY profile`);
+                        import('@/lib/manageEngine').then(m => m.associateKioskProfile(technician.mdm_device_id)).catch(console.error)
+                    }
+                } else {
+                    if (hasOnDuty || !hasOffDuty) {
+                        // Should have Off-Duty, but either has On-Duty or lacks Off-Duty
+                        console.log(`[MDM SELF-HEALING] Aligning device ${technician.mdm_device_id} to OFF-DUTY profile`);
+                        import('@/lib/manageEngine').then(m => m.disassociateKioskProfile(technician.mdm_device_id)).catch(console.error)
+                    }
+                }
             }
         }
 
