@@ -55,21 +55,9 @@ export async function POST(request) {
             clientIp = clientIp.split(',')[0].trim()
         }
 
-        // Server-side Time & Working Hours Gating (Anti-Clock Spoofing)
-        // working hours: 8:00 AM to 9:00 PM IST
         const serverTime = new Date()
-        const istOffset = 5.5 * 60 * 60 * 1000
-        const istTime = new Date(serverTime.getTime() + istOffset)
-        const hours = istTime.getUTCHours()
-        const isWorkingHours = hours >= 8 && hours < 21
-
         let finalIsOnline = is_online !== false
         let finalPrecision = location_precision || 'precise'
-
-        if (!isWorkingHours) {
-            finalIsOnline = false
-            finalPrecision = 'approx'
-        }
 
         const { error } = await supabase
             .from('technician_live_locations')

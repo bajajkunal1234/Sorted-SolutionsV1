@@ -523,7 +523,7 @@ function TechnicianApp() {
                                 longitude: pos.coords.longitude,
                                 is_on_job: false,
                                 tracking_source: 'web',
-                                is_online: pingOnline,
+                                is_online: isOnline,
                                 location_precision: pingPrecision,
                                 session_token: sessionToken,
                                 battery_level: batteryLevel,
