@@ -714,7 +714,6 @@ function TechnicianApp() {
         } catch (err) {
             console.error('Error in handleStartShift:', err);
             setDutyStatusError('Network error starting shift');
-        }
         } finally {
             setShiftActionLoading(null);
         }
@@ -748,7 +747,6 @@ function TechnicianApp() {
         } catch (err) {
             console.error('Error in handleEndShift:', err);
             setDutyStatusError('Network error ending shift');
-        }
         } finally {
             setShiftActionLoading(null);
         }
