@@ -2775,7 +2775,7 @@ function TechnicianApp() {
                                     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
                                     const localDate = new Date(utc + (3600000 * 5.5)); // India timezone
                                     const currentHour = localDate.getHours();
-                                    const isLocked = currentHour < 19; // Locked before 7:00 PM (19:00)
+                                    const isLocked = currentHour >= 9 && currentHour < 19; // Locked during core shift hours (9 AM - 7 PM)
 
                                     return (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -2804,7 +2804,7 @@ function TechnicianApp() {
                                             </button>
                                             {isLocked && (
                                                 <span style={{ fontSize: '11px', color: '#f87171', fontStyle: 'italic', textAlign: 'center', marginTop: '2px' }}>
-                                                    End Shift is locked until 7:00 PM
+                                                    End Shift is locked during shift hours (9:00 AM - 7:00 PM)
                                                 </span>
                                             )}
                                         </div>

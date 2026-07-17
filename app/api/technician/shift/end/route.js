@@ -32,11 +32,11 @@ export async function POST(request) {
         const todayStr = `${yyyy}-${mm}-${dd}`;
         const currentHour = localDate.getHours();
 
-        // Enforce 7:00 PM (19:00) lock boundary
-        if (currentHour < 19) {
+        // Enforce shift hours lock boundary: locked during core shift hours (9:00 AM - 7:00 PM)
+        if (currentHour >= 9 && currentHour < 19) {
             return NextResponse.json({ 
                 success: false, 
-                error: 'Shift end / Log out is locked until 7:00 PM.' 
+                error: 'Shift end / Log out is locked during active shift hours (9:00 AM - 7:00 PM).' 
             }, { status: 400 });
         }
 
@@ -48,6 +48,7 @@ export async function POST(request) {
             .upsert({
                 technician_id,
                 date: todayStr,
+                status: 'present',
                 shift_end_time: timestampStr,
                 updated_at: timestampStr
             }, {

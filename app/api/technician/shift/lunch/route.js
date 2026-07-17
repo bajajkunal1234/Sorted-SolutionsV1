@@ -47,6 +47,7 @@ export async function POST(request) {
             .upsert({
                 technician_id,
                 date: todayStr,
+                status: 'present',
                 ...updatePayload
             }, {
                 onConflict: 'technician_id,date'
