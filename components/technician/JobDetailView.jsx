@@ -1438,6 +1438,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
+    const handleMarkArrived = () => {
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        
+        // 1. Instantly open the location verification check-in modal!
+        const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
+        const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
+        setVerifyLat(existingLat);
+        setVerifyLng(existingLng);
+        setLocationVerifyStep('ask');
+        setShowLocationVerifyModal(true);
+
+        // 2. Perform the actual check-in API call and location recording asynchronously in the background
+        (async () => {
+            try {
+                const coords = await getCoordsWithTimeout(1500);
+                const lat = coords?.latitude || null;
+                const lng = coords?.longitude || null;
+                arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
+
+                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: 'mark_arrived', 
+                        updated_by_name: techName,
+                        latitude: lat,
+                        longitude: lng
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
+                }
+            } catch (err) {
+                console.warn('[Offline] Failed to sync arrival in background:', err);
+            }
+        })();
+    };
+
     const handleCallCustomerClick = async () => {
         setCalledCustomer(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
