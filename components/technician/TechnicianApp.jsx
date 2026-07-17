@@ -717,6 +717,7 @@ function TechnicianApp() {
         }
         } finally {
             setShiftActionLoading(null);
+        }
     };
 
     const handleEndShift = async () => {
@@ -750,6 +751,7 @@ function TechnicianApp() {
         }
         } finally {
             setShiftActionLoading(null);
+        }
     };
 
     const handleToggleLunch = async () => {
