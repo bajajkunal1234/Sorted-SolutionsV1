@@ -2835,8 +2835,7 @@ function TechnicianApp() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             <button
                                                 onClick={handleEndShift}
-                                        disabled={shiftActionLoading !== null}
-                                                disabled={isLocked}
+                                                disabled={isLocked || shiftActionLoading !== null}
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px',
@@ -2846,8 +2845,8 @@ function TechnicianApp() {
                                                     color: isLocked ? 'var(--text-tertiary)' : 'white',
                                                     fontWeight: 'bold',
                                                     fontSize: '14px',
-                                                    cursor: isLocked ? 'not-allowed' : 'pointer',
-                                                    opacity: isLocked ? 0.6 : 1,
+                                                    cursor: (isLocked || shiftActionLoading !== null) ? 'not-allowed' : 'pointer',
+                                                    opacity: (isLocked || shiftActionLoading !== null) ? 0.6 : 1,
                                                     border: isLocked ? '1px dashed var(--border-primary)' : 'none',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -2855,7 +2854,17 @@ function TechnicianApp() {
                                                     gap: '6px'
                                                 }}
                                             >
-                                                {isLocked ? '🔒 End Shift (Locked)' : '🔓 End Shift & Turn Off GPS'}
+                                                {isLocked ? (
+                                                    '🔒 End Shift (Locked)'
+                                                ) : shiftActionLoading === 'end' ? (
+                                                    <>
+                                                        <Loader2 style={{ animation: 'mdmSpin 1s linear infinite' }} size={14} /> Ending...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Power size={14} /> End Shift & Turn Off GPS
+                                                    </>
+                                                )}
                                             </button>
                                             {isLocked && (
                                                 <span style={{ fontSize: '11px', color: '#f87171', fontStyle: 'italic', textAlign: 'center', marginTop: '2px' }}>
