@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Bike, Motorcycle, Mail, Map, Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
@@ -2794,7 +2794,7 @@ function TechnicianApp() {
                                         </>
                                     ) : (
                                         <>
-                                            <Activity size={16} /> Start Work Shift
+                                            <Motorcycle size={18} /> Start Work Shift
                                         </>
                                     )}
                             </button>
