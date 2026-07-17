@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Mail, Map, Download } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
@@ -76,6 +76,7 @@ function TechnicianApp() {
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [dutyStatusError, setDutyStatusError] = useState(null);
     const [mdmProfiles, setMdmProfiles] = useState(null);
+    const [shiftActionLoading, setShiftActionLoading] = useState(null); // 'start', 'end', or null
 
     const isOnlineRef = useRef(isOnline);
     useEffect(() => {
@@ -688,6 +689,7 @@ function TechnicianApp() {
     const handleStartShift = async () => {
         setDutyStatusError(null);
         try {
+        setShiftActionLoading('start');
             let sessionToken = null;
             const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
             if (session) {
@@ -713,11 +715,14 @@ function TechnicianApp() {
             console.error('Error in handleStartShift:', err);
             setDutyStatusError('Network error starting shift');
         }
+        } finally {
+            setShiftActionLoading(null);
     };
 
     const handleEndShift = async () => {
         setDutyStatusError(null);
         try {
+        setShiftActionLoading('end');
             let sessionToken = null;
             const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
             if (session) {
@@ -743,6 +748,8 @@ function TechnicianApp() {
             console.error('Error in handleEndShift:', err);
             setDutyStatusError('Network error ending shift');
         }
+        } finally {
+            setShiftActionLoading(null);
     };
 
     const handleToggleLunch = async () => {
@@ -2763,6 +2770,7 @@ function TechnicianApp() {
                         {!isOnline ? (
                             <button
                                 onClick={handleStartShift}
+                                    disabled={shiftActionLoading !== null}
                                 style={{
                                     width: '100%',
                                     padding: '12px',
@@ -2780,7 +2788,15 @@ function TechnicianApp() {
                                     gap: '8px'
                                 }}
                             >
-                                🚗 Start Work Shift
+                                    {shiftActionLoading === 'start' ? (
+                                        <>
+                                            <Loader2 style={{ animation: 'mdmSpin 1s linear infinite' }} size={16} /> Starting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Activity size={16} /> Start Work Shift
+                                        </>
+                                    )}
                             </button>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -2819,6 +2835,7 @@ function TechnicianApp() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             <button
                                                 onClick={handleEndShift}
+                                        disabled={shiftActionLoading !== null}
                                                 disabled={isLocked}
                                                 style={{
                                                     width: '100%',
@@ -3267,6 +3284,7 @@ function TechnicianApp() {
 
     return (
         <>
+        <style>{`@keyframes mdmSpin { 100% { transform: rotate(360deg); } }`}</style>
         {/* PWA install + notification permission prompt — shown once on first load */}
         <PWAPrompt
             appName="Sorted Technician"
