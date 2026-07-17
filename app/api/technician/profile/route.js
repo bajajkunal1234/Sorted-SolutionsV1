@@ -16,7 +16,7 @@ export async function GET(request) {
         const sessionToken = request.headers.get('x-session-token')
         const { data: technician, error } = await supabase
             .from('technicians')
-            .select('id, name, email, phone, is_active, created_at, current_session_token, weekly_off_day')
+            .select('id, name, email, phone, is_active, created_at, current_session_token, weekly_off_day, mdm_device_id')
             .eq('id', technicianId)
             .single()
 
@@ -34,9 +34,19 @@ export async function GET(request) {
 
         delete technician.current_session_token
 
+        let mdmProfiles = null
+        if (technician.mdm_device_id) {
+            const { getDeviceProfiles } = await import('@/lib/manageEngine')
+            const res = await getDeviceProfiles(technician.mdm_device_id)
+            if (res && res.profiles) {
+                mdmProfiles = res.profiles
+            }
+        }
+
         return NextResponse.json({
             success: true,
-            technician
+            technician,
+            mdmProfiles
         })
 
     } catch (error) {

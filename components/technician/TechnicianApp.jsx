@@ -75,6 +75,7 @@ function TechnicianApp() {
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [dutyStatusError, setDutyStatusError] = useState(null);
+    const [mdmProfiles, setMdmProfiles] = useState(null);
 
     const isOnlineRef = useRef(isOnline);
     useEffect(() => {
@@ -984,6 +985,7 @@ function TechnicianApp() {
                 const data = await response.json();
                 if (data.success) {
                     setTechnicianData(data.technician);
+                    setMdmProfiles(data.mdmProfiles || null);
                     // Update local storage to keep it fresh
                     localStorage.setItem('technicianData', JSON.stringify(data.technician));
                 }
@@ -2719,6 +2721,42 @@ function TechnicianApp() {
                                 ? "You are on a lunch break. GPS sharing remains active. Enjoy your break!"
                                 : "Your shift is active. Precise GPS location tracking is locked Always-On.")}
                     </p>
+
+                    {/* MDM Policy Status Display */}
+                    {mdmProfiles && mdmProfiles.length > 0 && (
+                        <div style={{
+                            padding: '10px 12px',
+                            backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                            border: '1px solid rgba(99, 102, 241, 0.15)',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            marginTop: '8px'
+                        }}>
+                            <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                🛡️ Active MDM Policies:
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '4px' }}>
+                                {mdmProfiles.map((p, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>• {p.profile_name}</span>
+                                        <span style={{ 
+                                            fontSize: '10px', 
+                                            fontWeight: 'bold',
+                                            color: p.status === "6" ? '#10b981' : '#f59e0b',
+                                            backgroundColor: p.status === "6" ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                                            padding: '2px 6px',
+                                            borderRadius: '8px'
+                                        }}>
+                                            {p.status === "6" ? "Applied" : "Pending"}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Active shift/lunch controls */}
                     <div style={{ marginTop: '4px', width: '100%' }}>
