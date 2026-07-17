@@ -56,6 +56,19 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
     const minLeaveDateObj = getMinLeaveDate(weeklyOffDay);
     const minLeaveDateStr = getLocalDateString(minLeaveDateObj);
 
+    const [attendance, setAttendance] = useState([]);
+    
+    const fetchAttendance = async () => {
+        if (!technicianId) return;
+        const { data, error } = await supabase
+            .from('technician_attendance')
+            .select('date, status, shift_start_time, shift_end_time, lunch_start_time, lunch_end_time')
+            .eq('technician_id', technicianId);
+        if (!error && data) {
+            setAttendance(data);
+        }
+    };
+
     // Fetch applied leaves
     const fetchLeaves = async () => {
         if (!technicianId) return;
@@ -75,6 +88,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
 
     useEffect(() => {
         fetchLeaves();
+        fetchAttendance();
 
         // Listen for real-time leave status updates from admin
         const channel = supabase.channel('realtime:technician_updates');
@@ -82,6 +96,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
             if (payload?.technicianId === technicianId) {
                 console.log('Realtime: Leave status updated');
                 fetchLeaves();
+                fetchAttendance();
             }
         });
         channel.subscribe();
@@ -378,6 +393,62 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                         </span>
                     </div>
                 )}
+
+                {(() => {
+                    const dateAtt = attendance.find(a => a.date === selectedDateStr);
+                    if (!dateAtt) return null;
+                    return (
+                        <div style={{
+                            padding: '12px',
+                            borderRadius: '8px',
+                            backgroundColor: 'rgba(59,130,246,0.06)',
+                            border: '1px solid rgba(59,130,246,0.15)',
+                            marginBottom: '12px',
+                            fontSize: '13px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                        }}>
+                            <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                ⏰ Shift & Break Logs
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                                <div>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Shift Start:</span><br/>
+                                    <strong style={{ color: '#10b981' }}>
+                                        {dateAtt.shift_start_time 
+                                            ? new Date(dateAtt.shift_start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                            : '-'}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Shift End:</span><br/>
+                                    <strong style={{ color: '#ef4444' }}>
+                                        {dateAtt.shift_end_time 
+                                            ? new Date(dateAtt.shift_end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                            : '-'}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Lunch Start:</span><br/>
+                                    <strong style={{ color: '#f59e0b' }}>
+                                        {dateAtt.lunch_start_time 
+                                            ? new Date(dateAtt.lunch_start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                            : '-'}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Lunch End:</span><br/>
+                                    <strong style={{ color: '#f59e0b' }}>
+                                        {dateAtt.lunch_end_time 
+                                            ? new Date(dateAtt.lunch_end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                            : '-'}
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {selectedDateJobs.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-tertiary)', fontSize: '13px' }}>

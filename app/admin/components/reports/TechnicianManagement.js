@@ -522,7 +522,8 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             aadhaar_url: tech.aadhaar_url || '',
             pan_url: tech.pan_url || '',
             appointment_letter_url: tech.appointment_letter_url || '',
-            is_fired: !!tech.is_fired
+            is_fired: !!tech.is_fired,
+            mdm_device_id: tech.mdm_device_id || ''
         });
     };
 
@@ -1029,8 +1030,17 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                               </div>
                                         }
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                {tech.name}
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                                <span>{tech.name}</span>
+                                                {tech.duty_status === 'on_duty' && (
+                                                    <span style={{ fontSize: 8.5, padding: '1px 6px', borderRadius: 10, backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', fontWeight: 700 }}>ON DUTY</span>
+                                                )}
+                                                {tech.duty_status === 'lunch' && (
+                                                    <span style={{ fontSize: 8.5, padding: '1px 6px', borderRadius: 10, backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 700 }}>LUNCH</span>
+                                                )}
+                                                {tech.duty_status === 'offline' && (
+                                                    <span style={{ fontSize: 8.5, padding: '1px 6px', borderRadius: 10, backgroundColor: 'rgba(107,114,128,0.1)', color: '#94a3b8', fontWeight: 700 }}>OFFLINE</span>
+                                                )}
                                                 {tech.is_fired && (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>FIRED</span>
                                                 )}
@@ -1238,6 +1248,24 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                 <span>🔴 Inactive: Technician cannot log in and is excluded from receiving new jobs.</span>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* MDM Device ID Settings */}
+                                    <div>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                                            📱 ManageEngine MDM Device ID
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={profileDraft.mdm_device_id || ''}
+                                            onChange={e => setProfileDraft(p => ({ ...p, mdm_device_id: e.target.value }))}
+                                            placeholder="e.g. 1205623 (Leave blank for mock mode)"
+                                            style={{ width: '100%', padding: '8px 12px' }}
+                                        />
+                                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, display: 'block' }}>
+                                            Associates the technician's phone for Over-the-Air Kiosk mode locks.
+                                        </span>
                                     </div>
 
                                     {/* Fired / Terminated toggle */}
@@ -2594,6 +2622,58 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                                 System rest day check: <span style={{ fontWeight: 'bold' }}>{dayOfWeekName === weeklyOffDayName ? 'Rest Day (Weekly Off)' : 'Regular Working Day'}</span>
                                                             </div>
                                                         </div>
+
+                                                        {/* Shift & Break Logs */}
+                                                        {attRecord && (
+                                                            <div style={{ padding: 12, backgroundColor: 'rgba(99, 102, 241, 0.05)', border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: 8 }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 'bold', color: '#818cf8' }}>
+                                                                    ⏰ Shift & Break Timings
+                                                                </div>
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: 8, fontSize: 11 }}>
+                                                                    <div>
+                                                                        <span style={{ color: 'var(--text-secondary)' }}>Shift Start:</span><br/>
+                                                                        <strong style={{ color: '#10b981', fontSize: 12 }}>
+                                                                            {attRecord.shift_start_time 
+                                                                                ? new Date(attRecord.shift_start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                                                                : '—'}
+                                                                        </strong>
+                                                                        {attRecord.shift_start_time && (() => {
+                                                                            const startTime = new Date(attRecord.shift_start_time);
+                                                                            const startHour = startTime.getHours();
+                                                                            const startMin = startTime.getMinutes();
+                                                                            const isLate = startHour > 9 || (startHour === 9 && startMin > 0);
+                                                                            return isLate ? (
+                                                                                <span style={{ marginLeft: 4, padding: '1px 4px', borderRadius: 4, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontSize: 9, fontWeight: 700 }}>LATE</span>
+                                                                            ) : null;
+                                                                        })()}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{ color: 'var(--text-secondary)' }}>Shift End:</span><br/>
+                                                                        <strong style={{ color: '#ef4444', fontSize: 12 }}>
+                                                                            {attRecord.shift_end_time 
+                                                                                ? new Date(attRecord.shift_end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                                                                : '—'}
+                                                                        </strong>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{ color: 'var(--text-secondary)' }}>Lunch Start:</span><br/>
+                                                                        <strong style={{ color: '#f59e0b', fontSize: 12 }}>
+                                                                            {attRecord.lunch_start_time 
+                                                                                ? new Date(attRecord.lunch_start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                                                                : '—'}
+                                                                        </strong>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span style={{ color: 'var(--text-secondary)' }}>Lunch End:</span><br/>
+                                                                        <strong style={{ color: '#f59e0b', fontSize: 12 }}>
+                                                                            {attRecord.lunch_end_time 
+                                                                                ? new Date(attRecord.lunch_end_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) 
+                                                                                : '—'}
+                                                                        </strong>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {/* Distance / Route Timeline */}
                                                         <div style={{ padding: 12, backgroundColor: 'rgba(14, 165, 233, 0.05)', border: '1px solid rgba(14, 165, 233, 0.15)', borderRadius: 8 }}>

@@ -12,7 +12,7 @@ export async function GET(request) {
     try {
         let query = supabase
             .from('technicians')
-            .select('id, name, username, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
+            .select('id, name, username, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id')
             .order('name', { ascending: true })
 
         if (id) query = query.eq('id', id).single()
@@ -20,7 +20,28 @@ export async function GET(request) {
         const { data, error } = await query
         if (error) throw error
 
-        return NextResponse.json({ success: true, data })
+        // Fetch live locations for duty_status enrichment
+        const { data: liveLocs } = await supabase
+            .from('technician_live_locations')
+            .select('technician_id, duty_status, is_online');
+        
+        const locMap = {};
+        for (const loc of liveLocs || []) {
+            locMap[loc.technician_id] = {
+                duty_status: loc.duty_status || 'offline',
+                is_online: loc.is_online || false
+            };
+        }
+
+        const enrich = (tech) => ({
+            ...tech,
+            duty_status: locMap[tech.id]?.duty_status || 'offline',
+            is_online: locMap[tech.id]?.is_online || false
+        });
+
+        const enrichedData = id ? enrich(data) : (data || []).map(enrich);
+
+        return NextResponse.json({ success: true, data: enrichedData })
     } catch (err) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 })
     }
@@ -71,7 +92,7 @@ export async function PATCH(request) {
             .from('technicians')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
-            .select('id, name, username, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired')
+            .select('id, name, username, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id')
             .single()
 
         if (error) throw error

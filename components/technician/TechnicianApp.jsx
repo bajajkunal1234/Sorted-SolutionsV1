@@ -70,6 +70,8 @@ function TechnicianApp() {
     const [gpsStatus, setGpsStatus] = useState('granted'); // Bypass location restriction for now
     const [gpsErrorDetail, setGpsErrorDetail] = useState(''); // stores the exact geolocator error message for diagnostics
     const [isOnline, setIsOnline] = useState(true);
+    const [dutyStatus, setDutyStatus] = useState('offline'); // 'offline', 'on_duty', 'lunch'
+    const [showLogoutReminder, setShowLogoutReminder] = useState(false);
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [dutyStatusError, setDutyStatusError] = useState(null);
@@ -77,6 +79,43 @@ function TechnicianApp() {
     const isOnlineRef = useRef(isOnline);
     useEffect(() => {
         isOnlineRef.current = isOnline;
+    }, [isOnline]);
+
+    // 8:00 PM Logout Reminder Effect
+    useEffect(() => {
+        if (!isOnline) {
+            setShowLogoutReminder(false);
+            return;
+        }
+        
+        const checkReminder = () => {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const localDate = new Date(utc + (3600000 * 5.5)); // India timezone
+            const currentHour = localDate.getHours();
+            
+            if (currentHour >= 20) { // 8:00 PM or later
+                setShowLogoutReminder(true);
+                
+                // Trigger browser push notification if permissions granted
+                if (typeof window !== 'undefined' && 'Notification' in window) {
+                    if (Notification.permission === 'granted') {
+                        new Notification("Shift End Reminder", {
+                            body: "Your shift ended at 8:00 PM. Please log out/end your shift to disable location tracking.",
+                            tag: "shift-logout-reminder"
+                        });
+                    } else if (Notification.permission !== 'denied') {
+                        Notification.requestPermission();
+                    }
+                }
+            } else {
+                setShowLogoutReminder(false);
+            }
+        };
+
+        checkReminder();
+        const interval = setInterval(checkReminder, 60000); // Check every minute
+        return () => clearInterval(interval);
     }, [isOnline]);
 
 
@@ -645,17 +684,94 @@ function TechnicianApp() {
         }
     };
 
-    const handleToggleOnline = async () => {
-        const newStatus = !isOnline;
-        if (newStatus) {
-            if (!isWorkingHours()) {
-                setDutyStatusError("You cannot go online outside working hours (8:00 AM - 9:00 PM).");
-                setTimeout(() => setDutyStatusError(null), 5000);
-                return;
-            }
-        }
+    const handleStartShift = async () => {
         setDutyStatusError(null);
-        await updateOnlineStatus(newStatus);
+        try {
+            let sessionToken = null;
+            const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            if (session) {
+                sessionToken = JSON.parse(session).session_token;
+            }
+            
+            const res = await fetch('/api/technician/shift/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                },
+                body: JSON.stringify({ technician_id: technicianId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDutyStatus('on_duty');
+                await updateOnlineStatus(true);
+            } else {
+                setDutyStatusError(data.error || 'Failed to start shift');
+            }
+        } catch (err) {
+            console.error('Error in handleStartShift:', err);
+            setDutyStatusError('Network error starting shift');
+        }
+    };
+
+    const handleEndShift = async () => {
+        setDutyStatusError(null);
+        try {
+            let sessionToken = null;
+            const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            if (session) {
+                sessionToken = JSON.parse(session).session_token;
+            }
+
+            const res = await fetch('/api/technician/shift/end', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                },
+                body: JSON.stringify({ technician_id: technicianId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDutyStatus('offline');
+                await updateOnlineStatus(false);
+            } else {
+                setDutyStatusError(data.error || 'Failed to end shift');
+            }
+        } catch (err) {
+            console.error('Error in handleEndShift:', err);
+            setDutyStatusError('Network error ending shift');
+        }
+    };
+
+    const handleToggleLunch = async () => {
+        setDutyStatusError(null);
+        const action = dutyStatus === 'lunch' ? 'end' : 'start';
+        try {
+            let sessionToken = null;
+            const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            if (session) {
+                sessionToken = JSON.parse(session).session_token;
+            }
+
+            const res = await fetch('/api/technician/shift/lunch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                },
+                body: JSON.stringify({ technician_id: technicianId, action })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDutyStatus(data.duty_status);
+            } else {
+                setDutyStatusError(data.error || 'Failed to update lunch status');
+            }
+        } catch (err) {
+            console.error('Error in handleToggleLunch:', err);
+            setDutyStatusError('Network error updating lunch status');
+        }
     };
 
     // Fetch initial online status and leaves
@@ -664,10 +780,10 @@ function TechnicianApp() {
 
         const loadInitialData = async () => {
             try {
-                // Fetch online status
+                // Fetch online status and duty status
                 const { data, error } = await supabase
                     .from('technician_live_locations')
-                    .select('is_online')
+                    .select('is_online, duty_status')
                     .eq('technician_id', technicianId)
                     .maybeSingle();
                 
@@ -675,6 +791,7 @@ function TechnicianApp() {
                     console.error('Error fetching online status:', error);
                 } else if (data) {
                     setIsOnline(data.is_online !== false);
+                    setDutyStatus(data.duty_status || (data.is_online ? 'on_duty' : 'offline'));
                     const isNative = isNativePlatform();
                     if (isNative && GPSBridgePlugin) {
                         GPSBridgePlugin.setOnlineStatus({ isOnline: data.is_online !== false })
@@ -2570,7 +2687,7 @@ function TechnicianApp() {
                     className="card"
                     style={{ 
                         padding: 'var(--spacing-lg)', 
-                        borderLeft: `4px solid ${isOnline ? '#10b981' : '#6b7280'}`, 
+                        borderLeft: `4px solid ${!isOnline ? '#6b7280' : (dutyStatus === 'lunch' ? '#f59e0b' : '#10b981')}`, 
                         backgroundColor: 'var(--bg-elevated)', 
                         borderRadius: 'var(--radius-lg)', 
                         boxShadow: 'var(--shadow-sm)',
@@ -2581,49 +2698,130 @@ function TechnicianApp() {
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            <Activity size={20} color={isOnline ? '#10b981' : '#6b7280'} /> Duty Status
+                            <Activity size={20} color={!isOnline ? '#6b7280' : (dutyStatus === 'lunch' ? '#f59e0b' : '#10b981')} /> Duty Status
                         </h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: isOnline ? '#10b981' : 'var(--text-secondary)' }}>
-                                {isOnline ? 'Online' : 'Offline'}
-                            </span>
-                            <button
-                                onClick={handleToggleOnline}
-                                style={{
-                                    width: '48px',
-                                    height: '24px',
-                                    borderRadius: '12px',
-                                    backgroundColor: isOnline ? '#10b981' : '#475569',
-                                    border: 'none',
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    transition: 'background-color 0.2s',
-                                    padding: 0,
-                                    outline: 'none'
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        width: '18px',
-                                        height: '18px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#ffffff',
-                                        position: 'absolute',
-                                        top: '3px',
-                                        left: isOnline ? '27px' : '3px',
-                                        transition: 'left 0.2s',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                                    }}
-                                />
-                            </button>
-                        </div>
+                        <span style={{ 
+                            fontSize: '12px', 
+                            fontWeight: 700, 
+                            padding: '4px 8px', 
+                            borderRadius: '12px',
+                            backgroundColor: !isOnline ? 'rgba(107,114,128,0.1)' : (dutyStatus === 'lunch' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'),
+                            color: !isOnline ? '#6b7280' : (dutyStatus === 'lunch' ? '#f59e0b' : '#10b981')
+                        }}>
+                            {!isOnline ? 'OFFLINE 🔴' : (dutyStatus === 'lunch' ? 'ON LUNCH 🟡' : 'ON DUTY 🟢')}
+                        </span>
                     </div>
 
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                        {isOnline 
-                            ? "You are Online. Precise GPS location tracking is active. Customers and admin can see your live dispatch status." 
-                            : "You are Offline. Live GPS dispatch status is disabled."}
+                        {!isOnline 
+                            ? "Your shift is ended. GPS location sharing is disabled for your privacy." 
+                            : (dutyStatus === 'lunch' 
+                                ? "You are on a lunch break. GPS sharing remains active. Enjoy your break!"
+                                : "Your shift is active. Precise GPS location tracking is locked Always-On.")}
                     </p>
+
+                    {/* Active shift/lunch controls */}
+                    <div style={{ marginTop: '4px', width: '100%' }}>
+                        {!isOnline ? (
+                            <button
+                                onClick={handleStartShift}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                🚗 Start Work Shift
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {/* Lunch break toggle */}
+                                <button
+                                    onClick={handleToggleLunch}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        border: '1.5px solid #f59e0b',
+                                        backgroundColor: dutyStatus === 'lunch' ? '#f59e0b' : 'transparent',
+                                        color: dutyStatus === 'lunch' ? 'black' : '#f59e0b',
+                                        fontWeight: 'bold',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.15s ease'
+                                    }}
+                                >
+                                    🍱 {dutyStatus === 'lunch' ? 'End Lunch Break' : 'Start Lunch Break'}
+                                </button>
+
+                                {/* End Shift button */}
+                                {(() => {
+                                    const now = new Date();
+                                    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                                    const localDate = new Date(utc + (3600000 * 5.5)); // India timezone
+                                    const currentHour = localDate.getHours();
+                                    const isLocked = currentHour < 19; // Locked before 7:00 PM (19:00)
+
+                                    return (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <button
+                                                onClick={handleEndShift}
+                                                disabled={isLocked}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px',
+                                                    borderRadius: '8px',
+                                                    border: 'none',
+                                                    backgroundColor: isLocked ? 'var(--bg-secondary)' : '#ef4444',
+                                                    color: isLocked ? 'var(--text-tertiary)' : 'white',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '14px',
+                                                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                                                    opacity: isLocked ? 0.6 : 1,
+                                                    border: isLocked ? '1px dashed var(--border-primary)' : 'none',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                {isLocked ? '🔒 End Shift (Locked)' : '🔓 End Shift & Turn Off GPS'}
+                                            </button>
+                                            {isLocked && (
+                                                <span style={{ fontSize: '11px', color: '#f87171', fontStyle: 'italic', textAlign: 'center', marginTop: '2px' }}>
+                                                    End Shift is locked until 7:00 PM
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                    </div>
+
+                    {showLogoutReminder && (
+                        <div style={{ color: '#f59e0b', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: '6px', lineHeight: 1.4 }}>
+                            <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+                            <div>
+                                <strong>Reminder:</strong> Shift ended at 8:00 PM. Please click "End Shift" above to disassociate MDM kiosk mode and turn off location sharing.
+                            </div>
+                        </div>
+                    )}
 
                     {dutyStatusError && (
                         <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: '6px' }}>
@@ -2635,7 +2833,7 @@ function TechnicianApp() {
                         <div style={{ color: '#f59e0b', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: '6px', lineHeight: 1.4 }}>
                             <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
                             <div>
-                                <strong>Alert:</strong> You are scheduled to be on duty today (Working hours: 8:00 AM - 9:00 PM). Please switch to Online status to receive and view your jobs.
+                                <strong>Alert:</strong> You are scheduled to be on duty today. Please click "Start Work Shift" above to access your jobs.
                             </div>
                         </div>
                     )}
