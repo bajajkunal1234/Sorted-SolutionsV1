@@ -1080,18 +1080,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 quotationPayload.id = savedQuotation.id;
             }
 
-            // 3. Save or update in database
-            const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
-                method: isEditing ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(quotationPayload)
-            });
-            const saveJson = await saveRes.json();
-            if (!saveJson.success) {
-                throw new Error(saveJson.error || 'Failed to save quotation');
-            }
+            // Generate mock savedData instantly for zero-latency local state updates
+            const mockId = quotationPayload.id || `temp-quo-${Date.now()}`;
+            const savedData = { ...quotationPayload, id: mockId };
 
-            const savedData = saveJson.data;
+            // 1. Instantly update local state and close calculator
             setSavedQuotation(savedData);
             setSavedQuotations(prev => {
                 const idx = prev.findIndex(q => q.id === savedData.id);
@@ -1105,40 +1098,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
             setIsNewQuotationOption(false);
 
-            // 4. Log interaction
-            const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
-            const baseInteractionDesc = isEditing 
-                ? `Quotation ${savedData?.quote_number || savedData?.reference || ''} updated for job #${editedJob.job_number || editedJob.id}`
-                : `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`;
-            
-            const detailedInteractionDesc = `${baseInteractionDesc}\n\n${formatTransactionDetails(savedData, 'Quotation')}`;
-
-            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: interactionType,
-                    category: 'billing',
-                    description: detailedInteractionDesc,
-                    user_name: techName,
-                    customer_id: editedJob.customerId || null,
-                    metadata: {
-                        quote_number: savedData.quote_number,
-                        quote_id: savedData.id,
-                        total_amount: savedData.total_amount,
-                        subtotal: savedData.subtotal,
-                        tax: savedData.total_tax,
-                        items: savedData.items
-                    }
-                })
-            }).catch(() => {});
-
-            // 5. Update job status to 'quotation_sent' if not already (skip if parts flow is pending)
             if (editedJob.status !== 'quotation_sent' && !isPartsFlowQuotationPending) {
-                await handleSaveStatus('quotation_sent');
+                setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
+                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
             }
 
-            // 6. Close calculator and trigger appropriate next step
             setActiveForm(null);
             setCalculatorItems(null);
             if (isPartsFlowQuotationPending) {
@@ -1147,6 +1111,62 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             } else {
                 setShowWhatsappPopup({ type: 'quotation', doc: savedData });
             }
+
+            // 2. Perform the database and logging tasks asynchronously in the background
+            (async () => {
+                try {
+                    const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
+                        method: isEditing ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(quotationPayload)
+                    });
+                    const saveJson = await saveRes.json();
+                    const isQueued = saveJson.queued || saveRes.status === 202;
+                    if (!saveJson.success && !isQueued) {
+                        throw new Error(saveJson.error || 'Failed to save quotation');
+                    }
+
+                    const serverSavedData = isQueued ? savedData : saveJson.data;
+
+                    // Log interaction in background
+                    const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
+                    const baseInteractionDesc = isEditing 
+                        ? `Quotation ${serverSavedData?.quote_number || serverSavedData?.reference || ''} updated for job #${editedJob.job_number || editedJob.id}`
+                        : `Quotation ${serverSavedData?.quote_number || serverSavedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`;
+                    
+                    const detailedInteractionDesc = `${baseInteractionDesc}\n\n${formatTransactionDetails(serverSavedData, 'Quotation')}`;
+                    
+                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: interactionType,
+                            category: 'billing',
+                            description: detailedInteractionDesc,
+                            user_name: techName,
+                            customer_id: editedJob.customerId || null,
+                            metadata: {
+                                quote_number: serverSavedData.quote_number,
+                                quote_id: serverSavedData.id,
+                                total_amount: serverSavedData.total_amount,
+                                subtotal: serverSavedData.subtotal,
+                                tax: serverSavedData.total_tax,
+                                items: serverSavedData.items
+                            }
+                        })
+                    }).catch(() => {});
+
+                    if (editedJob.status !== 'quotation_sent' && !isPartsFlowQuotationPending) {
+                        await apiCall(`/api/technician/jobs/${editedJob.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'update_status', status: 'quotation_sent', updated_by_name: techName })
+                        }).catch(() => {});
+                    }
+                } catch (err) {
+                    console.warn('[Offline] Background quotation save error:', err);
+                }
+            })();
         } catch (e) {
             console.error('Failed to auto-create/update quotation', e);
             alert('Failed to save quotation: ' + e.message);
@@ -1256,18 +1276,39 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 quotationPayload.id = savedQuotation.id;
             }
 
-            const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
-                method: isEditing ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(quotationPayload)
-            });
-            const saveJson = await saveRes.json();
-            if (!saveJson.success) {
-                throw new Error(saveJson.error || 'Failed to save quotation');
-            }
+            // Generate mock savedData and finalInvoice instantly for zero-latency local state updates
+            const mockQuoId = quotationPayload.id || `temp-quo-${Date.now()}`;
+            const savedData = { ...quotationPayload, id: mockQuoId };
 
-            const savedData = saveJson.data;
+            const invoicePayload = {
+                account_id: savedData.account_id,
+                account_name: savedData.account_name || editedJob.customer?.name || 'Customer',
+                accountGSTIN: savedData.accountGSTIN || '',
+                accountState: savedData.account_state || 'Maharashtra',
+                billing_address: savedData.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                job_id: editedJob.id,
+                date: new Date().toISOString().split('T')[0],
+                due_date: new Date().toISOString().split('T')[0],
+                invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                reference: savedData.quote_number,
+                status: 'unpaid',
+                items: savedData.items,
+                subtotal: savedData.subtotal,
+                cgst: savedData.cgst,
+                sgst: savedData.sgst,
+                igst: savedData.igst,
+                total_tax: savedData.total_tax,
+                total_amount: savedData.total_amount,
+                notes: 'Auto-generated from service charge quotation',
+                terms: savedData.terms,
+                technician_id: savedData.technician_id || techId,
+                technician_name: savedData.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+            };
+            const finalInvoice = { ...invoicePayload, id: `temp-inv-${Date.now()}` };
+
+            // 1. Instantly update local states and close calculator
             setSavedQuotation(savedData);
+            setSavedInvoice(finalInvoice);
             setSavedQuotations(prev => {
                 const idx = prev.findIndex(q => q.id === savedData.id);
                 if (idx > -1) {
@@ -1280,142 +1321,121 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
             setIsNewQuotationOption(false);
 
-            // Log quotation interaction
-            const qType = isEditing ? 'quotation-edited' : 'quotation-created';
-            const detailedQDesc = `Quotation ${savedData.quote_number} updated to service charge only\n\n${formatTransactionDetails(savedData, 'Quotation')}`;
-            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: qType,
-                    category: 'billing',
-                    description: detailedQDesc,
-                    user_name: techName,
-                    customer_id: editedJob.customerId || null,
-                    metadata: {
-                        quote_number: savedData.quote_number,
-                        quote_id: savedData.id,
-                        total_amount: savedData.total_amount,
-                        subtotal: savedData.subtotal,
-                        tax: savedData.total_tax,
-                        items: savedData.items
-                    }
-                })
-            }).catch(() => {});
-
-            // Auto-create final invoice for the service charge
-            const invoiceRes = await apiCall(`/api/admin/transactions?type=sales`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    account_id: savedData.account_id,
-                    account_name: savedData.account_name || editedJob.customer?.name || 'Customer',
-                    accountGSTIN: savedData.accountGSTIN || '',
-                    accountState: savedData.account_state || 'Maharashtra',
-                    billing_address: savedData.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                    job_id: editedJob.id,
-                    date: new Date().toISOString().split('T')[0],
-                    due_date: new Date().toISOString().split('T')[0],
-                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                    reference: savedData.quote_number,
-                    status: 'unpaid',
-                    items: savedData.items,
-                    subtotal: savedData.subtotal,
-                    cgst: savedData.cgst,
-                    sgst: savedData.sgst,
-                    igst: savedData.igst,
-                    total_tax: savedData.total_tax,
-                    total_amount: savedData.total_amount,
-                    notes: 'Auto-generated from service charge quotation',
-                    terms: savedData.terms,
-                    technician_id: savedData.technician_id || techId,
-                    technician_name: savedData.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                })
-            });
-            const invoiceJson = await invoiceRes.json();
-            if (!invoiceJson.success) {
-                throw new Error(invoiceJson.error || 'Failed to auto-create invoice');
-            }
-
-            const finalInvoice = invoiceJson.data;
-            setSavedInvoice(finalInvoice);
-
-            // Log invoice interaction
-            const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedData.quote_number}\n\n${formatTransactionDetails(finalInvoice, 'Invoice')}`;
-            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'invoice-created',
-                    category: 'billing',
-                    description: detailedInvDesc,
-                    user_name: techName,
-                    customer_id: editedJob.customerId || null,
-                    metadata: {
-                        invoice_number: finalInvoice.invoice_number,
-                        invoice_id: finalInvoice.id,
-                        total_amount: finalInvoice.total_amount,
-                        subtotal: finalInvoice.subtotal,
-                        tax: finalInvoice.total_tax,
-                        items: finalInvoice.items
-                    }
-                })
-            }).catch(() => {});
-
-            // Update job status to quotation_sent if not already
             if (editedJob.status !== 'quotation_sent') {
-                await handleSaveStatus('quotation_sent');
+                setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
+                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
             }
 
-            // Close calculator and trigger Close Call Questionnaire Flow
             setActiveForm(null);
             setCalculatorItems(null);
             setShowServiceChargeCloseCallFlow(true);
+
+            // 2. Perform the database and logging tasks asynchronously in the background
+            (async () => {
+                try {
+                    // Save quotation
+                    const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
+                        method: isEditing ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(quotationPayload)
+                    });
+                    const saveJson = await saveRes.json();
+                    const isQueued = saveJson.queued || saveRes.status === 202;
+                    if (!saveJson.success && !isQueued) {
+                        throw new Error(saveJson.error || 'Failed to save quotation');
+                    }
+
+                    const serverSavedData = isQueued ? savedData : saveJson.data;
+
+                    // Log quotation interaction in background
+                    const qType = isEditing ? 'quotation-edited' : 'quotation-created';
+                    const detailedQDesc = `Quotation ${serverSavedData.quote_number} updated to service charge only\n\n${formatTransactionDetails(serverSavedData, 'Quotation')}`;
+                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: qType,
+                            category: 'billing',
+                            description: detailedQDesc,
+                            user_name: techName,
+                            customer_id: editedJob.customerId || null,
+                            metadata: {
+                                quote_number: serverSavedData.quote_number,
+                                quote_id: serverSavedData.id,
+                                total_amount: serverSavedData.total_amount,
+                                subtotal: serverSavedData.subtotal,
+                                tax: serverSavedData.total_tax,
+                                items: serverSavedData.items
+                            }
+                        })
+                    }).catch(() => {});
+
+                    // Save invoice
+                    const invoiceRes = await apiCall(`/api/admin/transactions?type=sales`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...invoicePayload,
+                            account_id: serverSavedData.account_id,
+                            account_name: serverSavedData.account_name || editedJob.customer?.name || 'Customer',
+                            reference: serverSavedData.quote_number,
+                            items: serverSavedData.items,
+                            subtotal: serverSavedData.subtotal,
+                            cgst: serverSavedData.cgst,
+                            sgst: serverSavedData.sgst,
+                            igst: serverSavedData.igst,
+                            total_tax: serverSavedData.total_tax,
+                            total_amount: serverSavedData.total_amount,
+                            terms: serverSavedData.terms,
+                        })
+                    });
+                    const invoiceJson = await invoiceRes.json();
+                    const isInvQueued = invoiceJson.queued || invoiceRes.status === 202;
+                    if (!invoiceJson.success && !isInvQueued) {
+                        throw new Error(invoiceJson.error || 'Failed to auto-create invoice');
+                    }
+
+                    const serverFinalInvoice = isInvQueued ? finalInvoice : invoiceJson.data;
+
+                    // Log invoice interaction in background
+                    const detailedInvDesc = `Final invoice ${serverFinalInvoice.invoice_number} created from quotation ${serverSavedData.quote_number}\n\n${formatTransactionDetails(serverFinalInvoice, 'Invoice')}`;
+                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'invoice-created',
+                            category: 'billing',
+                            description: detailedInvDesc,
+                            user_name: techName,
+                            customer_id: editedJob.customerId || null,
+                            metadata: {
+                                invoice_number: serverFinalInvoice.invoice_number,
+                                invoice_id: serverFinalInvoice.id,
+                                total_amount: serverFinalInvoice.total_amount,
+                                subtotal: serverFinalInvoice.subtotal,
+                                tax: serverFinalInvoice.total_tax,
+                                items: serverFinalInvoice.items
+                            }
+                        })
+                    }).catch(() => {});
+
+                    if (editedJob.status !== 'quotation_sent') {
+                        await apiCall(`/api/technician/jobs/${editedJob.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'update_status', status: 'quotation_sent', updated_by_name: techName })
+                        }).catch(() => {});
+                    }
+                } catch (err) {
+                    console.warn('[Offline] Background invoice save error:', err);
+                }
+            })();
         } catch (e) {
             console.error('Failed to auto-create invoice from calculator', e);
             alert('Failed to save & invoice: ' + e.message);
         } finally {
             setLoading(false);
         }
-    };
-
-    const handleMarkArrived = () => {
-        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        
-        // 1. Instantly open the location verification check-in modal!
-        const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
-        const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
-        setVerifyLat(existingLat);
-        setVerifyLng(existingLng);
-        setLocationVerifyStep('ask');
-        setShowLocationVerifyModal(true);
-
-        // 2. Perform the actual check-in API call and location recording asynchronously in the background
-        (async () => {
-            try {
-                const coords = await getCoordsWithTimeout(1500);
-                const lat = coords?.latitude || null;
-                const lng = coords?.longitude || null;
-                arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
-
-                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'mark_arrived', 
-                        updated_by_name: techName,
-                        latitude: lat,
-                        longitude: lng
-                    })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
-                }
-            } catch (err) {
-                console.warn('[Offline] Failed to sync arrival in background:', err);
-            }
-        })();
     };
 
     const handleCallCustomerClick = async () => {

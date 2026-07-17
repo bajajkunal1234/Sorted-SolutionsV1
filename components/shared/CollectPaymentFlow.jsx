@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy } from 'lucide-react';
 import AutocompleteSearch from '../admin/AutocompleteSearch';
 import imageCompression from 'browser-image-compression';
+import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
 
 export default function CollectPaymentFlow({
     onClose,
@@ -216,24 +217,49 @@ export default function CollectPaymentFlow({
 
     // Helper to upload image silently
     const uploadImage = async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('category', 'payments');
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.success) return data.url;
-        throw new Error(data.error);
+        return await uploadOrQueueFile(file, `payment_${Date.now()}.jpg`);
     };
 
-    const handleFinalConfirm = async () => {
-        if (paymentMethod === 'qr' && !screenshotFile) {
-            return alert("Please upload a screenshot of the customer's successful UPI screen.");
-        }
-
+    const handleFinalConfirm = () => {
         setIsSubmitting(true);
 
-        const performConfirm = async (lat = null, lng = null) => {
+        // 1. Instantly trigger the local screen transition so the user gets 0ms wait time!
+        if (isSplit && currentPaymentIndex === 1) {
+            setPaymentMethod(null);
+            setCardAction(null);
+            setRazorpayLink(null);
+            setRazorpayLinkId(null);
+            setScreenshotFile(null);
+            setCurrentPaymentIndex(2);
+            setStep(2);
+            setIsSubmitting(false);
+        } else {
+            setStep(4); // Success screen
+            setTimeout(() => {
+                if (onSuccess) onSuccess();
+                onClose();
+            }, 3000);
+        }
+
+        // 2. Perform the actual location tracking, image upload, and database operations in the background
+        (async () => {
             try {
+                let lat = null;
+                let lng = null;
+
+                // Geolocation fetch in background (does not block user!)
+                if (navigator.geolocation && context !== 'admin') {
+                    try {
+                        const pos = await new Promise((resResolve, resReject) => {
+                            navigator.geolocation.getCurrentPosition(resResolve, resReject, { timeout: 3000, enableHighAccuracy: true });
+                        });
+                        lat = pos.coords.latitude;
+                        lng = pos.coords.longitude;
+                    } catch (geoErr) {
+                        console.warn('[Offline] Background geolocation failed:', geoErr);
+                    }
+                }
+
                 let screenshotUrl = null;
                 if (screenshotFile) {
                     screenshotUrl = await uploadImage(screenshotFile);
@@ -256,14 +282,15 @@ export default function CollectPaymentFlow({
                 };
 
                 // Post the transaction (Status = pending_verification)
-                const txRes = await fetch('/api/admin/transactions?type=receipt', {
+                const txRes = await apiCall('/api/admin/transactions?type=receipt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(receiptPayload)
                 });
                 const txData = await txRes.json();
                 
-                if (!txData.success) throw new Error(txData.error || "Failed to save verification tracking.");
+                const isQueued = txData.queued || txRes.status === 202;
+                if (!txData.success && !isQueued) throw new Error(txData.error || "Failed to save verification tracking.");
 
                 // Post the interaction to the Job if there is a job selected
                 if (selectedJob?.id) {
@@ -278,7 +305,7 @@ export default function CollectPaymentFlow({
                             amount: currentAmount,
                             method: paymentMethod,
                             attachments: screenshotUrl ? [screenshotUrl] : [],
-                            receipt_id: txData.data?.id,
+                            receipt_id: isQueued ? `temp-rec-${Date.now()}` : txData.data?.id,
                             latitude: lat,
                             longitude: lng
                         },
@@ -286,45 +313,16 @@ export default function CollectPaymentFlow({
                         source: `${context} app`
                     };
                     
-                    await fetch(`/api/technician/jobs/${selectedJob.id}/interactions`, {
+                    await apiCall(`/api/technician/jobs/${selectedJob.id}/interactions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(interactionPayload)
                     }).catch(e => console.error("Interaction logged failed (non-critical)", e));
                 }
-
-                if (isSplit && currentPaymentIndex === 1) {
-                    setPaymentMethod(null);
-                    setCardAction(null);
-                    setRazorpayLink(null);
-                    setRazorpayLinkId(null);
-                    setScreenshotFile(null);
-                    setCurrentPaymentIndex(2);
-                    setStep(2);
-                } else {
-                    setStep(4); // Success screen
-                    setTimeout(() => {
-                        if(onSuccess) onSuccess();
-                        onClose();
-                    }, 3000);
-                }
-
             } catch (err) {
-                alert('Submission failed: ' + err.message);
-            } finally {
-                setIsSubmitting(false);
+                console.warn('[Offline] Background payment confirmation failed:', err);
             }
-        };
-
-        if (navigator.geolocation && context !== 'admin') {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => performConfirm(pos.coords.latitude, pos.coords.longitude),
-                () => performConfirm(),
-                { timeout: 5000, enableHighAccuracy: true }
-            );
-        } else {
-            performConfirm();
-        }
+        })();
     };
 
     // Timer and Polling Effect for Razorpay Link

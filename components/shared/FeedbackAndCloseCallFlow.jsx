@@ -160,86 +160,81 @@ export default function FeedbackAndCloseCallFlow({
                 source: `${context} app`
             };
 
-            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(interactionPayload)
-            });
-
-            // If caller wants to handle job closing themselves (e.g. to chain collect-payment first)
-            if (onNotesSubmitted) {
-                onNotesSubmitted({ formattedNotes, repairOutcome: repairDone });
-                return; // Parent takes over — don't close job here
-            }
-
-            // 3. Update the job's status to 'closed' in the database
-            const jobUpdatePayload = {
-                action: 'close_job',
-                updated_by_name: currentUserName,
-                source: context === 'admin' ? 'Admin App' : 'Technician App',
-                _changeLog: [`Status changed to closed. Notes captured.`],
-                notes: job.notes 
-                    ? `${job.notes}\n\n${formattedNotes}` 
-                    : formattedNotes
-            };
-
-            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(jobUpdatePayload)
-            });
-
-            if (!updateRes.ok) {
-                const errData = await updateRes.json();
-                throw new Error(errData.error || 'Failed to update job status.');
-            }
-
-            // Move to step 2
+            // 1. Instantly advance to Step 2 locally in 0ms!
             setStep(2);
+
+            // 2. Perform the interactions logging and job close PUT call in the background asynchronously
+            (async () => {
+                try {
+                    await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(interactionPayload)
+                    });
+
+                    if (onNotesSubmitted) {
+                        onNotesSubmitted({ formattedNotes, repairOutcome: repairDone });
+                    } else {
+                        const jobUpdatePayload = {
+                            action: 'close_job',
+                            updated_by_name: currentUserName,
+                            source: context === 'admin' ? 'Admin App' : 'Technician App',
+                            _changeLog: [`Status changed to closed. Notes captured.`],
+                            notes: job.notes 
+                                ? `${job.notes}\n\n${formattedNotes}` 
+                                : formattedNotes
+                        };
+
+                        await apiCall(`/api/technician/jobs/${job.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(jobUpdatePayload)
+                        });
+                    }
+                } catch (backgroundErr) {
+                    console.warn('[Offline] Background close call save failed:', backgroundErr);
+                }
+            })();
         } catch (err) {
             alert('Failed to save details: ' + err.message);
         } finally {
             setIsLoading(false);
         }
     };
-
-    // Completes the entire closure flow
-    const handleCompleteClosure = async () => {
+    
+const handleCompleteClosure = async () => {
         if (gaveFeedback === null) return;
 
-        setIsLoading(true);
-        try {
-            // Log interaction about feedback collection
-            const feedbackPayload = {
-                type: 'feedback-received',
-                category: 'feedback',
-                jobId: job.id,
-                performedBy: currentUserId || 'admin',
-                performedByName: currentUserName,
-                description: `Customer gave feedback: ${gaveFeedback.toUpperCase()}`,
-                metadata: {
-                    feedback_given: gaveFeedback,
-                },
-                status: 'completed',
-                source: `${context} app`
-            };
+        // 1. Instantly trigger success callback and close the questionnaire flow!
+        if (onSuccess) onSuccess();
+        onClose();
 
-            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(feedbackPayload)
-            });
+        // 2. Log interaction about feedback collection in the background asynchronously
+        (async () => {
+            try {
+                const feedbackPayload = {
+                    type: 'feedback-received',
+                    category: 'feedback',
+                    jobId: job.id,
+                    performedBy: currentUserId || 'admin',
+                    performedByName: currentUserName,
+                    description: `Customer gave feedback: ${gaveFeedback.toUpperCase()}`,
+                    metadata: {
+                        feedback_given: gaveFeedback,
+                    },
+                    status: 'completed',
+                    source: `${context} app`
+                };
 
-            // Success trigger
-            if (onSuccess) onSuccess();
-            onClose();
-        } catch (err) {
-            console.error("Failed logging feedback interaction (non-blocking)", err);
-            if (onSuccess) onSuccess();
-            onClose();
-        } finally {
-            setIsLoading(false);
-        }
+                await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(feedbackPayload)
+                });
+            } catch (err) {
+                console.warn("[Offline] Failed logging feedback interaction in background:", err);
+            }
+        })();
     };
 
     return (
