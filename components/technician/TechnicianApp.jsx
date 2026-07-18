@@ -4210,6 +4210,7 @@ function TechnicianApp() {
                         </div>
                     </div>
                 </div>
+            )}
             {/* Physical Stock Modal */}
             {showStockModal && (
                 <div style={{

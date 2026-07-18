@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { apiCall } from '@/lib/api';
 
 export default function TechnicianStockTab({ technicians = [] }) {
     const [selectedTech, setSelectedTech] = useState(null);
