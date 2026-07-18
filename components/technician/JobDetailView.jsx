@@ -1190,9 +1190,58 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
+    const checkStockAvailability = async (itemsToCheck) => {
+        if (!itemsToCheck || !Array.isArray(itemsToCheck)) return { success: true };
+        const materialItems = itemsToCheck.filter(it => {
+            const type = it.type || it.item_type || '';
+            const prodId = it.productId || it.product_id || it.itemId || it.item_id;
+            return type === 'material' && prodId;
+        });
+
+        if (materialItems.length === 0) return { success: true };
+
+        try {
+            const stockRes = await apiCall(`/api/technician/stock?technicianId=${techId}`);
+            const stockJson = await stockRes.json();
+            if (stockJson.success) {
+                const stockMap = {};
+                (stockJson.stock || []).forEach(st => {
+                    stockMap[st.product_id] = st.quantity;
+                });
+
+                const insufficientParts = [];
+                materialItems.forEach(it => {
+                    const prodId = it.productId || it.product_id || it.itemId || it.item_id;
+                    const available = stockMap[prodId] || 0;
+                    const required = Number(it.qty) || 1;
+                    if (available < required) {
+                        insufficientParts.push(`• ${it.description || it.name} (Required: ${required}, In Stock: ${available})`);
+                    }
+                });
+
+                if (insufficientParts.length > 0) {
+                    return {
+                        success: false,
+                        error: `You have insufficient physical stock for the following spare parts:\n\n${insufficientParts.join('\n')}\n\nPlease check your stock or request a handover of these parts from the Service Center.`
+                    };
+                }
+            }
+        } catch (err) {
+            console.error('Failed to verify stock availability:', err);
+        }
+        return { success: true };
+    };
+
     const handleAutoCreateInvoiceFromCalculator = async (items) => {
         setLoading(true);
         try {
+            // Verify stock before generating invoice
+            const stockCheck = await checkStockAvailability(items);
+            if (!stockCheck.success) {
+                setLoading(false);
+                alert(`Cannot generate invoice:\n\n${stockCheck.error}`);
+                return;
+            }
             // 1. Fetch print settings to resolve showTax
             let showTax = false;
             try {
@@ -1808,6 +1857,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             return;
         }
         setAfterPhotosLoading(true);
+
+        // Verify physical stock before generating invoice
+        if (savedQuotation && savedQuotation.items) {
+            const stockCheck = await checkStockAvailability(savedQuotation.items);
+            if (!stockCheck.success) {
+                setAfterPhotosLoading(false);
+                alert(`Cannot finish job & create invoice:\n\n${stockCheck.error}`);
+                return;
+            }
+        }
+
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
             // 1. Compress and upload/queue photos concurrently
@@ -2990,6 +3050,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     try {
                                                                         const serviceQuote = sortedQuotes[1];
                                                                         if (!serviceQuote) throw new Error('Service charge quotation option not found');
+                                                                        
+                                                                        const stockCheck = await checkStockAvailability(serviceQuote.items);
+                                                                        if (!stockCheck.success) {
+                                                                            setLoading(false);
+                                                                            alert(`Cannot generate invoice:\n\n${stockCheck.error}`);
+                                                                            return;
+                                                                        }
+
                                                                         const res = await apiCall(`/api/admin/transactions?type=sales`, {
                                                                             method: 'POST',
                                                                             headers: { 'Content-Type': 'application/json' },

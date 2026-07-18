@@ -271,6 +271,9 @@ function TechnicianApp() {
     });
     const [showCollectPayment, setShowCollectPayment] = useState(false);
     const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
+    const [showStockModal, setShowStockModal] = useState(false);
+    const [stock, setStock] = useState([]);
+    const [stockLoading, setStockLoading] = useState(false);
     const [showPurchaseJobSelectorModal, setShowPurchaseJobSelectorModal] = useState(false);
     const [purchaseJob, setPurchaseJob] = useState(null);
     const [showPurchaseCalculator, setShowPurchaseCalculator] = useState(false);
@@ -354,14 +357,31 @@ function TechnicianApp() {
 
     // Apply dark mode theme class initially and on change
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            if (darkMode) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            } else {
-                document.documentElement.removeAttribute('data-theme');
-            }
+        if (darkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
         }
     }, [darkMode]);
+
+    useEffect(() => {
+        if (showStockModal && technicianId) {
+            (async () => {
+                setStockLoading(true);
+                try {
+                    const res = await apiCall(`/api/technician/stock?technicianId=${technicianId}`);
+                    const json = await res.json();
+                    if (json.success) {
+                        setStock(json.stock || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch stock:', err);
+                } finally {
+                    setStockLoading(false);
+                }
+            })();
+        }
+    }, [showStockModal, technicianId]);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [showSupport, setShowSupport] = useState(false);
     const [showEmailInbox, setShowEmailInbox] = useState(false);
@@ -2636,6 +2656,13 @@ function TechnicianApp() {
                 onClick: () => setShowCollectPayment(true)
             },
             {
+                title: 'Physical Stock',
+                description: 'View your spare parts and inventory stock levels',
+                icon: <Package size={20} color="#f59e0b" />,
+                color: '#f59e0b',
+                onClick: () => setShowStockModal(true)
+            },
+            {
                 title: 'Calendar & Leaves',
                 description: 'View assigned jobs timeline and apply for leaves',
                 icon: <Calendar size={20} color="#ec4899" />,
@@ -4181,6 +4208,95 @@ function TechnicianApp() {
                                 ))
                             )}
                         </div>
+                    </div>
+                </div>
+            {/* Physical Stock Modal */}
+            {showStockModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: 'var(--spacing-md)'
+                }}
+                    onClick={() => setShowStockModal(false)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)',
+                            maxWidth: '500px',
+                            width: '100%',
+                            maxHeight: '80vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: 'var(--shadow-xl)',
+                            border: '1px solid var(--border-primary)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
+                                <Package size={20} color="#f59e0b" /> My Physical Stock
+                            </h3>
+                            <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {stockLoading ? (
+                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                Loading inventory...
+                            </div>
+                        ) : stock.length === 0 ? (
+                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                No spare parts currently in your physical inventory. Handovers from the Service Center will appear here.
+                            </div>
+                        ) : (
+                            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {stock.map(item => (
+                                    <div 
+                                        key={item.id}
+                                        style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center', 
+                                            padding: '12px', 
+                                            backgroundColor: 'var(--bg-secondary)', 
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)'
+                                        }}
+                                    >
+                                        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {item.name}
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                                <span>SKU: {item.sku || 'N/A'}</span>
+                                                <span>•</span>
+                                                <span>{item.category}</span>
+                                            </div>
+                                        </div>
+                                        <span 
+                                            style={{ 
+                                                fontSize: '12px', 
+                                                fontWeight: 700, 
+                                                padding: '4px 10px', 
+                                                borderRadius: '6px', 
+                                                backgroundColor: item.quantity <= 1 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                                                color: item.quantity <= 1 ? '#ef4444' : '#10b981'
+                                            }}
+                                        >
+                                            {item.quantity} Qty
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

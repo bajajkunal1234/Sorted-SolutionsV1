@@ -265,6 +265,55 @@ export async function POST(request) {
         // ── AUTO-JOURNAL ──
         await syncJournalEntry(type, data);
 
+        // ── Deduct Physical Stock for Technician ──
+        if (type === 'sales' && data.technician_id && data.items && Array.isArray(data.items)) {
+            try {
+                for (const item of data.items) {
+                    const prodId = item.productId || item.product_id;
+                    const qty = Number(item.qty) || 1;
+                    if (prodId) {
+                        // Fetch current stock
+                        const { data: currentStock } = await supabase
+                            .from('technician_stock')
+                            .select('quantity')
+                            .eq('technician_id', data.technician_id)
+                            .eq('product_id', prodId)
+                            .maybeSingle();
+
+                        const currentQty = currentStock ? currentStock.quantity : 0;
+                        const newQty = Math.max(0, currentQty - qty);
+
+                        // Upsert new stock level
+                        await supabase
+                            .from('technician_stock')
+                            .upsert({
+                                technician_id: data.technician_id,
+                                product_id: prodId,
+                                quantity: newQty,
+                                updated_at: new Date().toISOString()
+                            }, {
+                                onConflict: 'technician_id,product_id'
+                            });
+
+                        // Log transaction audit
+                        await supabase
+                            .from('technician_stock_transactions')
+                            .insert({
+                                technician_id: data.technician_id,
+                                product_id: prodId,
+                                quantity: -qty,
+                                transaction_type: 'sale',
+                                reference_id: data.id,
+                                notes: `Consumed by sales invoice ${data.invoice_number} for job ${data.job_id || ''}`,
+                                created_by: data.technician_name || 'System'
+                            });
+                    }
+                }
+            } catch (err) {
+                console.error('[STOCK DEDUCTION ERROR]:', err);
+            }
+        }
+
         // ── Save invoice allocations (many-to-many) ──────────────────────────
         const allocations = body.allocations || [];
         if (allocations.length > 0 && (type === 'receipt' || type === 'payment')) {
@@ -540,6 +589,62 @@ export async function DELETE(request) {
                         await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
                     }
                 }
+            }
+        }
+
+        // ── Return Stock If Invoice is Deleted ──
+        if (type === 'sales') {
+            try {
+                const { data: invoice } = await supabase
+                    .from('sales_invoices')
+                    .select('technician_id, technician_name, items, invoice_number, job_id')
+                    .eq('id', targetId)
+                    .single();
+
+                if (invoice && invoice.technician_id && invoice.items && Array.isArray(invoice.items)) {
+                    for (const item of invoice.items) {
+                        const prodId = item.productId || item.product_id;
+                        const qty = Number(item.qty) || 1;
+                        if (prodId) {
+                            // Add back to stock
+                            const { data: currentStock } = await supabase
+                                .from('technician_stock')
+                                .select('quantity')
+                                .eq('technician_id', invoice.technician_id)
+                                .eq('product_id', prodId)
+                                .maybeSingle();
+
+                            const currentQty = currentStock ? currentStock.quantity : 0;
+                            const newQty = currentQty + qty;
+
+                            await supabase
+                                .from('technician_stock')
+                                .upsert({
+                                    technician_id: invoice.technician_id,
+                                    product_id: prodId,
+                                    quantity: newQty,
+                                    updated_at: new Date().toISOString()
+                                }, {
+                                    onConflict: 'technician_id,product_id'
+                                });
+
+                            // Insert transaction log
+                            await supabase
+                                .from('technician_stock_transactions')
+                                .insert({
+                                    technician_id: invoice.technician_id,
+                                    product_id: prodId,
+                                    quantity: qty,
+                                    transaction_type: 'return',
+                                    reference_id: targetId,
+                                    notes: `Returned due to deletion of sales invoice ${invoice.invoice_number}`,
+                                    created_by: 'System'
+                                });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[STOCK REVERSAL ERROR]:', err);
             }
         }
 

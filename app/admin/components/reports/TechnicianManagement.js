@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
+import TechnicianStockTab from './TechnicianStockTab';
 
 const TechnicianLiveMap = dynamic(() => import('./TechnicianLiveMap'), {
     ssr: false,
@@ -976,6 +977,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                     { id: 'profile', label: '👤 Technician Profile' },
                     { id: 'expenses', label: '💰 Technician Expenses' },
                     { id: 'spares', label: '⚙️ Spares Purchases' },
+                    { id: 'stock', label: '📦 Technician Stock' },
                     { id: 'leaves', label: '📅 Calendar' },
                     { id: 'livefleet', label: '🗺️ Technicians on Map' }
                 ].map(t => (
@@ -2886,6 +2888,11 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                     </div>
                     <TechnicianLiveMap activeJobs={activeJobs} />
                 </div>
+            )}
+
+            {/* ──────────────── TECHNICIAN STOCK TAB ──────────────── */}
+            {activeTab === 'stock' && (
+                <TechnicianStockTab technicians={technicians} />
             )}
 
             {payingExpense && (
