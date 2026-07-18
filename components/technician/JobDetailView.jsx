@@ -1238,9 +1238,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             // Verify stock before generating invoice
             const stockCheck = await checkStockAvailability(items);
             if (!stockCheck.success) {
-                setLoading(false);
-                alert(`Cannot generate invoice:\n\n${stockCheck.error}`);
-                return;
+                const proceedAnyway = window.confirm(
+                    `Stock Alert:\n\n${stockCheck.error}\n\nDo you want to continue and create the invoice anyway? (This will result in negative stock counts)`
+                );
+                if (!proceedAnyway) {
+                    setLoading(false);
+                    return;
+                }
             }
             // 1. Fetch print settings to resolve showTax
             let showTax = false;
@@ -1862,9 +1866,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         if (savedQuotation && savedQuotation.items) {
             const stockCheck = await checkStockAvailability(savedQuotation.items);
             if (!stockCheck.success) {
-                setAfterPhotosLoading(false);
-                alert(`Cannot finish job & create invoice:\n\n${stockCheck.error}`);
-                return;
+                const proceedAnyway = window.confirm(
+                    `Stock Alert:\n\n${stockCheck.error}\n\nDo you want to continue and create the invoice anyway? (This will result in negative stock counts)`
+                );
+                if (!proceedAnyway) {
+                    setAfterPhotosLoading(false);
+                    return;
+                }
             }
         }
 
@@ -3053,9 +3061,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         
                                                                         const stockCheck = await checkStockAvailability(serviceQuote.items);
                                                                         if (!stockCheck.success) {
-                                                                            setLoading(false);
-                                                                            alert(`Cannot generate invoice:\n\n${stockCheck.error}`);
-                                                                            return;
+                                                                            const proceedAnyway = window.confirm(
+                                                                                `Stock Alert:\n\n${stockCheck.error}\n\nDo you want to continue and create the invoice anyway? (This will result in negative stock counts)`
+                                                                            );
+                                                                            if (!proceedAnyway) {
+                                                                                setLoading(false);
+                                                                                return;
+                                                                            }
                                                                         }
 
                                                                         const res = await apiCall(`/api/admin/transactions?type=sales`, {

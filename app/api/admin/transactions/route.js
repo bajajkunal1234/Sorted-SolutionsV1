@@ -281,7 +281,7 @@ export async function POST(request) {
                             .maybeSingle();
 
                         const currentQty = currentStock ? currentStock.quantity : 0;
-                        const newQty = Math.max(0, currentQty - qty);
+                        const newQty = currentQty - qty;
 
                         // Upsert new stock level
                         await supabase
