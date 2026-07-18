@@ -485,12 +485,33 @@ export async function DELETE(request) {
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type')
         const id = searchParams.get('id')
+        const jobId = searchParams.get('job_id')
 
         if (!type || !tableMap[type]) {
             return NextResponse.json({ success: false, error: 'Invalid or missing transaction type' }, { status: 400 });
         }
 
         const tableName = tableMap[type];
+
+        const isUUID = (val) => val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+        
+        let targetId = id;
+        if (!isUUID(targetId)) {
+            if (jobId && isUUID(jobId)) {
+                const { data: record } = await supabase
+                    .from(tableName)
+                    .select('id')
+                    .eq('job_id', jobId)
+                    .maybeSingle();
+                if (record) {
+                    targetId = record.id;
+                }
+            }
+        }
+
+        if (!isUUID(targetId)) {
+            return NextResponse.json({ success: false, error: `Invalid transaction ID: "${id || ''}"` }, { status: 400 });
+        }
 
         // ── Reverse Allocations Before Deletion ──
         if (type === 'receipt' || type === 'payment') {
@@ -502,7 +523,7 @@ export async function DELETE(request) {
             const { data: existingAllocs } = await supabase
                 .from(allocationTable)
                 .select('*')
-                .eq(voucherIdField, id);
+                .eq(voucherIdField, targetId);
 
             if (existingAllocs && existingAllocs.length > 0) {
                 for (const oldAlloc of existingAllocs) {
@@ -519,19 +540,18 @@ export async function DELETE(request) {
                         await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
                     }
                 }
-                // Automatically gets deleted due to FOREIGN KEY ON DELETE CASCADE on allocations table, but good practice to clear safely
             }
         }
 
         const { error } = await supabase
             .from(tableName)
             .delete()
-            .eq('id', id)
+            .eq('id', targetId)
 
         if (error) throw error
 
         // ── Clean up orphaned auto-journals ──
-        await supabase.from('journal_entries').delete().eq('reference_id', id);
+        await supabase.from('journal_entries').delete().eq('reference_id', targetId);
 
         return NextResponse.json({ success: true })
     } catch (error) {

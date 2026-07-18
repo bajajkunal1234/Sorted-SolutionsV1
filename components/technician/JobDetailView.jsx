@@ -873,7 +873,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setLoading(true);
         try {
             // 1. Delete quotation from Supabase
-            const response = await apiCall(`/api/admin/transactions?type=quotation&id=${savedQuotation.id}`, {
+            const response = await apiCall(`/api/admin/transactions?type=quotation&id=${savedQuotation.id}&job_id=${job.id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -1127,6 +1127,21 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     }
 
                     const serverSavedData = isQueued ? savedData : saveJson.data;
+
+                    // Update state to use real database UUID instead of temporary frontend ID
+                    if (!isQueued && serverSavedData && serverSavedData.id) {
+                        setSavedQuotation(serverSavedData);
+                        setSavedQuotations(prev => {
+                            const updated = [...prev];
+                            const idx = updated.findIndex(q => q.id === savedData.id || q.quote_number === serverSavedData.quote_number);
+                            if (idx > -1) {
+                                updated[idx] = serverSavedData;
+                            } else {
+                                updated.unshift(serverSavedData);
+                            }
+                            return updated;
+                        });
+                    }
 
                     // Log interaction in background
                     const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
