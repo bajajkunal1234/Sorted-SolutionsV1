@@ -23,7 +23,7 @@ export async function GET(request) {
                 id,
                 quantity,
                 product_id,
-                products (
+                inventory (
                     id,
                     name,
                     category,
@@ -47,7 +47,7 @@ export async function GET(request) {
                 created_by,
                 created_at,
                 product_id,
-                products (
+                inventory (
                     name,
                     sku
                 )
@@ -62,9 +62,9 @@ export async function GET(request) {
             id: st.id,
             product_id: st.product_id,
             quantity: st.quantity,
-            name: st.products?.name || 'Unknown Part',
-            category: st.products?.category || 'General',
-            sku: st.products?.sku || ''
+            name: st.inventory?.name || 'Unknown Part',
+            category: st.inventory?.category || 'General',
+            sku: st.inventory?.sku || ''
         }));
 
         const formattedTx = (transactions || []).map(tx => ({
@@ -76,8 +76,8 @@ export async function GET(request) {
             notes: tx.notes,
             created_by: tx.created_by,
             created_at: tx.created_at,
-            product_name: tx.products?.name || 'Unknown Part',
-            product_sku: tx.products?.sku || ''
+            product_name: tx.inventory?.name || 'Unknown Part',
+            product_sku: tx.inventory?.sku || ''
         }));
 
         return NextResponse.json({

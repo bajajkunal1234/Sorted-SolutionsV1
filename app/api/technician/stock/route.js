@@ -28,14 +28,14 @@ export async function GET(request) {
             return NextResponse.json({ success: false, error: 'Unauthorized session' }, { status: 401 });
         }
 
-        // Fetch stock records joined with products details
+        // Fetch stock records joined with inventory details
         const { data: stock, error } = await supabase
             .from('technician_stock')
             .select(`
                 id,
                 quantity,
                 product_id,
-                products (
+                inventory (
                     id,
                     name,
                     category,
@@ -48,14 +48,14 @@ export async function GET(request) {
 
         if (error) throw error;
 
-        // Flatten products structure for simpler frontend consumption
+        // Flatten inventory structure for simpler frontend consumption
         const formattedStock = (stock || []).map(st => ({
             id: st.id,
             product_id: st.product_id,
             quantity: st.quantity,
-            name: st.products?.name || 'Unknown Spare Part',
-            category: st.products?.category || 'General',
-            sku: st.products?.sku || ''
+            name: st.inventory?.name || 'Unknown Spare Part',
+            category: st.inventory?.category || 'General',
+            sku: st.inventory?.sku || ''
         }));
 
         return NextResponse.json({
