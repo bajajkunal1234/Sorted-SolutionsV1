@@ -366,24 +366,7 @@ function TechnicianApp() {
         }
     }, [darkMode]);
 
-    useEffect(() => {
-        if (showStockModal && technicianId) {
-            (async () => {
-                setStockLoading(true);
-                try {
-                    const res = await apiCall(`/api/technician/stock?technicianId=${technicianId}`);
-                    const json = await res.json();
-                    if (json.success) {
-                        setStock(json.stock || []);
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch stock:', err);
-                } finally {
-                    setStockLoading(false);
-                }
-            })();
-        }
-    }, [showStockModal, technicianId]);
+
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [showSupport, setShowSupport] = useState(false);
     const [showEmailInbox, setShowEmailInbox] = useState(false);
@@ -431,6 +414,25 @@ function TechnicianApp() {
             router.push('/login');
         }
     }, [router]);
+
+    useEffect(() => {
+        if (showStockModal && technicianId) {
+            (async () => {
+                setStockLoading(true);
+                try {
+                    const res = await apiCall(`/api/technician/stock?technicianId=${technicianId}`);
+                    const json = await res.json();
+                    if (json.success) {
+                        setStock(json.stock || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch stock:', err);
+                } finally {
+                    setStockLoading(false);
+                }
+            })();
+        }
+    }, [showStockModal, technicianId]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
