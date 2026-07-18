@@ -357,10 +357,12 @@ function TechnicianApp() {
 
     // Apply dark mode theme class initially and on change
     useEffect(() => {
-        if (darkMode) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-            document.documentElement.removeAttribute('data-theme');
+        if (typeof window !== 'undefined') {
+            if (darkMode) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
         }
     }, [darkMode]);
 

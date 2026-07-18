@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import RepairCalculator from '@/components/common/RepairCalculator';
 
 export default function TechnicianStockTab({ technicians = [] }) {
     const [selectedTech, setSelectedTech] = useState(null);
     const [stock, setStock] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [products, setProducts] = useState([]);
     
     // Handover Modal State
     const [showModal, setShowModal] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState('');
-    const [handoverQty, setHandoverQty] = useState(1);
-    const [handoverNotes, setHandoverNotes] = useState('');
     const [saving, setSaving] = useState(false);
 
     // Initial default technician selection
@@ -27,23 +24,6 @@ export default function TechnicianStockTab({ technicians = [] }) {
             fetchStockData(selectedTech.id);
         }
     }, [selectedTech]);
-
-    // Fetch active products once for handover dropdown
-    useEffect(() => {
-        async function loadProducts() {
-            try {
-                const res = await fetch('/api/admin/products');
-                const json = await res.json();
-                if (json.success && json.data) {
-                    // Filter for spare parts / materials
-                    setProducts(json.data.filter(p => p.active));
-                }
-            } catch (err) {
-                console.error('Failed to load products list:', err);
-            }
-        }
-        loadProducts();
-    }, []);
 
     const fetchStockData = async (techId) => {
         setLoading(true);
@@ -61,35 +41,32 @@ export default function TechnicianStockTab({ technicians = [] }) {
         }
     };
 
-    const handleSaveHandover = async (e) => {
-        e.preventDefault();
-        if (!selectedProduct || handoverQty <= 0) {
-            alert('Please select a product and enter a valid quantity.');
+    const handleCalculatorHandover = async (basketItems) => {
+        if (!basketItems || basketItems.length === 0) {
+            alert('Please select at least one spare part for handover.');
             return;
         }
 
         setSaving(true);
         try {
+            const handoverItems = basketItems.map(b => ({
+                product_id: b.productId,
+                quantity: Number(b.qty),
+                notes: 'Service Center Handover'
+            }));
+
             const response = await fetch('/api/admin/technician-stock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     technician_id: selectedTech.id,
-                    items: [{
-                        product_id: selectedProduct,
-                        quantity: Number(handoverQty),
-                        notes: handoverNotes || 'Service Center Handover'
-                    }],
+                    items: handoverItems,
                     created_by: 'Admin'
                 })
             });
             const json = await response.json();
             if (json.success) {
                 setShowModal(false);
-                setSelectedProduct('');
-                setHandoverQty(1);
-                setHandoverNotes('');
-                // Refresh stock list
                 fetchStockData(selectedTech.id);
             } else {
                 alert('Error saving handover: ' + json.error);
@@ -299,76 +276,13 @@ export default function TechnicianStockTab({ technicians = [] }) {
 
             {/* Handover Dialog Overlay */}
             {showModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1200, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <form onSubmit={handleSaveHandover} style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: '12px', padding: '24px', maxWidth: '450px', width: '100%', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            Handover Spare Parts
-                        </h3>
-                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                            Allocating stock transfers items physically from the Service Center to {selectedTech?.name}'s personal inventory.
-                        </p>
-                        
-                        {/* Select Product */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Part / Item</label>
-                            <select
-                                value={selectedProduct}
-                                onChange={(e) => setSelectedProduct(e.target.value)}
-                                required
-                                style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}
-                            >
-                                <option value="">-- Choose a Spare Part --</option>
-                                {products.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name} {p.sku ? `(${p.sku})` : ''} - {p.category}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Input Quantity */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Handover Quantity</label>
-                            <input
-                                type="number"
-                                min="1"
-                                value={handoverQty}
-                                onChange={(e) => setHandoverQty(e.target.value)}
-                                required
-                                style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}
-                            />
-                        </div>
-
-                        {/* Handover Notes */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Audit Notes / Reference</label>
-                            <input
-                                type="text"
-                                placeholder="e.g. Serial numbers, invoice refs, collected from room B"
-                                value={handoverNotes}
-                                onChange={(e) => setHandoverNotes(e.target.value)}
-                                style={{ padding: '10px', borderRadius: '8px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                            <button
-                                type="button"
-                                onClick={() => setShowModal(false)}
-                                style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-primary)', backgroundColor: 'transparent', color: 'var(--text-primary)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--color-primary)', color: '#fff', fontWeight: 600, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                {saving ? 'Saving...' : 'Confirm Handover'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                <RepairCalculator
+                    job={{ name: selectedTech.name }}
+                    onClose={() => setShowModal(false)}
+                    onlyParts={true}
+                    onHandover={handleCalculatorHandover}
+                    loading={saving}
+                />
             )}
         </div>
     );

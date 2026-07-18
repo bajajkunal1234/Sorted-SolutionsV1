@@ -79,13 +79,13 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
     </div>
 );
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems, loading: parentLoading = false, hideParts = false }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems, loading: parentLoading = false, hideParts = false, onlyParts = false, onHandover }) {
     const [mounted, setMounted] = useState(false);
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
     const [search, setSearch]             = useState('');
-    const [filter, setFilter]             = useState(hideParts ? 'service' : 'all'); // 'all' | 'product' | 'service'
+    const [filter, setFilter]             = useState(onlyParts ? 'product' : (hideParts ? 'service' : 'all')); // 'all' | 'product' | 'service'
     const [basket, setBasket]             = useState([]); // { ...item, qty, priceType, customPrice }
     const [showTax, setShowTax]           = useState(true);
     const [basketOpen, setBasketOpen]     = useState(false);
@@ -228,6 +228,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     const visible = inventory.filter(item => {
         const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
         const isService   = item.type === 'service' || item.product_type === 'service';
+        if (onlyParts && isService) return false;
         const matchFilter = hideParts ? isService : (filter === 'all' || (filter === 'service' ? isService : !isService));
         return matchSearch && matchFilter;
     });
@@ -267,7 +268,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {invoiceLabel && invoiceLabel.toLowerCase().includes('purchase') ? '🛒 Purchase Spare Parts' : '🧮 Job Repair Estimate'}
+                                {onlyParts ? '📦 Handover Spare Parts' : (invoiceLabel && invoiceLabel.toLowerCase().includes('purchase') ? '🛒 Purchase Spare Parts' : '🧮 Job Repair Estimate')}
                             </span>
                             {job?.job_number && (
                                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '9999px', fontWeight: 600 }}>
@@ -277,9 +278,15 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                         </div>
                         {job && (
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
-                                <span>👤 {job.customerName || job.customer_name || job.customer?.name || 'Walk-in'}</span>
-                                <span style={{ color: 'var(--border-primary)' }}>•</span>
-                                <span>🔧 {job.description || job.product?.type || job.issueCategory || job.category || 'General Repair'}</span>
+                                {onlyParts ? (
+                                    <span>👤 Technician: {job.name || 'Technician'}</span>
+                                ) : (
+                                    <>
+                                        <span>👤 {job.customerName || job.customer_name || job.customer?.name || 'Walk-in'}</span>
+                                        <span style={{ color: 'var(--border-primary)' }}>•</span>
+                                        <span>🔧 {job.description || job.product?.type || job.issueCategory || job.category || 'General Repair'}</span>
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>
@@ -305,7 +312,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                 </div>
 
                 {/* Filter pills */}
-                {!hideParts && (
+                {!hideParts && !onlyParts && (
                     <div style={{ display: 'flex', gap: '6px' }}>
                         <button style={pillStyle(filter === 'all')}     onClick={() => setFilter('all')}>All</button>
                         <button style={pillStyle(filter === 'product')} onClick={() => setFilter('product')}><Package size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Parts</button>
@@ -385,34 +392,36 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                         </div>
 
                         {/* Manual Entry */}
-                        <div style={{ marginTop: '12px', borderRadius: '12px', border: '1px dashed var(--border-primary)', overflow: 'hidden' }}>
-                            <button
-                                onClick={() => setShowManual(p => !p)}
-                                style={{ width: '100%', padding: '12px 14px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600 }}
-                            >
-                                <PenLine size={14} /> Add Item Not in Inventory
-                                {showManual ? <ChevronUp size={14} style={{ marginLeft: 'auto' }} /> : <ChevronDown size={14} style={{ marginLeft: 'auto' }} />}
-                            </button>
-                            {showManual && (
-                                <div style={{ padding: '0 12px 12px', display: 'grid', gap: '8px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
-                                        <input className="form-input" placeholder="Item / Service name" value={manualItem.name} onChange={e => setManualItem(p => ({ ...p, name: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
-                                        {!hideParts ? (
-                                            <select value={manualItem.type} onChange={e => setManualItem(p => ({ ...p, type: e.target.value }))} className="form-input" style={{ fontSize: '13px', padding: '10px' }}>
-                                                <option value="product">Part</option>
-                                                <option value="service">Service</option>
-                                            </select>
-                                        ) : (
-                                            <div className="form-input" style={{ fontSize: '13px', padding: '10px', display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>Service</div>
-                                        )}
+                        {!onlyParts && (
+                            <div style={{ marginTop: '12px', borderRadius: '12px', border: '1px dashed var(--border-primary)', overflow: 'hidden' }}>
+                                <button
+                                    onClick={() => setShowManual(p => !p)}
+                                    style={{ width: '100%', padding: '12px 14px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600 }}
+                                >
+                                    <PenLine size={14} /> Add Item Not in Inventory
+                                    {showManual ? <ChevronUp size={14} style={{ marginLeft: 'auto' }} /> : <ChevronDown size={14} style={{ marginLeft: 'auto' }} />}
+                                </button>
+                                {showManual && (
+                                    <div style={{ padding: '0 12px 12px', display: 'grid', gap: '8px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
+                                            <input className="form-input" placeholder="Item / Service name" value={manualItem.name} onChange={e => setManualItem(p => ({ ...p, name: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
+                                            {!hideParts ? (
+                                                <select value={manualItem.type} onChange={e => setManualItem(p => ({ ...p, type: e.target.value }))} className="form-input" style={{ fontSize: '13px', padding: '10px' }}>
+                                                    <option value="product">Part</option>
+                                                    <option value="service">Service</option>
+                                                </select>
+                                            ) : (
+                                                <div className="form-input" style={{ fontSize: '13px', padding: '10px', display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>Service</div>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
+                                            <input className="form-input" type="number" placeholder="Price (₹)" value={manualItem.rate} onChange={e => setManualItem(p => ({ ...p, rate: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
+                                            <button onClick={addManual} style={{ padding: '10px 18px', backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}>+ Add</button>
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
-                                        <input className="form-input" type="number" placeholder="Price (₹)" value={manualItem.rate} onChange={e => setManualItem(p => ({ ...p, rate: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
-                                        <button onClick={addManual} style={{ padding: '10px 18px', backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}>+ Add</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
@@ -442,9 +451,11 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                         </div>
 
                                         {/* Resolved line total */}
-                                        <div style={{ fontSize: '13px', fontWeight: 700, minWidth: '64px', textAlign: 'right', flexShrink: 0 }}>
-                                            ₹{fmt(b.qty * getPrice(b))}
-                                        </div>
+                                        {!onlyParts && (
+                                            <div style={{ fontSize: '13px', fontWeight: 700, minWidth: '64px', textAlign: 'right', flexShrink: 0 }}>
+                                                ₹{fmt(b.qty * getPrice(b))}
+                                            </div>
+                                        )}
 
                                         <button onClick={() => removeFromBasket(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-tertiary)', flexShrink: 0 }}><X size={14} /></button>
                                     </div>
@@ -455,16 +466,18 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                             ))}
 
                             {/* Subtotal / GST summary */}
-                            <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                    <span>Subtotal</span><span>₹{fmt(subtotal)}</span>
-                                </div>
-                                {showTax && (
+                            {!onlyParts && (
+                                <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                        <span>GST</span><span>₹{fmt(Math.round(gst))}</span>
+                                        <span>Subtotal</span><span>₹{fmt(subtotal)}</span>
                                     </div>
-                                )}
-                            </div>
+                                    {showTax && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                            <span>GST</span><span>₹{fmt(Math.round(gst))}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -480,12 +493,16 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                             </div>
                             <div>
                                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1 }}>{basketOpen ? 'Hide items' : `${itemCount} item${itemCount > 1 ? 's' : ''}`}</div>
-                                <div style={{ fontSize: '17px', fontWeight: 800, color: '#8b5cf6', lineHeight: 1.2 }}>₹{fmt(Math.round(total))}</div>
+                                {onlyParts ? (
+                                    <div style={{ fontSize: '17px', fontWeight: 800, color: '#f59e0b', lineHeight: 1.2 }}>{itemCount} Part{itemCount > 1 ? 's' : ''}</div>
+                                ) : (
+                                    <div style={{ fontSize: '17px', fontWeight: 800, color: '#8b5cf6', lineHeight: 1.2 }}>₹{fmt(Math.round(total))}</div>
+                                )}
                             </div>
                             <div style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }}>{basketOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}</div>
                         </button>
 
-                        {onCreateQuotation && (
+                        {onCreateQuotation && !onlyParts && (
                             <button 
                                 onClick={handleCreateQuotation} 
                                 disabled={loading || parentLoading}
@@ -494,13 +511,22 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                 {parentLoading ? 'Saving...' : <><FileText size={15} /> Quotation</>}
                             </button>
                         )}
-                        {onCreateInvoice && (
+                        {onCreateInvoice && !onlyParts && (
                             <button 
                                 onClick={handleCreateInvoice} 
                                 disabled={loading || parentLoading}
                                 style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap', opacity: (loading || parentLoading) ? 0.7 : 1 }}
                             >
                                 {parentLoading ? 'Creating...' : <><FileText size={15} /> {invoiceLabel || 'Invoice'}</>}
+                            </button>
+                        )}
+                        {onlyParts && onHandover && (
+                            <button 
+                                onClick={() => onHandover(buildItems())} 
+                                disabled={loading || parentLoading}
+                                style={{ padding: '10px 14px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', borderRadius: '12px', cursor: (loading || parentLoading) ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap', opacity: (loading || parentLoading) ? 0.7 : 1 }}
+                            >
+                                {parentLoading ? 'Processing...' : <><Package size={15} /> Confirm Handover</>}
                             </button>
                         )}
                         {onApply && (
