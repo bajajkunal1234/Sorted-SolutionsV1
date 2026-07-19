@@ -48,78 +48,7 @@ function TechnicianApp() {
     const [hasClickedMap, setHasClickedMap] = useState(true);
     const [backPressToast, setBackPressToast] = useState('');
 
-    const activeTabRef = useRef(activeTab);
-    const selectedJobRef = useRef(null);
-    const showStockModalRef = useRef(false);
-    const showCollectPaymentRef = useRef(false);
-    const showJobSelectorModalRef = useRef(false);
 
-    useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
-    useEffect(() => { selectedJobRef.current = selectedJob; }, [selectedJob]);
-    useEffect(() => { showStockModalRef.current = showStockModal; }, [showStockModal]);
-    useEffect(() => { showCollectPaymentRef.current = showCollectPayment; }, [showCollectPayment]);
-    useEffect(() => { showJobSelectorModalRef.current = showJobSelectorModal; }, [showJobSelectorModal]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        let backListener = null;
-        let lastBackPress = 0;
-
-        const initBackButton = async () => {
-            try {
-                const { App } = await import('@capacitor/app');
-
-                backListener = await App.addListener('backButton', () => {
-                    // 1. Close open modals/views
-                    if (selectedJobRef.current) {
-                        setSelectedJob(null);
-                        return;
-                    }
-                    if (showStockModalRef.current) {
-                        setShowStockModal(false);
-                        return;
-                    }
-                    if (showCollectPaymentRef.current) {
-                        setShowCollectPayment(false);
-                        return;
-                    }
-                    if (showJobSelectorModalRef.current) {
-                        setShowJobSelectorModal(false);
-                        return;
-                    }
-
-                    // 2. Go back to dashboard tab
-                    if (activeTabRef.current !== 'dashboard') {
-                        setActiveTab('dashboard');
-                        return;
-                    }
-
-                    // 3. Exit on double tap
-                    const now = Date.now();
-                    if (now - lastBackPress < 2000) {
-                        App.exitApp();
-                    } else {
-                        lastBackPress = now;
-                        setBackPressToast('Press back again to exit Sorted App');
-                        setTimeout(() => {
-                            setBackPressToast('');
-                        }, 2000);
-                    }
-                });
-            } catch (err) {
-                console.warn('[BackButton] Capacitor App plugin not available:', err);
-            }
-        };
-
-        initBackButton();
-
-        return () => {
-            if (backListener) {
-                backListener.remove();
-            }
-        };
-    }, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -370,6 +299,79 @@ function TechnicianApp() {
     const [purchasePaidBy, setPurchasePaidBy] = useState('company'); // company or technician
     
     const supplierContainerRef = useRef(null);
+
+    const activeTabRef = useRef(activeTab);
+    const selectedJobRef = useRef(null);
+    const showStockModalRef = useRef(false);
+    const showCollectPaymentRef = useRef(false);
+    const showJobSelectorModalRef = useRef(false);
+
+    useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+    useEffect(() => { selectedJobRef.current = selectedJob; }, [selectedJob]);
+    useEffect(() => { showStockModalRef.current = showStockModal; }, [showStockModal]);
+    useEffect(() => { showCollectPaymentRef.current = showCollectPayment; }, [showCollectPayment]);
+    useEffect(() => { showJobSelectorModalRef.current = showJobSelectorModal; }, [showJobSelectorModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        let backListener = null;
+        let lastBackPress = 0;
+
+        const initBackButton = async () => {
+            try {
+                const { App } = await import('@capacitor/app');
+
+                backListener = await App.addListener('backButton', () => {
+                    // 1. Close open modals/views
+                    if (selectedJobRef.current) {
+                        setSelectedJob(null);
+                        return;
+                    }
+                    if (showStockModalRef.current) {
+                        setShowStockModal(false);
+                        return;
+                    }
+                    if (showCollectPaymentRef.current) {
+                        setShowCollectPayment(false);
+                        return;
+                    }
+                    if (showJobSelectorModalRef.current) {
+                        setShowJobSelectorModal(false);
+                        return;
+                    }
+
+                    // 2. Go back to dashboard tab
+                    if (activeTabRef.current !== 'dashboard') {
+                        setActiveTab('dashboard');
+                        return;
+                    }
+
+                    // 3. Exit on double tap
+                    const now = Date.now();
+                    if (now - lastBackPress < 2000) {
+                        App.exitApp();
+                    } else {
+                        lastBackPress = now;
+                        setBackPressToast('Press back again to exit Sorted App');
+                        setTimeout(() => {
+                            setBackPressToast('');
+                        }, 2000);
+                    }
+                });
+            } catch (err) {
+                console.warn('[BackButton] Capacitor App plugin not available:', err);
+            }
+        };
+
+        initBackButton();
+
+        return () => {
+            if (backListener) {
+                backListener.remove();
+            }
+        };
+    }, []);
 
     const fetchSuppliers = async () => {
         try {
