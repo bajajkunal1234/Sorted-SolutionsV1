@@ -82,17 +82,17 @@ export async function GET(request) {
                     jobs (
                         id,
                         job_number,
-                        locality,
-                        city
+                        property
                     )
                 `)
                 .in('id', invoiceIds);
 
             (invoices || []).forEach(inv => {
+                const prop = inv.jobs?.property || {};
                 invoiceMap[inv.id] = {
                     job_id: inv.job_id,
                     job_number: inv.jobs?.job_number || 'N/A',
-                    location: [inv.jobs?.locality, inv.jobs?.city].filter(Boolean).join(', ') || 'Unknown Location'
+                    location: [prop.locality, prop.city].filter(Boolean).join(', ') || 'Unknown Location'
                 };
             });
         }
