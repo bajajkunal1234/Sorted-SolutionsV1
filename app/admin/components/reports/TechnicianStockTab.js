@@ -189,21 +189,76 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                         </thead>
                                         <tbody>
                                             {stock.map(item => (
-                                                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                    <td style={{ padding: '12px 16px', fontWeight: 500 }}>{item.name}</td>
-                                                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.sku || 'N/A'}</td>
-                                                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.category}</td>
-                                                    <td style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right', color: item.quantity <= 1 ? '#ef4444' : 'var(--text-primary)' }}>
-                                                        {item.quantity} Units
-                                                    </td>
-                                                </tr>
+                                                <React.Fragment key={item.id}>
+                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                        <td style={{ padding: '12px 16px', fontWeight: 500 }}>{item.name}</td>
+                                                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.sku || 'N/A'}</td>
+                                                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.category}</td>
+                                                        <td style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right', color: item.quantity <= 0 ? '#ef4444' : 'var(--text-primary)' }}>
+                                                            {item.quantity} Units
+                                                        </td>
+                                                    </tr>
+                                                    {/* Show detail rows if any */}
+                                                    {((item.quantity < 0 && item.negative_details && item.negative_details.length > 0) || 
+                                                      (item.quantity > 0 && item.positive_details && item.positive_details.length > 0)) && (
+                                                        <tr>
+                                                            <td colSpan="4" style={{ padding: '4px 16px 12px 16px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                                                {item.quantity < 0 ? (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', borderLeft: '3px solid #ef4444', backgroundColor: 'rgba(239, 68, 68, 0.03)', borderRadius: '4px', textAlign: 'left' }}>
+                                                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Billed On Jobs (Negative Stock Trace):</div>
+                                                                        {item.negative_details.map((neg, idx) => (
+                                                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', alignItems: 'center' }}>
+                                                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                                                    📍 {neg.location}
+                                                                                </span>
+                                                                                <span>
+                                                                                    {neg.job_id ? (
+                                                                                        <button 
+                                                                                            onClick={() => window.openJobInJobsTab && window.openJobInJobsTab({ id: neg.job_id })}
+                                                                                            style={{ background: 'none', border: 'none', color: '#3b82f6', fontWeight: 600, cursor: 'pointer', padding: '0 4px', textDecoration: 'underline' }}
+                                                                                        >
+                                                                                            Job {neg.job_number}
+                                                                                        </button>
+                                                                                    ) : `Job ${neg.job_number}`}
+                                                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '10px' }}>({new Date(neg.date).toLocaleDateString('en-GB')})</span>
+                                                                                </span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px', borderLeft: '3px solid #10b981', backgroundColor: 'rgba(16, 185, 129, 0.03)', borderRadius: '4px', textAlign: 'left' }}>
+                                                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service Center Handover Log:</div>
+                                                                        {item.positive_details.map((pos, idx) => (
+                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px' }}>
+                                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                                    <span style={{ color: 'var(--text-secondary)' }}>
+                                                                                        Handover Batch: <span style={{ fontFamily: 'monospace' }}>{pos.handover_id.slice(0, 8)}...</span>
+                                                                                    </span>
+                                                                                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                                                                                        Qty: {pos.quantity}
+                                                                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '10px' }}>({new Date(pos.date).toLocaleString('en-GB')})</span>
+                                                                                    </span>
+                                                                                </div>
+                                                                                {pos.other_items && pos.other_items.length > 0 && (
+                                                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontStyle: 'italic', marginTop: '2px' }}>
+                                                                                        📦 Other items in batch: {pos.other_items.join(', ')}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
                                             ))}
                                         </tbody>
                                     </table>
                                 </div>
                             )}
                         </div>
-
+ 
                         {/* Audit Log / History Section */}
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
@@ -255,8 +310,18 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                                     }}>
                                                         {tx.quantity > 0 ? `+${tx.quantity}` : tx.quantity}
                                                     </td>
-                                                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {tx.notes || '-'}
+                                                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', maxWidth: '250px' }}>
+                                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {tx.notes || '-'}
+                                                        </div>
+                                                        {tx.job_id && (
+                                                            <button 
+                                                                onClick={() => window.openJobInJobsTab && window.openJobInJobsTab({ id: tx.job_id })}
+                                                                style={{ display: 'block', background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: '4px', textAlign: 'left' }}
+                                                            >
+                                                                View Job {tx.job_number} ({tx.job_location})
+                                                            </button>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{tx.created_by}</td>
                                                 </tr>

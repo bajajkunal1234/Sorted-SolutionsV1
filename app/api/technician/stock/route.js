@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request) {
     try {
+        const supabase = createServerSupabase();
         const { searchParams } = new URL(request.url)
         const technicianId = searchParams.get('technicianId')
 
