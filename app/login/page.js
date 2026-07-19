@@ -23,21 +23,51 @@ function saveSession(user, persist) {
     const session = JSON.stringify({ ...user, token: 'sorted-auth-v2' });
     const storage = persist ? localStorage : sessionStorage;
 
-    storage.setItem('user_session', session);
+    const performSave = () => {
+        storage.setItem('user_session', session);
 
-    if (user.role === 'admin') {
-        storage.setItem('isAdmin', 'true');
-        const maxAge = persist ? 60 * 60 * 24 * 30 : ''; 
-        document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
-    }
+        if (user.role === 'admin') {
+            storage.setItem('isAdmin', 'true');
+            const maxAge = persist ? 60 * 60 * 24 * 30 : ''; 
+            document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
+        }
 
-    if (user.role === 'technician') {
-        const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
-        storage.setItem('technicianSession', techSession);
-        storage.setItem('technicianData', JSON.stringify(user));
-    } else {
-        storage.setItem('customerData', session);
-        storage.setItem('customerId', user.id);
+        if (user.role === 'technician') {
+            const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
+            storage.setItem('technicianSession', techSession);
+            storage.setItem('technicianData', JSON.stringify(user));
+        } else {
+            storage.setItem('customerData', session);
+            storage.setItem('customerId', user.id);
+        }
+    };
+
+    try {
+        performSave();
+    } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            console.warn('[Login] LocalStorage full. Evicting offline caches to free up quota...', e);
+            if (typeof window !== 'undefined') {
+                try {
+                    const keysToEvict = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && key.startsWith('offline_cache_')) {
+                            keysToEvict.push(key);
+                        }
+                    }
+                    keysToEvict.forEach(key => localStorage.removeItem(key));
+                    console.log(`[Login] Evicted ${keysToEvict.length} cache items.`);
+                    
+                    // Retry saving
+                    performSave();
+                    return;
+                } catch (retryErr) {
+                    console.error('[Login] Failed to save session after cache eviction:', retryErr);
+                }
+            }
+        }
+        throw e;
     }
 }
 

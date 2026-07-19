@@ -1018,7 +1018,11 @@ function TechnicianApp() {
                     setTechnicianData(data.technician);
                     setMdmProfiles(data.mdmProfiles || null);
                     // Update local storage to keep it fresh
-                    localStorage.setItem('technicianData', JSON.stringify(data.technician));
+                    try {
+                        localStorage.setItem('technicianData', JSON.stringify(data.technician));
+                    } catch (e) {
+                        console.warn('[Profile] Failed to update technicianData cache:', e);
+                    }
                 }
             }
         } catch (err) {
