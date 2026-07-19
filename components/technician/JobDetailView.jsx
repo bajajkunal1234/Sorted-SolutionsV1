@@ -485,6 +485,187 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [noServiceLoading, setNoServiceLoading] = useState(false);
     const [noChargeChecked, setNoChargeChecked] = useState(false);
 
+    // Back Button Handler Stack Registrations
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showWhatsappPopup) return;
+        const handler = () => setShowWhatsappPopup(null);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showWhatsappPopup]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showPartsNoteModal) return;
+        const handler = () => setShowPartsNoteModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showPartsNoteModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showAdvanceConfirmModal) return;
+        const handler = () => setShowAdvanceConfirmModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showAdvanceConfirmModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showAdvanceCollectPayment) return;
+        const handler = () => setShowAdvanceCollectPayment(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showAdvanceCollectPayment]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showLocationVerifyModal) return;
+        const handler = () => setShowLocationVerifyModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showLocationVerifyModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showAfterPhotosModal) return;
+        const handler = () => setShowAfterPhotosModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showAfterPhotosModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showCollectPayment) return;
+        const handler = () => setShowCollectPayment(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showCollectPayment]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showFeedbackCloseFlow) return;
+        const handler = () => setShowFeedbackCloseFlow(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showFeedbackCloseFlow]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showQuotationFeedbackFlow) return;
+        const handler = () => setShowQuotationFeedbackFlow(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showQuotationFeedbackFlow]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showQuotationCollectPayment) return;
+        const handler = () => setShowQuotationCollectPayment(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showQuotationCollectPayment]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showQuotationFinalFeedback) return;
+        const handler = () => setShowQuotationFinalFeedback(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showQuotationFinalFeedback]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showServiceChargeCloseCallFlow) return;
+        const handler = () => setShowServiceChargeCloseCallFlow(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showServiceChargeCloseCallFlow]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showServiceChargeCollectPayment) return;
+        const handler = () => setShowServiceChargeCollectPayment(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showServiceChargeCollectPayment]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showServiceChargeFeedbackQR) return;
+        const handler = () => setShowServiceChargeFeedbackQR(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showServiceChargeFeedbackQR]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!showNoServiceModal) return;
+        const handler = () => setShowNoServiceModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showNoServiceModal]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!activeForm) return;
+        const handler = () => {
+            setActiveForm(null);
+            setQuotationDecisionMode(null);
+            setIsCloseWithServiceCharge(false);
+        };
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [activeForm]);
+
     // Live Location Broadcaster — broadcasts GPS to customer app when job is in-progress
     useEffect(() => {
         let watchId;

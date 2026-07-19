@@ -301,16 +301,63 @@ function TechnicianApp() {
     const supplierContainerRef = useRef(null);
 
     const activeTabRef = useRef(activeTab);
-    const selectedJobRef = useRef(null);
-    const showStockModalRef = useRef(false);
-    const showCollectPaymentRef = useRef(false);
-    const showJobSelectorModalRef = useRef(false);
-
     useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
-    useEffect(() => { selectedJobRef.current = selectedJob; }, [selectedJob]);
-    useEffect(() => { showStockModalRef.current = showStockModal; }, [showStockModal]);
-    useEffect(() => { showCollectPaymentRef.current = showCollectPayment; }, [showCollectPayment]);
-    useEffect(() => { showJobSelectorModalRef.current = showJobSelectorModal; }, [showJobSelectorModal]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            window.backHandlers = window.backHandlers || [];
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!selectedJob) return;
+        const handler = () => setSelectedJob(null);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [selectedJob]);
+
+    useEffect(() => {
+        if (!showStockModal) return;
+        const handler = () => setShowStockModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showStockModal]);
+
+    useEffect(() => {
+        if (!showCollectPayment) return;
+        const handler = () => setShowCollectPayment(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showCollectPayment]);
+
+    useEffect(() => {
+        if (!calculatorJob) return;
+        const handler = () => setCalculatorJob(null);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [calculatorJob]);
+
+    useEffect(() => {
+        if (!showJobSelectorModal) return;
+        const handler = () => setShowJobSelectorModal(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showJobSelectorModal]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -323,31 +370,20 @@ function TechnicianApp() {
                 const { App } = await import('@capacitor/app');
 
                 backListener = await App.addListener('backButton', () => {
-                    // 1. Close open modals/views
-                    if (selectedJobRef.current) {
-                        setSelectedJob(null);
-                        return;
-                    }
-                    if (showStockModalRef.current) {
-                        setShowStockModal(false);
-                        return;
-                    }
-                    if (showCollectPaymentRef.current) {
-                        setShowCollectPayment(false);
-                        return;
-                    }
-                    if (showJobSelectorModalRef.current) {
-                        setShowJobSelectorModal(false);
+                    // Check dynamic back handler stack first
+                    if (window.backHandlers && window.backHandlers.length > 0) {
+                        const handler = window.backHandlers.pop();
+                        handler();
                         return;
                     }
 
-                    // 2. Go back to dashboard tab
+                    // Otherwise, switch active tab to dashboard
                     if (activeTabRef.current !== 'dashboard') {
                         setActiveTab('dashboard');
                         return;
                     }
 
-                    // 3. Exit on double tap
+                    // Exit on double tap
                     const now = Date.now();
                     if (now - lastBackPress < 2000) {
                         App.exitApp();
