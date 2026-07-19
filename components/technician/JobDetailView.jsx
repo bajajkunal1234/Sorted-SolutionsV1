@@ -1193,9 +1193,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const checkStockAvailability = async (itemsToCheck) => {
         if (!itemsToCheck || !Array.isArray(itemsToCheck)) return { success: true };
         const materialItems = itemsToCheck.filter(it => {
-            const type = it.type || it.item_type || '';
+            const isService = it.isCharge || it.is_charge || it.type === 'service' || it.item_type === 'service';
             const prodId = it.productId || it.product_id || it.itemId || it.item_id;
-            return type === 'material' && prodId;
+            return !isService && prodId;
         });
 
         if (materialItems.length === 0) return { success: true };
