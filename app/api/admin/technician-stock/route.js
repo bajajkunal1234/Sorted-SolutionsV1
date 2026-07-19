@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,6 +111,8 @@ export async function POST(request) {
         }
 
         // Process each handover item
+        const handoverId = crypto.randomUUID();
+
         for (const item of items) {
             const { product_id, quantity, notes = '' } = item;
             const qty = Number(quantity);
@@ -152,7 +155,8 @@ export async function POST(request) {
                     quantity: qty,
                     transaction_type: 'handover',
                     notes: notes || 'Service Center Handover',
-                    created_by
+                    created_by,
+                    reference_id: handoverId
                 });
 
             if (logError) throw logError;

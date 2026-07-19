@@ -4272,36 +4272,74 @@ function TechnicianApp() {
                                         key={item.id}
                                         style={{ 
                                             display: 'flex', 
-                                            justifyContent: 'space-between', 
-                                            alignItems: 'center', 
-                                            padding: '12px', 
+                                            flexDirection: 'column',
+                                            padding: '14px', 
                                             backgroundColor: 'var(--bg-secondary)', 
                                             borderRadius: '8px',
-                                            border: '1px solid var(--border-primary)'
+                                            border: '1px solid var(--border-primary)',
+                                            gap: '10px'
                                         }}
                                     >
-                                        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {item.name}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {item.name}
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                                    <span>SKU: {item.sku || 'N/A'}</span>
+                                                    <span>•</span>
+                                                    <span>{item.category}</span>
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '2px' }}>
-                                                <span>SKU: {item.sku || 'N/A'}</span>
-                                                <span>•</span>
-                                                <span>{item.category}</span>
-                                            </div>
+                                            <span 
+                                                style={{ 
+                                                    fontSize: '12px', 
+                                                    fontWeight: 700, 
+                                                    padding: '4px 10px', 
+                                                    borderRadius: '6px', 
+                                                    backgroundColor: item.quantity <= 0 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                                                    color: item.quantity <= 0 ? '#ef4444' : '#10b981'
+                                                }}
+                                            >
+                                                {item.quantity} Qty
+                                            </span>
                                         </div>
-                                        <span 
-                                            style={{ 
-                                                fontSize: '12px', 
-                                                fontWeight: 700, 
-                                                padding: '4px 10px', 
-                                                borderRadius: '6px', 
-                                                backgroundColor: item.quantity <= 1 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
-                                                color: item.quantity <= 1 ? '#ef4444' : '#10b981'
-                                            }}
-                                        >
-                                            {item.quantity} Qty
-                                        </span>
+
+                                        {/* Audit Details - Negative Stock Trace */}
+                                        {item.quantity < 0 && item.negative_details && item.negative_details.length > 0 && (
+                                            <div style={{ padding: '8px 10px', backgroundColor: 'rgba(239,68,68,0.06)', borderRadius: '6px', borderLeft: '3px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Billed On Jobs (Negative Stock Trace):</div>
+                                                {item.negative_details.map((neg, idx) => (
+                                                    <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.negative_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.negative_details.length - 1 ? '4px' : '0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                            <span>Job: {neg.job_number}</span>
+                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(neg.date).toLocaleDateString('en-GB')}</span>
+                                                        </div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>📍 {neg.location}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Audit Details - Positive Stock Handover Trace */}
+                                        {item.quantity > 0 && item.positive_details && item.positive_details.length > 0 && (
+                                            <div style={{ padding: '8px 10px', backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: '6px', borderLeft: '3px solid #10b981', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service Center Handover Log:</div>
+                                                {item.positive_details.map((pos, idx) => (
+                                                    <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.positive_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.positive_details.length - 1 ? '4px' : '0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                            <span>Handover: {pos.handover_id.slice(0, 8)}...</span>
+                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(pos.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        {pos.other_items && pos.other_items.length > 0 && (
+                                                            <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '3px', fontStyle: 'italic' }}>
+                                                                📦 Other items in batch: {pos.other_items.join(', ')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
