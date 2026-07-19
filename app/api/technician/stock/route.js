@@ -43,7 +43,7 @@ export async function GET(request) {
                 )
             `)
             .eq('technician_id', technicianId)
-            .gt('quantity', 0) // Only return items with quantity > 0
+            .neq('quantity', 0) // Return positive and negative stocks, exclude empty
             .order('updated_at', { ascending: false });
 
         if (error) throw error;
