@@ -254,6 +254,21 @@ export async function POST(request) {
             payload.invoice_number = `PUR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
         }
 
+        // Prevent duplicate sales invoices for the same job
+        if (type === 'sales' && payload.job_id) {
+            const { data: existingInvoice } = await supabase
+                .from('sales_invoices')
+                .select('*')
+                .eq('job_id', payload.job_id)
+                .neq('status', 'cancelled')
+                .maybeSingle();
+
+            if (existingInvoice) {
+                console.log(`[DUPLICATE CHECK] Sales invoice already exists for job_id ${payload.job_id}: ${existingInvoice.invoice_number}`);
+                return NextResponse.json({ success: true, data: existingInvoice });
+            }
+        }
+
         const { data, error } = await supabase
             .from(tableName)
             .insert([payload])
