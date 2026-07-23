@@ -30,6 +30,7 @@ const JOB_EVENTS = [
     { id: 'job_completed', label: 'Job Completed', icon: '✅' },
     { id: 'job_cancelled', label: 'Job Cancelled', icon: '❌' },
     { id: 'booking_created_website', label: 'New Booking from Website', icon: '🌐' },
+    { id: 'booking_enquiry_captured', label: 'New Website Enquiry', icon: '📞' },
     { id: 'account_created_website', label: 'New Customer Registered', icon: '👤' },
     { id: 'appliance_created', label: 'Appliance Added', icon: '🔌' },
     { id: 'sales_invoice_created', label: 'Sales Invoice Created', icon: '🧾' },
