@@ -136,7 +136,13 @@ export default function PrintAgreementModal({ type, data, onClose }) {
     };
 
     const handlePrint = () => {
-        window.print();
+        if (typeof window !== 'undefined' && window.Capacitor) {
+            const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+            const printUrl = `${baseUrl}/print?type=${type}&id=${data.id}`;
+            window.open(printUrl, '_system');
+        } else {
+            window.print();
+        }
     };
 
     if (isLoading) {

@@ -26,6 +26,8 @@ export async function GET(request) {
                 .select('*, rental_plans(product_name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')  // only join rental_plans (has FK) and jobs
                 .order('created_at', { ascending: false })
 
+            const rentalId = searchParams.get('id')
+            if (rentalId) query = query.eq('id', rentalId)
             if (customerId) {
                 let lookupIds = [customerId];
                 const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);

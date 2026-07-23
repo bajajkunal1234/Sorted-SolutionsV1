@@ -26,6 +26,8 @@ export async function GET(request) {
                 .select('*, amc_plans(name, services, terms), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
                 .order('created_at', { ascending: false })
 
+            const amcId = searchParams.get('id')
+            if (amcId) query = query.eq('id', amcId)
             if (customerId) {
                 let lookupIds = [customerId];
                 const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
