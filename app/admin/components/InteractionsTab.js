@@ -454,7 +454,7 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
     };
 
     // Export to CSV
-    const handleExport = () => {
+    const handleExport = async () => {
         const filtered = getFilteredInteractions();
         const csv = [
             ['Timestamp', 'Type', 'Category', 'Customer', 'Job ID', 'Invoice ID', 'Performed By', 'Description', 'Source'].join(','),
@@ -472,10 +472,17 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
         ].join('\n');
 
         const blob = new Blob([csv], { type: 'text/csv' });
+        const filename = `interactions-${new Date().toISOString().split('T')[0]}.csv`;
+
+        if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+            const handled = await window.triggerNativeDownload(blob, filename);
+            if (handled) return;
+        }
+
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `interactions-${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = filename;
         a.click();
     };
 

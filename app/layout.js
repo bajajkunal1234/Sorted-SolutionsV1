@@ -78,6 +78,29 @@ export default function RootLayout({ children }) {
                         `,
                     }}
                 />
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            window.triggerNativeDownload = async function(blob, filename) {
+                                if (typeof window !== 'undefined' && window.Capacitor) {
+                                    try {
+                                        const file = new File([blob], filename, { type: blob.type });
+                                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                                            await navigator.share({
+                                                files: [file],
+                                                title: filename
+                                            });
+                                            return true;
+                                        }
+                                    } catch (err) {
+                                        console.error('Native share failed:', err);
+                                    }
+                                }
+                                return false;
+                            };
+                        `
+                    }}
+                />
                 {/* Google Fonts - Outfit */}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

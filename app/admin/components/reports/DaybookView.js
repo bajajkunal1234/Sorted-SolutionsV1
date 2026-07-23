@@ -315,7 +315,10 @@ function DaybookView() {
         payment: 'Payment'
     }[type] || type);
 
-    const handleExportCSV = () => {
+    const handleExportCSV = async () => {
+        let csv = '';
+        let filename = '';
+
         if (activeView === 'money-in') {
             const headers = ['Date', 'Receipt No', 'Received From', 'Deposit Account', 'Narration', 'Amount'];
             const rows = visibleReceipts.map(txn => {
@@ -330,12 +333,8 @@ function DaybookView() {
                     txn.amount.toFixed(2),
                 ];
             });
-            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Receipts_${startDate}_to_${endDate}.csv`;
-            a.click();
+            csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            filename = `Receipts_${startDate}_to_${endDate}.csv`;
         } else if (activeView === 'money-out') {
             const headers = ['Date', 'Payment No', 'Paid To', 'Payment Account', 'Narration', 'Amount'];
             const rows = visiblePayments.map(txn => {
@@ -350,12 +349,8 @@ function DaybookView() {
                     txn.amount.toFixed(2),
                 ];
             });
-            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Payments_${startDate}_to_${endDate}.csv`;
-            a.click();
+            csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            filename = `Payments_${startDate}_to_${endDate}.csv`;
         } else {
             const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
             const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
@@ -370,13 +365,21 @@ function DaybookView() {
                 txn.balance.toFixed(2),
             ]);
             const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
-            const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Daybook_${startDate}_to_${endDate}.csv`;
-            a.click();
+            csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
+            filename = `Daybook_${startDate}_to_${endDate}.csv`;
         }
+
+        const blob = new Blob([csv], { type: 'text/csv' });
+
+        if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+            const handled = await window.triggerNativeDownload(blob, filename);
+            if (handled) return;
+        }
+
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
     };
 
     return (

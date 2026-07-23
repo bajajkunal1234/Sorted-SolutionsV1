@@ -154,7 +154,7 @@ function InventoryReports() {
         setTimeout(() => { win.print(); }, 300);
     };
 
-    const handleConfirmCSV = (priceKey) => {
+    const handleConfirmCSV = async (priceKey) => {
         setPricePickerFor(null);
         const opt = PRICE_OPTIONS.find(o => o.key === priceKey);
         const headers = ['SKU', 'Name', 'Category', 'Brand', 'Type', `Price (${opt.label})`];
@@ -165,10 +165,17 @@ function InventoryReports() {
         });
         const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
+        const filename = `price-list-${opt.key}-${new Date().toISOString().split('T')[0]}.csv`;
+
+        if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+            const handled = await window.triggerNativeDownload(blob, filename);
+            if (handled) return;
+        }
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `price-list-${opt.key}-${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
     };

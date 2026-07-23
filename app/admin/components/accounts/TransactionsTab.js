@@ -43,7 +43,7 @@ function currentFYDates() {
     return { from: `${yr}-04-01`, to: `${yr + 1}-03-31` };
 }
 
-function exportToCSV(rows, accountName) {
+async function exportToCSV(rows, accountName) {
     const headers = ['Date', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'];
     const lines = [headers.join(',')];
     rows.forEach(r => {
@@ -58,10 +58,17 @@ function exportToCSV(rows, accountName) {
         ].join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const filename = `ledger_${(accountName || 'account').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+
+    if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+        const handled = await window.triggerNativeDownload(blob, filename);
+        if (handled) return;
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ledger_${(accountName || 'account').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
 }

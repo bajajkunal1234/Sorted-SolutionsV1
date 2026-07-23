@@ -697,7 +697,7 @@ function IncentivesManagement({ initialSubTab }) {
         ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs || [], selectedTech.currentMetrics.techInvoices || [], allInteractions, startRange, endRange)
         : [];
 
-    const handleExport = (format) => {
+    const handleExport = async (format) => {
         if (!selectedTech || !selectedTech.currentMetrics || !selectedTech.currentMetrics.techJobs) return;
         const jobs = selectedTech.currentMetrics.techJobs
             .filter(job => {
@@ -783,22 +783,36 @@ function IncentivesManagement({ initialSubTab }) {
         });
 
         if (format === 'csv') {
-            const csvContent = "data:text/csv;charset=utf-8," 
-                + [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
-            const encodedUri = encodeURI(csvContent);
+            const csv = [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const filename = `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.csv`;
+
+            if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+                const handled = await window.triggerNativeDownload(blob, filename);
+                if (handled) return;
+            }
+
+            const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.csv`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         } else if (format === 'excel') {
-            const tsvContent = "data:application/vnd.ms-excel;charset=utf-8," 
-                + [headers.join('\t'), ...rows.map(e => e.map(val => String(val).replace(/\t/g, ' ')).join('\t'))].join('\n');
-            const encodedUri = encodeURI(tsvContent);
+            const tsv = [headers.join('\t'), ...rows.map(e => e.map(val => String(val).replace(/\t/g, ' ')).join('\t'))].join('\n');
+            const blob = new Blob([tsv], { type: 'application/vnd.ms-excel' });
+            const filename = `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.xls`;
+
+            if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+                const handled = await window.triggerNativeDownload(blob, filename);
+                if (handled) return;
+            }
+
+            const encodedUri = encodeURI("data:application/vnd.ms-excel;charset=utf-8," + tsv);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `Job_Details_${selectedTech.name}_${startDate}_to_${endDate}.xls`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
