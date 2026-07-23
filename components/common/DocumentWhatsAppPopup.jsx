@@ -270,8 +270,23 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             const element = iframeDoc.body;
             
             if (downloadOnly) {
-                await html2pdf().set(opt).from(element).save();
+                const blob = await html2pdf().set(opt).from(element).output('blob');
                 window.document.body.removeChild(iframe);
+
+                if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+                    const handled = await window.triggerNativeDownload(blob, filename);
+                    if (handled) return;
+                }
+
+                // Fallback for standard browsers
+                const downloadUrl = URL.createObjectURL(blob);
+                const a = window.document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                window.document.body.appendChild(a);
+                a.click();
+                window.document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
             } else {
                 const blob = await html2pdf().set(opt).from(element).output('blob');
                 window.document.body.removeChild(iframe);
@@ -454,19 +469,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                     </button>
                     
                     <button
-                        onClick={() => {
-                            if (typeof window !== 'undefined' && window.Capacitor) {
-                                const docId = docProp.id;
-                                if (docId) {
-                                    const printUrl = `${baseUrl}/print?type=${type === 'invoice' ? 'sales' : 'quotations'}&id=${docId}`;
-                                    window.open(printUrl, '_system');
-                                } else {
-                                    alert('Document ID is not available.');
-                                }
-                            } else {
-                                generateInvoicePDF(true);
-                            }
-                        }}
+                        onClick={() => generateInvoicePDF(true)}
                         disabled={generatingPdf}
                         style={{
                             flex: 1, padding: '14px', borderRadius: 14,

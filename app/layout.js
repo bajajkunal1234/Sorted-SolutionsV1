@@ -84,16 +84,23 @@ export default function RootLayout({ children }) {
                             window.triggerNativeDownload = async function(blob, filename) {
                                 if (typeof window !== 'undefined' && window.Capacitor) {
                                     try {
-                                        const file = new File([blob], filename, { type: blob.type });
-                                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                                            await navigator.share({
-                                                files: [file],
-                                                title: filename
-                                            });
-                                            return true;
-                                        }
+                                        const reader = new FileReader();
+                                        const dataUrl = await new Promise(function(resolve, reject) {
+                                            reader.onload = function() { resolve(reader.result); };
+                                            reader.onerror = reject;
+                                            reader.readAsDataURL(blob);
+                                        });
+
+                                        const a = document.createElement('a');
+                                        a.href = dataUrl;
+                                        a.download = filename;
+                                        a.style.display = 'none';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        return true;
                                     } catch (err) {
-                                        console.error('Native share failed:', err);
+                                        console.error('Native data URI download failed:', err);
                                     }
                                 }
                                 return false;
