@@ -1042,10 +1042,58 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
 
     // Share via WhatsApp — open the rich share modal
-    const handleShareItem = (item, tab) => {
-        setShareItem(item);
-        setShareTab(tab);
-        setShowShareModal(true);
+    const handleShareItem = async (item, tab) => {
+        if (typeof window !== 'undefined' && window.Capacitor) {
+            try {
+                if (window.generatePrintHtml) {
+                    const settingsOverride = {
+                        ...printSettingsRef.current,
+                        font_size: printSettingsRef.current?.invoice_font_size || 'medium',
+                        show_terms: printSettingsRef.current?.invoice_show_terms,
+                        show_logo: printSettingsRef.current?.invoice_show_logo,
+                        include_signature: printSettingsRef.current?.invoice_include_signature
+                    };
+                    const html = window.generatePrintHtml(item, tab, settingsOverride);
+                    
+                    // Create an offscreen wrapper to hold the HTML content safely
+                    const wrapper = document.createElement('div');
+                    wrapper.style.position = 'fixed';
+                    wrapper.style.left = '-9999px';
+                    wrapper.style.top = '0';
+                    wrapper.style.width = '210mm'; // Standard A4 width
+                    wrapper.innerHTML = html;
+                    document.body.appendChild(wrapper);
+
+                    const html2pdf = (await import('html2pdf.js')).default;
+                    const ref = item.entry_number || item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+                    const filename = `${tab.toUpperCase()}_${ref}.pdf`;
+
+                    const opt = {
+                        margin: 0,
+                        filename: filename,
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    const blob = await html2pdf().set(opt).from(wrapper).output('blob');
+                    document.body.removeChild(wrapper);
+
+                    if (window.triggerNativeShare) {
+                        await window.triggerNativeShare(blob, filename);
+                    }
+                } else {
+                    alert('Print engine is still loading. Please try again.');
+                }
+            } catch (err) {
+                console.error('Failed to generate direct share PDF:', err);
+                alert('Sharing failed: ' + err.message);
+            }
+        } else {
+            setShareItem(item);
+            setShareTab(tab);
+            setShowShareModal(true);
+        }
     };
 
     const handleDeleteTransaction = async (item, tab) => {

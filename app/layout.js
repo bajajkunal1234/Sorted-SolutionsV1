@@ -105,6 +105,32 @@ export default function RootLayout({ children }) {
                                 }
                                 return false;
                             };
+
+                            window.triggerNativeShare = async function(blob, filename) {
+                                if (typeof window !== 'undefined' && window.Capacitor) {
+                                    try {
+                                        const reader = new FileReader();
+                                        const dataUrl = await new Promise(function(resolve, reject) {
+                                            reader.onload = function() { resolve(reader.result); };
+                                            reader.onerror = reject;
+                                            reader.readAsDataURL(blob);
+                                        });
+
+                                        const { Plugins } = window.Capacitor;
+                                        if (Plugins && Plugins.GPSBridgePlugin) {
+                                            await Plugins.GPSBridgePlugin.shareBase64({
+                                                base64: dataUrl,
+                                                filename: filename,
+                                                mimeType: blob.type
+                                            });
+                                            return true;
+                                        }
+                                    } catch (err) {
+                                        console.error('Native data URI share failed:', err);
+                                    }
+                                }
+                                return false;
+                            };
                         `
                     }}
                 />

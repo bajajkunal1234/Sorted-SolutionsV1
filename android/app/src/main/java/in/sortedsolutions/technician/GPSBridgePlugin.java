@@ -283,4 +283,51 @@ public class GPSBridgePlugin extends Plugin {
         ret.put("version", "1.1.0");
         call.resolve(ret);
     }
+
+    @PluginMethod
+    public void shareBase64(PluginCall call) {
+        String base64Data = call.getString("base64");
+        String fileName = call.getString("filename");
+        String mimeType = call.getString("mimeType");
+
+        if (base64Data == null || base64Data.isEmpty()) {
+            call.reject("Base64 data is required");
+            return;
+        }
+
+        try {
+            if (base64Data.contains(",")) {
+                base64Data = base64Data.substring(base64Data.indexOf(",") + 1);
+            }
+
+            byte[] bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT);
+
+            Context context = getContext();
+            java.io.File cacheDir = context.getCacheDir();
+            java.io.File shareFile = new java.io.File(cacheDir, fileName != null ? fileName : "document.pdf");
+            
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(shareFile);
+            fos.write(bytes);
+            fos.close();
+
+            String authority = context.getPackageName() + ".fileprovider";
+            android.net.Uri fileUri = androidx.core.content.FileProvider.getUriForFile(context, authority, shareFile);
+
+            Intent shareIntent = new Intent(Intent.ACTION_SEND);
+            shareIntent.setType(mimeType != null ? mimeType : "application/pdf");
+            shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri);
+            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            Intent chooserIntent = Intent.createChooser(shareIntent, "Share Document");
+            chooserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(chooserIntent);
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            e.printStackTrace();
+            call.reject("Failed to share document: " + e.getMessage());
+        }
+    }
 }
