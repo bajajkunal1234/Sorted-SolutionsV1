@@ -17,7 +17,7 @@ export async function GET() {
 export async function POST(request) {
     const supabase = createServerSupabase();
     const body = await request.json();
-    const { event_type, channel, template_id, audience, delay_minutes, is_active } = body;
+    const { event_type, channel, template_id, audience, delay_minutes, is_active, sound } = body;
 
     if (!event_type || !channel || !template_id) {
         return NextResponse.json({ success: false, error: 'event_type, channel and template_id are required' }, { status: 400 });
@@ -28,6 +28,7 @@ export async function POST(request) {
         audience: audience || [],
         delay_minutes: delay_minutes || 0,
         is_active: is_active !== false,
+        sound: sound || 'default',
     }).select().single();
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });

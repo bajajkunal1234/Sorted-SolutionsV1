@@ -359,7 +359,7 @@ function TriggersTab() {
     const [saving, setSaving] = useState(false);
     const [toggling, setToggling] = useState(null);
 
-    const emptyForm = { event_type: 'job_completed', channel: 'push', template_id: '', audience: ['customers'], delay_minutes: 0, is_active: true };
+    const emptyForm = { event_type: 'job_completed', channel: 'push', template_id: '', audience: ['customers'], delay_minutes: 0, is_active: true, sound: 'default' };
     const [form, setForm] = useState(emptyForm);
 
     useEffect(() => {
@@ -416,7 +416,7 @@ function TriggersTab() {
             {showForm && (
                 <SectionCard title="New Trigger Rule" style={{ marginBottom: '20px' }}>
                     <div style={{ display: 'grid', gap: '14px' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: form.channel === 'push' ? '1fr 1fr 1fr' : '1fr 1fr', gap: '14px' }}>
                             <div>
                                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>On Event *</label>
                                 <select className="form-control" value={form.event_type} onChange={e => setForm(p => ({ ...p, event_type: e.target.value }))}>
@@ -430,6 +430,19 @@ function TriggersTab() {
                                     <option value="whatsapp">💬 WhatsApp</option>
                                 </select>
                             </div>
+                            {form.channel === 'push' && (
+                                <div>
+                                    <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Notification Tone (Native)</label>
+                                    <select className="form-control" value={form.sound || 'default'} onChange={e => setForm(p => ({ ...p, sound: e.target.value }))}>
+                                        <option value="default">🔔 Default Ringtone</option>
+                                        <option value="alerta_breaking_bad">🔔 Alerta Breaking Bad</option>
+                                        <option value="complete">🔔 Complete Chime</option>
+                                        <option value="lg_woodpecker">🔔 Woodpecker Alert</option>
+                                        <option value="milomilo">🔔 Milo Milo Ring</option>
+                                        <option value="money">🔔 Cash Register Money</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Template *</label>
@@ -499,6 +512,7 @@ function TriggersTab() {
                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                                 {tr.channel === 'push' ? '📱 Push' : '💬 WhatsApp'} · {tmpl?.name || 'Unknown template'} · to {(tr.audience || []).join(', ')}
                                                 {tr.delay_minutes > 0 && ` · after ${tr.delay_minutes}m`}
+                                                {tr.channel === 'push' && tr.sound && tr.sound !== 'default' && ` · 🎵 Tone: ${tr.sound}`}
                                             </div>
                                         </div>
                                     </div>

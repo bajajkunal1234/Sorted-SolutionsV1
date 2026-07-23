@@ -129,6 +129,34 @@ export function usePushNotifications({ userType, userId }) {
                 visibility: 1, // Public visibility
                 vibration: true,
             });
+
+            // Register channels for each of the 5 custom sounds
+            const customSounds = [
+                { id: 'alerta_breaking_bad', name: 'Alerta Breaking Bad', file: 'alerta_breaking_bad' },
+                { id: 'complete', name: 'Complete Chime', file: 'complete' },
+                { id: 'lg_woodpecker', name: 'Woodpecker Alert', file: 'lg_woodpecker' },
+                { id: 'milomilo', name: 'Milo Milo Ring', file: 'milomilo' },
+                { id: 'money', name: 'Cash Register Money', file: 'money' }
+            ];
+
+            for (const sound of customSounds) {
+                try {
+                    await PushNotifications.deleteChannel({ id: sound.id });
+                } catch (e) {}
+                try {
+                    await PushNotifications.createChannel({
+                        id: sound.id,
+                        name: sound.name,
+                        description: `Custom notification channel playing ${sound.name}`,
+                        sound: sound.file, // references the embedded file in res/raw (no extension needed)
+                        importance: 5,     // Max importance (heads-up banner with sound)
+                        visibility: 1,
+                        vibration: true
+                    });
+                } catch (err) {
+                    console.warn(`[Native Push] Failed to create channel for ${sound.id}:`, err);
+                }
+            }
             
             // Listen for native registration success
             await PushNotifications.addListener('registration', async (token) => {
