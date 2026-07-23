@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { generateJobNumber } from '@/lib/generateJobNumber'
 import { trackLeadAttribution } from '@/lib/lead-tracker'
+import { fireNotification } from '@/lib/fire-notification'
 
 export async function POST(request) {
     const supabase = createServerSupabase()
@@ -67,6 +68,13 @@ export async function POST(request) {
             conversion_type: 'web_enquiry',
             status: 'interested'
         }).catch(err => console.error('[enquiry] trackLeadAttribution error:', err));
+
+        // Fire notification trigger
+        fireNotification('booking_enquiry_captured', {
+            job_id: String(enquiry.id),
+            job_number: bookingData.categoryName || 'General',
+            customer_name: `+91-${rawPhone}`,
+        }).catch(err => console.error('[enquiry/fireNotification] Error:', err.message));
 
         return NextResponse.json({ success: true, enquiryId: enquiry.id });
 
