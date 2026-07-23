@@ -517,6 +517,29 @@ function TriggersTab() {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {tr.channel === 'push' && (
+                                            <select
+                                                className="form-control"
+                                                style={{ fontSize: '12px', padding: '4px 8px', width: 'auto', height: 'auto', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)' }}
+                                                value={tr.sound || 'default'}
+                                                onChange={async (e) => {
+                                                    const newSound = e.target.value;
+                                                    await fetch('/api/notifications/triggers', {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ id: tr.id, sound: newSound })
+                                                    });
+                                                    reload();
+                                                }}
+                                            >
+                                                <option value="default">🔔 Default Ringtone</option>
+                                                <option value="alerta_breaking_bad">🔔 Alerta Breaking Bad</option>
+                                                <option value="complete">🔔 Complete Chime</option>
+                                                <option value="lg_woodpecker">🔔 Woodpecker Alert</option>
+                                                <option value="milomilo">🔔 Milo Milo Ring</option>
+                                                <option value="money">🔔 Cash Register Money</option>
+                                            </select>
+                                        )}
                                         <button
                                             onClick={() => toggleActive(tr)}
                                             disabled={toggling === tr.id}
