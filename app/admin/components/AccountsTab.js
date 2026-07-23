@@ -1023,10 +1023,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 console.warn("Failed to fetch fresh print settings, using cached or defaults.");
             }
 
-            // we use window.generatePrintHtml from _print_func_inject.js, but since it returns HTML we have to open it
-            const html = window.generatePrintHtml(item, tab, settingsOverride);
-            const w = window.open('', '_blank');
-            if (w) { w.document.write(html); w.document.close(); }
+            const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+            const printUrl = `${baseUrl}/print?type=${tab}&id=${item.id}`;
+            
+            if (typeof window !== 'undefined' && window.Capacitor) {
+                window.open(printUrl, '_system');
+            } else {
+                // we use window.generatePrintHtml from _print_func_inject.js, but since it returns HTML we have to open it
+                const html = window.generatePrintHtml(item, tab, settingsOverride);
+                const w = window.open('', '_blank');
+                if (w) { w.document.write(html); w.document.close(); }
+            }
         } else {
             console.error("Global print engine not loaded");
             alert("Print engine is still loading. Please try again or refresh the page.");

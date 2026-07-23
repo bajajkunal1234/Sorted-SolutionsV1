@@ -454,7 +454,19 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                     </button>
                     
                     <button
-                        onClick={() => generateInvoicePDF(true)}
+                        onClick={() => {
+                            if (typeof window !== 'undefined' && window.Capacitor) {
+                                const docId = docProp.id;
+                                if (docId) {
+                                    const printUrl = `${baseUrl}/print?type=${type === 'invoice' ? 'sales' : 'quotations'}&id=${docId}`;
+                                    window.open(printUrl, '_system');
+                                } else {
+                                    alert('Document ID is not available.');
+                                }
+                            } else {
+                                generateInvoicePDF(true);
+                            }
+                        }}
                         disabled={generatingPdf}
                         style={{
                             flex: 1, padding: '14px', borderRadius: 14,

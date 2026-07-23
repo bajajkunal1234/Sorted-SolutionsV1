@@ -186,6 +186,13 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         href="/downloads/admin-app.apk"
                         download="admin-app.apk"
                         className="btn btn-primary"
+                        onClick={(e) => {
+                            if (typeof window !== 'undefined' && window.Capacitor) {
+                                e.preventDefault();
+                                const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'https://sortedsolutions.in';
+                                window.open(`${baseUrl}/downloads/admin-app.apk`, '_system');
+                            }
+                        }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -200,6 +207,13 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         href="/downloads/technician-app.apk"
                         download="technician-app.apk"
                         className="btn btn-secondary"
+                        onClick={(e) => {
+                            if (typeof window !== 'undefined' && window.Capacitor) {
+                                e.preventDefault();
+                                const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'https://sortedsolutions.in';
+                                window.open(`${baseUrl}/downloads/technician-app.apk`, '_system');
+                            }
+                        }}
                         style={{
                             display: 'flex',
                             alignItems: 'center',

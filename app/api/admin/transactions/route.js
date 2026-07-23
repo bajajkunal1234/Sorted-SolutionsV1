@@ -188,6 +188,8 @@ export async function GET(request) {
             .order('date', { ascending: false })
             .limit(100)
 
+        const txId = searchParams.get('id')
+        if (txId && isUUID(txId)) query = query.eq('id', txId)
         if (customerId) query = query.eq('account_id', customerId)
         if (accountId) query = query.eq('account_id', accountId)
         if (startDate) query = query.gte('date', startDate)
