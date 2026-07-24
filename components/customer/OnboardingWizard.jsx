@@ -639,7 +639,7 @@ export default function OnboardingWizard({ initialName, customerId, isClaim, onC
             )}
             <div style={{ width: '100%', maxWidth: 440 }}>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', letterSpacing: 2, textTransform: 'uppercase' }}>SORTED SOLUTIONS</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981', letterSpacing: 2, textTransform: 'uppercase' }}>SORTED SOLUTIONS</div>
                     {isClaim && <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Account Setup</div>}
                 </div>
                 <ProgressDots step={step} total={totalSteps} />
