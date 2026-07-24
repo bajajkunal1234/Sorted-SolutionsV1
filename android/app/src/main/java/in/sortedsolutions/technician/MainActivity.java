@@ -20,6 +20,12 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import android.media.MediaScannerConnection;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.media.AudioAttributes;
+import android.content.ContentResolver;
+import android.os.Build;
+
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -35,6 +41,9 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         // Set the window background to solid black programmatically to prevent any splash screen image leak
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+
+        // Create high-importance custom notification channels on launch
+        createCustomNotificationChannels();
 
         // Workaround: Override the default WindowInsetsListener to prevent 
         // the default Capacitor logic from stacking padding on the WebView.
@@ -70,6 +79,68 @@ public class MainActivity extends BridgeActivity {
             });
             getBridge().getWebView().requestApplyInsets();
         });
+    }
+
+    private void createCustomNotificationChannels() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager == null) return;
+
+            // Delete existing channels to clear any cached low-importance settings
+            try {
+                manager.deleteNotificationChannel("jobs");
+                manager.deleteNotificationChannel("alerta_breaking_bad");
+                manager.deleteNotificationChannel("complete");
+                manager.deleteNotificationChannel("lg_woodpecker");
+                manager.deleteNotificationChannel("milomilo");
+                manager.deleteNotificationChannel("money");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            // 1. Create the default "jobs" channel with High Importance
+            NotificationChannel jobsChannel = new NotificationChannel(
+                "jobs",
+                "Default Ringtone",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            jobsChannel.setDescription("Default notification alerts");
+            jobsChannel.enableLights(true);
+            jobsChannel.enableVibration(true);
+            jobsChannel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            manager.createNotificationChannel(jobsChannel);
+
+            // 2. Define custom sound channels mapping to res/raw/ files
+            String[] sounds = {"alerta_breaking_bad", "complete", "lg_woodpecker", "milomilo", "money"};
+            String[] channelNames = {"Alerta Breaking Bad", "Complete Chime", "Woodpecker Alert", "Milo Milo Ring", "Cash Register Money"};
+
+            for (int i = 0; i < sounds.length; i++) {
+                String soundName = sounds[i];
+                String channelName = channelNames[i];
+                
+                NotificationChannel channel = new NotificationChannel(
+                    soundName,
+                    channelName,
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("Custom sound alerts for " + channelName);
+                channel.enableLights(true);
+                channel.enableVibration(true);
+                channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+
+                int resourceId = getResources().getIdentifier(soundName, "raw", getPackageName());
+                if (resourceId != 0) {
+                    Uri soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/" + resourceId);
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .build();
+                    channel.setSound(soundUri, audioAttributes);
+                }
+
+                manager.createNotificationChannel(channel);
+            }
+        }
     }
 
     private void handleBase64Download(String url, String contentDisposition, String mimetype) throws Exception {
