@@ -99,64 +99,8 @@ export function usePushNotifications({ userType, userId }) {
                 return;
             }
             
-            // Create default high-importance notification channels for Android so that alerts play sound and display heads-up banners.
-            // We first delete the channels to reset any previous silent configuration, and then create them with max importance.
-            try {
-                await PushNotifications.deleteChannel({ id: 'default' });
-            } catch (e) {
-                console.warn('[Native Push] Failed to delete default channel:', e);
-            }
-            try {
-                await PushNotifications.deleteChannel({ id: 'jobs' });
-            } catch (e) {
-                console.warn('[Native Push] Failed to delete jobs channel:', e);
-            }
-
-            await PushNotifications.createChannel({
-                id: 'default',
-                name: 'Default Channel',
-                description: 'General notifications',
-                importance: 5, // Max importance (heads-up banner with sound)
-                visibility: 1, // Public visibility
-                vibration: true,
-            });
-
-            await PushNotifications.createChannel({
-                id: 'jobs',
-                name: 'Jobs & Alerts',
-                description: 'Notifications for jobs, bookings, and updates',
-                importance: 5, // Max importance (heads-up banner with sound)
-                visibility: 1, // Public visibility
-                vibration: true,
-            });
-
-            // Register channels for each of the 5 custom sounds
-            const customSounds = [
-                { id: 'alerta_breaking_bad', name: 'Alerta Breaking Bad', file: 'alerta_breaking_bad' },
-                { id: 'complete', name: 'Complete Chime', file: 'complete' },
-                { id: 'lg_woodpecker', name: 'Woodpecker Alert', file: 'lg_woodpecker' },
-                { id: 'milomilo', name: 'Milo Milo Ring', file: 'milomilo' },
-                { id: 'money', name: 'Cash Register Money', file: 'money' }
-            ];
-
-            for (const sound of customSounds) {
-                try {
-                    await PushNotifications.deleteChannel({ id: sound.id });
-                } catch (e) {}
-                try {
-                    await PushNotifications.createChannel({
-                        id: sound.id,
-                        name: sound.name,
-                        description: `Custom notification channel playing ${sound.name}`,
-                        sound: sound.file, // references the embedded file in res/raw (no extension needed)
-                        importance: 5,     // Max importance (heads-up banner with sound)
-                        visibility: 1,
-                        vibration: true
-                    });
-                } catch (err) {
-                    console.warn(`[Native Push] Failed to create channel for ${sound.id}:`, err);
-                }
-            }
+            // Notification channels (default & custom sounds) are now fully managed in Android native Java (MainActivity.java)
+            // on app launch to ensure proper raw resource linking and prevent channel-muting bugs.
             
             // Listen for native registration success
             await PushNotifications.addListener('registration', async (token) => {

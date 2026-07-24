@@ -123,7 +123,8 @@ export async function POST(request) {
                     await sendFCMPush(recipient.fcm_token, {
                         title: template.name,
                         body: message,
-                        data: { link: targetLink }
+                        data: { link: targetLink },
+                        sound: trigger.sound
                     });
                     status = 'sent';
                 } else if (trigger.channel === 'whatsapp' && recipient.phone) {

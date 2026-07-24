@@ -86,21 +86,9 @@ public class MainActivity extends BridgeActivity {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager == null) return;
 
-            // Delete existing channels to clear any cached low-importance settings
-            try {
-                manager.deleteNotificationChannel("jobs");
-                manager.deleteNotificationChannel("alerta_breaking_bad");
-                manager.deleteNotificationChannel("complete");
-                manager.deleteNotificationChannel("lg_woodpecker");
-                manager.deleteNotificationChannel("milomilo");
-                manager.deleteNotificationChannel("money");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            // 1. Create the default "jobs" channel with High Importance
+            // 1. Create the default "jobs_v2" channel with High Importance
             NotificationChannel jobsChannel = new NotificationChannel(
-                "jobs",
+                "jobs_v2",
                 "Default Ringtone",
                 NotificationManager.IMPORTANCE_HIGH
             );
@@ -119,7 +107,7 @@ public class MainActivity extends BridgeActivity {
                 String channelName = channelNames[i];
                 
                 NotificationChannel channel = new NotificationChannel(
-                    soundName,
+                    soundName + "_v2",
                     channelName,
                     NotificationManager.IMPORTANCE_HIGH
                 );
