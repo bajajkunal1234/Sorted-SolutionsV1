@@ -1053,16 +1053,60 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         show_logo: printSettingsRef.current?.invoice_show_logo,
                         include_signature: printSettingsRef.current?.invoice_include_signature
                     };
-                    const html = window.generatePrintHtml(item, tab, settingsOverride);
+                    const printHtml = window.generatePrintHtml(item, tab, settingsOverride);
                     
-                    // Create an offscreen wrapper to hold the HTML content safely
-                    const wrapper = document.createElement('div');
-                    wrapper.style.position = 'fixed';
-                    wrapper.style.left = '-9999px';
-                    wrapper.style.top = '0';
-                    wrapper.style.width = '210mm'; // Standard A4 width
-                    wrapper.innerHTML = html;
-                    document.body.appendChild(wrapper);
+                    // Remove print window scripts from the HTML code so print dialog doesn't pop up during PDF rendering
+                    const cleanHtml = printHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+
+                    // Create an isolated sandboxed iframe to mount and render the print HTML, preventing style leakage
+                    const iframe = window.document.createElement('iframe');
+                    iframe.style.position = 'absolute';
+                    iframe.style.left = '-9999px';
+                    iframe.style.top = '-9999px';
+                    iframe.style.width = '794px';  // A4 size width at 96 DPI
+                    iframe.style.height = '1123px'; // A4 size height at 96 DPI
+                    window.document.body.appendChild(iframe);
+
+                    const iframeDoc = iframe.contentWindow.document;
+                    iframeDoc.open();
+                    iframeDoc.write(cleanHtml);
+                    iframeDoc.close();
+
+                    // Force print margins to 0 and page width to 794px for high-fidelity edge-to-edge PDF generation
+                    const styleOverride = iframeDoc.createElement('style');
+                    styleOverride.innerHTML = `
+                        @page { size: A4; margin: 0 !important; }
+                        html, body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            width: 794px !important;
+                            background-color: #ffffff !important;
+                            background: #ffffff !important;
+                            color: #1e293b !important;
+                        }
+                        /* Override any global dark mode leaks during canvas cloning */
+                        * {
+                            --bg-primary: #ffffff !important;
+                            --bg-secondary: #f8fafc !important;
+                            --bg-tertiary: #f1f5f9 !important;
+                            --bg-elevated: #ffffff !important;
+                            --text-primary: #0f172a !important;
+                            --text-secondary: #475569 !important;
+                            --text-tertiary: #64748b !important;
+                            --border-primary: #e2e8f0 !important;
+                            color-scheme: light !important;
+                        }
+                    `;
+                    iframeDoc.head.appendChild(styleOverride);
+
+                    // Move all style tags from iframe head to iframe body so they are cloned by html2pdf
+                    const styleTags = iframeDoc.head.querySelectorAll('style');
+                    styleTags.forEach(tag => {
+                        iframeDoc.body.appendChild(tag);
+                    });
+
+                    // Wait a brief delay for remote images (logo, signature) and stylesheets to load in the iframe
+                    await new Promise((resolve) => setTimeout(resolve, 600));
 
                     const html2pdf = (await import('html2pdf.js')).default;
                     const ref = item.entry_number || item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
@@ -1072,12 +1116,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         margin: 0,
                         filename: filename,
                         image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                        html2canvas: { 
+                            scale: 2, 
+                            useCORS: true, 
+                            logging: false,
+                            letterRendering: true 
+                        },
                         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
                     };
 
-                    const blob = await html2pdf().set(opt).from(wrapper).output('blob');
-                    document.body.removeChild(wrapper);
+                    const blob = await html2pdf().set(opt).from(iframeDoc.body).output('blob');
+                    window.document.body.removeChild(iframe);
 
                     if (window.triggerNativeShare) {
                         await window.triggerNativeShare(blob, filename);
