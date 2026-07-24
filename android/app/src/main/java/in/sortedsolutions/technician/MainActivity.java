@@ -86,9 +86,28 @@ public class MainActivity extends BridgeActivity {
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager == null) return;
 
-            // 1. Create the default "jobs_v2" channel with High Importance
+            // Delete old v2 and v3 channels to force recreation with sound
+            try {
+                manager.deleteNotificationChannel("jobs_v2");
+                manager.deleteNotificationChannel("alerta_breaking_bad_v2");
+                manager.deleteNotificationChannel("complete_v2");
+                manager.deleteNotificationChannel("lg_woodpecker_v2");
+                manager.deleteNotificationChannel("milomilo_v2");
+                manager.deleteNotificationChannel("money_v2");
+
+                manager.deleteNotificationChannel("jobs_v3");
+                manager.deleteNotificationChannel("alerta_breaking_bad_v3");
+                manager.deleteNotificationChannel("complete_v3");
+                manager.deleteNotificationChannel("lg_woodpecker_v3");
+                manager.deleteNotificationChannel("milomilo_v3");
+                manager.deleteNotificationChannel("money_v3");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            // 1. Create the default "jobs_v3" channel with High Importance
             NotificationChannel jobsChannel = new NotificationChannel(
-                "jobs_v2",
+                "jobs_v3",
                 "Default Ringtone",
                 NotificationManager.IMPORTANCE_HIGH
             );
@@ -107,7 +126,7 @@ public class MainActivity extends BridgeActivity {
                 String channelName = channelNames[i];
                 
                 NotificationChannel channel = new NotificationChannel(
-                    soundName + "_v2",
+                    soundName + "_v3",
                     channelName,
                     NotificationManager.IMPORTANCE_HIGH
                 );
@@ -116,9 +135,15 @@ public class MainActivity extends BridgeActivity {
                 channel.enableVibration(true);
                 channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
 
+                Uri soundUri = null;
                 int resourceId = getResources().getIdentifier(soundName, "raw", getPackageName());
                 if (resourceId != 0) {
-                    Uri soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/" + resourceId);
+                    soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/" + resourceId);
+                } else {
+                    soundUri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE + "://" + getPackageName() + "/raw/" + soundName);
+                }
+
+                if (soundUri != null) {
                     AudioAttributes audioAttributes = new AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
