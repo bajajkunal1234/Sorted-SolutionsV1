@@ -70,7 +70,7 @@ export async function POST(request) {
         }).catch(err => console.error('[enquiry] trackLeadAttribution error:', err));
 
         // Fire notification trigger
-        fireNotification('booking_enquiry_captured', {
+        await fireNotification('booking_enquiry_captured', {
             job_id: String(enquiry.id),
             job_number: bookingData.categoryName || 'General',
             customer_name: `+91-${rawPhone}`,

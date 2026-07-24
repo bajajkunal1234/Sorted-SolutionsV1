@@ -321,7 +321,7 @@ export async function POST(request) {
         }).catch(err => console.error('[booking] trackLeadAttribution error:', err));
 
         // Fire notification trigger (direct module call — no HTTP self-fetch)
-        fireNotification('booking_created_website', {
+        await fireNotification('booking_created_website', {
             job_id: String(job.id),
             job_number: job.job_number,
             customer_id: customerId ? String(customerId) : undefined,

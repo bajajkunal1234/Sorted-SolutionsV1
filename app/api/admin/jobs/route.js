@@ -121,7 +121,7 @@ export async function POST(request) {
             source: 'Admin',
         });
 
-        fireNotification('job_created_admin', {
+        await fireNotification('job_created_admin', {
             job_id: String(data.id),
             job_number: data.job_number,
             customer_id: body.customer_id ? String(body.customer_id) : undefined,
@@ -129,7 +129,7 @@ export async function POST(request) {
         }).catch(e => console.error('[jobs POST] fireNotification:', e.message));
 
         if (data.technician_id) {
-            fireNotification('job_assigned', {
+            await fireNotification('job_assigned', {
                 job_id: String(data.id),
                 job_number: data.job_number,
                 customer_id: body.customer_id ? String(body.customer_id) : undefined,
@@ -218,7 +218,7 @@ export async function PUT(request) {
             // Fire notification for this status change
             const notifEvent = STATUS_TO_EVENT[updates.status];
             if (notifEvent) {
-                fireNotification(notifEvent, {
+                await fireNotification(notifEvent, {
                     job_id: String(id),
                     job_number: data.job_number,
                     customer_id: customerId || undefined,
@@ -253,7 +253,7 @@ export async function PUT(request) {
             });
 
             // Fire job_assigned notification
-            fireNotification('job_assigned', {
+            await fireNotification('job_assigned', {
                 job_id: String(id),
                 job_number: data.job_number,
                 customer_id: customerId || undefined,
