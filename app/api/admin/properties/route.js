@@ -4,6 +4,50 @@ import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
+const GOOGLE_KEY = process.env.GOOGLE_GEOCODING_API_KEY
+
+async function googleGeocode(query) {
+    if (!query || query.trim().length < 3 || !GOOGLE_KEY) return null
+    try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_KEY}&region=in&components=country:IN`
+        const res = await fetch(url)
+        if (!res.ok) return null
+        const data = await res.json()
+        if (data.status === 'OK' && data.results.length > 0) {
+            const { lat, lng } = data.results[0].geometry.location
+            return { lat, lng }
+        }
+    } catch (_) {}
+    return null
+}
+
+async function geocodePropertyOnTheFly(id, flat_number, building_name, address, locality, city, pincode) {
+    const cityVal = city || 'Mumbai'
+    const building = building_name || ''
+    const street = address || ''
+    const localityVal = locality || ''
+    const pin = pincode || ''
+
+    const queries = []
+    if (building && street && localityVal) queries.push(`${building}, ${street}, ${localityVal}, ${cityVal}, India`)
+    if (building && localityVal)           queries.push(`${building}, ${localityVal}, ${cityVal}, India`)
+    if (street && localityVal)             queries.push(`${street}, ${localityVal}, ${cityVal}, India`)
+    if (localityVal)                       queries.push(`${localityVal}, ${cityVal}, India`)
+    if (pin)                               queries.push(`${pin}, India`)
+
+    for (const q of queries) {
+        const result = await googleGeocode(q)
+        if (result) {
+            await supabase
+                .from('properties')
+                .update({ latitude: result.lat, longitude: result.lng })
+                .eq('id', id)
+            return result
+        }
+    }
+    return null
+}
+
 // GET — list all properties OR smart search by pincode/address
 export async function GET(request) {
     try {
@@ -299,6 +343,23 @@ export async function POST(request) {
             .select()
             .single()
         if (error) throw error
+
+        // Geocode on the fly if coordinates were not provided
+        if (!latitude || !longitude) {
+            const coords = await geocodePropertyOnTheFly(
+                property.id, 
+                flat_number, 
+                building_name, 
+                address, 
+                locality, 
+                city, 
+                pincode
+            )
+            if (coords) {
+                property.latitude = coords.lat
+                property.longitude = coords.lng
+            }
+        }
 
         // Link to a customer — store as account_id (admin side) to avoid FK issues with customers table
         if (customer_id) {

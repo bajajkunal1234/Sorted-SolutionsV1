@@ -208,7 +208,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             fetchAdminLedger(selectedTechFilter);
         }
     }, [activeTab, selectedTechFilter, adminExpenseViewMode]);
-    useEffect(() => { if (activeTab === 'livefleet') fetchActiveJobs(); }, [activeTab]);
+    useEffect(() => { if (activeTab === 'livefleet') { fetchActiveJobs(); fetchGeocodeCount(); } }, [activeTab]);
 
     useEffect(() => {
         const channel = supabase.channel('realtime:technician_updates');
@@ -2886,6 +2886,59 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Real-time locations of all technicians currently on in-progress jobs.</p>
                         </div>
                     </div>
+                    {geocodeCount > 0 && (
+                        <div style={{
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                            border: '1px solid rgba(245, 158, 11, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                            flexWrap: 'wrap'
+                        }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+                                <span>
+                                    <strong>{geocodeCount} propert{geocodeCount === 1 ? 'y is' : 'ies are'}</strong> missing map coordinates and won't show up on maps.
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleRunGeocode}
+                                disabled={geocodeStatus === 'running'}
+                                style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#f59e0b',
+                                    color: '#000',
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s'
+                                }}
+                            >
+                                {geocodeStatus === 'running' ? 'Geocoding...' : 'Run Google Geocoder'}
+                            </button>
+                        </div>
+                    )}
+                    {geocodeStatus && geocodeStatus.success && (
+                        <div style={{
+                            padding: '12px 16px',
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '13px',
+                            color: '#10b981'
+                        }}>
+                            <CheckCircle size={16} />
+                            <span>Successfully geocoded {geocodeStatus.succeeded} properties ({geocodeStatus.failed} failed).</span>
+                        </div>
+                    )}
                     <TechnicianLiveMap activeJobs={activeJobs} />
                 </div>
             )}
