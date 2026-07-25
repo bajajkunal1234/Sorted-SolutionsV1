@@ -2688,18 +2688,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             {!editedJob.address && !editedJob.locality && (
                                                 <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
                                             )}
-                                            <a
-                                                href={
-                                                    storedLat && storedLng
-                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
-                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
-                                                }
-                                                onClick={handleMapsNavigateClick}
-                                                target="_blank" rel="noreferrer"
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
-                                            >
-                                                {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
-                                            </a>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                                <a
+                                                    href={
+                                                        storedLat && storedLng
+                                                            ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
+                                                    }
+                                                    onClick={handleMapsNavigateClick}
+                                                    target="_blank" rel="noreferrer"
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
+                                                >
+                                                    {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
+                                                </a>
+                                                <span style={{ 
+                                                    fontSize: '11px', 
+                                                    color: storedLat && storedLng ? 'var(--text-secondary)' : '#f59e0b',
+                                                    fontWeight: storedLat && storedLng ? 500 : 600,
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    backgroundColor: storedLat && storedLng ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
+                                                    border: storedLat && storedLng ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
+                                                }}>
+                                                    {storedLat && storedLng 
+                                                        ? `Coords: ${Number(storedLat).toFixed(6)}, ${Number(storedLng).toFixed(6)}`
+                                                        : '⚠️ No pin location details'
+                                                    }
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
