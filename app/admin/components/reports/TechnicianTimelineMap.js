@@ -96,12 +96,14 @@ const serviceCenterIcon = new L.DivIcon({
     popupAnchor: [0, -34]
 });const getMovingIcon = (angle, isHalted) => new L.DivIcon({
     className: '',
-    html: `<div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
-        <!-- Pulsing beacon background under the bike if halted -->
-        ${isHalted ? `<div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background: rgba(239, 68, 68, 0.45); animation: beacon-pulse 1.2s infinite;"></div>` : ''}
-        <!-- Rotating bike emoji -->
-        <div style="transform: rotate(${angle + 90}deg); font-size: 26px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transition: transform 0.2s ease; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
-            🛵
+    html: `<div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; z-index: 9999 !important;">
+        <!-- Pulsing beacon background under the arrow if halted -->
+        ${isHalted ? `<div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background: rgba(250, 204, 21, 0.45); animation: beacon-pulse 1.2s infinite;"></div>` : ''}
+        <!-- Rotating Yellow Navigation Arrow -->
+        <div style="transform: rotate(${angle}deg); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6)); transition: transform 0.2s ease; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="display: block; width: 100%; height: 100%;">
+                <path d="M12 2L2 22l10-6 10 6L12 2z" fill="#facc15" stroke="#0f172a" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
         </div>
     </div>`,
     iconSize: [34, 34],
@@ -519,7 +521,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
 
                 {/* Playback Pulsing Dot */}
                 {playbackPosition && (
-                    <Marker position={[playbackPosition.lat, playbackPosition.lng]} icon={movingIcon} />
+                    <Marker position={[playbackPosition.lat, playbackPosition.lng]} icon={movingIcon} zIndexOffset={1000} />
                 )}
 
                 <FitBounds path={routePath} />
