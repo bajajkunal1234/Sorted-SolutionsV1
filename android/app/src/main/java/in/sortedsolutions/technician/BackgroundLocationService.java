@@ -138,8 +138,8 @@ public class BackgroundLocationService extends Service {
                 if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
-                        30000,
-                        10,
+                        useGPS ? 30000 : 300000, // 30s during shift, 5 minutes outside
+                        useGPS ? 10 : 100,       // 10m during shift, 100 meters outside
                         locationListener
                     );
                     Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
@@ -200,12 +200,13 @@ public class BackgroundLocationService extends Service {
                     }
                 }
 
-                // Schedule next run in 5 minutes
-                handler.postDelayed(this, PING_INTERVAL_MS);
+                // Schedule next run: 1 minute during working hours, 15 minutes outside of working hours
+                long delay = isWorkingHours() ? 1 * 60 * 1000 : 15 * 60 * 1000;
+                handler.postDelayed(this, delay);
             }
         };
 
-        // Run immediately on start, then every 5 minutes
+        // Run immediately on start, then periodically
         handler.post(pingRunnable);
     }
 

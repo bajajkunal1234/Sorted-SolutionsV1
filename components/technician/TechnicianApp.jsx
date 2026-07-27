@@ -172,7 +172,7 @@ function TechnicianApp() {
                     // Check if getAppVersion method exists on the plugin
                     if (GPSBridgePlugin.getAppVersion) {
                         const res = await GPSBridgePlugin.getAppVersion();
-                        if (res && res.version === '1.2.0') {
+                        if (res && res.version === '1.3.0') {
                             // Up to date!
                             return;
                         }
@@ -612,6 +612,7 @@ function TechnicianApp() {
                 // Web/PWA: post coordinates.
                 if (!isNative) {
                     const activeWorkingHours = isWorkingHoursCheck();
+                    if (!activeWorkingHours) return;
                     // Web PWA fallback: Force precise location tracking during working/shift hours (8 AM - 9 PM)
                     // regardless of online/offline status toggle.
                     const pingPrecision = activeWorkingHours ? 'precise' : 'approx';
