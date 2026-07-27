@@ -965,7 +965,7 @@ export default function TechnicianTimelineTab() {
                             
                             {/* Playback speed selector */}
                             <div style={{ display: 'flex', gap: '4px' }}>
-                                {[1, 2, 5, 10, 20].map(speed => (
+                                {[0.5, 1, 2, 5, 10, 20].map(speed => (
                                     <button
                                         key={`speed-${speed}`}
                                         onClick={() => setPlaybackSpeed(speed)}

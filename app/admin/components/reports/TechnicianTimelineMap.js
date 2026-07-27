@@ -94,18 +94,14 @@ const serviceCenterIcon = new L.DivIcon({
     iconSize: [26, 34],
     iconAnchor: [13, 34],
     popupAnchor: [0, -34]
-});
-
-const getMovingIcon = (angle, isHalted) => new L.DivIcon({
+});const getMovingIcon = (angle, isHalted) => new L.DivIcon({
     className: '',
     html: `<div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
-        <!-- Pulsing beacon background -->
-        <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: ${isHalted ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.35)'}; ${isHalted ? 'animation: beacon-pulse 1.2s infinite;' : 'animation: beacon-pulse 2s infinite;'}"></div>
-        <!-- Main Pointer -->
-        <div style="position: relative; width: 26px; height: 26px; border-radius: 50%; background: ${isHalted ? '#ef4444' : '#3b82f6'}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 11px; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
+        <!-- Pulsing beacon background under the bike if halted -->
+        ${isHalted ? `<div style="position: absolute; width: 30px; height: 30px; border-radius: 50%; background: rgba(239, 68, 68, 0.45); animation: beacon-pulse 1.2s infinite;"></div>` : ''}
+        <!-- Rotating bike emoji -->
+        <div style="transform: rotate(${angle + 90}deg); font-size: 26px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); transition: transform 0.2s ease; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
             🛵
-            <!-- Directional arrow rotated on the edge of the circle -->
-            <div style="position: absolute; top: -5px; transform: rotate(${angle}deg); transform-origin: 50% 18px; font-size: 8px; color: ${isHalted ? '#ef4444' : '#3b82f6'}; text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;">▲</div>
         </div>
     </div>`,
     iconSize: [34, 34],
