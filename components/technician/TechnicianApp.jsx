@@ -172,7 +172,7 @@ function TechnicianApp() {
                     // Check if getAppVersion method exists on the plugin
                     if (GPSBridgePlugin.getAppVersion) {
                         const res = await GPSBridgePlugin.getAppVersion();
-                        if (res && res.version === '1.1.0') {
+                        if (res && res.version === '1.2.0') {
                             // Up to date!
                             return;
                         }
@@ -3365,7 +3365,7 @@ function TechnicianApp() {
                     <button
                         onClick={() => {
                             if (typeof window !== 'undefined') {
-                                window.open('https://sortedsolutions.in/downloads/technician-app.apk', '_system');
+                                window.location.href = 'https://sortedsolutions.in/downloads/technician-app.apk';
                             }
                         }}
                         style={{

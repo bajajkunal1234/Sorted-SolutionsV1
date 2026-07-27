@@ -29,7 +29,7 @@ public class BackgroundLocationService extends Service {
     private static final String CHANNEL_ID = "GPS_Service_Channel";
     private static final String PREFS_NAME = "SortedSolutionsGPS";
     private static final String KEY_TECH_ID = "technician_id";
-    private static final long PING_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+    private static final long PING_INTERVAL_MS = 1 * 60 * 1000; // 1 minute
 
     private LocationManager locationManager;
     private LocationListener locationListener;
