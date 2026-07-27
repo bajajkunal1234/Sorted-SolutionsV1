@@ -401,6 +401,46 @@ export async function POST(request) {
             }).catch(err => console.error(`[transactions/${type}/fireNotification]:`, err.message));
         }
 
+        // Send notifications to Admin and Technician when a Cash receipt is collected
+        if (type === 'receipt' && data.payment_mode?.toLowerCase() === 'cash' && data.status === 'pending_verification' && data.job_id) {
+            try {
+                const { data: job } = await supabase
+                    .from('jobs')
+                    .select('job_number, technician_id, technician_name, customer_name')
+                    .eq('id', data.job_id)
+                    .single();
+                if (job) {
+                    const amountVal = data.amount || 0;
+                    const techLabel = job.technician_name || data.created_by || 'Technician';
+                    const jobNum = job.job_number || data.job_id;
+
+                    // Admin notification
+                    await supabase.from('app_notifications').insert({
+                        recipient_type: 'admin',
+                        recipient_id: 'admin',
+                        title: 'Payment Collected',
+                        message: `${techLabel} collected ₹${amountVal} cash for Job #${jobNum} (Customer: ${job.customer_name || 'Walk-in'}).`,
+                        link: '/admin',
+                        is_read: false
+                    });
+
+                    // Technician notification
+                    if (job.technician_id) {
+                        await supabase.from('app_notifications').insert({
+                            recipient_type: 'technician',
+                            recipient_id: String(job.technician_id),
+                            title: 'Payment Collected',
+                            message: `Cash payment of ₹${amountVal} collected for Job #${jobNum} is pending admin verification.`,
+                            link: '/technician/dashboard',
+                            is_read: false
+                        });
+                    }
+                }
+            } catch (notifErr) {
+                console.error('[transactions/receipt/postNotif] failed:', notifErr.message);
+            }
+        }
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -537,6 +577,46 @@ export async function PUT(request) {
                 description: `${info.label} edited: ${data.reference || data.invoice_number || id}`,
                 source: 'Admin',
             });
+        }
+
+        // Send notifications to Admin and Technician when a Cash receipt is reviewed & cleared/posted
+        if (type === 'receipt' && data.payment_mode?.toLowerCase() === 'cash' && data.status === 'cleared' && data.job_id) {
+            try {
+                const { data: job } = await supabase
+                    .from('jobs')
+                    .select('job_number, technician_id, technician_name, customer_name')
+                    .eq('id', data.job_id)
+                    .single();
+                if (job) {
+                    const amountVal = data.amount || 0;
+                    const techLabel = job.technician_name || data.created_by || 'Technician';
+                    const jobNum = job.job_number || data.job_id;
+
+                    // Admin notification
+                    await supabase.from('app_notifications').insert({
+                        recipient_type: 'admin',
+                        recipient_id: 'admin',
+                        title: 'Payment Verified & Posted',
+                        message: `Payment of ₹${amountVal} cash for Job #${jobNum} collected by ${techLabel} has been reviewed and posted.`,
+                        link: '/admin',
+                        is_read: false
+                    });
+
+                    // Technician notification
+                    if (job.technician_id) {
+                        await supabase.from('app_notifications').insert({
+                            recipient_type: 'technician',
+                            recipient_id: String(job.technician_id),
+                            title: 'Payment Verified & Posted',
+                            message: `Your collected cash payment of ₹${amountVal} for Job #${jobNum} has been reviewed and verified by admin.`,
+                            link: '/technician/dashboard',
+                            is_read: false
+                        });
+                    }
+                }
+            } catch (notifErr) {
+                console.error('[transactions/receipt/putNotif] failed:', notifErr.message);
+            }
         }
 
         return NextResponse.json({ success: true, data })

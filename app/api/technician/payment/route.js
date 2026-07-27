@@ -88,3 +88,62 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
 }
+
+/**
+ * GET /api/technician/payment?technicianId=XXX
+ * Returns list of cash payments collected by the technician that are pending admin verification.
+ */
+export async function GET(request) {
+    const supabase = createServerSupabase();
+    try {
+        const { searchParams } = new URL(request.url);
+        const technicianId = searchParams.get('technicianId');
+
+        if (!technicianId) {
+            return NextResponse.json({ success: false, error: 'technicianId is required' }, { status: 400 });
+        }
+
+        // Verify active session token
+        const sessionToken = request.headers.get('x-session-token');
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single();
+
+        if (!tech || !tech.current_session_token || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 });
+        }
+
+        // Query receipt_vouchers pending verification for the technician's jobs
+        const { data, error } = await supabase
+            .from('receipt_vouchers')
+            .select(`
+                id,
+                receipt_number,
+                amount,
+                payment_mode,
+                status,
+                date,
+                created_at,
+                job_id,
+                jobs!inner (
+                    job_number,
+                    customer_name,
+                    technician_id
+                )
+            `)
+            .eq('status', 'pending_verification')
+            .ilike('payment_mode', 'Cash')
+            .eq('jobs.technician_id', technicianId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return NextResponse.json({ success: true, data });
+    } catch (error) {
+        console.error('[tech-payment GET] error:', error.message);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}
+

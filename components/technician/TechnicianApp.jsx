@@ -273,6 +273,7 @@ function TechnicianApp() {
         return true;
     });
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [pendingCashPayments, setPendingCashPayments] = useState([]);
     const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [stock, setStock] = useState([]);
@@ -1085,6 +1086,31 @@ function TechnicianApp() {
         }
     };
 
+    const fetchPendingCashPayments = async () => {
+        if (!technicianId) return;
+        try {
+            const token = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            let sessionToken = null;
+            if (token) {
+                sessionToken = JSON.parse(token).session_token;
+            }
+
+            const response = await fetch(`/api/technician/payment?technicianId=${technicianId}&t=${Date.now()}`, {
+                headers: {
+                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                }
+            });
+            if (response.ok) {
+                const json = await response.json();
+                if (json.success) {
+                    setPendingCashPayments(json.data || []);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching pending cash payments:', err);
+        }
+    };
+
     const fetchJobs = async (isBackground = false) => {
         if (!technicianId) return;
         try {
@@ -1172,10 +1198,12 @@ function TechnicianApp() {
         fetchProfile();
         fetchScheduledJobs();
         fetchPurchaseRequests();
+        fetchPendingCashPayments();
 
         // Listen for offline sync completion to reload jobs list
         const handleSyncComplete = () => {
             fetchJobs(true);
+            fetchPendingCashPayments();
         };
         window.addEventListener('offline-sync-complete', handleSyncComplete);
 
@@ -1184,6 +1212,7 @@ function TechnicianApp() {
         const pollInterval = setInterval(() => {
             fetchJobs(true);
             fetchScheduledJobs();
+            fetchPendingCashPayments();
         }, 30000);
 
         // Setup real-time listener (best-effort; polling handles missed events)
@@ -3081,6 +3110,111 @@ function TechnicianApp() {
                 </div>
 
 
+                {/* Cash Flow / Handover Card */}
+                <div 
+                    className="card"
+                    style={{ 
+                        padding: 'var(--spacing-lg)', 
+                        borderLeft: '4px solid #10b981', 
+                        backgroundColor: 'var(--bg-elevated)', 
+                        borderRadius: 'var(--radius-lg)', 
+                        boxShadow: 'var(--shadow-sm)' 
+                    }}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            <DollarSign size={20} color="#10b981" /> Cash Flow / Handover
+                        </h3>
+                        <div style={{ 
+                            fontSize: '13px', 
+                            fontWeight: 700, 
+                            color: '#10b981', 
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                            padding: '4px 10px', 
+                            borderRadius: '12px' 
+                        }}>
+                            Total in Hand: ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                    </div>
+
+                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+                        List of cash payments collected by you that need to be handed over to the service center at the end of the day. Once the admin reviews and posts the receipt, the entry will vanish from this list.
+                    </p>
+
+                    {pendingCashPayments.length === 0 ? (
+                        <div style={{ 
+                            padding: '16px', 
+                            textAlign: 'center', 
+                            backgroundColor: 'var(--bg-secondary)', 
+                            borderRadius: '8px', 
+                            border: '1px dashed var(--border-primary)', 
+                            color: 'var(--text-tertiary)',
+                            fontSize: '13px',
+                            fontWeight: 500
+                        }}>
+                            🎉 No pending cash handover. All cash settled!
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                            {pendingCashPayments.map((payment) => {
+                                const collectedDate = new Date(payment.created_at || payment.date);
+                                const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
+
+                                return (
+                                    <div 
+                                        key={payment.id}
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px',
+                                            padding: '10px 12px',
+                                            borderRadius: '8px',
+                                            backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
+                                            border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
+                                            position: 'relative',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    {payment.jobs?.customer_name || 'Walk-in Customer'}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                    Job: #{payment.jobs?.job_number || 'General'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
+                                                    ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                    {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {isOneDayAgo && (
+                                            <div style={{
+                                                fontSize: '10px',
+                                                fontWeight: 700,
+                                                color: '#ef4444',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                marginTop: '2px'
+                                            }}>
+                                                ⚠️ Collected &gt; 24h ago — Handover Urgent!
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+
                 {/* Grid / List Cards Wrapper */}
                 <div style={{ 
                     display: dashboardView === 'grid' ? 'grid' : 'flex',
@@ -3746,7 +3880,10 @@ function TechnicianApp() {
                             if (technicianId) {
                                 apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(res => res.json())
-                                    .then(data => setJobs(data.jobs || []))
+                                    .then(data => {
+                                        setJobs(data.jobs || []);
+                                        fetchPendingCashPayments();
+                                    })
                                     .catch(err => console.error('Error refreshing jobs:', err));
                             }
                         }, 1000);
@@ -3762,7 +3899,8 @@ function TechnicianApp() {
                     currentUserName={firstName}
                     currentUserId={technicianId}
                     onSuccess={() => {
-                        // Optionally refresh the Dashboard or active jobs
+                        fetchJobs(true);
+                        fetchPendingCashPayments();
                     }}
                 />
             )}
