@@ -330,4 +330,25 @@ public class GPSBridgePlugin extends Plugin {
             call.reject("Failed to share document: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void openSystemBrowser(PluginCall call) {
+        String urlString = call.getString("url");
+        if (urlString == null || urlString.isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(urlString));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            e.printStackTrace();
+            call.reject("Failed to open browser: " + e.getMessage());
+        }
+    }
 }

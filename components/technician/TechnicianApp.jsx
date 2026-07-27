@@ -3500,7 +3500,15 @@ function TechnicianApp() {
                     <button
                         onClick={() => {
                             if (typeof window !== 'undefined') {
-                                window.location.href = 'https://sortedsolutions.in/downloads/technician-app.apk';
+                                const isNative = isNativePlatform();
+                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app.apk';
+                                if (isNative && GPSBridgePlugin && GPSBridgePlugin.openSystemBrowser) {
+                                    GPSBridgePlugin.openSystemBrowser({ url: downloadUrl }).catch(() => {
+                                        window.location.href = downloadUrl;
+                                    });
+                                } else {
+                                    window.location.href = downloadUrl;
+                                }
                             }
                         }}
                         style={{
