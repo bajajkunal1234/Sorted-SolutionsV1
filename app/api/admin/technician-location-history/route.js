@@ -41,15 +41,33 @@ export async function GET(request) {
             const m = parseInt(month.split('-')[1])
             const endMonth = new Date(year, m, 0, 23, 59, 59) // End of this month local timezone
 
-            const { data: logs, error: logsError } = await supabase
-                .from('technician_location_logs')
-                .select('latitude, longitude, created_at, location_precision')
-                .eq('technician_id', technicianId)
-                .gte('created_at', startMonth.toISOString())
-                .lte('created_at', endMonth.toISOString())
-                .order('created_at', { ascending: true })
+            let logs = []
+            let page = 0
+            const pageSize = 1000
+            let hasMore = true
 
-            if (logsError) throw logsError
+            while (hasMore) {
+                const offset = page * pageSize
+                const { data: pageLogs, error: logsError } = await supabase
+                    .from('technician_location_logs')
+                    .select('latitude, longitude, created_at, location_precision')
+                    .eq('technician_id', technicianId)
+                    .gte('created_at', startMonth.toISOString())
+                    .lte('created_at', endMonth.toISOString())
+                    .order('created_at', { ascending: true })
+                    .range(offset, offset + pageSize - 1)
+
+                if (logsError) throw logsError
+                if (!pageLogs || pageLogs.length === 0) {
+                    hasMore = false
+                } else {
+                    logs = logs.concat(pageLogs)
+                    if (pageLogs.length < pageSize) {
+                        hasMore = false
+                    }
+                }
+                page++
+            }
 
             // Group logs by day and calculate total distance
             const dailyDistances = {}
@@ -98,17 +116,33 @@ export async function GET(request) {
         const endIST = new Date(`${date}T23:59:59+05:30`)
 
         // 2. Fetch all location pings for that day
-        const { data: logsData, error: logsError } = await supabase
-            .from('technician_location_logs')
-            .select('*')
-            .eq('technician_id', technicianId)
-            .gte('created_at', startIST.toISOString())
-            .lte('created_at', endIST.toISOString())
-            .order('created_at', { ascending: true })
+        let logs = []
+        let dailyPage = 0
+        const dailyPageSize = 1000
+        let dailyHasMore = true
 
-        if (logsError) throw logsError
+        while (dailyHasMore) {
+            const offset = dailyPage * dailyPageSize
+            const { data: pageLogs, error: logsError } = await supabase
+                .from('technician_location_logs')
+                .select('*')
+                .eq('technician_id', technicianId)
+                .gte('created_at', startIST.toISOString())
+                .lte('created_at', endIST.toISOString())
+                .order('created_at', { ascending: true })
+                .range(offset, offset + dailyPageSize - 1)
 
-        let logs = logsData || []
+            if (logsError) throw logsError
+            if (!pageLogs || pageLogs.length === 0) {
+                dailyHasMore = false
+            } else {
+                logs = logs.concat(pageLogs)
+                if (pageLogs.length < dailyPageSize) {
+                    dailyHasMore = false
+                }
+            }
+            dailyPage++
+        }
 
         // Fallback: If no logs found for today, check the latest live location of the technician
         if (logs.length === 0) {
