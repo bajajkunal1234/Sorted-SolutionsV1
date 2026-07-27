@@ -54,44 +54,66 @@ function getClosestSnappedPoint(pt, snappedPath) {
     return closest; // [lat, lng]
 }
 
-const startIcon = new L.DivIcon({
+const createPinIcon = (color, badgeBg, badgeTextColor, label) => new L.DivIcon({
     className: '',
-    html: `<div style="width:26px;height:26px;border-radius:50%;background:#10b981;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3)">S</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-});
-
-const endIcon = new L.DivIcon({
-    className: '',
-    html: `<div style="width:26px;height:26px;border-radius:50%;background:#ef4444;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3)">E</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-});
-
-const stopIcon = (index, duration) => new L.DivIcon({
-    className: '',
-    html: `<div style="width:28px;height:28px;border-radius:50%;background:#64748b;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3)" title="Stopped for ${duration} mins">P${index}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
-});
-
-const jobIcon = (jobNumber) => new L.DivIcon({
-    className: '',
-    html: `<div style="width:30px;height:30px;border-radius:8px;background:#f59e0b;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:bold;box-shadow:0 2px 5px rgba(0,0,0,0.3)">${jobNumber.split('-')[1] || 'J'}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -15],
-});
-
-const playbackIcon = new L.DivIcon({
-    className: '',
-    html: `<div style="position:relative;width:20px;height:20px;border-radius:50%;background:#3b82f6;border:2px solid #ffffff;box-shadow:0 2px 5px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;">
-        <div style="position:absolute;top:-4px;left:-4px;width:24px;height:24px;border-radius:50%;background:#3b82f6;opacity:0.4;animation:ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite"></div>
-        <div style="width:8px;height:8px;border-radius:50%;background:#ffffff;"></div>
+    html: `<div style="position: relative; width: 34px; height: 42px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.35));">
+        <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+            <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="${color}"/>
+        </svg>
+        <div style="position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: ${badgeBg}; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: ${badgeTextColor}; text-align: center;">
+            ${label}
+        </div>
     </div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    iconSize: [34, 42],
+    iconAnchor: [17, 42],
+    popupAnchor: [0, -42]
+});
+
+const startIcon = createPinIcon('#ffffff', '#10b981', '#ffffff', 'S');
+const endIcon = createPinIcon('#0f172a', '#ef4444', '#ffffff', 'E');
+const stopIcon = (index) => createPinIcon('#64748b', '#ffffff', '#334155', `P${index}`);
+
+const getJobIcon = (jobNumber, status) => {
+    const numLabel = jobNumber ? (jobNumber.split('-')[1] || 'J') : 'J';
+    const isClosedOrCancelled = status === 'closed' || status === 'cancelled';
+    if (isClosedOrCancelled) {
+        return createPinIcon('#10b981', '#ffffff', '#065f46', numLabel);
+    } else {
+        return createPinIcon('#eab308', '#ffffff', '#854d0e', numLabel);
+    }
+};
+
+const getSupplierIcon = (name) => createPinIcon('#f97316', '#ffffff', '#9a3412', '🏬');
+
+const serviceCenterIcon = new L.DivIcon({
+    className: '',
+    html: `<div style="position: relative; width: 36px; height: 44px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 6px rgba(0,0,0,0.4));">
+        <svg width="36" height="44" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+            <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#4f46e5"/>
+        </svg>
+        <div style="position: absolute; top: 3px; left: 3px; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; background: #ffffff; border: 1.5px solid #ffffff; display: flex; align-items: center; justify-content: center;">
+            <img src="/logo-dark.jpg" style="width: 100%; height: 100%; object-fit: cover;" />
+        </div>
+    </div>`,
+    iconSize: [36, 44],
+    iconAnchor: [18, 44],
+    popupAnchor: [0, -44]
+});
+
+const getMovingIcon = (angle, isHalted) => new L.DivIcon({
+    className: '',
+    html: `<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+        <!-- Pulsing beacon background -->
+        <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: ${isHalted ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.35)'}; ${isHalted ? 'animation: beacon-pulse 1.2s infinite;' : 'animation: beacon-pulse 2s infinite;'}"></div>
+        <!-- Main Pointer -->
+        <div style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: ${isHalted ? '#ef4444' : '#3b82f6'}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 14px; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
+            🛵
+            <!-- Directional arrow rotated on the edge of the circle -->
+            <div style="position: absolute; top: -6px; transform: rotate(${angle}deg); transform-origin: 50% 21px; font-size: 9px; color: ${isHalted ? '#ef4444' : '#3b82f6'}; text-shadow: 0 0 3px #ffffff, 0 0 3px #ffffff;">▲</div>
+        </div>
+    </div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
 });
 
 const formatDuration = (totalMins) => {
@@ -104,13 +126,7 @@ const formatDuration = (totalMins) => {
     return `${mins} min${mins > 1 ? 's' : ''}`;
 };
 
-const supplierIcon = (name) => new L.DivIcon({
-    className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:#3b82f6;border:2px solid #ffffff;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 5px rgba(0,0,0,0.3)" title="Supplier: ${name}">🏬</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -15],
-});
+
 
 function getSupplierCoordinates(supplier) {
     if (!supplier) return null;
@@ -189,6 +205,33 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
         return result;
     }, [routePath, snappedPath]);
 
+    const currentStop = useMemo(() => {
+        if (!playbackPosition || !stops || stops.length === 0) return null;
+        const playTime = new Date(playbackPosition.time).getTime();
+        return stops.find(s => {
+            const arr = new Date(s.arrivalTime).getTime();
+            const dep = new Date(s.departureTime).getTime();
+            return playTime >= arr && playTime <= dep;
+        });
+    }, [playbackPosition, stops]);
+
+    const playbackHeading = useMemo(() => {
+        if (!playbackPosition || !routePath || routePath.length < 2) return 0;
+        const idx = routePath.findIndex(p => p.time === playbackPosition.time);
+        if (idx >= 0 && idx < routePath.length - 1) {
+            return getBearing(routePath[idx].lat, routePath[idx].lng, routePath[idx+1].lat, routePath[idx+1].lng);
+        } else if (idx > 0) {
+            return getBearing(routePath[idx-1].lat, routePath[idx-1].lng, routePath[idx].lat, routePath[idx].lng);
+        }
+        return 0;
+    }, [playbackPosition, routePath]);
+
+    const isHalted = !!currentStop;
+
+    const movingIcon = useMemo(() => {
+        return getMovingIcon(playbackHeading, isHalted);
+    }, [playbackHeading, isHalted]);
+
     useEffect(() => {
         const cachedType = localStorage.getItem('mapViewType');
         if (cachedType) {
@@ -253,6 +296,15 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                 }
                 .dark-map-tiles {
                     filter: grayscale(100%) invert(90%) brightness(95%) contrast(100%) !important;
+                }
+                @keyframes beacon-pulse {
+                    0% { transform: scale(0.8); opacity: 0.8; }
+                    50% { transform: scale(1.4); opacity: 0.3; }
+                    100% { transform: scale(2.0); opacity: 0; }
+                }
+                @keyframes halt-blink {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.7; transform: scale(0.93); }
                 }
             `}</style>
             {/* Map Style Overlay controls */}
@@ -439,7 +491,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     if (!lat || !lng) return null;
 
                     return (
-                        <Marker key={`job-${job.id}-${i}`} position={[lat, lng]} icon={jobIcon(job.jobNumber)}>
+                        <Marker key={`job-${job.id}-${i}`} position={[lat, lng]} icon={getJobIcon(job.jobNumber, job.status)}>
                             <Popup>
                                 <strong>{job.jobNumber} ({job.category}) - <span style={{ textTransform: 'capitalize' }}>{job.status?.replace(/_/g, ' ')}</span></strong><br />
                                 Customer: {job.customerName}<br />
@@ -455,7 +507,7 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     if (!coords) return null;
 
                     return (
-                        <Marker key={`supplier-${supplier.id}-${i}`} position={[coords.lat, coords.lng]} icon={supplierIcon(supplier.name)}>
+                        <Marker key={`supplier-${supplier.id}-${i}`} position={[coords.lat, coords.lng]} icon={getSupplierIcon(supplier.name)}>
                             <Popup>
                                 <strong>🏬 Supplier: {supplier.name}</strong><br />
                                 Type: {supplier.groupName || 'Spare Parts Supplier'}<br />
@@ -465,9 +517,17 @@ export default function TechnicianTimelineMap({ routePath = [], stops = [], jobs
                     );
                 })}
 
+                {/* Service Center Marker */}
+                <Marker position={[19.1530932, 72.8847337]} icon={serviceCenterIcon}>
+                    <Popup>
+                        <strong>🏢 Sorted Solutions Service Center</strong><br />
+                        Orchard Mall, Royal Palms, Goregaon East, Mumbai
+                    </Popup>
+                </Marker>
+
                 {/* Playback Pulsing Dot */}
                 {playbackPosition && (
-                    <Marker position={[playbackPosition.lat, playbackPosition.lng]} icon={playbackIcon} />
+                    <Marker position={[playbackPosition.lat, playbackPosition.lng]} icon={movingIcon} />
                 )}
 
                 <FitBounds path={routePath} />
