@@ -54,66 +54,65 @@ function getClosestSnappedPoint(pt, snappedPath) {
     return closest; // [lat, lng]
 }
 
-const createPinIcon = (color, badgeBg, badgeTextColor, label) => new L.DivIcon({
+const createPinIcon = (color, badgeBg, badgeTextColor, label, strokeColor = '#ffffff') => new L.DivIcon({
     className: '',
-    html: `<div style="position: relative; width: 34px; height: 42px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.35));">
-        <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
-            <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="${color}"/>
+    html: `<div style="position: relative; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">
+        <svg width="24" height="32" viewBox="0 0 24 32" fill="none" style="display: block; width: 100%; height: 100%;">
+            <path d="M12 1.5C6.75 1.5 2.5 5.75 2.5 11c0 7.5 9.5 19 9.5 19s9.5-11.5 9.5-19c0-5.25-4.25-9.5-9.5-9.5z" fill="${color}" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="12" cy="11" r="7.5" fill="${badgeBg}"/>
+            <text x="12" y="13.8" fill="${badgeTextColor}" font-size="8" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${label}</text>
         </svg>
-        <div style="position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: ${badgeBg}; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; color: ${badgeTextColor}; text-align: center;">
-            ${label}
-        </div>
     </div>`,
-    iconSize: [34, 42],
-    iconAnchor: [17, 42],
-    popupAnchor: [0, -42]
+    iconSize: [24, 32],
+    iconAnchor: [12, 32],
+    popupAnchor: [0, -32]
 });
 
-const startIcon = createPinIcon('#ffffff', '#10b981', '#ffffff', 'S');
-const endIcon = createPinIcon('#0f172a', '#ef4444', '#ffffff', 'E');
-const stopIcon = (index) => createPinIcon('#64748b', '#ffffff', '#334155', `P${index}`);
+const startIcon = createPinIcon('#ffffff', '#10b981', '#ffffff', 'S', '#0f172a');
+const endIcon = createPinIcon('#0f172a', '#ef4444', '#ffffff', 'E', '#ffffff');
+const stopIcon = (index) => createPinIcon('#64748b', '#ffffff', '#334155', `P${index}`, '#ffffff');
 
 const getJobIcon = (jobNumber, status) => {
     const numLabel = jobNumber ? (jobNumber.split('-')[1] || 'J') : 'J';
     const isClosedOrCancelled = status === 'closed' || status === 'cancelled';
     if (isClosedOrCancelled) {
-        return createPinIcon('#10b981', '#ffffff', '#065f46', numLabel);
+        return createPinIcon('#10b981', '#ffffff', '#065f46', numLabel, '#ffffff');
     } else {
-        return createPinIcon('#eab308', '#ffffff', '#854d0e', numLabel);
+        return createPinIcon('#eab308', '#ffffff', '#854d0e', numLabel, '#ffffff');
     }
 };
 
-const getSupplierIcon = (name) => createPinIcon('#f97316', '#ffffff', '#9a3412', '🏬');
+const getSupplierIcon = (name) => createPinIcon('#f97316', '#ffffff', '#9a3412', '🏬', '#ffffff');
 
 const serviceCenterIcon = new L.DivIcon({
     className: '',
-    html: `<div style="position: relative; width: 36px; height: 44px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0px 2px 6px rgba(0,0,0,0.4));">
-        <svg width="36" height="44" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
-            <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#4f46e5"/>
+    html: `<div style="position: relative; width: 26px; height: 34px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.45));">
+        <svg width="26" height="34" viewBox="0 0 24 32" fill="none" style="display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
+            <path d="M12 1.5C6.75 1.5 2.5 5.75 2.5 11c0 7.5 9.5 19 9.5 19s9.5-11.5 9.5-19c0-5.25-4.25-9.5-9.5-9.5z" fill="#4f46e5" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/>
         </svg>
-        <div style="position: absolute; top: 3px; left: 3px; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; background: #ffffff; border: 1.5px solid #ffffff; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; top: 3.5px; left: 3.5px; width: 19px; height: 19px; border-radius: 50%; overflow: hidden; background: #ffffff;">
             <img src="/logo-dark.jpg" style="width: 100%; height: 100%; object-fit: cover;" />
         </div>
     </div>`,
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44]
+    iconSize: [26, 34],
+    iconAnchor: [13, 34],
+    popupAnchor: [0, -34]
 });
 
 const getMovingIcon = (angle, isHalted) => new L.DivIcon({
     className: '',
-    html: `<div style="position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+    html: `<div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
         <!-- Pulsing beacon background -->
         <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background: ${isHalted ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.35)'}; ${isHalted ? 'animation: beacon-pulse 1.2s infinite;' : 'animation: beacon-pulse 2s infinite;'}"></div>
         <!-- Main Pointer -->
-        <div style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: ${isHalted ? '#ef4444' : '#3b82f6'}; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 14px; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
+        <div style="position: relative; width: 26px; height: 26px; border-radius: 50%; background: ${isHalted ? '#ef4444' : '#3b82f6'}; border: 2px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; font-size: 11px; ${isHalted ? 'animation: halt-blink 1s ease-in-out infinite;' : ''}">
             🛵
             <!-- Directional arrow rotated on the edge of the circle -->
-            <div style="position: absolute; top: -6px; transform: rotate(${angle}deg); transform-origin: 50% 21px; font-size: 9px; color: ${isHalted ? '#ef4444' : '#3b82f6'}; text-shadow: 0 0 3px #ffffff, 0 0 3px #ffffff;">▲</div>
+            <div style="position: absolute; top: -5px; transform: rotate(${angle}deg); transform-origin: 50% 18px; font-size: 8px; color: ${isHalted ? '#ef4444' : '#3b82f6'}; text-shadow: 0 0 2px #ffffff, 0 0 2px #ffffff;">▲</div>
         </div>
     </div>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20]
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
 });
 
 const formatDuration = (totalMins) => {
