@@ -54,35 +54,32 @@ function getClosestSnappedPoint(pt, snappedPath) {
     return closest; // [lat, lng]
 }
 
-const createPinIcon = (color, badgeBg, badgeTextColor, label, strokeColor = '#ffffff') => new L.DivIcon({
+const createPinIcon = (color, strokeColor = '#ffffff') => new L.DivIcon({
     className: '',
-    html: `<div style="position: relative; width: 24px; height: 32px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">
-        <svg width="24" height="32" viewBox="0 0 24 32" fill="none" style="display: block; width: 100%; height: 100%;">
-            <path d="M12 1.5C6.75 1.5 2.5 5.75 2.5 11c0 7.5 9.5 19 9.5 19s9.5-11.5 9.5-19c0-5.25-4.25-9.5-9.5-9.5z" fill="${color}" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round"/>
-            <circle cx="12" cy="11" r="7.5" fill="${badgeBg}"/>
-            <text x="12" y="13.8" fill="${badgeTextColor}" font-size="8" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${label}</text>
+    html: `<div style="position: relative; width: 20px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">
+        <svg width="20" height="28" viewBox="0 0 20 28" fill="none" style="display: block; width: 100%; height: 100%;">
+            <path d="M10 1C5.03 1 1 5.03 1 10c0 6.75 9 17 9 17s9-10.25 9-17c0-4.97-4.03-9-9-9z" fill="${color}" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round"/>
         </svg>
     </div>`,
-    iconSize: [24, 32],
-    iconAnchor: [12, 32],
-    popupAnchor: [0, -32]
+    iconSize: [20, 28],
+    iconAnchor: [10, 28],
+    popupAnchor: [0, -28]
 });
 
-const startIcon = createPinIcon('#ffffff', '#10b981', '#ffffff', 'S', '#0f172a');
-const endIcon = createPinIcon('#0f172a', '#ef4444', '#ffffff', 'E', '#ffffff');
-const stopIcon = (index) => createPinIcon('#64748b', '#ffffff', '#334155', `P${index}`, '#ffffff');
+const startIcon = createPinIcon('#ffffff', '#0f172a');
+const endIcon = createPinIcon('#0f172a', '#ffffff');
+const stopIcon = (index) => createPinIcon('#64748b', '#ffffff');
 
 const getJobIcon = (jobNumber, status) => {
-    const numLabel = jobNumber ? (jobNumber.split('-')[1] || 'J') : 'J';
     const isClosedOrCancelled = status === 'closed' || status === 'cancelled';
     if (isClosedOrCancelled) {
-        return createPinIcon('#10b981', '#ffffff', '#065f46', numLabel, '#ffffff');
+        return createPinIcon('#10b981', '#ffffff');
     } else {
-        return createPinIcon('#eab308', '#ffffff', '#854d0e', numLabel, '#ffffff');
+        return createPinIcon('#eab308', '#ffffff');
     }
 };
 
-const getSupplierIcon = (name) => createPinIcon('#f97316', '#ffffff', '#9a3412', '🏬', '#ffffff');
+const getSupplierIcon = (name) => createPinIcon('#f97316', '#ffffff');
 
 const serviceCenterIcon = new L.DivIcon({
     className: '',
