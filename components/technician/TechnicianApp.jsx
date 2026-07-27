@@ -273,6 +273,7 @@ function TechnicianApp() {
         return true;
     });
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [showCashFlowModal, setShowCashFlowModal] = useState(false);
     const [pendingCashPayments, setPendingCashPayments] = useState([]);
     const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
@@ -3113,105 +3114,38 @@ function TechnicianApp() {
                 {/* Cash Flow / Handover Card */}
                 <div 
                     className="card"
+                    onClick={() => setShowCashFlowModal(true)}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     style={{ 
                         padding: 'var(--spacing-lg)', 
                         borderLeft: '4px solid #10b981', 
                         backgroundColor: 'var(--bg-elevated)', 
                         borderRadius: 'var(--radius-lg)', 
-                        boxShadow: 'var(--shadow-sm)' 
+                        boxShadow: 'var(--shadow-sm)',
+                        cursor: 'pointer',
+                        transition: 'transform 0.2s',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                     }}
                 >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            <DollarSign size={20} color="#10b981" /> Cash Flow / Handover
-                        </h3>
+                    <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <DollarSign size={20} color="#10b981" /> Cash Flow / Handover
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ 
-                            fontSize: '13px', 
+                            fontSize: '14px', 
                             fontWeight: 700, 
                             color: '#10b981', 
                             backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                            padding: '4px 10px', 
+                            padding: '6px 12px', 
                             borderRadius: '12px' 
                         }}>
                             Total in Hand: ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
                     </div>
-
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.4 }}>
-                        List of cash payments collected by you that need to be handed over to the service center at the end of the day. Once the admin reviews and posts the receipt, the entry will vanish from this list.
-                    </p>
-
-                    {pendingCashPayments.length === 0 ? (
-                        <div style={{ 
-                            padding: '16px', 
-                            textAlign: 'center', 
-                            backgroundColor: 'var(--bg-secondary)', 
-                            borderRadius: '8px', 
-                            border: '1px dashed var(--border-primary)', 
-                            color: 'var(--text-tertiary)',
-                            fontSize: '13px',
-                            fontWeight: 500
-                        }}>
-                            🎉 No pending cash handover. All cash settled!
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
-                            {pendingCashPayments.map((payment) => {
-                                const collectedDate = new Date(payment.created_at || payment.date);
-                                const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
-
-                                return (
-                                    <div 
-                                        key={payment.id}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '6px',
-                                            padding: '10px 12px',
-                                            borderRadius: '8px',
-                                            backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
-                                            border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
-                                            position: 'relative',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                    {payment.jobs?.customer_name || 'Walk-in Customer'}
-                                                </span>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                                    Job: #{payment.jobs?.job_number || 'General'}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                                <span style={{ fontSize: '13px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
-                                                    ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                    {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {isOneDayAgo && (
-                                            <div style={{
-                                                fontSize: '10px',
-                                                fontWeight: 700,
-                                                color: '#ef4444',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                marginTop: '2px'
-                                            }}>
-                                                ⚠️ Collected &gt; 24h ago — Handover Urgent!
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
                 </div>
 
 
@@ -3911,6 +3845,215 @@ function TechnicianApp() {
                         fetchPendingCashPayments();
                     }}
                 />
+            )}
+
+            {/* Cash Flow Details Modal */}
+            {showCashFlowModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(4px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 'var(--spacing-md)'
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--bg-elevated)',
+                        borderRadius: 'var(--radius-lg)',
+                        width: '100%',
+                        maxWidth: '480px',
+                        maxHeight: '85vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: 'var(--shadow-lg)',
+                        border: '1px solid var(--border-primary)',
+                        overflow: 'hidden'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            padding: 'var(--spacing-md) var(--spacing-lg)',
+                            borderBottom: '1px solid var(--border-primary)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: 'var(--bg-secondary)'
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <DollarSign size={20} color="#10b981" /> Cash Flow Details
+                            </h3>
+                            <button
+                                onClick={() => setShowCashFlowModal(false)}
+                                style={{
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '4px'
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div style={{
+                            padding: 'var(--spacing-lg)',
+                            overflowY: 'auto',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 'var(--spacing-md)'
+                        }}>
+                            {/* Summary card inside modal */}
+                            <div style={{
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)',
+                                borderRadius: '8px',
+                                padding: '12px 16px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>Total Cash to Handover:</span>
+                                <span style={{ fontSize: '20px', fontWeight: 700, color: '#10b981' }}>
+                                    ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </div>
+
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                                Handover this cash to the service center at the end of your shift. Once the admin verifies and posts the receipt, these entries will vanish.
+                            </p>
+
+                            {pendingCashPayments.length === 0 ? (
+                                <div style={{
+                                    padding: '24px',
+                                    textAlign: 'center',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    borderRadius: '8px',
+                                    border: '1px dashed var(--border-primary)',
+                                    color: 'var(--text-tertiary)',
+                                    fontSize: '13px',
+                                    fontWeight: 500
+                                }}>
+                                    🎉 No pending cash handover. All cash settled!
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {pendingCashPayments.map((payment) => {
+                                        const collectedDate = new Date(payment.created_at || payment.date);
+                                        const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
+                                        
+                                        // Resolve locality and appliance
+                                        const propData = payment.jobs?.property;
+                                        const locality = propData?.locality || propData?.city || 'No location';
+                                        const appliance = payment.jobs?.appliance || 'No appliance';
+
+                                        return (
+                                            <div
+                                                key={payment.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '8px',
+                                                    padding: '12px 14px',
+                                                    borderRadius: '8px',
+                                                    backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
+                                                    border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
+                                                    transition: 'border-color 0.2s'
+                                                }}
+                                            >
+                                                {/* Header Row */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                            {payment.jobs?.customer_name || 'Walk-in Customer'}
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                            Job: #{payment.jobs?.job_number || 'General'}
+                                                        </span>
+                                                    </div>
+                                                    <span style={{ fontSize: '15px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
+                                                        ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+
+                                                {/* Details Row (Locality & Appliance) */}
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    flexWrap: 'wrap', 
+                                                    gap: '12px', 
+                                                    fontSize: '12px',
+                                                    color: 'var(--text-secondary)',
+                                                    borderTop: '1px solid var(--border-primary)',
+                                                    paddingTop: '8px',
+                                                    marginTop: '2px'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <MapPin size={12} color="var(--text-tertiary)" />
+                                                        <span>{locality}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Briefcase size={12} color="var(--text-tertiary)" />
+                                                        <span>{appliance}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Date and Warning */}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                        Collected: {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                    </span>
+                                                    {isOneDayAgo && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 700,
+                                                            color: '#ef4444'
+                                                        }}>
+                                                            ⚠️ Overdue Handover
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{
+                            padding: 'var(--spacing-md) var(--spacing-lg)',
+                            borderTop: '1px solid var(--border-primary)',
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            backgroundColor: 'var(--bg-secondary)'
+                        }}>
+                            <button
+                                onClick={() => setShowCashFlowModal(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    backgroundColor: '#10b981',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    boxShadow: 'var(--shadow-sm)'
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Estimate/Repair Calculator Overlay */}

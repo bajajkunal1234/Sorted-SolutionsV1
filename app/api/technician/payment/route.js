@@ -130,7 +130,9 @@ export async function GET(request) {
                 jobs!inner (
                     job_number,
                     customer_name,
-                    technician_id
+                    technician_id,
+                    appliance,
+                    property
                 )
             `)
             .eq('status', 'pending_verification')
