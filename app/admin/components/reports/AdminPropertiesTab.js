@@ -439,11 +439,16 @@ export default function AdminPropertiesTab() {
                                         <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={12} color="#38bdf8" /> Location Pin</span>
                                             {selected.latitude && selected.longitude && (
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: selected.location_verified_by ? '#10b981' : '#38bdf8', background: selected.location_verified_by ? 'rgba(16,185,129,0.1)' : 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: 20, border: `1px solid ${selected.location_verified_by ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}` }}>
-                                                    {selected.location_verified_by
-                                                        ? `✅ Verified by ${selected.location_verified_by}`
-                                                        : '📍 Precise'}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>
+                                                        ({Number(selected.latitude).toFixed(5)}, {Number(selected.longitude).toFixed(5)})
+                                                    </span>
+                                                    <span style={{ fontSize: 10, fontWeight: 700, color: selected.location_verified_by ? '#10b981' : '#38bdf8', background: selected.location_verified_by ? 'rgba(16,185,129,0.1)' : 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: 20, border: `1px solid ${selected.location_verified_by ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}` }}>
+                                                        {selected.location_verified_by
+                                                            ? `✅ Verified by ${selected.location_verified_by}`
+                                                            : '📍 Precise'}
+                                                    </span>
+                                                </div>
                                             )}
                                         </div>
                                         {selected.latitude && selected.longitude ? (

@@ -52,6 +52,25 @@ export async function GET(request, { params }) {
             amcData = res.data || null
         }
 
+        // Fetch properties row if job.property_id is set
+        if (job.property_id && !String(job.property_id).startsWith('inline')) {
+            const { data: dbProp } = await supabase
+                .from('properties')
+                .select('*')
+                .eq('id', job.property_id)
+                .maybeSingle();
+
+            if (dbProp) {
+                job.property = {
+                    ...(job.property || {}),
+                    latitude: dbProp.latitude || job.property?.latitude || null,
+                    longitude: dbProp.longitude || job.property?.longitude || null,
+                    location_verified_by: dbProp.location_verified_by || job.property?.location_verified_by || null,
+                    location_verified_at: dbProp.location_verified_at || job.property?.location_verified_at || null,
+                };
+            }
+        }
+
         // Resolve property JSONB blob into normalised address fields
         const resolveProperty = (prop) => {
             if (!prop) return {};
@@ -182,7 +201,7 @@ export async function PUT(request, { params }) {
         // Fetch current job state
         const { data: existing } = await supabase
             .from('jobs')
-            .select('status, customer_id, customer_name, job_number, technician_id, technician_name, repair_note_added_at, on_way_at, arrived_at')
+            .select('status, customer_id, customer_name, job_number, technician_id, technician_name, repair_note_added_at, on_way_at, arrived_at, property, property_id')
             .eq('id', id)
             .single();
 
@@ -285,6 +304,68 @@ export async function PUT(request, { params }) {
             }).catch(() => {});
 
             return NextResponse.json({ success: true, job, message: `Arrived — status set to ${newStatus}` });
+        }
+
+        // ── Special action: verify_location ────────────────────────────────
+        if (action === 'verify_location') {
+            const lat = parseFloat(body.latitude);
+            const lng = parseFloat(body.longitude);
+            if (isNaN(lat) || isNaN(lng)) {
+                return NextResponse.json({ error: 'Valid latitude and longitude are required' }, { status: 400 });
+            }
+
+            const verifiedBy = body.location_verified_by || techName || 'Technician';
+            const verifiedAt = new Date().toISOString();
+
+            // 1. Prepare updated property field
+            const existingProp = existing?.property || {};
+            const updatedProp = {
+                ...existingProp,
+                latitude: lat,
+                longitude: lng,
+                location_verified_by: verifiedBy,
+                location_verified_at: verifiedAt
+            };
+
+            // 2. Update jobs table
+            const { data: updatedJob, error: jobUpdateError } = await supabase
+                .from('jobs')
+                .update({ property: updatedProp })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (jobUpdateError) {
+                console.error('[verify_location] jobs update failed:', jobUpdateError);
+                return NextResponse.json({ error: 'Failed to update job property' }, { status: 500 });
+            }
+
+            // 3. Update properties table if property_id is set
+            if (existing?.property_id && !String(existing.property_id).startsWith('inline')) {
+                await supabase
+                    .from('properties')
+                    .update({
+                        latitude: lat,
+                        longitude: lng,
+                        location_verified_by: verifiedBy,
+                        location_verified_at: verifiedAt
+                    })
+                    .eq('id', existing.property_id);
+            }
+
+            // 4. Log to interactions
+            await supabase.from('interactions').insert([{
+                job_id: id,
+                type: 'location-updated',
+                category: 'property',
+                description: `Customer pin location updated and verified by ${verifiedBy} (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+                performed_by_name: verifiedBy,
+                performed_by: existing?.technician_id || null,
+                source: 'Technician App',
+                timestamp: verifiedAt
+            }]).catch(e => console.error('[verify_location] interaction log failed:', e.message));
+
+            return NextResponse.json({ success: true, job: updatedJob });
         }
 
         // ── Special action: add_repair_note ────────────────────────────────

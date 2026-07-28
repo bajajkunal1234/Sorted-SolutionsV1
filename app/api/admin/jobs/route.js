@@ -55,6 +55,35 @@ export async function GET(request) {
 
         if (error) throw error
 
+        if (data && data.length > 0) {
+            const propertyIds = data.map(j => j.property_id).filter(Boolean);
+            if (propertyIds.length > 0) {
+                const { data: propertiesList } = await supabase
+                    .from('properties')
+                    .select('*')
+                    .in('id', propertyIds);
+
+                if (propertiesList && propertiesList.length > 0) {
+                    const propMap = {};
+                    propertiesList.forEach(p => {
+                        propMap[p.id] = p;
+                    });
+                    data.forEach(j => {
+                        if (j.property_id && propMap[j.property_id]) {
+                            const dbProp = propMap[j.property_id];
+                            j.property = {
+                                ...(j.property || {}),
+                                latitude: dbProp.latitude || j.property?.latitude || null,
+                                longitude: dbProp.longitude || j.property?.longitude || null,
+                                location_verified_by: dbProp.location_verified_by || j.property?.location_verified_by || null,
+                                location_verified_at: dbProp.location_verified_at || j.property?.location_verified_at || null,
+                            };
+                        }
+                    });
+                }
+            }
+        }
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })

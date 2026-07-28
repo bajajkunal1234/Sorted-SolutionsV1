@@ -1100,31 +1100,43 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                         }}>{part}</div>
                                                     ))}
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                                                        <a
-                                                            href={property.latitude && property.longitude 
-                                                                ? `https://www.google.com/maps?q=${property.latitude},${property.longitude}`
-                                                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobAddress)}`
-                                                            }
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
-                                                        >
-                                                            📍 Open in Maps
-                                                        </a>
-                                                        <span style={{ 
-                                                            fontSize: '11px', 
-                                                            color: property.latitude && property.longitude ? 'var(--text-secondary)' : '#f59e0b',
-                                                            fontWeight: property.latitude && property.longitude ? 500 : 600,
-                                                            padding: '2px 6px',
-                                                            borderRadius: '4px',
-                                                            backgroundColor: property.latitude && property.longitude ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
-                                                            border: property.latitude && property.longitude ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
-                                                        }}>
-                                                            {property.latitude && property.longitude 
-                                                                ? `Coords: ${property.latitude.toFixed(6)}, ${property.longitude.toFixed(6)}`
-                                                                : '⚠️ No pin location details'
-                                                            }
-                                                        </span>
+                                                        {(() => {
+                                                            const lat = parseFloat(property.latitude);
+                                                            const lng = parseFloat(property.longitude);
+                                                            const hasCoords = !isNaN(lat) && !isNaN(lng);
+                                                            const isVerified = hasCoords && (property.location_verified_by || property.location_verified_at);
+                                                            const buttonLabel = hasCoords ? (isVerified ? '📍 Technician Verified' : '📍 Saved Pin') : '📍 Open in Maps';
+                                                            const buttonColor = isVerified ? '#10b981' : '#3b82f6';
+                                                            return (
+                                                                <>
+                                                                    <a
+                                                                        href={hasCoords 
+                                                                            ? `https://www.google.com/maps?q=${lat},${lng}`
+                                                                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobAddress)}`
+                                                                        }
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: buttonColor, padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
+                                                                    >
+                                                                        {buttonLabel}
+                                                                    </a>
+                                                                    <span style={{ 
+                                                                        fontSize: '11px', 
+                                                                        color: hasCoords ? 'var(--text-secondary)' : '#f59e0b',
+                                                                        fontWeight: hasCoords ? 500 : 600,
+                                                                        padding: '2px 6px',
+                                                                        borderRadius: '4px',
+                                                                        backgroundColor: hasCoords ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
+                                                                        border: hasCoords ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
+                                                                    }}>
+                                                                        {hasCoords 
+                                                                            ? `Coords: ${lat.toFixed(5)}, ${lng.toFixed(5)}`
+                                                                            : '⚠️ No pin location details'
+                                                                        }
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </>
                                             ) : (

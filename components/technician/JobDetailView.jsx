@@ -475,8 +475,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         try { const t = JSON.parse(localStorage.getItem('technicianData') || '{}'); return { techName: t.name || 'Technician', techId: t.id || null }; } catch(e) { return { techName: 'Technician', techId: null }; }
     })();
 
-    const storedLat = job?.property?.latitude || job?.latitude;
-    const storedLng = job?.property?.longitude || job?.longitude;
+    const latVal = parseFloat(editedJob?.property?.latitude || editedJob?.latitude || job?.property?.latitude || job?.latitude);
+    const lngVal = parseFloat(editedJob?.property?.longitude || editedJob?.longitude || job?.property?.longitude || job?.longitude);
+    const hasCoords = !isNaN(latVal) && !isNaN(lngVal);
+    const isVerified = hasCoords && (
+        editedJob?.property?.location_verified_by || 
+        editedJob?.property?.location_verified_at || 
+        job?.property?.location_verified_by || 
+        job?.property?.location_verified_at
+    );
+    const buttonLabel = hasCoords ? (isVerified ? '📍 Technician Verified' : '📍 Saved Pin') : '📍 Open in Maps';
+    const buttonColor = isVerified ? '#10b981' : '#3b82f6';
 
     // No-Service Close Call modal state
     const [showNoServiceModal, setShowNoServiceModal] = useState(false);
@@ -1787,38 +1796,41 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const handleLocationVerifyYes = async () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         
-        // Mark the existing pin as verified by this technician (only if it is a real property record)
-        const propertyId = editedJob._raw_property?.id || null;
-        const isRealProperty = propertyId && !String(propertyId).startsWith('inline');
-        if (isRealProperty) {
-            const currentPropLat = editedJob._raw_property?.latitude || null;
-            const currentPropLng = editedJob._raw_property?.longitude || null;
+        // Try to get current coordinates (either existing ones or arrival coordinates)
+        const currentPropLat = editedJob._raw_property?.latitude || null;
+        const currentPropLng = editedJob._raw_property?.longitude || null;
 
-            // If the property has no coordinates, but we have arrival GPS coordinates,
-            // use the arrival coordinates as the new verified pin!
-            const finalLat = currentPropLat || arrivalCoordsRef.current?.lat || null;
-            const finalLng = currentPropLng || arrivalCoordsRef.current?.lng || null;
+        const finalLat = currentPropLat || arrivalCoordsRef.current?.lat || null;
+        const finalLng = currentPropLng || arrivalCoordsRef.current?.lng || null;
 
-            const body = {
-                location_verified_by: techName,
-                location_verified_at: new Date().toISOString(),
-            };
-            if (finalLat && finalLng) {
-                body.latitude = finalLat;
-                body.longitude = finalLng;
+        if (finalLat && finalLng) {
+            try {
+                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'verify_location',
+                        latitude: finalLat,
+                        longitude: finalLng,
+                        location_verified_by: techName
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.job) {
+                        onJobUpdate(data.job);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to verify location:', err);
             }
-
-            apiCall(`/api/admin/properties?id=${propertyId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+        } else {
+            // Log interaction fallback
+            apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'location-verified', category: 'property', description: `Customer pin location confirmed accurate by ${techName}`, user_name: techName })
             }).catch(() => {});
         }
-        // Log the confirmation
-        apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'location-verified', category: 'property', description: `Customer pin location confirmed accurate by ${techName}`, user_name: techName })
-        }).catch(() => {});
 
         // Transition to before photos step and open camera
         setLocationVerifyStep('before_photos');
@@ -1832,27 +1844,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         if (!verifyLat || !verifyLng) { alert('Please set the pin location first.'); return; }
         setVerifyLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        const propertyId = editedJob._raw_property?.id || null;
-        const isRealProperty = propertyId && !String(propertyId).startsWith('inline');
         try {
-            // Update property pin + verified fields (only if it is a real property record)
-            if (isRealProperty) {
-                await apiCall(`/api/admin/properties?id=${propertyId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        latitude: verifyLat,
-                        longitude: verifyLng,
-                        location_verified_by: techName,
-                        location_verified_at: new Date().toISOString(),
-                    })
-                });
+            const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'verify_location',
+                    latitude: verifyLat,
+                    longitude: verifyLng,
+                    location_verified_by: techName
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.job) {
+                    onJobUpdate(data.job);
+                }
             }
-            // Log the pin update
-            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'location-updated', category: 'property', description: `Customer pin location updated and verified by ${techName} (${verifyLat.toFixed(5)}, ${verifyLng.toFixed(5)})`, user_name: techName })
-            }).catch(() => {});
             
             // Transition to before photos step and open camera
             setLocationVerifyStep('before_photos');
@@ -2691,27 +2699,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
                                                 <a
                                                     href={
-                                                        storedLat && storedLng
-                                                            ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                                        hasCoords
+                                                            ? `https://www.google.com/maps?q=${latVal},${lngVal}`
                                                             : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
                                                     }
                                                     onClick={handleMapsNavigateClick}
                                                     target="_blank" rel="noreferrer"
-                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: buttonColor, padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
                                                 >
-                                                    {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
+                                                    {buttonLabel}
                                                 </a>
                                                 <span style={{ 
                                                     fontSize: '11px', 
-                                                    color: storedLat && storedLng ? 'var(--text-secondary)' : '#f59e0b',
-                                                    fontWeight: storedLat && storedLng ? 500 : 600,
+                                                    color: hasCoords ? 'var(--text-secondary)' : '#f59e0b',
+                                                    fontWeight: hasCoords ? 500 : 600,
                                                     padding: '2px 6px',
                                                     borderRadius: '4px',
-                                                    backgroundColor: storedLat && storedLng ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
-                                                    border: storedLat && storedLng ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
+                                                    backgroundColor: hasCoords ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
+                                                    border: hasCoords ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
                                                 }}>
-                                                    {storedLat && storedLng 
-                                                        ? `Coords: ${Number(storedLat).toFixed(6)}, ${Number(storedLng).toFixed(6)}`
+                                                    {hasCoords 
+                                                        ? `Coords: ${latVal.toFixed(5)}, ${lngVal.toFixed(5)}`
                                                         : '⚠️ No pin location details'
                                                     }
                                                 </span>
