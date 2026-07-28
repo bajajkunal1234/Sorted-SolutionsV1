@@ -222,11 +222,17 @@ export async function POST(request) {
 
             if (customerError) throw customerError;
 
-            // Log Call/WhatsApp Lead automatically if channel is selected
-            if (body.leadChannel === 'call' || body.leadChannel === 'whatsapp') {
+            // Log lead automatically if a channel is selected OR if a paid/marketing attribution source is specified
+            const resolvedSource = body.acquisition_source || body.acquisitionSource || '';
+            const hasChannel = body.leadChannel === 'call' || body.leadChannel === 'whatsapp';
+            const hasAcqSource = resolvedSource && resolvedSource !== 'direct' && resolvedSource !== 'organic';
+
+            if (hasChannel || hasAcqSource) {
                 const rawPhone = cleanPhone10(body.mobile);
                 if (rawPhone) {
-                    const conversionType = body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call';
+                    const conversionType = hasChannel
+                        ? (body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call')
+                        : 'manual_account';
                     const leadNotes = body.mailing_address || body.customerDescription || 'Logged automatically during account creation.';
                     try {
                         await trackLeadAttribution(supabase, {
@@ -235,7 +241,7 @@ export async function POST(request) {
                             name: body.name,
                             status: 'converted', // always converted on account creation
                             notes: leadNotes,
-                            lead_source: body.acquisitionSource || 'direct',
+                            lead_source: resolvedSource || 'direct',
                             first_contact_at: new Date().toISOString()
                         });
                     } catch (leadError) {
