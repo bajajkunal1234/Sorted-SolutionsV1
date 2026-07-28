@@ -409,6 +409,16 @@ function SectionTitle({ children }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function WebsiteAnalytics() {
     const [range, setRange] = useState('30d')
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768)
+        }
+        handleResize()
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
     const [data, setData] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -1152,6 +1162,7 @@ export default function WebsiteAnalytics() {
 
     // Is this drawer for customers or bookings?
     const isCustomerDrawer = drawer?.type?.startsWith('customers')
+    const ResponsiveDrawer = isMobile ? BottomDrawer : Drawer
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
@@ -1308,154 +1319,167 @@ export default function WebsiteAnalytics() {
                     {/* TAB Content: Directory */}
                     {leadsTab === 'directory' && (
                         <div style={{ display: 'grid', gap: '12px' }}>
-                            <div style={{ display: 'flex', gap: '8px', position: 'relative', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '8px', position: 'relative', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
                                 <input
                                     type="text"
                                     placeholder="Search by name, phone or campaign..."
                                     value={leadsSearch}
                                     onChange={e => setLeadsSearch(e.target.value)}
                                     style={{
-                                        flex: 1, minWidth: '200px', padding: '10px 14px', border: '1px solid var(--border-primary)',
+                                        flex: 1, minWidth: isMobile ? '100%' : '200px', padding: '10px 14px', border: '1px solid var(--border-primary)',
                                         backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
                                         borderRadius: 'var(--radius-md)', fontSize: '13px'
                                     }}
                                 />
-                                <button
-                                    onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        height: '38px',
-                                        width: '38px',
-                                        border: isFilterPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                        backgroundColor: isFilterPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
-                                        color: isFilterPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        cursor: 'pointer',
-                                        flexShrink: 0
-                                    }}
-                                    title="Filter Leads"
-                                >
-                                    <SlidersHorizontal size={14} />
-                                </button>
-                                <div style={{ position: 'relative' }}>
+                                <div style={{ display: 'flex', gap: '6px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
                                     <button
-                                        onClick={() => setIsColumnPanelOpen(!isColumnPanelOpen)}
+                                        onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             height: '38px',
-                                            width: '38px',
-                                            border: isColumnPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                            backgroundColor: isColumnPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
-                                            color: isColumnPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                            padding: isMobile ? '0 12px' : '0 10px',
+                                            flex: isMobile ? 1 : 'none',
+                                            gap: '6px',
+                                            border: isFilterPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                            backgroundColor: isFilterPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
+                                            color: isFilterPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
                                             borderRadius: 'var(--radius-md)',
                                             cursor: 'pointer',
-                                            flexShrink: 0
+                                            fontSize: '12px',
+                                            fontWeight: 600
                                         }}
-                                        title="Manage Columns"
+                                        title="Filter Leads"
                                     >
-                                        <Settings size={14} />
+                                        <SlidersHorizontal size={14} />
+                                        {isMobile && <span>Filters</span>}
                                     </button>
-                                    {isColumnPanelOpen && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '44px',
-                                            right: '0px',
-                                            width: '240px',
-                                            backgroundColor: 'var(--bg-elevated)',
-                                            border: '1px solid var(--border-primary)',
-                                            borderRadius: 'var(--radius-lg)',
-                                            boxShadow: 'var(--shadow-lg)',
-                                            padding: '12px',
-                                            zIndex: 100,
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '8px'
-                                        }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span>Manage Columns</span>
-                                                <button onClick={() => setIsColumnPanelOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}><X size={12} /></button>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-                                                {columnsConfig.map((col, idx) => (
-                                                    <div key={col.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-primary)' }}>
-                                                            <input 
-                                                                type="checkbox" 
-                                                                checked={col.visible} 
-                                                                onChange={() => toggleColumnVisibility(col.key)} 
-                                                                disabled={col.key === 'actions'}
-                                                                style={{ cursor: 'pointer' }}
-                                                            />
-                                                            {col.label}
-                                                        </label>
-                                                        <div style={{ display: 'flex', gap: '2px' }}>
-                                                            <button 
-                                                                onClick={() => moveColumn(idx, -1)} 
-                                                                disabled={idx === 0}
-                                                                style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                            >
-                                                                <ChevronUp size={10} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => moveColumn(idx, 1)} 
-                                                                disabled={idx === columnsConfig.length - 1}
-                                                                style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                            >
-                                                                <ChevronDown size={10} />
-                                                            </button>
-                                                        </div>
+                                    
+                                    {!isMobile && (
+                                        <div style={{ position: 'relative' }}>
+                                            <button
+                                                onClick={() => setIsColumnPanelOpen(!isColumnPanelOpen)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    height: '38px',
+                                                    width: '38px',
+                                                    border: isColumnPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                    backgroundColor: isColumnPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
+                                                    color: isColumnPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    cursor: 'pointer',
+                                                    flexShrink: 0
+                                                }}
+                                                title="Manage Columns"
+                                            >
+                                                <Settings size={14} />
+                                            </button>
+                                            {isColumnPanelOpen && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    top: '44px',
+                                                    right: '0px',
+                                                    width: '240px',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    boxShadow: 'var(--shadow-lg)',
+                                                    padding: '12px',
+                                                    zIndex: 100,
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '8px'
+                                                }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span>Manage Columns</span>
+                                                        <button onClick={() => setIsColumnPanelOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}><X size={12} /></button>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+                                                        {columnsConfig.map((col, idx) => (
+                                                            <div key={col.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-primary)' }}>
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={col.visible} 
+                                                                        onChange={() => toggleColumnVisibility(col.key)} 
+                                                                        disabled={col.key === 'actions'}
+                                                                        style={{ cursor: 'pointer' }}
+                                                                    />
+                                                                    {col.label}
+                                                                </label>
+                                                                <div style={{ display: 'flex', gap: '2px' }}>
+                                                                    <button 
+                                                                        onClick={() => moveColumn(idx, -1)} 
+                                                                        disabled={idx === 0}
+                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                    >
+                                                                        <ChevronUp size={10} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => moveColumn(idx, 1)} 
+                                                                        disabled={idx === columnsConfig.length - 1}
+                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                    >
+                                                                        <ChevronDown size={10} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
+
+                                    <button
+                                        onClick={exportToCSV}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '38px',
+                                            padding: '0 12px',
+                                            flex: isMobile ? 1 : 'none',
+                                            gap: '6px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-elevated)',
+                                            color: 'var(--text-secondary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <FileText size={14} />
+                                        {isMobile ? <span>Export</span> : <span>Export CSV</span>}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setIsManualLeadDrawerOpen(true)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: '38px',
+                                            padding: '0 12px',
+                                            flex: isMobile ? 1.2 : 'none',
+                                            gap: '6px',
+                                            border: 'none',
+                                            backgroundColor: 'var(--color-primary)',
+                                            color: 'white',
+                                            borderRadius: 'var(--radius-md)',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Plus size={14} />
+                                        <span>Report Lead</span>
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={exportToCSV}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '10px 16px',
-                                        border: '1px solid var(--border-primary)',
-                                        backgroundColor: 'var(--bg-elevated)',
-                                        color: 'var(--text-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s'
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text-primary)'}
-                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
-                                >
-                                    <FileText size={14} /> Export CSV
-                                </button>
-                                <button
-                                    onClick={() => setIsManualLeadDrawerOpen(true)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '10px 16px',
-                                        border: 'none',
-                                        backgroundColor: 'var(--color-primary)',
-                                        color: 'white',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s'
-                                    }}
-                                    onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                                >
-                                    <Plus size={14} /> Report Lead
-                                </button>
                             </div>
 
                             {isFilterPanelOpen && (
@@ -1560,272 +1584,432 @@ export default function WebsiteAnalytics() {
                                 </div>
                             )}
 
-                            <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
-                                <table id="leads-directory-table" style={{ width: `${columnsConfig.filter(col => col.visible).reduce((sum, c) => sum + (c.width || 120), 0)}px`, minWidth: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', tableLayout: 'fixed' }}>
-                                    <thead>
-                                        <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                            {columnsConfig.filter(col => col.visible).map(col => {
-                                                const isActions = col.key === 'actions';
-                                                return (
-                                                    <th key={col.key} style={{
-                                                        padding: '12px 16px',
-                                                        color: 'var(--text-tertiary)',
-                                                        fontWeight: 600,
-                                                        fontSize: '11px',
-                                                        textTransform: 'uppercase',
-                                                        position: 'sticky',
-                                                        top: 0,
-                                                        right: isActions ? 0 : undefined,
-                                                        zIndex: isActions ? 15 : 10,
-                                                        backgroundColor: 'var(--bg-secondary)',
-                                                        boxShadow: isActions 
-                                                            ? 'inset 1px 0 0 var(--border-primary), inset 0 -1px 0 var(--border-primary)' 
-                                                            : 'inset 0 -1px 0 var(--border-primary)',
-                                                        width: `${col.width}px`,
-                                                        minWidth: `${col.width}px`,
-                                                        cursor: ['date', 'revenue', 'details'].includes(col.key) ? 'pointer' : 'default',
-                                                        userSelect: 'none'
-                                                    }}
-                                                    onClick={() => handleHeaderClick(col.key)}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            {col.label}
-                                                            {sortConfig.key === col.key && (
-                                                                sortConfig.direction === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
-                                                            )}
+                            {isMobile ? (
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    {sortedLeads.map((l) => (
+                                        <div key={l.id} style={{
+                                            padding: '16px',
+                                            backgroundColor: 'var(--bg-elevated)',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            display: 'grid',
+                                            gap: '10px'
+                                        }}>
+                                            {/* Header: Date, Time & Source Badge */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                                    {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at {new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        padding: '3px 8px',
+                                                        borderRadius: '12px',
+                                                        backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
+                                                        color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-secondary)',
+                                                        textTransform: 'capitalize'
+                                                    }}>
+                                                        {l.lead_source?.replace(/_/g, ' ') || 'direct'}
+                                                    </span>
+                                                    {l.conversion_type && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 600,
+                                                            padding: '3px 8px',
+                                                            borderRadius: '12px',
+                                                            backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                                            color: 'var(--color-primary)',
+                                                            textTransform: 'capitalize'
+                                                        }}>
+                                                            {l.conversion_type?.replace(/_/g, ' ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Lead Info: Name & Phone */}
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>
+                                                    {l.name || l.customer?.name || 'Anonymous Visitor'}
+                                                </div>
+                                                <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                    {l.phone}
+                                                </div>
+                                            </div>
+
+                                            {/* Campaign & UTM Info if Google Ads */}
+                                            {l.lead_source === 'google_ads' && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Campaign:</span>
+                                                    <input
+                                                        type="text"
+                                                        defaultValue={l.campaign || ''}
+                                                        placeholder="Add Campaign"
+                                                        onBlur={e => handleUpdateLeadCampaign(l.phone, e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') e.target.blur();
+                                                        }}
+                                                        style={{
+                                                            flex: 1,
+                                                            minWidth: '100px',
+                                                            fontSize: '11px',
+                                                            padding: '2px 6px',
+                                                            backgroundColor: 'var(--bg-primary)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            borderRadius: '3px',
+                                                            color: 'var(--text-primary)'
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Status, Jobs, & Revenue */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--border-primary)', borderBottom: '1px solid var(--border-primary)', padding: '10px 0' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Linked Jobs</span>
+                                                    <div style={{ marginTop: '2px', fontSize: '12px' }}>
+                                                        {l.jobsCount > 0 && l.jobs ? (
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                {l.jobs.map((j) => (
+                                                                    <span
+                                                                        key={j.id}
+                                                                        onClick={() => handleOpenJob(j.id)}
+                                                                        style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                                                                    >
+                                                                        {j.jobNumber || `#${j.id.slice(0, 4)}`}{j.status && ` (${j.status.toLowerCase()})`}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : 'None'}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Revenue</span>
+                                                    <div style={{ marginTop: '2px', fontSize: '13px', fontWeight: 700, color: '#10b981' }}>
+                                                        {l.totalRevenue > 0 ? `₹${l.totalRevenue.toLocaleString()}` : '₹0'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Notes / Reason */}
+                                            <div>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Notes / Reason</span>
+                                                <div style={{ marginTop: '4px' }}>
+                                                    {l.jobsCount > 0 || l.status === 'converted' ? (
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                            {l.notes || '—'}
                                                         </div>
-                                                        <div 
-                                                            onMouseDown={(e) => startResize(e, col.key)}
-                                                            onTouchStart={(e) => startResize(e, col.key)}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            style={{
-                                                                position: 'absolute',
-                                                                right: 0,
-                                                                top: 0,
-                                                                bottom: 0,
-                                                                width: '6px',
-                                                                cursor: 'col-resize',
-                                                                zIndex: 20
-                                                            }}
+                                                    ) : (
+                                                        <InlineNotesInput
+                                                            initialValue={l.notes}
+                                                            onSave={(newVal) => handleUpdateLeadNotes(l.phone, newVal)}
                                                         />
-                                                    </th>
-                                                );
-                                            })}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {sortedLeads.map((l) => (
-                                            <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                                <button
+                                                    onClick={() => setSelectedLead(l)}
+                                                    style={{
+                                                        flex: 1, padding: '8px 12px', border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                                                        borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                                        textAlign: 'center'
+                                                    }}
+                                                >
+                                                    Journey Flow
+                                                </button>
+                                                {l.conversion_type?.startsWith('manual_') && (
+                                                    <button
+                                                        onClick={() => handleStartEditLead(l)}
+                                                        style={{
+                                                            flex: 1, padding: '8px 12px', border: '1px solid var(--border-primary)',
+                                                            backgroundColor: 'var(--bg-secondary)', color: 'var(--color-primary)',
+                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                                                            textAlign: 'center'
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {sortedLeads.length === 0 && (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>No leads found.</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                                    <table id="leads-directory-table" style={{ width: `${columnsConfig.filter(col => col.visible).reduce((sum, c) => sum + (c.width || 120), 0)}px`, minWidth: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', tableLayout: 'fixed' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
                                                 {columnsConfig.filter(col => col.visible).map(col => {
                                                     const isActions = col.key === 'actions';
-                                                    const cellStyle = {
-                                                        padding: '12px 16px',
-                                                        width: `${col.width}px`,
-                                                        minWidth: `${col.width}px`,
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        whiteSpace: ['date', 'details', 'type', 'notes'].includes(col.key) ? 'nowrap' : 'normal',
-                                                        position: isActions ? 'sticky' : undefined,
-                                                        right: isActions ? 0 : undefined,
-                                                        zIndex: isActions ? 9 : undefined,
-                                                        backgroundColor: isActions ? 'var(--bg-elevated)' : undefined,
-                                                        boxShadow: isActions ? 'inset 1px 0 0 var(--border-primary)' : undefined
-                                                    };
-                                                    switch (col.key) {
-                                                        case 'date':
-                                                            return (
-                                                                <td key="date" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
-                                                                    {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}<br/>
-                                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                                </td>
-                                                            )
-                                                        case 'details':
-                                                            return (
-                                                                <td key="details" style={cellStyle}>
-                                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || l.customer?.name || 'Anonymous Visitor'}</span><br/>
-                                                                    <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
-                                                                </td>
-                                                            )
-                                                        case 'source':
-                                                            return (
-                                                                <td key="source" style={cellStyle}>
-                                                                    <select
-                                                                        value={l.lead_source || 'direct'}
-                                                                        onChange={e => handleUpdateLeadSource(l.phone, e.target.value)}
-                                                                        style={{
-                                                                            padding: '4px 8px', borderRadius: '4px',
-                                                                            backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
-                                                                            color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-primary)',
-                                                                            border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600,
-                                                                            cursor: 'pointer', maxWidth: '100%'
-                                                                        }}
-                                                                    >
-                                                                        <option value="google_ads">Google Ads</option>
-                                                                        <option value="google_organic">Google Search (Organic)</option>
-                                                                        <option value="referral">Referral / Word of Mouth</option>
-                                                                        <option value="direct">Direct / Offline</option>
-                                                                        <option value="social">Social Media</option>
-                                                                        <option value="website">Website (Organic)</option>
-                                                                    </select>
-                                                                    {l.lead_source === 'google_ads' ? (
-                                                                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Camp:</span>
-                                                                            <input
-                                                                                type="text"
-                                                                                defaultValue={l.campaign || ''}
-                                                                                placeholder="None"
-                                                                                onBlur={e => handleUpdateLeadCampaign(l.phone, e.target.value)}
-                                                                                onKeyDown={e => {
-                                                                                    if (e.key === 'Enter') {
-                                                                                        e.target.blur();
-                                                                                    }
-                                                                                }}
-                                                                                style={{
-                                                                                    width: '80px',
-                                                                                    fontSize: '10px',
-                                                                                    padding: '2px 4px',
-                                                                                    backgroundColor: 'transparent',
-                                                                                    border: '1px solid var(--border-primary)',
-                                                                                    borderRadius: '3px',
-                                                                                    color: 'var(--text-primary)'
-                                                                                }}
-                                                                            />
-                                                                        </div>
-                                                                    ) : (
-                                                                        l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>
-                                                                    )}
-                                                                </td>
-                                                            )
-                                                        case 'type':
-                                                            return (
-                                                                <td key="type" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
-                                                                    {l.conversion_type?.replace(/_/g, ' ') || '—'}
-                                                                </td>
-                                                            )
-                                                        case 'jobs':
-                                                            return (
-                                                                <td key="jobs" style={cellStyle}>
-                                                                    {l.jobsCount > 0 && l.jobs ? (
-                                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-                                                                            {l.jobs.map((j, idx) => (
-                                                                                <span key={j.id}>
-                                                                                    <span 
-                                                                                        onClick={() => handleOpenJob(j.id)}
-                                                                                        style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
-                                                                                        title={`Open Job ${j.jobNumber || `#${j.id}`}`}
-                                                                                    >
-                                                                                        {j.jobNumber || `#${j.id}`}{j.status && ` (${j.status.toLowerCase()})`}
-                                                                                    </span>
-                                                                                    {idx < l.jobs.length - 1 && <span style={{ color: 'var(--text-tertiary)', marginRight: '2px' }}>, </span>}
-                                                                                </span>
-                                                                            ))}
-                                                                        </div>
-                                                                    ) : '—'}
-                                                                </td>
-                                                            )
-                                                        case 'revenue':
-                                                            return (
-                                                                <td key="revenue" style={{ ...cellStyle, color: '#10b981' }}>
-                                                                    {l.totalRevenue > 0 && l.jobs ? (
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                                            {l.jobs.filter(j => j.revenue > 0).length === 1 ? (
-                                                                                <span 
-                                                                                    onClick={() => handleOpenInvoice(l.jobs.find(j => j.revenue > 0).id)}
-                                                                                    style={{ color: '#10b981', cursor: 'pointer', textDecoration: 'underline' }}
-                                                                                >
-                                                                                    ₹{l.totalRevenue.toLocaleString()}
-                                                                                </span>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <span>₹{l.totalRevenue.toLocaleString()}</span>
-                                                                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
-                                                                                        <span>(</span>
-                                                                                        {l.jobs.filter(j => j.revenue > 0).map((j, idx, arr) => (
-                                                                                            <span key={j.id}>
-                                                                                                <span 
-                                                                                                    onClick={() => handleOpenInvoice(j.id)}
-                                                                                                    style={{ textDecoration: 'underline', cursor: 'pointer', color: '#10b981' }}
-                                                                                                    title={`Open Invoice for Job ${j.jobNumber || `#${j.id}`}`}
-                                                                                                >
-                                                                                                    ₹{j.revenue.toLocaleString()}
-                                                                                                </span>
-                                                                                                {idx < arr.length - 1 && <span> + </span>}
-                                                                                            </span>
-                                                                                        ))}
-                                                                                        <span>)</span>
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : l.totalRevenue > 0 ? (
-                                                                        <span>₹{l.totalRevenue.toLocaleString()}</span>
-                                                                    ) : '—'}
-                                                                </td>
-                                                            )
-                                                        case 'notes':
-                                                            return (
-                                                                <td key="notes" style={cellStyle}>
-                                                                    {l.jobsCount > 0 || l.status === 'converted' ? (
-                                                                        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                                                            {l.notes || '—'}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <InlineNotesInput
-                                                                            initialValue={l.notes}
-                                                                            onSave={(newVal) => handleUpdateLeadNotes(l.phone, newVal)}
-                                                                        />
-                                                                    )}
-                                                                </td>
-                                                            )
-                                                        case 'actions':
-                                                            return (
-                                                                <td key="actions" style={cellStyle}>
-                                                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                                                        <button
-                                                                            onClick={() => setSelectedLead(l)}
+                                                    return (
+                                                        <th key={col.key} style={{
+                                                            padding: '12px 16px',
+                                                            color: 'var(--text-tertiary)',
+                                                            fontWeight: 600,
+                                                            fontSize: '11px',
+                                                            textTransform: 'uppercase',
+                                                            position: 'sticky',
+                                                            top: 0,
+                                                            right: isActions ? 0 : undefined,
+                                                            zIndex: isActions ? 15 : 10,
+                                                            backgroundColor: 'var(--bg-secondary)',
+                                                            boxShadow: isActions 
+                                                                ? 'inset 1px 0 0 var(--border-primary), inset 0 -1px 0 var(--border-primary)' 
+                                                                : 'inset 0 -1px 0 var(--border-primary)',
+                                                            width: `${col.width}px`,
+                                                            minWidth: `${col.width}px`,
+                                                            cursor: ['date', 'revenue', 'details'].includes(col.key) ? 'pointer' : 'default',
+                                                            userSelect: 'none'
+                                                        }}
+                                                        onClick={() => handleHeaderClick(col.key)}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                {col.label}
+                                                                {sortConfig.key === col.key && (
+                                                                    sortConfig.direction === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                                )}
+                                                            </div>
+                                                            <div 
+                                                                onMouseDown={(e) => startResize(e, col.key)}
+                                                                onTouchStart={(e) => startResize(e, col.key)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    right: 0,
+                                                                    top: 0,
+                                                                    bottom: 0,
+                                                                    width: '6px',
+                                                                    cursor: 'col-resize',
+                                                                    zIndex: 20
+                                                                }}
+                                                            />
+                                                        </th>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedLeads.map((l) => (
+                                                <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                    {columnsConfig.filter(col => col.visible).map(col => {
+                                                        const isActions = col.key === 'actions';
+                                                        const cellStyle = {
+                                                            padding: '12px 16px',
+                                                            width: `${col.width}px`,
+                                                            minWidth: `${col.width}px`,
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: ['date', 'details', 'type', 'notes'].includes(col.key) ? 'nowrap' : 'normal',
+                                                            position: isActions ? 'sticky' : undefined,
+                                                            right: isActions ? 0 : undefined,
+                                                            zIndex: isActions ? 9 : undefined,
+                                                            backgroundColor: isActions ? 'var(--bg-elevated)' : undefined,
+                                                            boxShadow: isActions ? 'inset 1px 0 0 var(--border-primary)' : undefined
+                                                        };
+                                                        switch (col.key) {
+                                                            case 'date':
+                                                                return (
+                                                                    <td key="date" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
+                                                                        {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}<br/>
+                                                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                    </td>
+                                                                )
+                                                            case 'details':
+                                                                return (
+                                                                    <td key="details" style={cellStyle}>
+                                                                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || l.customer?.name || 'Anonymous Visitor'}</span><br/>
+                                                                        <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
+                                                                    </td>
+                                                                )
+                                                            case 'source':
+                                                                return (
+                                                                    <td key="source" style={cellStyle}>
+                                                                        <select
+                                                                            value={l.lead_source || 'direct'}
+                                                                            onChange={e => handleUpdateLeadSource(l.phone, e.target.value)}
                                                                             style={{
-                                                                                padding: '6px 10px', border: '1px solid var(--border-primary)',
-                                                                                backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)',
-                                                                                borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
+                                                                                padding: '4px 8px', borderRadius: '4px',
+                                                                                backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
+                                                                                color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-primary)',
+                                                                                border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600,
+                                                                                cursor: 'pointer', maxWidth: '100%'
                                                                             }}
                                                                         >
-                                                                            Journey Flow
-                                                                        </button>
-                                                                        {l.conversion_type?.startsWith('manual_') && (
+                                                                            <option value="google_ads">Google Ads</option>
+                                                                            <option value="google_organic">Google Search (Organic)</option>
+                                                                            <option value="referral">Referral / Word of Mouth</option>
+                                                                            <option value="direct">Direct / Offline</option>
+                                                                            <option value="social">Social Media</option>
+                                                                            <option value="website">Website (Organic)</option>
+                                                                        </select>
+                                                                        {l.lead_source === 'google_ads' ? (
+                                                                            <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Camp:</span>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    defaultValue={l.campaign || ''}
+                                                                                    placeholder="None"
+                                                                                    onBlur={e => handleUpdateLeadCampaign(l.phone, e.target.value)}
+                                                                                    onKeyDown={e => {
+                                                                                        if (e.key === 'Enter') {
+                                                                                            e.target.blur();
+                                                                                        }
+                                                                                    }}
+                                                                                    style={{
+                                                                                        width: '80px',
+                                                                                        fontSize: '10px',
+                                                                                        padding: '2px 4px',
+                                                                                        backgroundColor: 'transparent',
+                                                                                        border: '1px solid var(--border-primary)',
+                                                                                        borderRadius: '3px',
+                                                                                        color: 'var(--text-primary)'
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>
+                                                                        )}
+                                                                    </td>
+                                                                )
+                                                            case 'type':
+                                                                return (
+                                                                    <td key="type" style={{ ...cellStyle, color: 'var(--text-secondary)' }}>
+                                                                        {l.conversion_type?.replace(/_/g, ' ') || '—'}
+                                                                    </td>
+                                                                )
+                                                            case 'jobs':
+                                                                return (
+                                                                    <td key="jobs" style={cellStyle}>
+                                                                        {l.jobsCount > 0 && l.jobs ? (
+                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                                                                                {l.jobs.map((j, idx) => (
+                                                                                    <span key={j.id}>
+                                                                                        <span 
+                                                                                            onClick={() => handleOpenJob(j.id)}
+                                                                                            style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', whiteSpace: 'nowrap' }}
+                                                                                            title={`Open Job ${j.jobNumber || `#${j.id}`}`}
+                                                                                        >
+                                                                                            {j.jobNumber || `#${j.id}`}{j.status && ` (${j.status.toLowerCase()})`}
+                                                                                        </span>
+                                                                                        {idx < l.jobs.length - 1 && <span style={{ color: 'var(--text-tertiary)', marginRight: '2px' }}>, </span>}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : '—'}
+                                                                    </td>
+                                                                )
+                                                            case 'revenue':
+                                                                return (
+                                                                    <td key="revenue" style={{ ...cellStyle, color: '#10b981' }}>
+                                                                        {l.totalRevenue > 0 && l.jobs ? (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                                {l.jobs.filter(j => j.revenue > 0).length === 1 ? (
+                                                                                    <span 
+                                                                                        onClick={() => handleOpenInvoice(l.jobs.find(j => j.revenue > 0).id)}
+                                                                                        style={{ color: '#10b981', cursor: 'pointer', textDecoration: 'underline' }}
+                                                                                    >
+                                                                                        ₹{l.totalRevenue.toLocaleString()}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <>
+                                                                                        <span>₹{l.totalRevenue.toLocaleString()}</span>
+                                                                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                                                                                            <span>(</span>
+                                                                                            {l.jobs.filter(j => j.revenue > 0).map((j, idx, arr) => (
+                                                                                                <span key={j.id}>
+                                                                                                    <span 
+                                                                                                        onClick={() => handleOpenInvoice(j.id)}
+                                                                                                        style={{ textDecoration: 'underline', cursor: 'pointer', color: '#10b981' }}
+                                                                                                        title={`Open Invoice for Job ${j.jobNumber || `#${j.id}`}`}
+                                                                                                    >
+                                                                                                        ₹{j.revenue.toLocaleString()}
+                                                                                                    </span>
+                                                                                                    {idx < arr.length - 1 && <span> + </span>}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                            <span>)</span>
+                                                                                        </div>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : l.totalRevenue > 0 ? (
+                                                                            <span>₹{l.totalRevenue.toLocaleString()}</span>
+                                                                        ) : '—'}
+                                                                    </td>
+                                                                )
+                                                            case 'notes':
+                                                                return (
+                                                                    <td key="notes" style={cellStyle}>
+                                                                        {l.jobsCount > 0 || l.status === 'converted' ? (
+                                                                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                                                {l.notes || '—'}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <InlineNotesInput
+                                                                                initialValue={l.notes}
+                                                                                onSave={(newVal) => handleUpdateLeadNotes(l.phone, newVal)}
+                                                                            />
+                                                                        )}
+                                                                    </td>
+                                                                )
+                                                            case 'actions':
+                                                                return (
+                                                                    <td key="actions" style={cellStyle}>
+                                                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                                             <button
-                                                                                onClick={() => handleStartEditLead(l)}
+                                                                                onClick={() => setSelectedLead(l)}
                                                                                 style={{
                                                                                     padding: '6px 10px', border: '1px solid var(--border-primary)',
-                                                                                    backgroundColor: 'var(--bg-primary)', color: 'var(--color-primary)',
+                                                                                    backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)',
                                                                                     borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
                                                                                 }}
                                                                             >
-                                                                                Edit
+                                                                                Journey Flow
                                                                             </button>
-                                                                        )}
-                                                                    </div>
-                                                                </td>
-                                                            )
-                                                        default:
-                                                            return null;
-                                                    }
-                                                })}
-                                            </tr>
-                                        ))}
-                                        {sortedLeads.length === 0 && (
-                                            <tr>
-                                                <td colSpan={columnsConfig.filter(c => c.visible).length} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>No leads found.</td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                                            {l.conversion_type?.startsWith('manual_') && (
+                                                                                <button
+                                                                                    onClick={() => handleStartEditLead(l)}
+                                                                                    style={{
+                                                                                        padding: '6px 10px', border: '1px solid var(--border-primary)',
+                                                                                        backgroundColor: 'var(--bg-primary)', color: 'var(--color-primary)',
+                                                                                        borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
+                                                                                    }}
+                                                                                >
+                                                                                    Edit
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                )
+                                                            default:
+                                                                return null;
+                                                        }
+                                                    })}
+                                                </tr>
+                                            ))}
+                                            {sortedLeads.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={columnsConfig.filter(c => c.visible).length} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>No leads found.</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* TAB Content: Daily Spend Manager */}
                     {leadsTab === 'daily_spend' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'start' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', alignItems: 'start' }}>
                             {/* Input Form */}
                             <form onSubmit={handleSaveSpend} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
                                 <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Enter Daily Ad Spend</div>
@@ -1871,7 +2055,7 @@ export default function WebsiteAnalytics() {
                             </form>
 
                             {/* Spends Directory List */}
-                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
+                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
                                 <div style={{ padding: '14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px' }}>Daily Metric Records</div>
                                 {dailySpendLoading ? (
                                     <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading spends...</div>
@@ -1916,7 +2100,7 @@ export default function WebsiteAnalytics() {
 
 
                     {/* Timeline drawer inside leads directory */}
-                    <Drawer open={!!selectedLead} title={`Visitor Journey Timeline`} subtitle={`${selectedLead?.name || 'Anonymous Lead'} (${selectedLead?.phone})`} onClose={() => setSelectedLead(null)}>
+                    <ResponsiveDrawer open={!!selectedLead} title={`Visitor Journey Timeline`} subtitle={`${selectedLead?.name || 'Anonymous Lead'} (${selectedLead?.phone})`} onClose={() => setSelectedLead(null)}>
                         {selectedLead && (
                             <div style={{ display: 'grid', gap: '20px', padding: '10px 0' }}>
                                 
@@ -1999,7 +2183,7 @@ export default function WebsiteAnalytics() {
 
                             </div>
                         )}
-                    </Drawer>
+                    </ResponsiveDrawer>
 
                 </div>
 
@@ -2293,7 +2477,7 @@ export default function WebsiteAnalytics() {
             )}
 
             {/* ── Drill-down Drawer ─────────────────────────────────────── */}
-            <Drawer open={!!drawer} title={drawer?.title} subtitle={drawer?.subtitle} onClose={closeDrawer}>
+            <ResponsiveDrawer open={!!drawer} title={drawer?.title} subtitle={drawer?.subtitle} onClose={closeDrawer}>
                 {drawerLoading ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '30px 0', color: 'var(--text-tertiary)' }}>
                         <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Loading records...
@@ -2304,7 +2488,7 @@ export default function WebsiteAnalytics() {
                     : drawer?.type === 'first_party_journey' ? <JourneyTable rows={drawerRows} />
                     : <BookingTable rows={drawerRows} />
                 }
-            </Drawer>
+            </ResponsiveDrawer>
 
              {/* ── Manual Lead Log Drawer (Bottom Sheet Style) ──────────────── */}
              <BottomDrawer
