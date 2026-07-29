@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react';
 import { categoryGroups } from '@/lib/data/websiteSettingsData';
@@ -450,7 +450,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
             ) : activeCategory === 'google-apis' ? (
                 <GoogleAPIsSettings />
             ) : activeCategory === 'website-analytics' ? (
-                <WebsiteAnalytics />
+                <WebsiteAnalytics subSection={subSection} setSubSection={setSubSection} />
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
                 <StaticPagesSettings />
             ) : activeCategory &&

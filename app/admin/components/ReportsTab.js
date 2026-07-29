@@ -296,10 +296,40 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                 )}
                 {subSection && (
                     <>
-                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                            {subSection}
-                        </span>
+                        {typeof subSection === 'string' && subSection.includes('›') ? (
+                            subSection.split('›').map((part, idx, arr) => {
+                                const isLast = idx === arr.length - 1;
+                                return (
+                                    <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                                        <span
+                                            style={{
+                                                cursor: !isLast ? 'pointer' : 'default',
+                                                color: !isLast ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                fontWeight: !isLast ? 400 : 700,
+                                                transition: 'color 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => !isLast && (e.currentTarget.style.color = 'var(--color-primary)')}
+                                            onMouseLeave={(e) => !isLast && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                                            onClick={() => {
+                                                if (!isLast) {
+                                                    setSubSection(arr.slice(0, idx + 1).join(' › ').trim());
+                                                }
+                                            }}
+                                        >
+                                            {part.trim()}
+                                        </span>
+                                    </span>
+                                );
+                            })
+                        ) : (
+                            <>
+                                <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                                    {subSection}
+                                </span>
+                            </>
+                        )}
                     </>
                 )}
             </div>

@@ -407,7 +407,7 @@ function SectionTitle({ children }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function WebsiteAnalytics() {
+export default function WebsiteAnalytics({ subSection, setSubSection }) {
     const [range, setRange] = useState('30d')
     const [isMobile, setIsMobile] = useState(false)
 
@@ -426,6 +426,23 @@ export default function WebsiteAnalytics() {
 
     // Sub-view control
     const [subView, setSubView] = useState('dashboard') // 'dashboard' | 'leads_tracker'
+    
+    // Sync subView state with breadcrumbs (subSection)
+    useEffect(() => {
+        if (setSubSection) {
+            if (subView === 'leads_tracker') {
+                setSubSection('📊 Website Analytics › Google Ads Leads & ROI Tracker');
+            } else {
+                setSubSection('📊 Website Analytics');
+            }
+        }
+    }, [subView, setSubSection]);
+
+    useEffect(() => {
+        if (subSection === '📊 Website Analytics' && subView !== 'dashboard') {
+            setSubView('dashboard');
+        }
+    }, [subSection, subView]);
     
     // Customers for manual lead logging
     const [customers, setCustomers] = useState([])
@@ -1168,27 +1185,35 @@ export default function WebsiteAnalytics() {
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
 
             {/* ─── HEADER ────────────────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {subView !== 'dashboard' ? (
-                        <button onClick={() => setSubView('dashboard')} style={{ background: 'none', border: '1px solid var(--border-primary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
-                            <ArrowLeft size={14} /> Back
-                        </button>
-                    ) : (
-                        <div style={{ fontSize: '26px' }}>📊</div>
-                    )}
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {subView === 'leads_tracker' ? 'Google Ads Leads & ROI Tracker' : 'Website Analytics'}
-                        </h2>
-                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                            {lastFetched ? `Last updated ${lastFetched.toLocaleTimeString()}` : 'Loading...'}
-                        </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderBottom: isMobile ? '1px solid var(--border-primary)' : 'none', paddingBottom: isMobile ? '8px' : '0' }}>
+                {(!isMobile || subView === 'dashboard') ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {subView !== 'dashboard' ? (
+                            <button onClick={() => setSubView('dashboard')} style={{ background: 'none', border: '1px solid var(--border-primary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
+                                <ArrowLeft size={14} /> Back
+                            </button>
+                        ) : (
+                            <div style={{ fontSize: '26px' }}>📊</div>
+                        )}
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {subView === 'leads_tracker' ? 'Google Ads Leads & ROI Tracker' : 'Website Analytics'}
+                            </h2>
+                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                {lastFetched ? `Last updated ${lastFetched.toLocaleTimeString()}` : 'Loading...'}
+                            </p>
+                        </div>
                     </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                            {lastFetched ? `Updated: ${lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Loading...'}
+                        </span>
+                    </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexWrap: 'wrap' }}>
                     {range === 'custom' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', padding: isMobile ? '2px 6px' : '4px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>From</span>
                                 <input
@@ -1201,8 +1226,9 @@ export default function WebsiteAnalytics() {
                                         borderRadius: '4px',
                                         backgroundColor: 'var(--bg-primary)',
                                         color: 'var(--text-primary)',
-                                        fontSize: '12px',
-                                        outline: 'none'
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        outline: 'none',
+                                        height: isMobile ? '24px' : 'auto'
                                     }}
                                 />
                             </div>
@@ -1218,8 +1244,9 @@ export default function WebsiteAnalytics() {
                                         borderRadius: '4px',
                                         backgroundColor: 'var(--bg-primary)',
                                         color: 'var(--text-primary)',
-                                        fontSize: '12px',
-                                        outline: 'none'
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        outline: 'none',
+                                        height: isMobile ? '24px' : 'auto'
                                     }}
                                 />
                             </div>
@@ -1227,7 +1254,7 @@ export default function WebsiteAnalytics() {
                                 onClick={() => load('custom', customStartDate, customEndDate)}
                                 disabled={loading}
                                 style={{
-                                    padding: '5px 10px',
+                                    padding: isMobile ? '3px 6px' : '5px 10px',
                                     backgroundColor: 'var(--color-primary)',
                                     color: 'white',
                                     border: 'none',
@@ -1245,15 +1272,16 @@ export default function WebsiteAnalytics() {
                         value={range}
                         onChange={e => setRange(e.target.value)}
                         style={{
-                            padding: '6px 12px',
+                            padding: isMobile ? '4px 8px' : '6px 12px',
                             borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--border-primary)',
                             backgroundColor: 'var(--bg-elevated)',
                             color: 'var(--text-primary)',
-                            fontSize: '13px',
+                            fontSize: isMobile ? '11px' : '13px',
                             fontWeight: 600,
                             cursor: 'pointer',
-                            outline: 'none'
+                            outline: 'none',
+                            height: isMobile ? '28px' : 'auto'
                         }}
                     >
                         <option value="today">Today</option>
@@ -1265,8 +1293,8 @@ export default function WebsiteAnalytics() {
                         <option value="custom">Custom Range</option>
                     </select>
                     <button onClick={() => load(range)} disabled={loading}
-                        style={{ padding: '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
-                        <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                        style={{ padding: isMobile ? '5px' : '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: isMobile ? '28px' : 'auto', width: isMobile ? '28px' : 'auto', justifyContent: 'center' }}>
+                        <RefreshCw size={isMobile ? 12 : 14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
                     </button>
                 </div>
             </div>

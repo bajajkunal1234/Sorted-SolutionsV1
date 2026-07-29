@@ -686,104 +686,65 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                         const isRedAlert = !isDashboard && loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
-                                padding: isDashboard ? '8px 12px' : '12px 14px', borderRadius: 10,
+                                padding: '10px 12px', borderRadius: 10,
                                 background: isRedAlert ? 'rgba(239, 68, 68, 0.05)' : (isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)'),
                                 border: `1px solid ${isRedAlert ? '#ef4444' : (isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'))}`,
-                                display: 'flex', alignItems: 'flex-start', gap: 12,
-                                opacity: isOffline ? 0.65 : 1
+                                display: 'flex', flexDirection: 'column', gap: 6,
+                                opacity: isOffline ? 0.75 : 1
                             }}>
-                                <div style={{
-                                    width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                                    backgroundColor: isRedAlert ? '#ef4444' : (isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569')),
-                                    boxShadow: isRedAlert ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : ((!isOffline && loc.is_on_job) ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none'),
-                                    animation: isRedAlert ? 'pulse 2s infinite' : ((!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none'),
-                                    marginTop: '5px'
-                                }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13, color: isRedAlert ? '#fca5a5' : '#ffffff', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        {loc.name}
-                                        {isRedAlert && (
-                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>🚨 LATE</span>
-                                        )}
-                                        {loc.is_mocked && (
-                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>🚨 MOCK GPS</span>
-                                        )}
+                                {/* Top row: Status Dot, Name, and source tags */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                                        <div style={{
+                                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                                            backgroundColor: isRedAlert ? '#ef4444' : (isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569')),
+                                            boxShadow: isRedAlert ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : ((!isOffline && loc.is_on_job) ? '0 0 0 2px rgba(16,185,129,0.2)' : 'none'),
+                                            animation: isRedAlert ? 'pulse 2s infinite' : ((!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none'),
+                                        }} />
+                                        <span style={{ fontWeight: 600, fontSize: 13, color: isRedAlert ? '#fca5a5' : '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loc.name}>
+                                            {loc.name}
+                                        </span>
                                     </div>
-                                    <div style={{ fontSize: 12, color: '#ffffff', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4, fontWeight: '500' }}>
-                                        {isDashboard ? (
-                                            <>
-                                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', color: '#cbd5e1', fontSize: 11 }}>
-                                                    <span>{isTrulyOnline ? '🟢 Online' : '⚪ Offline'} ({loc.location_precision === 'precise' ? 'Precise' : 'Approx'})</span>
-                                                    {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
-                                                        <>
-                                                            <span>·</span>
-                                                            <span>🔋 {loc.battery_level}%</span>
-                                                        </>
-                                                    )}
-                                                    {loc.connectivity_status && (
-                                                        <>
-                                                            <span>·</span>
-                                                            <span>📶 {loc.connectivity_status}</span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div style={{ color: '#cbd5e1', fontSize: 11 }}>
-                                                    Status: <span style={{ fontWeight: 600, color: '#fff' }}>{loc.is_on_job ? 'On job' : 'Idle'}</span> · {formatAge(loc.seconds_ago)}
-                                                </div>
-                                            </>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                        {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
+                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, background: 'rgba(56,189,248,0.12)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                         ) : (
-                                            <>
-                                                <div>
-                                                    {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#e2e8f0' }}>
-                                                    {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
-                                                        <span>🔋 {loc.battery_level}%</span>
-                                                    )}
-                                                    {loc.connectivity_status && (
-                                                        <span>📶 {loc.connectivity_status}</span>
-                                                    )}
-                                                    {loc.ip_address && (
-                                                        <span style={{ opacity: 0.9 }}>🌐 {loc.ip_address}</span>
-                                                    )}
-                                                </div>
-                                                <div style={{ color: '#ffffff' }}>
-                                                    Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
-                                                </div>
-                                            </>
+                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, background: 'rgba(148,163,184,0.08)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
                                         )}
-                                        {(() => {
-                                            const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
-                                            const addr = addressCache[cacheKey];
-                                            if (addr) {
-                                                return isDashboard ? (
-                                                    <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, display: 'block', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }} title={addr}>
-                                                        🏠 {addr}
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ color: '#e2e8f0', fontSize: 11, marginTop: 4, display: 'flex', gap: 4, fontStyle: 'italic', wordBreak: 'break-word', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>
-                                                        <span>🏠</span>
-                                                        <span>{addr}</span>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
+                                        {loc.isRealtime && (
+                                            <span style={{ fontSize: 9, color: '#10b981', fontWeight: 700 }}>● LIVE</span>
+                                        )}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: isDashboard ? 'row' : 'column', alignItems: isDashboard ? 'center' : 'flex-end', justifyContent: 'flex-end', gap: isDashboard ? 6 : 4, flexShrink: 0, marginTop: '2px', flexWrap: 'wrap', maxWidth: isDashboard ? '190px' : 'auto' }}>
-                                    {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
-                                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
-                                    ) : (
-                                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
+
+                                {/* Middle row: Status, Battery, Connection Details */}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', color: '#cbd5e1', fontSize: 11, fontWeight: '500' }}>
+                                    <span>{isTrulyOnline ? '🟢 Online' : '⚪ Offline'} ({loc.location_precision === 'precise' ? 'Precise' : 'Approx'})</span>
+                                    {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                        <>
+                                            <span style={{ opacity: 0.3 }}>·</span>
+                                            <span>🔋 {loc.battery_level}%</span>
+                                        </>
                                     )}
-                                    {loc.isRealtime && (
-                                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
+                                    {loc.connectivity_status && (
+                                        <>
+                                            <span style={{ opacity: 0.3 }}>·</span>
+                                            <span>📶 {loc.connectivity_status}</span>
+                                        </>
                                     )}
+                                    <span style={{ opacity: 0.3 }}>·</span>
+                                    <span>{loc.is_on_job ? 'On job' : 'Idle'}</span>
+                                    <span style={{ opacity: 0.3 }}>·</span>
+                                    <span style={{ color: '#94a3b8' }}>{formatAge(loc.seconds_ago)}</span>
+                                </div>
+
+                                {/* Buttons row at bottom */}
+                                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                                     <button
                                         onClick={() => setSelectedTechForTimeline({ id: loc.technician_id, name: loc.name })}
                                         style={{
-                                            padding: '2px 6px',
+                                            flex: 1,
+                                            padding: '4px 8px',
                                             backgroundColor: 'rgba(99, 102, 241, 0.1)',
                                             border: '1px solid rgba(99, 102, 241, 0.25)',
                                             borderRadius: 6,
@@ -791,15 +752,37 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             fontSize: 9,
                                             fontWeight: 700,
                                             cursor: 'pointer',
-                                            marginTop: isDashboard ? 0 : 2
+                                            textAlign: 'center'
                                         }}
                                     >
                                         📅 TIMELINE
                                     </button>
                                     <button
+                                        onClick={() => {
+                                            const url = `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
+                                            window.open(url, '_blank');
+                                        }}
+                                        style={{
+                                            flex: 1,
+                                            padding: '4px 8px',
+                                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                                            borderRadius: 6,
+                                            color: '#38bdf8',
+                                            fontSize: 9,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            textAlign: 'center'
+                                        }}
+                                        title="View exact pin on Google Maps"
+                                    >
+                                        📍 VIEW MAP
+                                    </button>
+                                    <button
                                         onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
                                         style={{
-                                            padding: '2px 6px',
+                                            flex: 1,
+                                            padding: '4px 8px',
                                             backgroundColor: 'rgba(220, 38, 38, 0.1)',
                                             border: '1px solid rgba(220, 38, 38, 0.25)',
                                             borderRadius: 6,
@@ -807,10 +790,10 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             fontSize: 9,
                                             fontWeight: 700,
                                             cursor: 'pointer',
-                                            marginTop: isDashboard ? 0 : 4
+                                            textAlign: 'center'
                                         }}
                                     >
-                                        📴 LOG OUT
+                                        📴 LOG OFF
                                     </button>
                                 </div>
                             </div>
