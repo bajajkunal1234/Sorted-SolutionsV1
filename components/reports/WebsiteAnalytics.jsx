@@ -1406,7 +1406,26 @@ export default function WebsiteAnalytics() {
                                                                     <button 
                                                                         onClick={() => moveColumn(idx, -1)} 
                                                                         disabled={idx === 0}
-                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--t                                    <button
+                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                    >
+                                                                        <ChevronUp size={10} />
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => moveColumn(idx, 1)} 
+                                                                        disabled={idx === columnsConfig.length - 1}
+                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                    >
+                                                                        <ChevronDown size={10} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    <button
                                         onClick={exportToCSV}
                                         style={{
                                             display: 'flex',
@@ -1449,36 +1468,6 @@ export default function WebsiteAnalytics() {
                                         }}
                                     >
                                         <Plus size={12} />
-                                        <span>Report Lead</span>
-                                    </button>ontSize: '12px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <FileText size={14} />
-                                        {isMobile ? <span>Export</span> : <span>Export CSV</span>}
-                                    </button>
-                                    
-                                    <button
-                                        onClick={() => setIsManualLeadDrawerOpen(true)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: '38px',
-                                            padding: '0 12px',
-                                            flex: isMobile ? 1.2 : 'none',
-                                            gap: '6px',
-                                            border: 'none',
-                                            backgroundColor: 'var(--color-primary)',
-                                            color: 'white',
-                                            borderRadius: 'var(--radius-md)',
-                                            fontSize: '12px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <Plus size={14} />
                                         <span>Report Lead</span>
                                     </button>
                                 </div>
