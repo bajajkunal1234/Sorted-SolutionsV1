@@ -1311,27 +1311,27 @@ export default function WebsiteAnalytics() {
                     {/* TAB Content: Directory */}
                     {leadsTab === 'directory' && (
                         <div style={{ display: 'grid', gap: '12px' }}>
-                            <div style={{ display: 'flex', gap: '8px', position: 'relative', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
+                            <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', position: 'relative', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
                                 <input
                                     type="text"
                                     placeholder="Search by name, phone or campaign..."
                                     value={leadsSearch}
                                     onChange={e => setLeadsSearch(e.target.value)}
                                     style={{
-                                        flex: 1, minWidth: isMobile ? '100%' : '200px', padding: '10px 14px', border: '1px solid var(--border-primary)',
+                                        flex: 1, minWidth: isMobile ? '100%' : '200px', padding: isMobile ? '8px 12px' : '10px 14px', border: '1px solid var(--border-primary)',
                                         backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
-                                        borderRadius: 'var(--radius-md)', fontSize: '13px'
+                                        borderRadius: 'var(--radius-md)', fontSize: isMobile ? '12px' : '13px'
                                     }}
                                 />
-                                <div style={{ display: 'flex', gap: '6px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
+                                <div style={{ display: 'flex', gap: isMobile ? '4px' : '6px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
                                     <button
                                         onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            height: '38px',
-                                            padding: isMobile ? '0 12px' : '0 10px',
+                                            height: isMobile ? '32px' : '38px',
+                                            padding: isMobile ? '0 10px' : '0 10px',
                                             flex: isMobile ? 1 : 'none',
                                             gap: '6px',
                                             border: isFilterPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
@@ -1339,12 +1339,12 @@ export default function WebsiteAnalytics() {
                                             color: isFilterPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
                                             borderRadius: 'var(--radius-md)',
                                             cursor: 'pointer',
-                                            fontSize: '12px',
+                                            fontSize: isMobile ? '11px' : '12px',
                                             fontWeight: 600
                                         }}
                                         title="Filter Leads"
                                     >
-                                        <SlidersHorizontal size={14} />
+                                        <SlidersHorizontal size={12} />
                                         {isMobile && <span>Filters</span>}
                                     </button>
                                     
@@ -1406,41 +1406,51 @@ export default function WebsiteAnalytics() {
                                                                     <button 
                                                                         onClick={() => moveColumn(idx, -1)} 
                                                                         disabled={idx === 0}
-                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                                    >
-                                                                        <ChevronUp size={10} />
-                                                                    </button>
-                                                                    <button 
-                                                                        onClick={() => moveColumn(idx, 1)} 
-                                                                        disabled={idx === columnsConfig.length - 1}
-                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                                    >
-                                                                        <ChevronDown size={10} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <button
+                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--t                                    <button
                                         onClick={exportToCSV}
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            height: '38px',
-                                            padding: '0 12px',
+                                            height: isMobile ? '32px' : '38px',
+                                            padding: '0 10px',
                                             flex: isMobile ? 1 : 'none',
                                             gap: '6px',
                                             border: '1px solid var(--border-primary)',
                                             backgroundColor: 'var(--bg-elevated)',
                                             color: 'var(--text-secondary)',
                                             borderRadius: 'var(--radius-md)',
-                                            fontSize: '12px',
+                                            fontSize: isMobile ? '11px' : '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <FileText size={12} />
+                                        {isMobile ? <span>Export</span> : <span>Export CSV</span>}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setIsManualLeadDrawerOpen(true)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            height: isMobile ? '32px' : '38px',
+                                            padding: '0 10px',
+                                            flex: isMobile ? 1.2 : 'none',
+                                            gap: '6px',
+                                            border: 'none',
+                                            backgroundColor: 'var(--color-primary)',
+                                            color: 'white',
+                                            borderRadius: 'var(--radius-md)',
+                                            fontSize: isMobile ? '11px' : '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Plus size={12} />
+                                        <span>Report Lead</span>
+                                    </button>ontSize: '12px',
                                             fontWeight: 600,
                                             cursor: 'pointer'
                                         }}
@@ -1577,27 +1587,27 @@ export default function WebsiteAnalytics() {
                             )}
 
                             {isMobile ? (
-                                <div style={{ display: 'grid', gap: '12px' }}>
+                                <div style={{ display: 'grid', gap: '8px' }}>
                                     {sortedLeads.map((l) => (
                                         <div key={l.id} style={{
-                                            padding: '16px',
+                                            padding: '10px 12px',
                                             backgroundColor: 'var(--bg-elevated)',
                                             border: '1px solid var(--border-primary)',
-                                            borderRadius: 'var(--radius-lg)',
+                                            borderRadius: 'var(--radius-md)',
                                             display: 'grid',
-                                            gap: '10px'
+                                            gap: '6px'
                                         }}>
-                                            {/* Header: Date, Time & Source Badge */}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                                    {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at {new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {/* Header: Date, Time & Source/Conversion Badges */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                    {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at {new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                <div style={{ display: 'flex', gap: '4px' }}>
                                                     <span style={{
-                                                        fontSize: '10px',
+                                                        fontSize: '9px',
                                                         fontWeight: 700,
-                                                        padding: '3px 8px',
-                                                        borderRadius: '12px',
+                                                        padding: '2px 6px',
+                                                        borderRadius: '10px',
                                                         backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
                                                         color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-secondary)',
                                                         textTransform: 'capitalize'
@@ -1606,10 +1616,10 @@ export default function WebsiteAnalytics() {
                                                     </span>
                                                     {l.conversion_type && (
                                                         <span style={{
-                                                            fontSize: '10px',
+                                                            fontSize: '9px',
                                                             fontWeight: 600,
-                                                            padding: '3px 8px',
-                                                            borderRadius: '12px',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '10px',
                                                             backgroundColor: 'rgba(99, 102, 241, 0.08)',
                                                             color: 'var(--color-primary)',
                                                             textTransform: 'capitalize'
@@ -1620,34 +1630,33 @@ export default function WebsiteAnalytics() {
                                                 </div>
                                             </div>
 
-                                            {/* Lead Info: Name & Phone */}
-                                            <div>
-                                                <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>
+                                            {/* Lead Info: Name & Phone (Inline) */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
                                                     {l.name || l.customer?.name || 'Anonymous Visitor'}
                                                 </div>
-                                                <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                <div style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
                                                     {l.phone}
                                                 </div>
                                             </div>
 
                                             {/* Campaign & UTM Info if Google Ads */}
                                             {l.lead_source === 'google_ads' && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Campaign:</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>Campaign:</span>
                                                     <input
                                                         type="text"
                                                         defaultValue={l.campaign || ''}
-                                                        placeholder="Add Campaign"
+                                                        placeholder="None"
                                                         onBlur={e => handleUpdateLeadCampaign(l.phone, e.target.value)}
                                                         onKeyDown={e => {
                                                             if (e.key === 'Enter') e.target.blur();
                                                         }}
                                                         style={{
                                                             flex: 1,
-                                                            minWidth: '100px',
                                                             fontSize: '11px',
-                                                            padding: '2px 6px',
-                                                            backgroundColor: 'var(--bg-primary)',
+                                                            padding: '2px 4px',
+                                                            backgroundColor: 'transparent',
                                                             border: '1px solid var(--border-primary)',
                                                             borderRadius: '3px',
                                                             color: 'var(--text-primary)'
@@ -1656,60 +1665,60 @@ export default function WebsiteAnalytics() {
                                                 </div>
                                             )}
 
-                                            {/* Status, Jobs, & Revenue */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid var(--border-primary)', borderBottom: '1px solid var(--border-primary)', padding: '10px 0' }}>
-                                                <div>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Linked Jobs</span>
-                                                    <div style={{ marginTop: '2px', fontSize: '12px' }}>
+                                            {/* Jobs & Revenue (Compact Inline Row) */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', borderTop: '1px solid var(--border-primary)', borderBottom: '1px solid var(--border-primary)', padding: '5px 0' }}>
+                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>Jobs:</span>
+                                                    <span style={{ color: 'var(--text-primary)' }}>
                                                         {l.jobsCount > 0 && l.jobs ? (
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                            <span style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                                                 {l.jobs.map((j) => (
                                                                     <span
                                                                         key={j.id}
                                                                         onClick={() => handleOpenJob(j.id)}
                                                                         style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
                                                                     >
-                                                                        {j.jobNumber || `#${j.id.slice(0, 4)}`}{j.status && ` (${j.status.toLowerCase()})`}
+                                                                        {j.jobNumber || `#${j.id.slice(0, 4)}`}
                                                                     </span>
                                                                 ))}
-                                                            </div>
+                                                            </span>
                                                         ) : 'None'}
-                                                    </div>
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Revenue</span>
-                                                    <div style={{ marginTop: '2px', fontSize: '13px', fontWeight: 700, color: '#10b981' }}>
+                                                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>Rev:</span>
+                                                    <span style={{ fontWeight: 700, color: '#10b981' }}>
                                                         {l.totalRevenue > 0 ? `₹${l.totalRevenue.toLocaleString()}` : '₹0'}
-                                                    </div>
+                                                    </span>
                                                 </div>
                                             </div>
 
-                                            {/* Notes / Reason */}
-                                            <div>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Notes / Reason</span>
-                                                <div style={{ marginTop: '4px' }}>
-                                                    {l.jobsCount > 0 || l.status === 'converted' ? (
-                                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                                            {l.notes || '—'}
-                                                        </div>
-                                                    ) : (
+                                            {/* Notes / Reason (Smart Inline Hidden) */}
+                                            {!(l.jobsCount > 0 || l.status === 'converted') ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, flexShrink: 0 }}>Notes:</span>
+                                                    <div style={{ flex: 1 }}>
                                                         <InlineNotesInput
                                                             initialValue={l.notes}
                                                             onSave={(newVal) => handleUpdateLeadNotes(l.phone, newVal)}
                                                         />
-                                                    )}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            ) : l.notes && l.notes !== '—' ? (
+                                                <div style={{ fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
+                                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, flexShrink: 0 }}>Notes:</span>
+                                                    <span style={{ color: 'var(--text-secondary)' }}>{l.notes}</span>
+                                                </div>
+                                            ) : null}
 
-                                            {/* Actions */}
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                                            {/* Actions (Journey Flow / Edit Float Right) */}
+                                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '2px' }}>
                                                 <button
                                                     onClick={() => setSelectedLead(l)}
                                                     style={{
-                                                        flex: 1, padding: '8px 12px', border: '1px solid var(--border-primary)',
+                                                        padding: '4px 8px', border: '1px solid var(--border-primary)',
                                                         backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
-                                                        borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                                                        textAlign: 'center'
+                                                        borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 600
                                                     }}
                                                 >
                                                     Journey Flow
@@ -1718,10 +1727,9 @@ export default function WebsiteAnalytics() {
                                                     <button
                                                         onClick={() => handleStartEditLead(l)}
                                                         style={{
-                                                            flex: 1, padding: '8px 12px', border: '1px solid var(--border-primary)',
+                                                            padding: '4px 8px', border: '1px solid var(--border-primary)',
                                                             backgroundColor: 'var(--bg-secondary)', color: 'var(--color-primary)',
-                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
-                                                            textAlign: 'center'
+                                                            borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 600
                                                         }}
                                                     >
                                                         Edit

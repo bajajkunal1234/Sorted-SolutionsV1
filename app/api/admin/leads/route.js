@@ -28,18 +28,22 @@ export async function GET(request) {
             return NextResponse.json({ success: true, exists: !!lead, lead });
         }
 
-        // Calculate date boundaries
-        const startDate = new Date();
-        const endDate = new Date();
+        // Calculate date boundaries in Indian Standard Time (IST = UTC + 5:30)
+        const nowUTC = new Date();
+        const nowIST = new Date(nowUTC.getTime() + 5.5 * 60 * 60 * 1000);
+        
+        let startIST = new Date(nowIST);
+        let endIST = new Date(nowIST);
+        endIST.setHours(23, 59, 59, 999);
 
         if (range === 'today') {
-            startDate.setHours(0, 0, 0, 0);
+            startIST.setHours(0, 0, 0, 0);
         } else if (range === 'yesterday') {
-            startDate.setDate(startDate.getDate() - 1);
-            startDate.setHours(0, 0, 0, 0);
+            startIST.setDate(startIST.getDate() - 1);
+            startIST.setHours(0, 0, 0, 0);
             
-            endDate.setDate(endDate.getDate() - 1);
-            endDate.setHours(23, 59, 59, 999);
+            endIST.setDate(endIST.getDate() - 1);
+            endIST.setHours(23, 59, 59, 999);
         } else if (range === 'custom') {
             const startParam = searchParams.get('start');
             const endParam = searchParams.get('end');
@@ -47,26 +51,38 @@ export async function GET(request) {
                 const sParts = startParam.split('-');
                 const eParts = endParam.split('-');
                 if (sParts.length === 3 && eParts.length === 3) {
-                    startDate.setFullYear(parseInt(sParts[0]), parseInt(sParts[1]) - 1, parseInt(sParts[2]));
-                    startDate.setHours(0, 0, 0, 0);
+                    startIST.setFullYear(parseInt(sParts[0]), parseInt(sParts[1]) - 1, parseInt(sParts[2]));
+                    startIST.setHours(0, 0, 0, 0);
 
-                    endDate.setFullYear(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]));
-                    endDate.setHours(23, 59, 59, 999);
+                    endIST.setFullYear(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]));
+                    endIST.setHours(23, 59, 59, 999);
                 }
             }
         } else if (range === '7d') {
-            startDate.setDate(startDate.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
+            startIST.setDate(startIST.getDate() - 7);
+            startIST.setHours(0, 0, 0, 0);
         } else if (range === '30d') {
-            startDate.setDate(startDate.getDate() - 30);
-            startDate.setHours(0, 0, 0, 0);
+            startIST.setDate(startIST.getDate() - 30);
+            startIST.setHours(0, 0, 0, 0);
         } else if (range === '90d') {
-            startDate.setDate(startDate.getDate() - 90);
-            startDate.setHours(0, 0, 0, 0);
+            startIST.setDate(startIST.getDate() - 90);
+            startIST.setHours(0, 0, 0, 0);
         } else {
             // all time
-            startDate.setFullYear(startDate.getFullYear() - 10);
+            startIST.setFullYear(startIST.getFullYear() - 10);
+            startIST.setHours(0, 0, 0, 0);
         }
+
+        // Convert back to UTC for database queries
+        const startDate = new Date(startIST.getTime() - 5.5 * 60 * 60 * 1000);
+        const endDate = new Date(endIST.getTime() - 5.5 * 60 * 60 * 1000);
+
+        const formatLocalYMD = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
 
         // 1. Fetch leads
         let leadQuery = supabase
@@ -75,9 +91,10 @@ export async function GET(request) {
             .order('first_contact_at', { ascending: false });
         
         if (range !== 'all') {
-            leadQuery = leadQuery
-                .gte('first_contact_at', startDate.toISOString())
-                .lte('first_contact_at', endDate.toISOString());
+            leadQuery = leadQuery.gte('first_contact_at', startDate.toISOString());
+            if (range === 'yesterday' || range === 'custom') {
+                leadQuery = leadQuery.lte('first_contact_at', endDate.toISOString());
+            }
         }
 
         const { data: leads, error: leadError } = await leadQuery;
@@ -125,8 +142,8 @@ export async function GET(request) {
             // Daily Ad Spend metrics
             supabase.from('google_ads_daily_metrics')
                 .select('*')
-                .gte('date', startDate.toISOString().split('T')[0])
-                .lte('date', endDate.toISOString().split('T')[0])
+                .gte('date', formatLocalYMD(startIST))
+                .lte('date', formatLocalYMD(endIST))
         ]);
 
         // Build mappings in memory

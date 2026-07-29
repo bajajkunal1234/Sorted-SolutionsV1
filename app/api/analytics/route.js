@@ -2,17 +2,26 @@ import { NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function getISTDate() {
+    const utc = new Date()
+    return new Date(utc.getTime() + 5.5 * 60 * 60 * 1000)
+}
+
+function convertISTToUTC(d) {
+    return new Date(d.getTime() - 5.5 * 60 * 60 * 1000)
+}
+
 function daysAgo(n) {
-    const d = new Date()
+    const d = getISTDate()
     d.setDate(d.getDate() - n)
     d.setHours(0, 0, 0, 0)
-    return d.toISOString()
+    return convertISTToUTC(d).toISOString()
 }
 
 function todayStart() {
-    const d = new Date()
+    const d = getISTDate()
     d.setHours(0, 0, 0, 0)
-    return d.toISOString()
+    return convertISTToUTC(d).toISOString()
 }
 
 // ─── GA4 Data API ─────────────────────────────────────────────────────────────
