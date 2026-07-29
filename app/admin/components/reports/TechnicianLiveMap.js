@@ -686,7 +686,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                         const isRedAlert = !isDashboard && loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
-                                padding: '12px 14px', borderRadius: 10,
+                                padding: isDashboard ? '8px 12px' : '12px 14px', borderRadius: 10,
                                 background: isRedAlert ? 'rgba(239, 68, 68, 0.05)' : (isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)'),
                                 border: `1px solid ${isRedAlert ? '#ef4444' : (isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'))}`,
                                 display: 'flex', alignItems: 'flex-start', gap: 12,
@@ -710,28 +710,57 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         )}
                                     </div>
                                     <div style={{ fontSize: 12, color: '#ffffff', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4, fontWeight: '500' }}>
-                                        <div>
-                                            {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#e2e8f0' }}>
-                                            {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
-                                                <span>🔋 {loc.battery_level}%</span>
-                                            )}
-                                            {loc.connectivity_status && (
-                                                <span>📶 {loc.connectivity_status}</span>
-                                            )}
-                                            {loc.ip_address && (
-                                                <span style={{ opacity: 0.9 }}>🌐 {loc.ip_address}</span>
-                                            )}
-                                        </div>
-                                        <div style={{ color: '#ffffff' }}>
-                                            Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
-                                        </div>
+                                        {isDashboard ? (
+                                            <>
+                                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', color: '#cbd5e1', fontSize: 11 }}>
+                                                    <span>{isTrulyOnline ? '🟢 Online' : '⚪ Offline'} ({loc.location_precision === 'precise' ? 'Precise' : 'Approx'})</span>
+                                                    {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                                        <>
+                                                            <span>·</span>
+                                                            <span>🔋 {loc.battery_level}%</span>
+                                                        </>
+                                                    )}
+                                                    {loc.connectivity_status && (
+                                                        <>
+                                                            <span>·</span>
+                                                            <span>📶 {loc.connectivity_status}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div style={{ color: '#cbd5e1', fontSize: 11 }}>
+                                                    Status: <span style={{ fontWeight: 600, color: '#fff' }}>{loc.is_on_job ? 'On job' : 'Idle'}</span> · {formatAge(loc.seconds_ago)}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#e2e8f0' }}>
+                                                    {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                                        <span>🔋 {loc.battery_level}%</span>
+                                                    )}
+                                                    {loc.connectivity_status && (
+                                                        <span>📶 {loc.connectivity_status}</span>
+                                                    )}
+                                                    {loc.ip_address && (
+                                                        <span style={{ opacity: 0.9 }}>🌐 {loc.ip_address}</span>
+                                                    )}
+                                                </div>
+                                                <div style={{ color: '#ffffff' }}>
+                                                    Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
+                                                </div>
+                                            </>
+                                        )}
                                         {(() => {
                                             const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
                                             const addr = addressCache[cacheKey];
                                             if (addr) {
-                                                return (
+                                                return isDashboard ? (
+                                                    <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 2, display: 'block', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }} title={addr}>
+                                                        🏠 {addr}
+                                                    </div>
+                                                ) : (
                                                     <div style={{ color: '#e2e8f0', fontSize: 11, marginTop: 4, display: 'flex', gap: 4, fontStyle: 'italic', wordBreak: 'break-word', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>
                                                         <span>🏠</span>
                                                         <span>{addr}</span>
@@ -742,7 +771,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         })()}
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0, marginTop: '2px' }}>
+                                <div style={{ display: 'flex', flexDirection: isDashboard ? 'row' : 'column', alignItems: isDashboard ? 'center' : 'flex-end', justifyContent: 'flex-end', gap: isDashboard ? 6 : 4, flexShrink: 0, marginTop: '2px', flexWrap: 'wrap', maxWidth: isDashboard ? '190px' : 'auto' }}>
                                     {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
                                         <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                     ) : (
@@ -762,7 +791,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             fontSize: 9,
                                             fontWeight: 700,
                                             cursor: 'pointer',
-                                            marginTop: 2
+                                            marginTop: isDashboard ? 0 : 2
                                         }}
                                     >
                                         📅 TIMELINE
@@ -778,7 +807,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             fontSize: 9,
                                             fontWeight: 700,
                                             cursor: 'pointer',
-                                            marginTop: 4
+                                            marginTop: isDashboard ? 0 : 4
                                         }}
                                     >
                                         📴 LOG OUT
