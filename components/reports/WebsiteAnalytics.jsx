@@ -1282,15 +1282,7 @@ export default function WebsiteAnalytics() {
                 // ─── LEADS TRACKER SUB-VIEW ───────────────────────────────────────────
                 <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
                     
-                    {/* ROI Summary metrics */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px' }}>
-                        <MetricCard icon={Users} color="#6366f1" label="Total Spends Leads" value={leadsSummary?.adsLeads ?? 0} subtitle={`${leadsSummary?.adsConversions ?? 0} Converted`} />
-                        <MetricCard icon={Percent} color="#10b981" label="Conversion Rate" value={`${(leadsSummary?.conversionRate ?? 0).toFixed(1)}%`} subtitle="Leads to Jobs" />
-                        <MetricCard icon={DollarSign} color="#ea4335" label="Google Ads Spend" value={`₹${(leadsSummary?.adsSpend ?? 0).toLocaleString()}`} subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impr.`} />
-                        <MetricCard icon={Info} color="#06b6d4" label="Cost Per Lead (CPL)" value={`₹${Math.round(leadsSummary?.cpl ?? 0).toLocaleString()}`} subtitle="Spend / Leads" />
-                        <MetricCard icon={User} color="#ec4899" label="Cost Per Customer (CPA)" value={`₹${Math.round(leadsSummary?.cpa ?? 0).toLocaleString()}`} subtitle="Spend / Converted" />
-                        <MetricCard icon={ShoppingCart} color="#fbbc04" label="Revenue Generated" value={`₹${(leadsSummary?.adsRevenue ?? 0).toLocaleString()}`} subtitle={`ROAS: ${(leadsSummary?.roas ?? 0).toFixed(2)}x`} />
-                    </div>
+
 
                     {/* Leads sub-tabs */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px' }}>
