@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -149,12 +149,13 @@ function formatAge(secondsAgo) {
  * Idle = grey dot, On-job = blue icon.
  * Refreshes every 60s automatically.
  */
-export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true, isDashboard = false }) {
+export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true, isDashboard = false, hideMap = false }) {
     const [allLocations, setAllLocations] = useState([]);
     const [adminLocation, setAdminLocation] = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
     const [localActiveJobs, setLocalActiveJobs] = useState([]);
+    const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'online' | 'on_job' | 'idle' | 'offline'
 
     const fetchAdminLocation = () => {
         if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -330,6 +331,27 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
         };
     });
 
+    const filteredLocations = useMemo(() => {
+        return mergedLocations.filter(loc => {
+            const isOffline = !loc.is_online || loc.seconds_ago > 900;
+            const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
+            
+            if (statusFilter === 'online') {
+                return isTrulyOnline;
+            }
+            if (statusFilter === 'on_job') {
+                return isTrulyOnline && loc.is_on_job;
+            }
+            if (statusFilter === 'idle') {
+                return isTrulyOnline && !loc.is_on_job;
+            }
+            if (statusFilter === 'offline') {
+                return isOffline;
+            }
+            return true; // 'all'
+        });
+    }, [mergedLocations, statusFilter]);
+
     // Auto-resolve addresses for merged live locations
     useEffect(() => {
         mergedLocations.forEach(loc => {
@@ -368,20 +390,68 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Status badges */}
+            {/* Status tabs */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)', color: '#38bdf8', fontWeight: 700, fontSize: 13 }}>
+                <button
+                    onClick={() => setStatusFilter('all')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8,
+                        background: statusFilter === 'all' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'all' ? '#6366f1' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'all' ? '#a5b4fc' : '#94a3b8',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                    }}
+                >
+                    📁 {mergedLocations.length} All
+                </button>
+                <button
+                    onClick={() => setStatusFilter('online')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8,
+                        background: statusFilter === 'online' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'online' ? '#38bdf8' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'online' ? '#38bdf8' : '#94a3b8',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                    }}
+                >
                     🟢 {onlineCount} Online now
-                </div>
-                <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981', fontWeight: 700, fontSize: 13 }}>
-                    💼 {onJobCount} On a job
-                </div>
-                <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.25)', color: '#94a3b8', fontWeight: 700, fontSize: 13 }}>
+                </button>
+                <button
+                    onClick={() => setStatusFilter('on_job')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8,
+                        background: statusFilter === 'on_job' ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'on_job' ? '#10b981' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'on_job' ? '#10b981' : '#94a3b8',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                    }}
+                >
+                    💼 {onJobCount} On job
+                </button>
+                <button
+                    onClick={() => setStatusFilter('idle')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8,
+                        background: statusFilter === 'idle' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'idle' ? '#f59e0b' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'idle' ? '#f59e0b' : '#94a3b8',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                    }}
+                >
                     ⚪ {idleCount} Idle
-                </div>
-                <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', fontWeight: 700, fontSize: 13 }}>
-                    💤 {offlineCount} Offline (Last Known)
-                </div>
+                </button>
+                <button
+                    onClick={() => setStatusFilter('offline')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8,
+                        background: statusFilter === 'offline' ? 'rgba(148,163,184,0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'offline' ? '#94a3b8' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'offline' ? '#94a3b8' : '#94a3b8',
+                        fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                    }}
+                >
+                    💤 {offlineCount} Offline
+                </button>
                 {lastRefresh && (
                     <div style={{ fontSize: 11, color: '#475569', marginLeft: 'auto' }}>
                         Last refresh: {lastRefresh.toLocaleTimeString()}
@@ -417,186 +487,188 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             )}
 
             {/* Map */}
-            <div style={{ position: 'relative', height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
-                {/* Map Type Switcher Floating Overlay */}
-                <div style={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-                    backdropFilter: 'blur(6px)',
-                    padding: 3,
-                    borderRadius: 6,
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                }}>
-                    <button
-                        onClick={() => setFitBoundsTrigger(prev => prev + 1)}
-                        style={{
-                            padding: '3px 6px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: 'rgba(255,255,255,0.06)',
-                            color: 'rgba(255,255,255,0.85)',
-                            transition: 'all 0.2s',
-                        }}
-                        title="Center map on all technicians"
-                    >
-                        🎯 Center Map
-                    </button>
-                    <div style={{ width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center' }} />
-                    <button
-                        onClick={() => setMapType('google-roadmap')}
-                        style={{
-                            padding: '3px 6px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: mapType === 'google-roadmap' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
-                            color: mapType === 'google-roadmap' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        🗺️ Map
-                    </button>
-                    <button
-                        onClick={() => setMapType('google-hybrid')}
-                        style={{
-                            padding: '3px 6px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: mapType === 'google-hybrid' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
-                            color: mapType === 'google-hybrid' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        🛰️ Satellite
-                    </button>
-                    <button
-                        onClick={() => setMapType('voyager')}
-                        style={{
-                            padding: '3px 6px',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            borderRadius: 4,
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: mapType === 'voyager' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
-                            color: mapType === 'voyager' ? '#fff' : 'rgba(255,255,255,0.7)',
-                            transition: 'all 0.2s'
-                        }}
-                    >
-                        🎨 Classic
-                    </button>
-                </div>
-
-                <MapContainer center={MUMBAI} zoom={12} style={{ height: '100%', width: '100%' }}>
-                    {mapType === 'google-roadmap' && (
-                        <TileLayer
-                            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-                            attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
-                        />
-                    )}
-                    {mapType === 'google-hybrid' && (
-                        <TileLayer
-                            url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-                            attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
-                        />
-                    )}
-                    {mapType === 'voyager' && (
-                        <TileLayer
-                            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                            attribution='&copy; <a href="https://carto.com/">Carto</a>'
-                        />
-                    )}
-                    {(() => {
-                        const fitPositions = [...mergedLocations];
-                        if (adminLocation) {
-                            fitPositions.push({ latitude: adminLocation.latitude, longitude: adminLocation.longitude });
-                        }
-                        return fitPositions.length > 0 && <FitBounds positions={fitPositions} trigger={fitBoundsTrigger} />;
-                    })()}
-                    <MapController panTo={mapPanTarget} />
-                    {adminLocation && (
-                        <Marker
-                            position={[adminLocation.latitude, adminLocation.longitude]}
-                            icon={adminIcon}
+            {!hideMap && (
+                <div style={{ position: 'relative', height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                    {/* Map Type Switcher Floating Overlay */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                        backdropFilter: 'blur(6px)',
+                        padding: 3,
+                        borderRadius: 6,
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}>
+                        <button
+                            onClick={() => setFitBoundsTrigger(prev => prev + 1)}
+                            style={{
+                                padding: '3px 6px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: 'rgba(255,255,255,0.06)',
+                                color: 'rgba(255,255,255,0.85)',
+                                transition: 'all 0.2s',
+                            }}
+                            title="Center map on all technicians"
                         >
-                            <Popup>
-                                <div style={{ fontWeight: 700, fontSize: 12, textAlign: 'center', minWidth: 100, color: '#0f172a' }}>
-                                    📍 You (Admin)
-                                </div>
-                            </Popup>
-                        </Marker>
-                    )}
+                            🎯 Center Map
+                        </button>
+                        <div style={{ width: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center' }} />
+                        <button
+                            onClick={() => setMapType('google-roadmap')}
+                            style={{
+                                padding: '3px 6px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: mapType === 'google-roadmap' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                                color: mapType === 'google-roadmap' ? '#fff' : 'rgba(255,255,255,0.7)',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            🗺️ Map
+                        </button>
+                        <button
+                            onClick={() => setMapType('google-hybrid')}
+                            style={{
+                                padding: '3px 6px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: mapType === 'google-hybrid' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                                color: mapType === 'google-hybrid' ? '#fff' : 'rgba(255,255,255,0.7)',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            🛰️ Satellite
+                        </button>
+                        <button
+                            onClick={() => setMapType('voyager')}
+                            style={{
+                                padding: '3px 6px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                borderRadius: 4,
+                                border: 'none',
+                                cursor: 'pointer',
+                                backgroundColor: mapType === 'voyager' ? 'rgba(99, 102, 241, 0.5)' : 'transparent',
+                                color: mapType === 'voyager' ? '#fff' : 'rgba(255,255,255,0.7)',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            🎨 Classic
+                        </button>
+                    </div>
 
-                    {mergedLocations.map(loc => {
-                        const isOffline = !loc.is_online || loc.seconds_ago > 900;
-                        const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
-                        let markerIcon = idleIcon;
-                        if (isOffline) {
-                            markerIcon = offlineIcon;
-                        } else if (loc.is_on_job) {
-                            markerIcon = onJobIcon;
-                        }
-
-                        return (
+                    <MapContainer center={MUMBAI} zoom={12} style={{ height: '100%', width: '100%' }}>
+                        {mapType === 'google-roadmap' && (
+                            <TileLayer
+                                url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                                attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                            />
+                        )}
+                        {mapType === 'google-hybrid' && (
+                            <TileLayer
+                                url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                                attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                            />
+                        )}
+                        {mapType === 'voyager' && (
+                            <TileLayer
+                                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                                attribution='&copy; <a href="https://carto.com/">Carto</a>'
+                            />
+                        )}
+                        {(() => {
+                            const fitPositions = [...mergedLocations];
+                            if (adminLocation) {
+                                fitPositions.push({ latitude: adminLocation.latitude, longitude: adminLocation.longitude });
+                            }
+                            return fitPositions.length > 0 && <FitBounds positions={fitPositions} trigger={fitBoundsTrigger} />;
+                        })()}
+                        <MapController panTo={mapPanTarget} />
+                        {adminLocation && (
                             <Marker
-                                key={loc.technician_id}
-                                position={[loc.latitude, loc.longitude]}
-                                icon={markerIcon}
+                                position={[adminLocation.latitude, adminLocation.longitude]}
+                                icon={adminIcon}
                             >
                                 <Popup>
-                                    <div style={{ minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 0' }}>
-                                        <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
-                                            🔧 {loc.name}
-                                        </div>
-                                        <div style={{ fontSize: 11, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                            {loc.connectivity_status && (
-                                                <div>📶 Connection: <span style={{ fontWeight: 600, color: '#1e293b' }}>{loc.connectivity_status}</span></div>
-                                            )}
-                                            <div>⏰ Last seen: <span style={{ fontWeight: 600, color: '#1e293b' }}>{formatAge(loc.seconds_ago)}</span></div>
-                                        </div>
-                                        <a
-                                            href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{
-                                                width: '100%',
-                                                padding: '6px 8px',
-                                                backgroundColor: '#3b82f6',
-                                                borderRadius: 6,
-                                                color: '#fff',
-                                                fontWeight: 700,
-                                                fontSize: 10,
-                                                textDecoration: 'none',
-                                                textAlign: 'center',
-                                                display: 'block',
-                                                marginTop: 4,
-                                                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.25)',
-                                                transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            🗺️ Get Directions
-                                        </a>
+                                    <div style={{ fontWeight: 700, fontSize: 12, textAlign: 'center', minWidth: 100, color: '#0f172a' }}>
+                                        📍 You (Admin)
                                     </div>
                                 </Popup>
                             </Marker>
-                        );
-                    })}
-                </MapContainer>
-            </div>
+                        )}
+
+                        {mergedLocations.map(loc => {
+                            const isOffline = !loc.is_online || loc.seconds_ago > 900;
+                            const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
+                            let markerIcon = idleIcon;
+                            if (isOffline) {
+                                markerIcon = offlineIcon;
+                            } else if (loc.is_on_job) {
+                                markerIcon = onJobIcon;
+                            }
+
+                            return (
+                                <Marker
+                                    key={loc.technician_id}
+                                    position={[loc.latitude, loc.longitude]}
+                                    icon={markerIcon}
+                                >
+                                    <Popup>
+                                        <div style={{ minWidth: 160, display: 'flex', flexDirection: 'column', gap: 6, padding: '2px 0' }}>
+                                            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>
+                                                🔧 {loc.name}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                {loc.connectivity_status && (
+                                                    <div>📶 Connection: <span style={{ fontWeight: 600, color: '#1e293b' }}>{loc.connectivity_status}</span></div>
+                                                )}
+                                                <div>⏰ Last seen: <span style={{ fontWeight: 600, color: '#1e293b' }}>{formatAge(loc.seconds_ago)}</span></div>
+                                            </div>
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '6px 8px',
+                                                    backgroundColor: '#3b82f6',
+                                                    borderRadius: 6,
+                                                    color: '#fff',
+                                                    fontWeight: 700,
+                                                    fontSize: 10,
+                                                    textDecoration: 'none',
+                                                    textAlign: 'center',
+                                                    display: 'block',
+                                                    marginTop: 4,
+                                                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.25)',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                🗺️ Get Directions
+                                            </a>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            );
+                        })}
+                    </MapContainer>
+                </div>
+            )}
 
             {/* No one has any location */}
             {!loading && mergedLocations.length === 0 && (
@@ -606,9 +678,9 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             )}
 
             {/* Technician roster */}
-            {showRoster && mergedLocations.length > 0 && (
+            {showRoster && filteredLocations.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
-                    {mergedLocations.map(loc => {
+                    {filteredLocations.map(loc => {
                         const isOffline = !loc.is_online || loc.seconds_ago > 900;
                         const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
                         const isRedAlert = !isDashboard && loc.seconds_ago > 1800;
@@ -715,6 +787,13 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* No technicians matching the selected filter */}
+            {!loading && showRoster && filteredLocations.length === 0 && mergedLocations.length > 0 && (
+                <div style={{ textAlign: 'center', padding: 24, color: '#64748b', fontSize: 13, border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 10 }}>
+                    No technicians are currently matching the selected status filter.
                 </div>
             )}
 

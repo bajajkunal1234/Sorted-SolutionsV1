@@ -124,9 +124,9 @@ export default function AdminApp() {
 
                             <div>
                                 <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    📍 Technician Locations
+                                    👥 Technician Live Status
                                 </h3>
-                                <TechnicianLiveMap height={325} showRoster={true} isDashboard={true} />
+                                <TechnicianLiveMap height={325} showRoster={true} isDashboard={true} hideMap={true} />
                             </div>
 
                             <DashboardFollowups />
