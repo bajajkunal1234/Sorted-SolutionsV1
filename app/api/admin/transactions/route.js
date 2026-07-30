@@ -182,11 +182,20 @@ export async function GET(request) {
         const tableName = tableMap[type];
         const fkAlias = tableName === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : (tableName === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : 'accounts(name, mobile, email, address, gstin)');
 
+        const status = searchParams.get('status')
+        const hasStatusFilter = !!status
+
         let query = supabase
             .from(tableName)
             .select(`*, ${fkAlias}, jobs(job_number, technician_name)`)
             .order('date', { ascending: false })
-            .limit(100)
+
+        if (hasStatusFilter) {
+            query = query.in('status', status.split(','))
+            query = query.limit(1000)
+        } else {
+            query = query.limit(100)
+        }
 
         const txId = searchParams.get('id')
         if (txId && isUUID(txId)) query = query.eq('id', txId)

@@ -85,11 +85,10 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
     const loadPendingPayments = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/transactions?type=receipt');
+            const res = await fetch('/api/admin/transactions?type=receipt&status=pending_verification,draft');
             const data = await res.json();
             if (data.success) {
-                const pending = (data.data || []).filter(tx => tx.status === 'pending_verification' || tx.status === 'draft');
-                setPayments(pending);
+                setPayments(data.data || []);
             }
         } catch (err) {
             console.error("Failed to load pending payments:", err);
