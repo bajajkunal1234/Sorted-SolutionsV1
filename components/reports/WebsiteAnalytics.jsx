@@ -1193,119 +1193,107 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
 
             {/* ─── HEADER ────────────────────────────────────────────────────────── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', borderBottom: isMobile ? '1px solid var(--border-primary)' : 'none', paddingBottom: isMobile ? '8px' : '0' }}>
-                {(!isMobile || subView === 'dashboard') ? (
+            {subView === 'dashboard' && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {subView !== 'dashboard' ? (
-                            <button onClick={() => setSubView('dashboard')} style={{ background: 'none', border: '1px solid var(--border-primary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
-                                <ArrowLeft size={14} /> Back
-                            </button>
-                        ) : (
-                            <div style={{ fontSize: '26px' }}>📊</div>
-                        )}
+                        <div style={{ fontSize: '26px' }}>📊</div>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                {subView === 'leads_tracker' ? 'Google Ads Leads & ROI Tracker' : 'Website Analytics'}
+                                Website Analytics
                             </h2>
                             <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
                                 {lastFetched ? `Last updated ${lastFetched.toLocaleTimeString()}` : 'Loading...'}
                             </p>
                         </div>
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
-                            {lastFetched ? `Updated: ${lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Loading...'}
-                        </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexWrap: 'wrap' }}>
+                        {range === 'custom' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', padding: isMobile ? '2px 6px' : '4px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>From</span>
+                                    <input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={e => setCustomStartDate(e.target.value)}
+                                        style={{
+                                            padding: '4px 6px',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: '4px',
+                                            backgroundColor: 'var(--bg-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: isMobile ? '11px' : '12px',
+                                            outline: 'none',
+                                            height: isMobile ? '24px' : 'auto'
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>To</span>
+                                    <input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={e => setCustomEndDate(e.target.value)}
+                                        style={{
+                                            padding: '4px 6px',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: '4px',
+                                            backgroundColor: 'var(--bg-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: isMobile ? '11px' : '12px',
+                                            outline: 'none',
+                                            height: isMobile ? '24px' : 'auto'
+                                        }}
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => load('custom', customStartDate, customEndDate)}
+                                    disabled={loading}
+                                    style={{
+                                        padding: isMobile ? '3px 6px' : '5px 10px',
+                                        backgroundColor: 'var(--color-primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Apply
+                                </button>
+                            </div>
+                        )}
+                        <select
+                            value={range}
+                            onChange={e => setRange(e.target.value)}
+                            style={{
+                                padding: isMobile ? '4px 8px' : '6px 12px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                color: 'var(--text-primary)',
+                                fontSize: isMobile ? '11px' : '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                outline: 'none',
+                                height: isMobile ? '28px' : 'auto'
+                            }}
+                        >
+                            <option value="today">Today</option>
+                            <option value="yesterday">Yesterday</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="90d">Last 90 Days</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                        <button onClick={() => load(range)} disabled={loading}
+                            style={{ padding: isMobile ? '5px' : '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: isMobile ? '28px' : 'auto', width: isMobile ? '28px' : 'auto', justifyContent: 'center' }}>
+                            <RefreshCw size={isMobile ? 12 : 14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                        </button>
                     </div>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', flexWrap: 'wrap' }}>
-                    {range === 'custom' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '8px', padding: isMobile ? '2px 6px' : '4px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>From</span>
-                                <input
-                                    type="date"
-                                    value={customStartDate}
-                                    onChange={e => setCustomStartDate(e.target.value)}
-                                    style={{
-                                        padding: '4px 6px',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: '4px',
-                                        backgroundColor: 'var(--bg-primary)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: isMobile ? '11px' : '12px',
-                                        outline: 'none',
-                                        height: isMobile ? '24px' : 'auto'
-                                    }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>To</span>
-                                <input
-                                    type="date"
-                                    value={customEndDate}
-                                    onChange={e => setCustomEndDate(e.target.value)}
-                                    style={{
-                                        padding: '4px 6px',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: '4px',
-                                        backgroundColor: 'var(--bg-primary)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: isMobile ? '11px' : '12px',
-                                        outline: 'none',
-                                        height: isMobile ? '24px' : 'auto'
-                                    }}
-                                />
-                            </div>
-                            <button
-                                onClick={() => load('custom', customStartDate, customEndDate)}
-                                disabled={loading}
-                                style={{
-                                    padding: isMobile ? '3px 6px' : '5px 10px',
-                                    backgroundColor: 'var(--color-primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Apply
-                            </button>
-                        </div>
-                    )}
-                    <select
-                        value={range}
-                        onChange={e => setRange(e.target.value)}
-                        style={{
-                            padding: isMobile ? '4px 8px' : '6px 12px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            fontSize: isMobile ? '11px' : '13px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            outline: 'none',
-                            height: isMobile ? '28px' : 'auto'
-                        }}
-                    >
-                        <option value="today">Today</option>
-                        <option value="yesterday">Yesterday</option>
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="90d">Last 90 Days</option>
-                        <option value="all">All Time</option>
-                        <option value="custom">Custom Range</option>
-                    </select>
-                    <button onClick={() => load(range)} disabled={loading}
-                        style={{ padding: isMobile ? '5px' : '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: isMobile ? '28px' : 'auto', width: isMobile ? '28px' : 'auto', justifyContent: 'center' }}>
-                        <RefreshCw size={isMobile ? 12 : 14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-                    </button>
                 </div>
-            </div>
+            )}
 
             {error && <div style={{ padding: '12px', backgroundColor: '#ef444415', border: '1px solid #ef444430', borderRadius: 'var(--radius-md)', color: '#ef4444', fontSize: '13px' }}>{error}</div>}
 
@@ -1347,166 +1335,238 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
                     {/* TAB Content: Directory */}
                     {leadsTab === 'directory' && (
                         <div style={{ display: 'grid', gap: '12px' }}>
-                            <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px', position: 'relative', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
                                 <input
                                     type="text"
                                     placeholder="Search by name, phone or campaign..."
                                     value={leadsSearch}
                                     onChange={e => setLeadsSearch(e.target.value)}
                                     style={{
-                                        flex: 1, minWidth: isMobile ? '100%' : '200px', padding: isMobile ? '8px 12px' : '10px 14px', border: '1px solid var(--border-primary)',
+                                        flex: 1, padding: '8px 12px', border: '1px solid var(--border-primary)',
                                         backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
-                                        borderRadius: 'var(--radius-md)', fontSize: isMobile ? '12px' : '13px'
+                                        borderRadius: 'var(--radius-md)', fontSize: '12px',
+                                        height: '32px'
                                     }}
                                 />
-                                <div style={{ display: 'flex', gap: isMobile ? '4px' : '6px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-start' }}>
+                                <button onClick={() => load(range)} disabled={loading}
+                                    style={{ padding: '5px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: '32px', width: '32px', justifyContent: 'center', flexShrink: 0 }}>
+                                    <RefreshCw size={12} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                                </button>
+                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    {lastFetched ? `${lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Loading...'}
+                                </span>
+                            </div>
+
+                            {range === 'custom' && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', padding: '6px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>From</span>
+                                        <input
+                                            type="date"
+                                            value={customStartDate}
+                                            onChange={e => setCustomStartDate(e.target.value)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '4px 6px',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: '4px',
+                                                backgroundColor: 'var(--bg-primary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '11px',
+                                                outline: 'none',
+                                                height: '26px'
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>To</span>
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            onChange={e => setCustomEndDate(e.target.value)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '4px 6px',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: '4px',
+                                                backgroundColor: 'var(--bg-primary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '11px',
+                                                outline: 'none',
+                                                height: '26px'
+                                            }}
+                                        />
+                                    </div>
                                     <button
-                                        onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+                                        onClick={() => load('custom', customStartDate, customEndDate)}
+                                        disabled={loading}
                                         style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: isMobile ? '32px' : '38px',
-                                            padding: isMobile ? '0 10px' : '0 10px',
-                                            flex: isMobile ? 1 : 'none',
-                                            gap: '6px',
-                                            border: isFilterPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                            backgroundColor: isFilterPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
-                                            color: isFilterPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                            borderRadius: 'var(--radius-md)',
-                                            cursor: 'pointer',
-                                            fontSize: isMobile ? '11px' : '12px',
-                                            fontWeight: 600
-                                        }}
-                                        title="Filter Leads"
-                                    >
-                                        <SlidersHorizontal size={12} />
-                                        {isMobile && <span>Filters</span>}
-                                    </button>
-                                    
-                                    {!isMobile && (
-                                        <div style={{ position: 'relative' }}>
-                                            <button
-                                                onClick={() => setIsColumnPanelOpen(!isColumnPanelOpen)}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    height: '38px',
-                                                    width: '38px',
-                                                    border: isColumnPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                                    backgroundColor: isColumnPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
-                                                    color: isColumnPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    cursor: 'pointer',
-                                                    flexShrink: 0
-                                                }}
-                                                title="Manage Columns"
-                                            >
-                                                <Settings size={14} />
-                                            </button>
-                                            {isColumnPanelOpen && (
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    top: '44px',
-                                                    right: '0px',
-                                                    width: '240px',
-                                                    backgroundColor: 'var(--bg-elevated)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-lg)',
-                                                    boxShadow: 'var(--shadow-lg)',
-                                                    padding: '12px',
-                                                    zIndex: 100,
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '8px'
-                                                }}>
-                                                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span>Manage Columns</span>
-                                                        <button onClick={() => setIsColumnPanelOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}><X size={12} /></button>
-                                                    </div>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-                                                        {columnsConfig.map((col, idx) => (
-                                                            <div key={col.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-primary)' }}>
-                                                                    <input 
-                                                                        type="checkbox" 
-                                                                        checked={col.visible} 
-                                                                        onChange={() => toggleColumnVisibility(col.key)} 
-                                                                        disabled={col.key === 'actions'}
-                                                                        style={{ cursor: 'pointer' }}
-                                                                    />
-                                                                    {col.label}
-                                                                </label>
-                                                                <div style={{ display: 'flex', gap: '2px' }}>
-                                                                    <button 
-                                                                        onClick={() => moveColumn(idx, -1)} 
-                                                                        disabled={idx === 0}
-                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                                    >
-                                                                        <ChevronUp size={10} />
-                                                                    </button>
-                                                                    <button 
-                                                                        onClick={() => moveColumn(idx, 1)} 
-                                                                        disabled={idx === columnsConfig.length - 1}
-                                                                        style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
-                                                                    >
-                                                                        <ChevronDown size={10} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={exportToCSV}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: isMobile ? '32px' : '38px',
-                                            padding: '0 10px',
-                                            flex: isMobile ? 1 : 'none',
-                                            gap: '6px',
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-elevated)',
-                                            color: 'var(--text-secondary)',
-                                            borderRadius: 'var(--radius-md)',
-                                            fontSize: isMobile ? '11px' : '12px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <FileText size={12} />
-                                        {isMobile ? <span>Export</span> : <span>Export CSV</span>}
-                                    </button>
-                                    
-                                    <button
-                                        onClick={() => setIsManualLeadDrawerOpen(true)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: isMobile ? '32px' : '38px',
-                                            padding: '0 10px',
-                                            flex: isMobile ? 1.2 : 'none',
-                                            gap: '6px',
-                                            border: 'none',
+                                            padding: '4px 10px',
                                             backgroundColor: 'var(--color-primary)',
                                             color: 'white',
-                                            borderRadius: 'var(--radius-md)',
-                                            fontSize: isMobile ? '11px' : '12px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer'
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            height: '26px'
                                         }}
                                     >
-                                        <Plus size={12} />
-                                        <span>Report Lead</span>
+                                        Apply
                                     </button>
                                 </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '6px', width: '100%', alignItems: 'center' }}>
+                                <select
+                                    value={range}
+                                    onChange={e => setRange(e.target.value)}
+                                    style={{
+                                        padding: '4px 8px',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        height: '32px',
+                                        flex: 1
+                                    }}
+                                >
+                                    <option value="today">Today</option>
+                                    <option value="yesterday">Yesterday</option>
+                                    <option value="7d">Last 7 Days</option>
+                                    <option value="30d">Last 30 Days</option>
+                                    <option value="90d">Last 90 Days</option>
+                                    <option value="all">All Time</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                                
+                                {!isMobile && (
+                                    <div style={{ position: 'relative' }}>
+                                        <button
+                                            onClick={() => setIsColumnPanelOpen(!isColumnPanelOpen)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                height: '32px',
+                                                width: '32px',
+                                                border: isColumnPanelOpen ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                backgroundColor: isColumnPanelOpen ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-elevated)',
+                                                color: isColumnPanelOpen ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                                borderRadius: 'var(--radius-md)',
+                                                cursor: 'pointer',
+                                                flexShrink: 0
+                                            }}
+                                            title="Manage Columns"
+                                        >
+                                            <Settings size={14} />
+                                        </button>
+                                        {isColumnPanelOpen && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '36px',
+                                                left: '0px',
+                                                width: '240px',
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: 'var(--radius-lg)',
+                                                boxShadow: 'var(--shadow-lg)',
+                                                padding: '12px',
+                                                zIndex: 100,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>Manage Columns</span>
+                                                    <button onClick={() => setIsColumnPanelOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}><X size={12} /></button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+                                                    {columnsConfig.map((col, idx) => (
+                                                        <div key={col.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-primary)' }}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={col.visible} 
+                                                                    onChange={() => toggleColumnVisibility(col.key)} 
+                                                                    disabled={col.key === 'actions'}
+                                                                    style={{ cursor: 'pointer' }}
+                                                                />
+                                                                {col.label}
+                                                            </label>
+                                                            <div style={{ display: 'flex', gap: '2px' }}>
+                                                                <button 
+                                                                    onClick={() => moveColumn(idx, -1)} 
+                                                                    disabled={idx === 0}
+                                                                    style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                >
+                                                                    <ChevronUp size={10} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => moveColumn(idx, 1)} 
+                                                                    disabled={idx === columnsConfig.length - 1}
+                                                                    style={{ padding: '2px 4px', border: '1px solid var(--border-primary)', borderRadius: '3px', backgroundColor: 'var(--bg-secondary)', cursor: idx === columnsConfig.length - 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}
+                                                                >
+                                                                    <ChevronDown size={10} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={exportToCSV}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        height: '32px',
+                                        padding: '0 10px',
+                                        flex: 1,
+                                        gap: '6px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-secondary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <FileText size={12} />
+                                    <span>Export</span>
+                                </button>
+                                
+                                <button
+                                    onClick={() => setIsManualLeadDrawerOpen(true)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        height: '32px',
+                                        padding: '0 10px',
+                                        flex: 1.2,
+                                        gap: '6px',
+                                        border: 'none',
+                                        backgroundColor: 'var(--color-primary)',
+                                        color: 'white',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <Plus size={12} />
+                                    <span>Report Lead</span>
+                                </button>
                             </div>
 
                             {isFilterPanelOpen && (
@@ -2081,7 +2141,36 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
 
                             {/* Spends Directory List */}
                             <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
-                                <div style={{ padding: '14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px' }}>Daily Metric Records</div>
+                                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>Daily Metric Records</span>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                        <select
+                                            value={range}
+                                            onChange={e => setRange(e.target.value)}
+                                            style={{
+                                                padding: '2px 6px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-primary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '11px',
+                                                outline: 'none',
+                                                height: '24px'
+                                            }}
+                                        >
+                                            <option value="today">Today</option>
+                                            <option value="yesterday">Yesterday</option>
+                                            <option value="7d">Last 7 Days</option>
+                                            <option value="30d">Last 30 Days</option>
+                                            <option value="90d">Last 90 Days</option>
+                                            <option value="all">All Time</option>
+                                        </select>
+                                        <button onClick={() => load(range)} disabled={loading}
+                                            style={{ padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: '24px', width: '24px', justifyContent: 'center' }}>
+                                            <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                                        </button>
+                                    </div>
+                                </div>
                                 {dailySpendLoading ? (
                                     <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading spends...</div>
                                 ) : (
