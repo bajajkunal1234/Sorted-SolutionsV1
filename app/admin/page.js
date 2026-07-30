@@ -88,9 +88,8 @@ export default function AdminApp() {
             setActiveTab('reports')
         }
         window.openWebsiteAnalyticsLeadsTracker = () => {
-            window.reportsSubViewTarget = 'leads_tracker';
             setReportsSectionToOpen('slots');
-            setReportsSubSectionToOpen('website-analytics');
+            setReportsSubSectionToOpen('leads-tracker');
             setActiveTab('reports');
         }
         window.openCreatePaymentForm = () => {

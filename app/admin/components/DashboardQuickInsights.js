@@ -24,7 +24,7 @@ export default function DashboardQuickInsights() {
     const [data, setData] = useState({
         leads: { total: 0, manual: 0 },
         daybook: { moneyIn: 0, moneyOut: 0 },
-        cashReceipts: { count: 0, total: 0 },
+        cashReceipts: { count: 0, total: 0, byTech: {} },
         rentals: { active: 0, rentDue: 0 },
         jobs: { scheduled: 0, techOpenCounts: [] },
         kunalActiveTags: []
@@ -86,7 +86,7 @@ export default function DashboardQuickInsights() {
                 // 4. Cash collections pending verification
                 supabase
                     .from('receipt_vouchers')
-                    .select('amount')
+                    .select('amount, created_by')
                     .in('status', ['pending_verification', 'draft'])
                     .ilike('payment_mode', 'cash'),
 
@@ -126,8 +126,15 @@ export default function DashboardQuickInsights() {
             const receiptsSum = (receiptsRes.data || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
             const paymentsSum = (paymentsRes.data || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
-            const pendingCashCount = (cashReceiptsRes.data || []).length;
-            const pendingCashSum = (cashReceiptsRes.data || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+            const pendingCash = cashReceiptsRes.data || [];
+            const pendingCashCount = pendingCash.length;
+            const pendingCashSum = pendingCash.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+            
+            const cashByTech = {};
+            pendingCash.forEach(r => {
+                const name = r.created_by || 'Unknown';
+                cashByTech[name] = (cashByTech[name] || 0) + (parseFloat(r.amount) || 0);
+            });
 
             const activeRentalsCount = (rentalsRes.data || []).length;
             const overdueRentalsCount = (rentalsRes.data || []).filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
@@ -181,7 +188,7 @@ export default function DashboardQuickInsights() {
             setData({
                 leads: { total: leadsCount, manual: manualLeadsCount },
                 daybook: { moneyIn: receiptsSum, moneyOut: paymentsSum },
-                cashReceipts: { count: pendingCashCount, total: pendingCashSum },
+                cashReceipts: { count: pendingCashCount, total: pendingCashSum, byTech: cashByTech },
                 rentals: { active: activeRentalsCount, rentDue: overdueRentalsCount },
                 jobs: { scheduled: scheduledTodayCount, techOpenCounts },
                 kunalActiveTags: kunalTags
@@ -310,7 +317,18 @@ export default function DashboardQuickInsights() {
                             title="Open Customer Payments Pending Verification"
                         >
                             <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Technician Cash</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginTop: 4 }}>{formatCurrency(data.cashReceipts.total)}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 6 }}>
+                                {Object.keys(data.cashReceipts.byTech).length > 0 ? (
+                                    Object.entries(data.cashReceipts.byTech).map(([tech, sum]) => (
+                                        <div key={tech} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10 }}>
+                                            <span style={{ color: '#94a3b8', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '90px' }}>{tech.split(' ')[0]}:</span>
+                                            <span style={{ fontWeight: 700, color: '#fff' }}>{formatCurrency(sum)}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginTop: 4 }}>{formatCurrency(0)}</div>
+                                )}
+                            </div>
                             <div style={{ fontSize: 9, color: data.cashReceipts.count > 0 ? '#f59e0b' : '#94a3b8', fontWeight: 600, marginTop: 4 }}>
                                 {data.cashReceipts.count > 0 ? `⚠️ ${data.cashReceipts.count} pending verify` : '✓ Fully verified'}
                             </div>

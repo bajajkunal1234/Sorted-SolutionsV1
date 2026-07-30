@@ -198,22 +198,9 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
         <div style={{ padding: isMobile ? 'var(--spacing-sm)' : 'var(--spacing-lg)', height: '100%', overflowY: 'auto' }}>
             <div style={{ 
                 display: 'flex', 
-                flexDirection: isMobile ? 'column' : 'row',
-                justifyContent: 'space-between', 
-                alignItems: isMobile ? 'stretch' : 'flex-start', 
-                gap: isMobile ? 'var(--spacing-md)' : 'var(--spacing-sm)',
-                marginBottom: 'var(--spacing-xl)' 
+                justifyContent: 'flex-end', 
+                marginBottom: 'var(--spacing-lg)' 
             }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <ShieldCheck size={28} color="var(--color-primary)" />
-                        Pending Payment Verification
-                    </h2>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, maxWidth: '600px' }}>
-                        Review payments collected by technicians or admins in the field. Once verified, these receipts will be marked as "Cleared" and posted fully to the accounting daybook. 
-                    </p>
-                </div>
-                
                 <div style={{ 
                     display: 'flex', 
                     gap: 'var(--spacing-sm)', 
@@ -306,7 +293,49 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Total Pending Amount</div>
                     </div>
                 </div>
-            </div>            {filteredPayments.length === 0 ? (
+            </div>
+
+            {/* Technician Breakdown Cards */}
+            {(() => {
+                const cashPayments = payments.filter(p => (p.payment_mode || '').toLowerCase() === 'cash');
+                const techSums = {};
+                cashPayments.forEach(p => {
+                    const tech = p.created_by || 'Unknown';
+                    techSums[tech] = (techSums[tech] || 0) + (parseFloat(p.amount) || 0);
+                });
+
+                if (Object.keys(techSums).length === 0) return null;
+
+                return (
+                    <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <User size={14} /> Cash Collected by Technician
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
+                            {Object.entries(techSums).map(([techName, sum]) => (
+                                <div key={techName} className="card" style={{ 
+                                    padding: '10px 14px', 
+                                    backgroundColor: 'var(--bg-elevated)', 
+                                    border: '1px solid var(--border-primary)', 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '2px', 
+                                    borderRadius: 'var(--radius-md)',
+                                    minWidth: '140px',
+                                    flex: isMobile ? '1 1 calc(50% - 8px)' : '0 1 auto'
+                                }}>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {techName}
+                                    </span>
+                                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#f59e0b' }}>
+                                        ₹{sum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}            {filteredPayments.length === 0 ? (
                 <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
                     <ShieldCheck size={48} color="var(--text-tertiary)" style={{ margin: '0 auto var(--spacing-md)' }} />
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>All Caught Up!</h3>

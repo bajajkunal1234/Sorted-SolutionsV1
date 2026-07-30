@@ -407,7 +407,7 @@ function SectionTitle({ children }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function WebsiteAnalytics({ subSection, setSubSection }) {
+export default function WebsiteAnalytics({ subSection, setSubSection, initialSubView = 'dashboard', standalone = false }) {
     const [range, setRange] = useState('30d')
     const [isMobile, setIsMobile] = useState(false)
 
@@ -425,18 +425,18 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
     const [lastFetched, setLastFetched] = useState(null)
 
     // Sub-view control
-    const [subView, setSubView] = useState('dashboard') // 'dashboard' | 'leads_tracker'
+    const [subView, setSubView] = useState(initialSubView) // 'dashboard' | 'leads_tracker'
     
     // Sync subView state with breadcrumbs (subSection)
     useEffect(() => {
-        if (setSubSection) {
+        if (setSubSection && !standalone) {
             if (subView === 'leads_tracker') {
                 setSubSection('📊 Website Analytics › Google Ads Leads & ROI Tracker');
             } else {
                 setSubSection('📊 Website Analytics');
             }
         }
-    }, [subView, setSubSection]);
+    }, [subView, setSubSection, standalone]);
 
     // Handle cross-tab deep-linking targeting Leads Tracker
     useEffect(() => {
@@ -447,10 +447,10 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
     }, []);
 
     useEffect(() => {
-        if (subSection === '📊 Website Analytics') {
+        if (!standalone && subSection === '📊 Website Analytics') {
             setSubView('dashboard');
         }
-    }, [subSection]);
+    }, [subSection, standalone]);
     
     // Customers for manual lead logging
     const [customers, setCustomers] = useState([])
@@ -2338,39 +2338,7 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
 
                 // ─── STANDARD ANALYTICS DASHBOARD ─────────────────────────────────────
                 <>
-                    {/* 🎯 Google Ads ROI Tracker card section */}
-                    <SectionTitle>🎯 Google Ads Campaigns</SectionTitle>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
-                        <MetricCard
-                            icon={TrendingUp}
-                            color="#10b981"
-                            label="Leads Generated"
-                            value={leadsSummary?.adsLeads ?? 0}
-                            subtitle="Open ROI & Leads Tracker"
-                            onClick={() => setSubView('leads_tracker')}
-                        />
-                        <MetricCard
-                            icon={DollarSign}
-                            color="#ea4335"
-                            label="Google Ads Spend"
-                            value={leadsSummary?.adsSpend !== undefined ? `₹${leadsSummary.adsSpend.toLocaleString()}` : '—'}
-                            subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impressions`}
-                        />
-                        <MetricCard
-                            icon={Info}
-                            color="#8b5cf6"
-                            label="Cost Per Lead (CPL)"
-                            value={leadsSummary?.cpl !== undefined ? `₹${Math.round(leadsSummary.cpl).toLocaleString()}` : '—'}
-                            subtitle="Total ad spend / leads"
-                        />
-                        <MetricCard
-                            icon={ShoppingCart}
-                            color="#4285f4"
-                            label="Revenue (Ads ROI)"
-                            value={leadsSummary?.adsRevenue !== undefined ? `₹${leadsSummary.adsRevenue.toLocaleString()}` : '—'}
-                            subtitle={leadsSummary ? `ROAS: ${(leadsSummary.roas ?? 0).toFixed(2)}x` : '—'}
-                        />
-                    </div>
+
 
                     {/* ── First Party Traffic ──────────────────────────────────────── */}
                     <SectionTitle>📡 Web Traffic (First-Party Tracker)</SectionTitle>

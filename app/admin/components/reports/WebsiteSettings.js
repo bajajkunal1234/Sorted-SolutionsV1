@@ -454,7 +454,9 @@ function WebsiteSettings({ subSection, setSubSection }) {
             ) : activeCategory === 'google-apis' ? (
                 <GoogleAPIsSettings />
             ) : activeCategory === 'website-analytics' ? (
-                <WebsiteAnalytics subSection={subSection} setSubSection={setSubSection} />
+                <WebsiteAnalytics subSection={subSection} setSubSection={setSubSection} initialSubView="dashboard" standalone={false} />
+            ) : activeCategory === 'leads-tracker' ? (
+                <WebsiteAnalytics subSection={subSection} setSubSection={setSubSection} initialSubView="leads_tracker" standalone={true} />
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
                 <StaticPagesSettings />
             ) : activeCategory &&
