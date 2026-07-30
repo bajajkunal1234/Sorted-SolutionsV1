@@ -231,12 +231,16 @@ function WebsiteSettings({ subSection, setSubSection }) {
         if (!subSection) {
             setActiveCategory(null);
         } else {
-            const group = categoryGroups.find(g => g.label === subSection || g.id === subSection);
+            const baseSection = typeof subSection === 'string' && subSection.includes(' › ')
+                ? subSection.split(' › ')[0].trim()
+                : subSection;
+                
+            const group = categoryGroups.find(g => g.label === baseSection || g.id === baseSection);
             if (group) {
                 setActiveCategory(group.id);
             } else {
                 const allSettings = Object.values(settingsByCategory).flat();
-                const setting = allSettings.find(s => s.id === subSection || s.label === subSection);
+                const setting = allSettings.find(s => s.id === baseSection || s.label === baseSection);
                 if (setting) setActiveCategory(setting.id);
             }
         }
