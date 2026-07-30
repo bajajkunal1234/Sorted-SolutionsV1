@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Plus, Grid, Columns, Table as TableIcon, List, Settings, Map } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -145,6 +145,9 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
 
     // Named saved views
     const [savedViews, setSavedViews] = useState([]);
+    
+    // Store whether we mounted with deep link overrides to prevent default views fetch overriding them
+    const hasDeepLinkRef = useRef(!!(initialViewType || initialActiveTags));
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -156,9 +159,11 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setSavedViews(json.data);
-                    // auto-apply default view
-                    const def = json.data.find(v => v.isDefault);
-                    if (def) applyViewConfig(def.config);
+                    // auto-apply default view ONLY if not overridden by a deep-link navigation shortcut
+                    if (!hasDeepLinkRef.current) {
+                        const def = json.data.find(v => v.isDefault);
+                        if (def) applyViewConfig(def.config);
+                    }
                 }
             } catch { /* silently fail */ }
         };

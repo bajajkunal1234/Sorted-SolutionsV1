@@ -98,6 +98,11 @@ export default function AdminApp() {
             setAccountsSubTabToOpen('payments');
             setActiveTab('accounts');
         }
+        window.openCreatePurchaseForm = () => {
+            setAccountsFormToOpen('purchase-invoice');
+            setAccountsSubTabToOpen('purchases');
+            setActiveTab('accounts');
+        }
         window.openDaybookReport = () => {
             setReportsSectionToOpen('daybook');
             setActiveTab('reports');
@@ -122,6 +127,7 @@ export default function AdminApp() {
             delete window.openPerformanceTracking
             delete window.openWebsiteAnalyticsLeadsTracker
             delete window.openCreatePaymentForm
+            delete window.openCreatePurchaseForm
             delete window.openDaybookReport
             delete window.openRentalsReport
             delete window.openCustomerPaymentsReport

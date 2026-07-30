@@ -436,6 +436,29 @@ export default function DashboardQuickInsights() {
                         </button>
 
                         <button
+                            onClick={() => window.openCreatePurchaseForm && window.openCreatePurchaseForm()}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                padding: '8px 10px',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                                borderRadius: 8,
+                                color: '#10b981',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }}
+                            className="dashboard-action-btn"
+                        >
+                            <Plus size={12} />
+                            <span>CREATE PURCHASE</span>
+                        </button>
+
+                        <button
                             onClick={() => window.openJobsMapWithFilter && window.openJobsMapWithFilter(data.kunalActiveTags)}
                             style={{
                                 display: 'flex',
@@ -450,7 +473,8 @@ export default function DashboardQuickInsights() {
                                 fontSize: 10,
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                transition: 'all 0.15s'
+                                transition: 'all 0.15s',
+                                gridColumn: 'span 2'
                             }}
                             className="dashboard-action-btn"
                         >
