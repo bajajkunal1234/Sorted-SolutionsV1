@@ -1426,7 +1426,7 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
                                         borderRadius: 'var(--radius-md)',
                                         border: '1px solid var(--border-primary)',
                                         backgroundColor: 'var(--bg-elevated)',
-                                        color: 'var(--text-primary)',
+                                        color: 'var(--text-secondary)',
                                         fontSize: '11px',
                                         fontWeight: 600,
                                         cursor: 'pointer',
@@ -1568,6 +1568,39 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
                                     <span>Report Lead</span>
                                 </button>
                             </div>
+
+                            {/* Counts row */}
+                            {(() => {
+                                const totalRevenue = filteredLeads.reduce((sum, l) => sum + (l.totalRevenue || 0), 0);
+                                const totalManualCalls = filteredLeads.filter(l => l.conversion_type === 'manual_call').length;
+                                const totalWebBookings = filteredLeads.filter(l => l.conversion_type === 'web_booking' || l.conversion_type === 'web_enquiry').length;
+                                
+                                return (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+                                        gap: '8px',
+                                        marginTop: '4px'
+                                    }}>
+                                        <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Total Leads</span>
+                                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{filteredLeads.length}</div>
+                                        </div>
+                                        <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Total Revenue</span>
+                                            <div style={{ fontSize: '15px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>₹{totalRevenue.toLocaleString('en-IN')}</div>
+                                        </div>
+                                        <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Total Manual Calls</span>
+                                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{totalManualCalls}</div>
+                                        </div>
+                                        <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Total Web Bookings/Enqs</span>
+                                            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>{totalWebBookings}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {isFilterPanelOpen && (
                                 <div style={{
