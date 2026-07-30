@@ -20,13 +20,23 @@ const TechnicianLiveMap = dynamic(() => import('./components/reports/TechnicianL
     loading: () => <div style={{ height: 325, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>🗺️ Loading fleet map...</div>
 })
 
+const DashboardQuickInsights = dynamic(() => import('./components/DashboardQuickInsights'), {
+    ssr: false,
+    loading: () => <div style={{ height: 200, borderRadius: 14, background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>📊 Loading insights dashboard...</div>
+})
+
 export default function AdminApp() {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState('dashboard')
     const [customerToOpen, setCustomerToOpen] = useState(null)
     const [jobToOpen, setJobToOpen] = useState(null)
     const [reportsSectionToOpen, setReportsSectionToOpen] = useState(null)
+    const [reportsSubSectionToOpen, setReportsSubSectionToOpen] = useState(null)
     const [techSubTabToOpen, setTechSubTabToOpen] = useState(null)
+    const [accountsFormToOpen, setAccountsFormToOpen] = useState(null)
+    const [accountsSubTabToOpen, setAccountsSubTabToOpen] = useState(null)
+    const [jobsViewTypeToOpen, setJobsViewTypeToOpen] = useState(null)
+    const [jobsActiveTagsToOpen, setJobsActiveTagsToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
 
@@ -77,11 +87,45 @@ export default function AdminApp() {
             setTechSubTabToOpen(subTab)
             setActiveTab('reports')
         }
+        window.openWebsiteAnalyticsLeadsTracker = () => {
+            window.reportsSubViewTarget = 'leads_tracker';
+            setReportsSectionToOpen('slots');
+            setReportsSubSectionToOpen('website-analytics');
+            setActiveTab('reports');
+        }
+        window.openCreatePaymentForm = () => {
+            setAccountsFormToOpen('payment-voucher');
+            setAccountsSubTabToOpen('payments');
+            setActiveTab('accounts');
+        }
+        window.openDaybookReport = () => {
+            setReportsSectionToOpen('daybook');
+            setActiveTab('reports');
+        }
+        window.openRentalsReport = () => {
+            setReportsSectionToOpen('rentals');
+            setActiveTab('reports');
+        }
+        window.openCustomerPaymentsReport = () => {
+            setReportsSectionToOpen('customer-payments');
+            setActiveTab('reports');
+        }
+        window.openJobsMapWithFilter = (activeTags) => {
+            setJobsViewTypeToOpen('map');
+            setJobsActiveTagsToOpen(activeTags);
+            setActiveTab('jobs');
+        }
         return () => {
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
             delete window.openTechnicianManagement
             delete window.openPerformanceTracking
+            delete window.openWebsiteAnalyticsLeadsTracker
+            delete window.openCreatePaymentForm
+            delete window.openDaybookReport
+            delete window.openRentalsReport
+            delete window.openCustomerPaymentsReport
+            delete window.openJobsMapWithFilter
         }
     }, [])
 
@@ -106,7 +150,18 @@ export default function AdminApp() {
     const renderTabContent = () => {
         switch (activeTab) {
             case 'jobs':
-                return <JobsTab jobToOpen={jobToOpen} onJobOpened={() => setJobToOpen(null)} />
+                return (
+                    <JobsTab 
+                        jobToOpen={jobToOpen} 
+                        onJobOpened={() => setJobToOpen(null)} 
+                        initialViewType={jobsViewTypeToOpen}
+                        initialActiveTags={jobsActiveTagsToOpen}
+                        onClearInitial={() => {
+                            setJobsViewTypeToOpen(null);
+                            setJobsActiveTagsToOpen(null);
+                        }}
+                    />
+                )
             case 'dashboard':
                 return (
                     <div className="dashboard-placeholder" style={{ position: 'relative' }}>
@@ -122,6 +177,8 @@ export default function AdminApp() {
                         <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
                             <DashboardLivePerformance />
 
+                            <DashboardQuickInsights />
+
                             <div>
                                 <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     👥 Technician Live Status
@@ -134,16 +191,29 @@ export default function AdminApp() {
                     </div>
                 )
             case 'accounts':
-                return <AccountsTab customerToOpen={customerToOpen} onCustomerOpened={() => setCustomerToOpen(null)} />
+                return (
+                    <AccountsTab 
+                        customerToOpen={customerToOpen} 
+                        onCustomerOpened={() => setCustomerToOpen(null)} 
+                        initialForm={accountsFormToOpen}
+                        initialSubTab={accountsSubTabToOpen}
+                        onClearInitial={() => {
+                            setAccountsFormToOpen(null);
+                            setAccountsSubTabToOpen(null);
+                        }}
+                    />
+                )
             case 'inventory':
                 return <InventoryTab />
             case 'reports':
                 return (
                     <ReportsTab 
                         initialSection={reportsSectionToOpen}
+                        initialSubSection={reportsSubSectionToOpen}
                         initialTechSubTab={techSubTabToOpen}
                         onClearInitial={() => {
                             setReportsSectionToOpen(null);
+                            setReportsSubSectionToOpen(null);
                             setTechSubTabToOpen(null);
                         }}
                     />

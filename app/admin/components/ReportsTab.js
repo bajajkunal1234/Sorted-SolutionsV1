@@ -30,7 +30,7 @@ import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
 import SQLRunnerPage from '../system/sql/page';
 
-function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
+function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onClearInitial }) {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
     const [subSection, setSubSection] = useState(null);
     const [customSubTab, setCustomSubTab] = useState(null);
@@ -41,9 +41,12 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
     useEffect(() => {
         if (initialSection) {
             setActiveSection(initialSection);
+            if (initialSubSection) {
+                setSubSection(initialSubSection);
+            }
             if (onClearInitial) onClearInitial();
         }
-    }, [initialSection, onClearInitial]);
+    }, [initialSection, initialSubSection, onClearInitial]);
 
     // Synchronize toggle state with actual document theme attribute upon mounting
     useEffect(() => {

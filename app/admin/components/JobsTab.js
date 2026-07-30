@@ -95,7 +95,7 @@ function applyTags(jobs, tags, searchTerm) {
 }
 
 // ─── Component ────────────────────────────────────────────────────
-function JobsTab({ jobToOpen, onJobOpened }) {
+function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, onClearInitial }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -242,6 +242,19 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             if (onJobOpened) onJobOpened();
         }
     }, [jobToOpen, jobs, onJobOpened]);
+
+    // Handle cross-tab deep-linking for map view and tag filters
+    useEffect(() => {
+        if (initialViewType) {
+            setViewType(initialViewType);
+        }
+        if (initialActiveTags) {
+            setActiveTags(initialActiveTags);
+        }
+        if (initialViewType || initialActiveTags) {
+            if (onClearInitial) onClearInitial();
+        }
+    }, [initialViewType, initialActiveTags, onClearInitial]);
 
     // ── Processing ────────────────────────────────────────────────
     const processedJobs = useMemo(() => {

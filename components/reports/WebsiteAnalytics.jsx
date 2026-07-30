@@ -438,11 +438,19 @@ export default function WebsiteAnalytics({ subSection, setSubSection }) {
         }
     }, [subView, setSubSection]);
 
+    // Handle cross-tab deep-linking targeting Leads Tracker
     useEffect(() => {
-        if (subSection === '📊 Website Analytics' && subView !== 'dashboard') {
+        if (typeof window !== 'undefined' && window.reportsSubViewTarget === 'leads_tracker') {
+            setSubView('leads_tracker');
+            delete window.reportsSubViewTarget;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (subSection === '📊 Website Analytics') {
             setSubView('dashboard');
         }
-    }, [subSection, subView]);
+    }, [subSection]);
     
     // Customers for manual lead logging
     const [customers, setCustomers] = useState([])

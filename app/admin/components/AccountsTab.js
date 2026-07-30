@@ -30,7 +30,7 @@ import WhatsAppShareModal from './accounts/WhatsAppShareModal';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import PrintAgreementModal from './reports/PrintAgreementModal';
 
-function AccountsTab({ customerToOpen, onCustomerOpened }) {
+function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSubTab, onClearInitial }) {
     const [activeTab, setActiveTab] = useState('accounts');
 
     const [ledgers, setLedgers] = useState([]);
@@ -119,6 +119,18 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             }
         }).catch(() => {});
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Handle cross-tab deep-linking for creation forms and subtabs
+    useEffect(() => {
+        if (initialForm) {
+            setActiveForm(initialForm);
+            if (initialSubTab) setActiveTab(initialSubTab);
+            if (onClearInitial) onClearInitial();
+        } else if (initialSubTab) {
+            setActiveTab(initialSubTab);
+            if (onClearInitial) onClearInitial();
+        }
+    }, [initialForm, initialSubTab, onClearInitial]);
 
     // -- Saved Views helpers ------------------------------------------
     const persistViews = async (views) => {
