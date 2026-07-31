@@ -221,6 +221,7 @@ export default function CollectPaymentFlow({
     };
 
     const handleFinalConfirm = () => {
+        if (isSubmitting) return;
         setIsSubmitting(true);
 
         // 1. Instantly trigger the local screen transition so the user gets 0ms wait time!

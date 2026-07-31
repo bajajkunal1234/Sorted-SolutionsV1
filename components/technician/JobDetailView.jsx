@@ -4430,18 +4430,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 currentUserName={techName}
                 currentUserId={techId}
                 prefilledCustomer={{
-                    id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
-                    name: editedJob.customerName || editedJob.customer?.name || 'Customer',
-                    phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
-                    mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    id: editedJob.customer_id || editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer',
+                    phone: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    mobile: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
                 }}
                 prefilledJob={{
                     id: editedJob.id,
                     job_number: editedJob.job_number,
-                    account_id: editedJob.customerId || editedJob.account_id,
-                    account_name: editedJob.customerName,
-                    customer_name: editedJob.customerName,
-                    customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    account_id: editedJob.customer_id || editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    account_name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || '',
+                    customer_name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || '',
+                    customer_phone: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
                     category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
                     technician_id: techId,
                 }}
@@ -4471,18 +4471,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 currentUserName={techName}
                 currentUserId={techId}
                 prefilledCustomer={{
-                    id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
-                    name: editedJob.customerName || editedJob.customer?.name || 'Customer',
-                    phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
-                    mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    id: editedJob.customer_id || editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer',
+                    phone: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    mobile: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
                 }}
                 prefilledJob={{
                     id: editedJob.id,
                     job_number: editedJob.job_number,
-                    account_id: editedJob.customerId || editedJob.account_id,
-                    account_name: editedJob.customerName,
-                    customer_name: editedJob.customerName,
-                    customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    account_id: editedJob.customer_id || editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    account_name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || '',
+                    customer_name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || '',
+                    customer_phone: editedJob.customer_phone || editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
                     category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
                     technician_id: techId,
                 }}
