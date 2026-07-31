@@ -227,26 +227,24 @@ export async function POST(request) {
             const hasChannel = body.leadChannel === 'call' || body.leadChannel === 'whatsapp';
             const hasAcqSource = resolvedSource && resolvedSource !== 'direct' && resolvedSource !== 'organic';
 
-            if (hasChannel || hasAcqSource) {
-                const rawPhone = cleanPhone10(body.mobile);
-                if (rawPhone) {
-                    const conversionType = hasChannel
-                        ? (body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call')
-                        : 'manual_account';
-                    const leadNotes = body.mailing_address || body.customerDescription || 'Logged automatically during account creation.';
-                    try {
-                        await trackLeadAttribution(supabase, {
-                            phone: rawPhone,
-                            conversion_type: conversionType,
-                            name: body.name,
-                            status: 'converted', // always converted on account creation
-                            notes: leadNotes,
-                            lead_source: resolvedSource || 'direct',
-                            first_contact_at: new Date().toISOString()
-                        });
-                    } catch (leadError) {
-                        console.error('[accounts POST] Lead tracking failed:', leadError.message);
-                    }
+            const rawPhone = cleanPhone10(body.mobile);
+            if (rawPhone) {
+                const conversionType = hasChannel
+                    ? (body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call')
+                    : 'manual_account';
+                const leadNotes = body.mailing_address || body.customerDescription || 'Logged automatically during account creation.';
+                try {
+                    await trackLeadAttribution(supabase, {
+                        phone: rawPhone,
+                        conversion_type: conversionType,
+                        name: body.name,
+                        status: 'converted', // always converted on account creation
+                        notes: leadNotes,
+                        lead_source: resolvedSource || 'direct',
+                        first_contact_at: new Date().toISOString()
+                    });
+                } catch (leadError) {
+                    console.error('[accounts POST] Lead tracking failed:', leadError.message);
                 }
             }
         } else if (isTechnician) {
@@ -407,6 +405,24 @@ export async function PUT(request) {
             }, { onConflict: 'ledger_id' });
 
             if (customerError) throw customerError;
+
+            // Sync/update lead attribution on customer update
+            const resolvedSource = updates.acquisition_source || data.acquisition_source || '';
+            const rawPhone = cleanPhone10(updates.mobile || data.mobile);
+            if (rawPhone) {
+                try {
+                    await trackLeadAttribution(supabase, {
+                        phone: rawPhone,
+                        name: updates.name || data.name,
+                        conversion_type: 'manual_account',
+                        status: 'converted',
+                        notes: 'Updated during customer account edit.',
+                        lead_source: resolvedSource || 'direct'
+                    });
+                } catch (leadError) {
+                    console.error('[accounts PUT] Lead tracking failed:', leadError.message);
+                }
+            }
         } else if (isTechnician) {
             const { error: techError } = await supabase.from('technicians').upsert({
                 name: updates.name || data.name,
