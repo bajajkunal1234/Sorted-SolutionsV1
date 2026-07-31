@@ -2968,7 +2968,7 @@ function isDateInRange(dateStr, range, customStart, customEnd) {
 }
 
 function RoiInsightsTab({ filteredLeads = [], summary = {}, businessStats = {}, range = 'all', isMobile = false, customStartDate = null, customEndDate = null }) {
-    const [perspective, setPerspective] = React.useState('strategic');
+    const [perspective, setPerspective] = useState('strategic');
 
     // 1. Calculate General Date-filtered Vouchers & Invoices
     const activeInvoices = (businessStats?.salesInvoices || []).filter(inv => {
