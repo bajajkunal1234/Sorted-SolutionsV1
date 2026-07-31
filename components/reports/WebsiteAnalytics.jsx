@@ -1309,8 +1309,8 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
 
 
                     {/* Leads sub-tabs */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px' }}>
-                        {['directory', 'daily_spend'].map(t => (
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                        {['directory', 'daily_spend', 'roi_insights'].map(t => (
                             <button
                                 key={t}
                                 onClick={() => setLeadsTab(t)}
@@ -1324,10 +1324,11 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                     borderBottom: leadsTab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
                                     color: leadsTab === t ? 'var(--color-primary)' : 'var(--text-secondary)',
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.05em'
+                                    letterSpacing: '0.05em',
+                                    flexShrink: 0
                                 }}
                             >
-                                {t === 'directory' ? 'Leads Directory' : 'Google Ads Spends'}
+                                {t === 'directory' ? 'Leads Directory' : t === 'daily_spend' ? 'Google Ads Spends' : 'ROI & Campaign Insights'}
                             </button>
                         ))}
                     </div>
@@ -2245,6 +2246,17 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                         </div>
                     )}
 
+                    {/* TAB Content: ROI & Campaign Insights */}
+                    {leadsTab === 'roi_insights' && (
+                        <RoiInsightsTab 
+                            filteredLeads={filteredLeads} 
+                            summary={leadsData?.summary} 
+                            businessStats={leadsData?.businessStats}
+                            range={range} 
+                            isMobile={isMobile} 
+                        />
+                    )}
+
 
                     {/* Timeline drawer inside leads directory */}
                     <ResponsiveDrawer open={!!selectedLead} title={`Visitor Journey Timeline`} subtitle={`${selectedLead?.name || 'Anonymous Lead'} (${selectedLead?.phone})`} onClose={() => setSelectedLead(null)}>
@@ -2862,6 +2874,593 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
             )}
 
             <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+            <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
     )
 }
+
+const MUMBAI_LOCATIONS = [
+    { name: 'Andheri', keywords: ['andheri', 'versova', 'lokhandwala', 'vihar'] },
+    { name: 'Malad', keywords: ['malad', 'marve', 'orlem'] },
+    { name: 'Jogeshwari', keywords: ['jogeshwari'] },
+    { name: 'Kandivali', keywords: ['kandivali', 'charkop'] },
+    { name: 'Goregaon', keywords: ['goregaon', 'gv', 'gokuldham'] },
+    { name: 'Vile Parle', keywords: ['vile parle', 'ville parle', 'parle'] },
+    { name: 'Santacruz', keywords: ['santacruz', 'sacruz'] },
+    { name: 'Bandra', keywords: ['bandra', 'pali hill', 'carter'] },
+    { name: 'Khar', keywords: ['khar'] },
+    { name: 'Mahim', keywords: ['mahim'] },
+    { name: 'Dadar', keywords: ['dadar', 'prabhadevi'] },
+    { name: 'Powai', keywords: ['powai', 'hiranandani'] },
+    { name: 'Saki Naka', keywords: ['saki naka', 'sakinaka'] },
+    { name: 'Ghatkopar', keywords: ['ghatkopar'] },
+    { name: 'Kurla', keywords: ['kurla'] },
+    { name: 'Borivali', keywords: ['borivali'] },
+    { name: 'Mulund', keywords: ['mulund'] },
+    { name: 'Worli', keywords: ['worli'] },
+    { name: 'Matunga', keywords: ['matunga'] },
+    { name: 'Kharghar', keywords: ['kharghar', 'navi mumbai'] }
+];
+
+function resolveLeadLocation(lead) {
+    const searchStr = [
+        lead.name || '',
+        lead.phone || '',
+        lead.notes || '',
+        ...(lead.jobs || []).map(j => {
+            const prop = j.property || {};
+            return [
+                j.customer_name || '',
+                prop.address || '',
+                prop.locality || '',
+                prop.building_name || '',
+                prop.city || ''
+            ].join(' ');
+        })
+    ].join(' ').toLowerCase();
+
+    for (const loc of MUMBAI_LOCATIONS) {
+        if (loc.keywords.some(kw => searchStr.includes(kw))) {
+            return loc.name;
+        }
+    }
+    return 'Other / Unspecified';
+}
+
+function isDateInRange(dateStr, range, customStart, customEnd) {
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+    end.setHours(23, 59, 59, 999);
+
+    if (range === 'today') {
+        start.setHours(0, 0, 0, 0);
+    } else if (range === 'yesterday') {
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end.setDate(end.getDate() - 1);
+        end.setHours(23, 59, 59, 999);
+    } else if (range === '7d') {
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+    } else if (range === '30d') {
+        start.setDate(start.getDate() - 30);
+        start.setHours(0, 0, 0, 0);
+    } else if (range === '90d') {
+        start.setDate(start.getDate() - 90);
+        start.setHours(0, 0, 0, 0);
+    } else if (range === 'custom') {
+        if (customStart && customEnd) {
+            const s = new Date(customStart);
+            s.setHours(0,0,0,0);
+            const e = new Date(customEnd);
+            e.setHours(23,59,59,999);
+            return date >= s && date <= e;
+        }
+        return true;
+    } else {
+        return true;
+    }
+
+    return date >= start && date <= end;
+}
+
+function RoiInsightsTab({ filteredLeads = [], summary = {}, businessStats = {}, range = 'all', isMobile = false, customStartDate = null, customEndDate = null }) {
+    const [perspective, setPerspective] = React.useState('strategic');
+
+    // 1. Calculate General Date-filtered Vouchers & Invoices
+    const activeInvoices = (businessStats?.salesInvoices || []).filter(inv => {
+        if (inv.status === 'draft') return false;
+        return range === 'all' || isDateInRange(inv.created_at || inv.date, range, customStartDate, customEndDate);
+    });
+
+    const totalSales = activeInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0);
+    
+    const adsSpend = summary?.adsSpend || 0;
+    
+    // Operating Expenses
+    const totalApprovedExpenses = (businessStats?.expenses || []).filter(e => e.status === 'approved').reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+    const totalPurchases = (businessStats?.purchaseInvoices || []).filter(p => p.status !== 'draft').reduce((sum, p) => sum + parseFloat(p.total_amount || 0), 0);
+    const otherExpenses = totalApprovedExpenses + totalPurchases;
+    const totalExpenses = adsSpend + otherExpenses;
+    
+    // Net profit
+    const netProfit = totalSales - totalExpenses;
+    const profitMargin = totalSales > 0 ? (netProfit / totalSales) * 100 : 0;
+
+    // ROAS (Return on Ad Spend)
+    const adsRevenue = filteredLeads.filter(l => l.lead_source === 'google_ads').reduce((sum, l) => sum + (l.totalRevenue || 0), 0);
+    const adsRoas = adsSpend > 0 ? adsRevenue / adsSpend : 0;
+
+    // Total captured leads
+    const totalLeads = filteredLeads.length;
+    const adsLeads = filteredLeads.filter(l => l.lead_source === 'google_ads').length;
+    const organicLeads = totalLeads - adsLeads;
+
+    const adsConversions = filteredLeads.filter(l => l.lead_source === 'google_ads' && (l.status === 'converted' || l.jobsCount > 0)).length;
+    const organicConversions = filteredLeads.filter(l => l.lead_source !== 'google_ads' && (l.status === 'converted' || l.jobsCount > 0)).length;
+    
+    const adsConvRate = adsLeads > 0 ? (adsConversions / adsLeads) * 100 : 0;
+    const organicConvRate = organicLeads > 0 ? (organicConversions / organicLeads) * 100 : 0;
+    const overallConvRate = totalLeads > 0 ? ((adsConversions + organicConversions) / totalLeads) * 100 : 0;
+
+    // Costs
+    const cpl = adsLeads > 0 ? adsSpend / adsLeads : 0;
+    const cpa = adsConversions > 0 ? adsSpend / adsConversions : 0;
+
+    // Vouchers (Cash Flow)
+    const receiptsTotal = (businessStats?.receipts || []).filter(r => r.status !== 'void').reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+    const paymentsTotal = (businessStats?.payments || []).filter(p => p.status !== 'void').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+    const netCashFlow = receiptsTotal - (paymentsTotal + totalApprovedExpenses);
+
+    // Job Metrics
+    const allJobs = [];
+    filteredLeads.forEach(l => {
+        (l.jobs || []).forEach(j => {
+            allJobs.push(j);
+        });
+    });
+    const completedJobs = allJobs.filter(j => j.status === 'completed' || j.status === 'closed');
+    const cancelledJobs = allJobs.filter(j => j.status === 'cancelled');
+    const cancellationRate = allJobs.length > 0 ? (cancelledJobs.length / allJobs.length) * 100 : 0;
+    const lostRevenue = cancelledJobs.reduce((sum, j) => sum + parseFloat(j.amount || j.revenue || 0), 0);
+
+    return (
+        <div style={{ display: 'grid', gap: '20px' }}>
+            
+            {/* Secondary Pill Navigation for the 4 Perspectives */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                {[
+                    { id: 'strategic', label: '📊 Strategic View', desc: 'Financial health & growth goals' },
+                    { id: 'operational', label: '⚡ Operational View', desc: 'Real-time actions & stock alerts' },
+                    { id: 'analytical', label: '🔍 Analytical View', desc: 'Campaign & area performance' },
+                    { id: 'tactical', label: '🎯 Tactical View', desc: 'Funnel targets & department metrics' }
+                ].map(p => (
+                    <button
+                        key={p.id}
+                        onClick={() => setPerspective(p.id)}
+                        title={p.desc}
+                        style={{
+                            padding: '6px 14px',
+                            borderRadius: '30px',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: perspective === p.id ? 'var(--color-primary)' : 'var(--bg-elevated)',
+                            color: perspective === p.id ? 'white' : 'var(--text-secondary)',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            flexShrink: 0
+                        }}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* ─── PERSPECTIVE CONTENT: STRATEGIC ─── */}
+            {perspective === 'strategic' && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    
+                    {/* Growth Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '16px' }}>
+                        
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700, uppercase: true }}>Total Revenue</span>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981' }}>₹{Math.round(totalSales).toLocaleString()}</div>
+                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>Total invoice sales in period</span>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700, uppercase: true }}>Total Expenses</span>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>₹{Math.round(totalExpenses).toLocaleString()}</div>
+                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>₹{Math.round(adsSpend).toLocaleString()} Ads | ₹{Math.round(otherExpenses).toLocaleString()} Ops</span>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700, uppercase: true }}>Net Profit Yield</span>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {netProfit >= 0 ? '+' : ''}₹{Math.round(netProfit).toLocaleString()}
+                            </div>
+                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>Revenue minus total operating costs</span>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700, uppercase: true }}>Net Profit Margin</span>
+                            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>{profitMargin.toFixed(1)}%</div>
+                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>Profit margin efficiency index</span>
+                        </div>
+
+                    </div>
+
+                    {/* Financial Health & Cash Flow (Treasury) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                        
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>💵 Cash Flow & Liquid Treasury Summary</div>
+                            
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Cash Receipts (Inflow):</span>
+                                    <span style={{ fontWeight: 700, color: '#10b981' }}>₹{receiptsTotal.toLocaleString()}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Cash Payments & Approved Expenses (Outflow):</span>
+                                    <span style={{ fontWeight: 700, color: '#ea4335' }}>₹{(paymentsTotal + totalApprovedExpenses).toLocaleString()}</span>
+                                </div>
+                                <div style={{ borderTop: '1px dashed var(--border-primary)', marginTop: '6px', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
+                                    <span>Net Liquid Cash Flow:</span>
+                                    <span style={{ color: netCashFlow >= 0 ? '#10b981' : '#ef4444' }}>₹{netCashFlow.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>📈 Marketing Strategic ROI</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 'auto 0' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Google Ads ROAS</span>
+                                    <span style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)' }}>{adsRoas > 0 ? `${adsRoas.toFixed(2)}x` : '0.00x'}</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right' }}>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Total Ads Revenue</span>
+                                    <span style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>₹{adsRevenue.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)', paddingTop: '6px', marginTop: '6px' }}>
+                                Target ROAS multiplier is 3.0x. Current marketing activities are generating {(adsRoas * 100).toFixed(0)}% ROI.
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
+
+            {/* ─── PERSPECTIVE CONTENT: OPERATIONAL ─── */}
+            {perspective === 'operational' && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    
+                    {/* Live Inventory Reorder checklist */}
+                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>⚠️ Live Stock Reorder Checklist</span>
+                            <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444', fontWeight: 700 }}>REORDER TRIGGERED</span>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Item Name</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Category</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Current Stock</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Min Stock level</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Cost Price</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        const lowStock = (businessStats?.inventory || []).filter(item => {
+                                            const qty = parseFloat(item.quantity || item.current_stock || 0);
+                                            const min = parseFloat(item.min_stock_level || 0);
+                                            return item.status === 'active' && (qty <= min || qty === 0);
+                                        });
+
+                                        return lowStock.slice(0, 8).map(item => {
+                                            const qty = parseFloat(item.quantity || item.current_stock || 0);
+                                            const cost = parseFloat(item.purchase_price || item.cost_price || 0);
+                                            return (
+                                                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{item.name}</td>
+                                                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{item.category}</td>
+                                                    <td style={{ padding: '10px 12px', fontWeight: 700, color: qty === 0 ? '#ef4444' : '#f59e0b' }}>
+                                                        {qty} {qty === 0 ? '(OUT OF STOCK)' : '(LOW)'}
+                                                    </td>
+                                                    <td style={{ padding: '10px 12px' }}>{item.min_stock_level || 0}</td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>₹{cost}</td>
+                                                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                                        <span style={{ fontSize: '9px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.15)', color: '#f59e0b', fontWeight: 700 }}>REORDER NOW</span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })()}
+                                    {(businessStats?.inventory || []).filter(item => {
+                                        const qty = parseFloat(item.quantity || item.current_stock || 0);
+                                        const min = parseFloat(item.min_stock_level || 0);
+                                        return item.status === 'active' && (qty <= min || qty === 0);
+                                    }).length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>✓ All active stock levels are currently healthy!</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Operational Job statuses */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px' }}>
+                        
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>📦 Live Inventory Valuation</div>
+                            
+                            {(() => {
+                                let totalCost = 0;
+                                let totalRetail = 0;
+                                (businessStats?.inventory || []).forEach(item => {
+                                    const qty = parseFloat(item.quantity || item.current_stock || 0);
+                                    totalCost += qty * parseFloat(item.purchase_price || item.cost_price || 0);
+                                    totalRetail += qty * parseFloat(item.sale_price || item.selling_price || 0);
+                                });
+
+                                return (
+                                    <div style={{ display: 'grid', gap: '10px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Valuation at Cost (Asset value):</span>
+                                            <span style={{ fontWeight: 700 }}>₹{Math.round(totalCost).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Valuation at Retail (Sales Potential):</span>
+                                            <span style={{ fontWeight: 700 }}>₹{Math.round(totalRetail).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '8px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700 }}>
+                                            <span>Potential Stock Margin:</span>
+                                            <span style={{ color: '#10b981' }}>₹{Math.round(totalRetail - totalCost).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '14px' }}>⚡ Real-Time Job Progress</div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', textAlign: 'center' }}>
+                                <div style={{ padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Active Jobs</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                        {allJobs.filter(j => j.status === 'scheduled' || j.status === 'in-progress' || j.status === 'new_job_request').length}
+                                    </div>
+                                </div>
+                                <div style={{ padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Completed</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>{completedJobs.length}</div>
+                                </div>
+                                <div style={{ padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Cancelled</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>{cancelledJobs.length}</div>
+                                </div>
+                                <div style={{ padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Total Bookings</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>{allJobs.length}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            )}
+
+            {/* ─── PERSPECTIVE CONTENT: ANALYTICAL ─── */}
+            {perspective === 'analytical' && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    
+                    {/* Geographic report (Mumbai Area) */}
+                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>📍 Mumbai Locality Demographics & Yield Analysis</span>
+                            {topLocation && (
+                                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
+                                    🏆 Highest Yield: {topLocation.name} (₹{topLocation.revenue.toLocaleString()})
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Mumbai Locality</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Leads Count</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Converted Leads</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Conversion %</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Total Revenue</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Avg Lead Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedLocations.map(l => {
+                                        const cr = l.leads > 0 ? (l.converted / l.leads) * 100 : 0;
+                                        const avgVal = l.leads > 0 ? (l.revenue / l.leads) : 0;
+                                        return (
+                                            <tr key={l.name} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: '10px 12px', fontWeight: 600 }}>{l.name}</td>
+                                                <td style={{ padding: '10px 12px' }}>{l.leads}</td>
+                                                <td style={{ padding: '10px 12px' }}>{l.converted}</td>
+                                                <td style={{ padding: '10px 12px' }}>{cr.toFixed(1)}%</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 700, color: l.revenue > 0 ? '#10b981' : 'var(--text-primary)', textAlign: 'right' }}>₹{l.revenue.toLocaleString()}</td>
+                                                <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', textAlign: 'right' }}>₹{Math.round(avgVal).toLocaleString()}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {sortedLocations.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No geographic location data available.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Google Ads Campaign ROI */}
+                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>🎯 Paid Marketing Campaigns Yield breakdown</span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700 }}>GOOGLE ADS ATTRIBUTION</span>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Campaign Name</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Leads Received</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Conversions</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Conversion Rate</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>GCLID Matches</th>
+                                        <th style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Revenue Generated</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedCampaigns.map(c => {
+                                        const cr = c.leads > 0 ? (c.converted / c.leads) * 100 : 0;
+                                        return (
+                                            <tr key={c.name} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: '10px 12px', fontWeight: 600 }}>{c.name.replace(/_/g, ' ')}</td>
+                                                <td style={{ padding: '10px 12px' }}>{c.leads}</td>
+                                                <td style={{ padding: '10px 12px' }}>{c.converted}</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 600 }}>{cr.toFixed(1)}%</td>
+                                                <td style={{ padding: '10px 12px', color: c.gclids > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>{c.gclids}</td>
+                                                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#10b981', textAlign: 'right' }}>₹{c.revenue.toLocaleString()}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {sortedCampaigns.length === 0 && (
+                                        <tr>
+                                            <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No Campaign clicks/leads logged for Google Ads.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            )}
+
+            {/* ─── PERSPECTIVE CONTENT: TACTICAL ─── */}
+            {perspective === 'tactical' && (
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    
+                    {/* Category yields & Cancellations */}
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+                        
+                        {/* Job Cancellation/Leakage warning */}
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>⚠️ Workflow Leakage & Job Cancellations</div>
+                            
+                            <div style={{ display: 'grid', gap: '8px', margin: 'auto 0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Cancelled Work Orders:</span>
+                                    <span style={{ fontWeight: 700, color: '#ef4444' }}>{cancelledJobs.length} jobs</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Job Cancellation Rate:</span>
+                                    <span style={{ fontWeight: 700, color: cancellationRate > 15 ? '#ef4444' : 'var(--text-primary)' }}>{cancellationRate.toFixed(1)}%</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Lost Potential Revenue:</span>
+                                    <span style={{ fontWeight: 700, color: '#ef4444' }}>₹{lostRevenue.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {cancellationRate > 15 && (
+                                <div style={{ fontSize: '10px', color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', padding: '8px', borderRadius: '4px', marginTop: '6px' }}>
+                                    <strong>Tactical Warning:</strong> Cancellation rate is higher than the 15% threshold. Please investigate denial/cancel reasons in the jobs log to minimize billing leakage.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Category Yield Performance */}
+                        <div style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '12px' }}>🛠️ Job Category Share & Yield</div>
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                                {(() => {
+                                    const catMap = {};
+                                    allJobs.forEach(j => {
+                                        const cat = j.category || 'Unspecified';
+                                        if (!catMap[cat]) catMap[cat] = { count: 0, revenue: 0 };
+                                        catMap[cat].count++;
+                                        catMap[cat].revenue += parseFloat(j.revenue || j.amount || 0);
+                                    });
+
+                                    return Object.entries(catMap).map(([cat, stat]) => {
+                                        return (
+                                            <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderBottom: '1px dashed var(--border-primary)', paddingBottom: '4px' }}>
+                                                <span style={{ fontWeight: 600 }}>{cat.replace(/_/g, ' ')}</span>
+                                                <span style={{ color: 'var(--text-secondary)' }}>
+                                                    {stat.count} jobs · <strong style={{ color: '#10b981' }}>₹{stat.revenue.toLocaleString()}</strong>
+                                                </span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                                {allJobs.length === 0 && (
+                                    <div style={{ color: 'var(--text-tertiary)', textAlign: 'center', fontSize: '12px', padding: '20px' }}>No active categories logged.</div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Department Expenses classification */}
+                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
+                            🔧 Field Department Operating Expenses Classification
+                        </div>
+                        <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '14px' }}>
+                            {(() => {
+                                const expCats = { 'Travel': 0, 'Spares / Components': 0, 'Tools & Testing': 0, 'Other': 0 };
+                                (businessStats?.expenses || []).forEach(e => {
+                                    const cat = e.category || 'Other';
+                                    let mapped = 'Other';
+                                    if (cat.toLowerCase().includes('travel') || cat.toLowerCase().includes('fuel') || cat.toLowerCase().includes('conveyance')) mapped = 'Travel';
+                                    else if (cat.toLowerCase().includes('spare') || cat.toLowerCase().includes('material') || cat.toLowerCase().includes('component') || cat.toLowerCase().includes('part')) mapped = 'Spares / Components';
+                                    else if (cat.toLowerCase().includes('tool') || cat.toLowerCase().includes('equipment') || cat.toLowerCase().includes('test')) mapped = 'Tools & Testing';
+                                    
+                                    expCats[mapped] += parseFloat(e.amount || 0);
+                                });
+
+                                return Object.entries(expCats).map(([cat, total]) => {
+                                    return (
+                                        <div key={cat} style={{ padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{cat}</span>
+                                            <span style={{ fontSize: '16px', fontWeight: 700, color: total > 0 ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>₹{total.toLocaleString()}</span>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+                    </div>
+
+                </div>
+            )}
+
+        </div>
+    );
+}
+

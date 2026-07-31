@@ -108,6 +108,22 @@ export async function GET(request) {
         const phones = leads.map(l => l.phone);
         const sessionIds = leads.map(l => l.session_id).filter(Boolean);
 
+        // Setup additional analytics queries
+        const startYMD = formatLocalYMD(startIST);
+        const endYMD = formatLocalYMD(endIST);
+
+        let expensesQuery = supabase.from('expenses').select('id, category, amount, status, date');
+        let purchaseInvoicesQuery = supabase.from('purchase_invoices').select('id, total_amount, status, date');
+        let receiptsQuery = supabase.from('receipt_vouchers').select('id, amount, status, date');
+        let paymentsQuery = supabase.from('payment_vouchers').select('id, amount, status, date');
+
+        if (range !== 'all') {
+            expensesQuery = expensesQuery.gte('date', startDate.toISOString()).lte('date', endDate.toISOString());
+            purchaseInvoicesQuery = purchaseInvoicesQuery.gte('date', startYMD).lte('date', endYMD);
+            receiptsQuery = receiptsQuery.gte('date', startYMD).lte('date', endYMD);
+            paymentsQuery = paymentsQuery.gte('date', startYMD).lte('date', endYMD);
+        }
+
         // Fetch related data in parallel
         const [
             { data: sessions },
@@ -117,7 +133,12 @@ export async function GET(request) {
             { data: accounts },
             { data: jobs },
             { data: invoices },
-            { data: dailyMetrics }
+            { data: dailyMetrics },
+            { data: expData },
+            { data: pinvData },
+            { data: recData },
+            { data: payData },
+            { data: invData }
         ] = await Promise.all([
             // Sessions
             sessionIds.length > 0 ? 
@@ -142,8 +163,18 @@ export async function GET(request) {
             // Daily Ad Spend metrics
             supabase.from('google_ads_daily_metrics')
                 .select('*')
-                .gte('date', formatLocalYMD(startIST))
-                .lte('date', formatLocalYMD(endIST))
+                .gte('date', startYMD)
+                .lte('date', endYMD),
+            // Expenses
+            expensesQuery,
+            // Purchase Invoices
+            purchaseInvoicesQuery,
+            // Receipts
+            receiptsQuery,
+            // Payments
+            paymentsQuery,
+            // Inventory
+            supabase.from('inventory').select('id, name, category, current_stock, quantity, cost_price, selling_price, sale_price, purchase_price, min_stock_level, status')
         ]);
 
         // Build mappings in memory
@@ -390,10 +421,20 @@ export async function GET(request) {
             conversionRate: adsLeadCount > 0 ? (adsConvertedCount / adsLeadCount) * 100 : 0
         };
 
+        const businessStats = {
+            expenses: expData || [],
+            purchaseInvoices: pinvData || [],
+            receipts: recData || [],
+            payments: payData || [],
+            inventory: invData || [],
+            salesInvoices: invoices || []
+        };
+
         return NextResponse.json({
             success: true,
             leads: enrichedLeads,
-            summary
+            summary,
+            businessStats
         }, {
             headers: {
                 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
