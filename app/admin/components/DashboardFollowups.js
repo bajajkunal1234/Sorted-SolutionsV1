@@ -46,13 +46,7 @@ export default function DashboardFollowups() {
     }
 
     if (amcRenewals.length === 0) {
-        return (
-            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
-                <Calendar size={32} color="var(--text-tertiary)" style={{ margin: '0 auto var(--spacing-sm)' }} />
-                <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>You are all caught up!</div>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>No upcoming AMC renewals due.</div>
-            </div>
-        );
+        return null;
     }
 
     return (
