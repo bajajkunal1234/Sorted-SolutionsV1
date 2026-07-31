@@ -3027,6 +3027,65 @@ function RoiInsightsTab({ filteredLeads = [], summary = {}, businessStats = {}, 
     const cancellationRate = allJobs.length > 0 ? (cancelledJobs.length / allJobs.length) * 100 : 0;
     const lostRevenue = cancelledJobs.reduce((sum, j) => sum + parseFloat(j.amount || j.revenue || 0), 0);
 
+    // 3. Group by Location (Mumbai Area demographics)
+    const locationStats = {};
+    filteredLeads.forEach(l => {
+        const loc = resolveLeadLocation(l);
+        if (!locationStats[loc]) {
+            locationStats[loc] = { name: loc, leads: 0, converted: 0, revenue: 0 };
+        }
+        locationStats[loc].leads++;
+        if (l.status === 'converted' || l.jobsCount > 0) {
+            locationStats[loc].converted++;
+        }
+        locationStats[loc].revenue += (l.totalRevenue || 0);
+    });
+    const sortedLocations = Object.values(locationStats).sort((a, b) => b.revenue - a.revenue || b.leads - a.leads);
+    const topLocation = sortedLocations.length > 0
+        ? (sortedLocations[0]?.name !== 'Other / Unspecified' ? sortedLocations[0] : sortedLocations[1] || sortedLocations[0])
+        : null;
+
+    // 4. Group by Google Ads Campaign
+    const campaignStats = {};
+    filteredLeads.forEach(l => {
+        if (l.lead_source === 'google_ads') {
+            const camp = l.campaign || 'Unspecified / No Tag';
+            if (!campaignStats[camp]) {
+                campaignStats[camp] = { name: camp, leads: 0, converted: 0, revenue: 0, gclids: 0 };
+            }
+            campaignStats[camp].leads++;
+            if (l.status === 'converted' || l.jobsCount > 0) {
+                campaignStats[camp].converted++;
+            }
+            if (l.gclid || l.journey?.some(j => j.gclid)) {
+                campaignStats[camp].gclids++;
+            }
+            campaignStats[camp].revenue += (l.totalRevenue || 0);
+        }
+    });
+    const sortedCampaigns = Object.values(campaignStats).sort((a, b) => b.revenue - a.revenue);
+
+    // 5. Group by Acquisition Channel
+    const channelStats = {};
+    filteredLeads.forEach(l => {
+        const src = l.lead_source || 'direct';
+        let prettySrc = src;
+        if (src === 'google_ads') prettySrc = 'Google Ads (Paid)';
+        else if (src === 'direct') prettySrc = 'Direct Intake';
+        else if (src === 'organic' || src === 'website_organic') prettySrc = 'Website Organic';
+        else if (src === 'whatsapp' || src === 'manual_whatsapp') prettySrc = 'WhatsApp Direct';
+        
+        if (!channelStats[prettySrc]) {
+            channelStats[prettySrc] = { name: prettySrc, leads: 0, converted: 0, revenue: 0 };
+        }
+        channelStats[prettySrc].leads++;
+        if (l.status === 'converted' || l.jobsCount > 0) {
+            channelStats[prettySrc].converted++;
+        }
+        channelStats[prettySrc].revenue += (l.totalRevenue || 0);
+    });
+    const sortedChannels = Object.values(channelStats).sort((a, b) => b.leads - a.leads);
+
     return (
         <div style={{ display: 'grid', gap: '20px' }}>
             
