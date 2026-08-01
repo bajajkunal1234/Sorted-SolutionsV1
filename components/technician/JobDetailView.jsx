@@ -1803,27 +1803,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         const finalLat = currentPropLat || arrivalCoordsRef.current?.lat || null;
         const finalLng = currentPropLng || arrivalCoordsRef.current?.lng || null;
 
+        // Optimistically update status and coordinates locally
         if (finalLat && finalLng) {
-            try {
-                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'verify_location',
-                        latitude: finalLat,
-                        longitude: finalLng,
-                        location_verified_by: techName
-                    })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.job) {
-                        onJobUpdate(data.job);
+            const currentProp = editedJob._raw_property || {};
+            const updatedProp = {
+                ...currentProp,
+                latitude: finalLat,
+                longitude: finalLng,
+                location_verified_by: techName,
+                location_verified_at: new Date().toISOString()
+            };
+            const mockJob = {
+                ...editedJob,
+                _raw_property: updatedProp,
+                property: updatedProp
+            };
+            onJobUpdate(mockJob);
+
+            (async () => {
+                try {
+                    const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'verify_location',
+                            latitude: finalLat,
+                            longitude: finalLng,
+                            location_verified_by: techName
+                        })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.job) {
+                            onJobUpdate(data.job);
+                        }
                     }
+                } catch (err) {
+                    console.warn('[Offline] Background verify location yes queued or failed:', err);
                 }
-            } catch (err) {
-                console.error('Failed to verify location:', err);
-            }
+            })();
         } else {
             // Log interaction fallback
             apiCall(`/api/technician/jobs/${job.id}/interactions`, {
@@ -1842,36 +1860,53 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     // Called when tech confirms updated pin location (No → update path)
     const handleLocationVerifySave = async () => {
         if (!verifyLat || !verifyLng) { alert('Please set the pin location first.'); return; }
-        setVerifyLoading(true);
+        
+        // Optimistically update locally
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        try {
-            const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'verify_location',
-                    latitude: verifyLat,
-                    longitude: verifyLng,
-                    location_verified_by: techName
-                })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.job) {
-                    onJobUpdate(data.job);
+        const currentProp = editedJob._raw_property || {};
+        const updatedProp = {
+            ...currentProp,
+            latitude: verifyLat,
+            longitude: verifyLng,
+            location_verified_by: techName,
+            location_verified_at: new Date().toISOString()
+        };
+        const mockJob = {
+            ...editedJob,
+            _raw_property: updatedProp,
+            property: updatedProp
+        };
+        onJobUpdate(mockJob);
+
+        // Call API in background
+        (async () => {
+            try {
+                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'verify_location',
+                        latitude: verifyLat,
+                        longitude: verifyLng,
+                        location_verified_by: techName
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.job) {
+                        onJobUpdate(data.job);
+                    }
                 }
+            } catch (err) {
+                console.warn('[Offline] Background verify location save queued or failed:', err);
             }
-            
-            // Transition to before photos step and open camera
-            setLocationVerifyStep('before_photos');
-            setTimeout(() => {
-                beforePhotosInputRef.current?.click();
-            }, 150);
-        } catch (err) {
-            alert('Could not save location: ' + err.message);
-        } finally {
-            setVerifyLoading(false);
-        }
+        })();
+
+        // Transition to before photos step and open camera
+        setLocationVerifyStep('before_photos');
+        setTimeout(() => {
+            beforePhotosInputRef.current?.click();
+        }, 150);
     };
 
     const compressImage = (file) => {
@@ -3650,24 +3685,38 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                     try {
                                         const description = `Close Call — No Service. POC: ${noServicePOC.trim()}. Reason: ${noServiceReason.trim()}`;
-                                        // 1. Log interaction
-                                        await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                                        
+                                        const interactionPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ type: 'close-call-no-service', category: 'job', description, user_name: techName })
                                         });
-                                        // 2. Close the job
-                                        const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                                        
+                                        const closeJobPromise = apiCall(`/api/technician/jobs/${job.id}`, {
                                             method: 'PUT',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ action: 'close_job', notes: description, updated_by_name: techName })
                                         });
-                                        const data = await res.json();
-                                        if (!res.ok) throw new Error(data.error || 'Failed to close job');
+
+                                        // Optimistically update status to 'closed'
                                         setShowNoServiceModal(false);
                                         setEditedJob(prev => ({ ...prev, status: 'closed' }));
                                         if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+
+                                        // Execute network requests in the background
+                                        (async () => {
+                                            try {
+                                                const [resInter, resClose] = await Promise.all([interactionPromise, closeJobPromise]);
+                                                const data = await resClose.json();
+                                                if (resClose.ok && data.job) {
+                                                    onJobUpdate(data.job);
+                                                }
+                                            } catch (e) {
+                                                console.warn('[Offline] Close call background sync queued or failed:', e);
+                                            }
+                                        })();
+
                                     } catch (err) {
-                                        alert('Could not close job: ' + err.message);
+                                        alert('Could not close job: ' + (err.message || 'Unknown error'));
                                     } finally {
                                         setNoServiceLoading(false);
                                     }
@@ -4636,35 +4685,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     setShowQuotationCollectPayment(false);
                     if (quotationDecisionMode === 'denied') {
                         // Denied path: close job + show feedback QR
-                        try {
-                            await apiCall(`/api/technician/jobs/${editedJob.id}`, {
-                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — quotation denied, visit charge collected.' })
-                            });
-                        } catch (e) { /* non-fatal */ }
+                        apiCall(`/api/technician/jobs/${editedJob.id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — quotation denied, visit charge collected.' })
+                        }).catch(e => console.warn('[Offline] Close job on deny background sync queued or failed:', e));
+
                         setEditedJob(prev => ({ ...prev, status: 'closed' }));
                         if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
                         setShowQuotationFinalFeedback(true);
                     } else {
                         // Thinking path: keep job in quotation_sent, notify admin
-                        try {
-                            await apiCall(`/api/admin/jobs`, {
-                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent', quotation_followup_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() })
-                            });
-                            setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
-                            if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
-                            // Fire admin notification
-                            apiCall('/api/admin/notifications', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    type: 'quotation_followup',
-                                    message: `Follow up with customer on Job #${editedJob.job_number || editedJob.id} — they needed time to decide on the quotation. Visit charge collected. Follow up in 2 days.`,
-                                    job_id: editedJob.id,
-                                    priority: 'medium',
-                                })
-                            }).catch(() => {});
-                        } catch (e) { /* non-fatal */ }
+                        apiCall(`/api/admin/jobs`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent', quotation_followup_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() })
+                        }).catch(e => console.warn('[Offline] Update job thinking background sync queued or failed:', e));
+
+                        // Fire admin notification
+                        apiCall('/api/admin/notifications', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: 'quotation_followup',
+                                message: `Follow up with customer on Job #${editedJob.job_number || editedJob.id} — they needed time to decide on the quotation. Visit charge collected. Follow up in 2 days.`,
+                                job_id: editedJob.id,
+                                priority: 'medium',
+                            })
+                        }).catch(() => {});
+
+                        setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
+                        if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
                         setQuotationDecisionMode(null);
                     }
                 }}
@@ -4735,12 +4783,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 })()}
                 onSuccess={async () => {
                     setShowServiceChargeCollectPayment(false);
-                    try {
-                        await apiCall(`/api/technician/jobs/${editedJob.id}`, {
-                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — service charge invoice paid.' })
-                        });
-                    } catch (e) { /* non-fatal */ }
+                    apiCall(`/api/technician/jobs/${editedJob.id}`, {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — service charge invoice paid.' })
+                    }).catch(e => console.warn('[Offline] Close job service charge background sync queued or failed:', e));
                     
                     const merged = { ...editedJob, status: 'closed' };
                     setEditedJob(merged);

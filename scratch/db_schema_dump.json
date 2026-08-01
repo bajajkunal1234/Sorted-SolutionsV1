@@ -1,0 +1,6884 @@
+{
+  "account_groups": [
+    {
+      "column": "id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "alias",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "parent",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "nature",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'asset'::text"
+    },
+    {
+      "column": "behavesAsSubLedger",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "nettDebitCreditBalance",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'not-applicable'::text"
+    },
+    {
+      "column": "usedForCalculation",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'none'::text"
+    },
+    {
+      "column": "allocationMethod",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'not-applicable'::text"
+    },
+    {
+      "column": "createdAt",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "accounts": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "under",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "gstin",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "address",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "opening_balance",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "closing_balance",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "sku",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "alias",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "contact_person",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "mobile",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "email",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "mailing_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "mailing_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "billing_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "shipping_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "pan",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "state_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "country",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "credit_limit",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "credit_period",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "bank_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "ifsc_code",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "branch",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "tax_rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "acquisition_source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "referred_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "properties",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "as_on_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": "CURRENT_DATE"
+    },
+    {
+      "column": "balance_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'dr'::text"
+    },
+    {
+      "column": "asset_category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "purchase_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "purchase_value",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "depreciation_method",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "depreciation_rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "useful_life",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'active'::text"
+    },
+    {
+      "column": "phone",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "jobs_done",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "micr_code",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'savings'::text"
+    },
+    {
+      "column": "enable_cheque_printing",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "rounding_method",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'normal'::text"
+    },
+    {
+      "column": "currency",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'INR'::text"
+    },
+    {
+      "column": "gst_applicable",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    }
+  ],
+  "active_amcs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "plan_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "plan_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "product_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "product_brand",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "product_model",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "serial_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "installation_address_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "start_date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "end_date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amc_amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "payment_status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pending'::text"
+    },
+    {
+      "column": "payment_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "invoice_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "NO",
+      "default": "'active'::text"
+    },
+    {
+      "column": "auto_renew",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "created_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "termination_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terminated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "termination_reason",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "termination_waived",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "early_termination_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "active_rentals": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "plan_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "product_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "serial_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "tenure",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "monthly_rent",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "security_deposit",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "setup_fee",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "deposit_paid",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "deposit_paid_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "deposit_refunded",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "rent_cycle",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'monthly'::text"
+    },
+    {
+      "column": "next_rent_due_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rents_paid",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "rents_remaining",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "last_service_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "next_service_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "NO",
+      "default": "'active'::text"
+    },
+    {
+      "column": "delivery_address_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "created_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rent_advance",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "end_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "start_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "deposit_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "deposit_receipt_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "advance_receipt_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rent_receipts",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "termination_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terminated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "termination_reason",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "termination_waived",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "early_termination_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "admin_recipients": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "fcm_token",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "agreement_templates": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "type",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "content",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "amc_plans": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "applicable_products",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "duration",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "price",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "services",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "benefits",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "terms",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "app_notifications": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "recipient_type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "recipient_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "message",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "link",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_read",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "booking_brands": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('booking_brands_id_seq'::regclass)"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "booking_categories": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('booking_categories_id_seq'::regclass)"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "show_on_booking_form",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "booking_issues": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('booking_issues_id_seq'::regclass)"
+    },
+    {
+      "column": "subcategory_id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "show_on_booking_form",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "price_label",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'Starting from'::text"
+    }
+  ],
+  "booking_subcategories": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('booking_subcategories_id_seq'::regclass)"
+    },
+    {
+      "column": "category_id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "show_on_booking_form",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "brand_logos": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('brand_logos_id_seq'::regclass)"
+    },
+    {
+      "column": "name",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "logo_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "size",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'medium'::character varying"
+    },
+    {
+      "column": "order_index",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "brands": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "customer_appliances": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "brand",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "model",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "serial_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "purchase_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "warranty_status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'unknown'::text"
+    },
+    {
+      "column": "warranty_expiry",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "photos",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'active'::text"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "customer_feed_posts": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "body",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "image_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "post_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'tip'::text"
+    },
+    {
+      "column": "cta_text",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "cta_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "likes_count",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "is_pinned",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "media",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    }
+  ],
+  "customer_properties": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "property_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "linked_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "unlinked_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "customers": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "email",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "phone",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "address",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "gstin",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "properties",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "opening_balance",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "closing_balance",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "jobs_done",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "firebase_uid",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "ledger_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "fcm_token",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "username",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "password_hash",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "full_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "profile_complete",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "image_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "expenses": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "technician_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "receipt",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "NO",
+      "default": "'pending'::text"
+    },
+    {
+      "column": "submitted_date",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "approved_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "approved_date",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "admin_notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reviewed_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reviewed_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "payment_voucher_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "latitude",
+      "type": "double precision",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "longitude",
+      "type": "double precision",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "purchase_invoice_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "frequently_booked_services": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('frequently_booked_services_id_seq'::regclass)"
+    },
+    {
+      "column": "title",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "price",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "order_index",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "google_ads_daily_metrics": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount_spent",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "clicks",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "impressions",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "conversions_recorded",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "google_reviews_cache": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('google_reviews_cache_id_seq'::regclass)"
+    },
+    {
+      "column": "author_name",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rating",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "text",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "time",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "profile_photo_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "relative_time_description",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "google_reviews_settings": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('google_reviews_settings_id_seq'::regclass)"
+    },
+    {
+      "column": "place_id",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "business_name",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "show_only_high_ratings",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "min_rating",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "4"
+    },
+    {
+      "column": "auto_refresh",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "refresh_interval",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'daily'::character varying"
+    },
+    {
+      "column": "max_reviews",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "6"
+    },
+    {
+      "column": "sort_by",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'most_recent'::character varying"
+    },
+    {
+      "column": "last_sync",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "how_it_works_stages": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('how_it_works_stages_id_seq'::regclass)"
+    },
+    {
+      "column": "stage",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "icon",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "image_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "order_index",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "interaction_triggers": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "type",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'other'::character varying"
+    },
+    {
+      "column": "source",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'System'::character varying"
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_enabled",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "webhook_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "fire_count",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "last_fired_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "css_selector",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "page_pattern",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "interactions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "timestamp",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "invoice_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "performed_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "performed_by_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "metadata",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'System'::text"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'completed'::text"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "property_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "inventory": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "name",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "sku",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "unit",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "min_stock_level",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "cost_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "selling_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "supplier",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "location",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "brand",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'product'::text"
+    },
+    {
+      "column": "unit_of_measure",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pcs'::text"
+    },
+    {
+      "column": "opening_balance_qty",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "opening_balance_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": "CURRENT_DATE"
+    },
+    {
+      "column": "current_stock",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "sale_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "purchase_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "gst_applicable",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "gst_rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "hsn_code",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "sac_code",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "visible_on_website",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "service_terms_template",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'active'::text"
+    },
+    {
+      "column": "images",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "dealer_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "retail_price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "job_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "hsn_description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terms_conditions",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    }
+  ],
+  "inventory_brands": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "inventory_categories": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "color",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'#6366f1'::text"
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "inventory_items": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "sku",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "brand",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "unit",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pcs'::text"
+    },
+    {
+      "column": "reorder_level",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "10"
+    },
+    {
+      "column": "price",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "cost",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "location",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "inventory_logs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "inventory_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "quantity_changed",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "previous_quantity",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "new_quantity",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reference_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reference_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_by",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "inventory_transactions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "inventory_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "transaction_type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference_type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reference_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "performed_by",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "issues": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "job_interactions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "message",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "user_name",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "user_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "metadata",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "job_log_notes": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "added_by",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "added_by_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "files",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "job_reminders": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "reminder_date",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "message",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "sent",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "jobs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "job_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "technician_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "subcategory",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "appliance",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "brand",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "model",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "issue",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pending'::text"
+    },
+    {
+      "column": "priority",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'medium'::text"
+    },
+    {
+      "column": "scheduled_date",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "scheduled_time",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "property",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "property_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rental_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "amc_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "arrived_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_rating",
+      "type": "smallint",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rating_note",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "on_way_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "quotation_approved_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "repair_note_added_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "started_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "completed_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "warranty",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "warranty_proof",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "priority_note",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "journal_entries": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "entry_number",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": "CURRENT_DATE"
+    },
+    {
+      "column": "reference_type",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "created_by",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "journal_entry_lines": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "journal_entry_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "debit",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0.00"
+    },
+    {
+      "column": "credit",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": "0.00"
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "lead_attributions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "phone",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "session_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "lead_source",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "campaign",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "gclid",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "conversion_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'interested'::text"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "first_contact_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "notification_logs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "trigger_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "channel",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "recipient_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "recipient_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "recipient_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "event_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'sent'::text"
+    },
+    {
+      "column": "error",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "sent_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "notification_templates": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "channel",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "content",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "variables",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "is_default",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "notification_triggers": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "event_type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "channel",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "template_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "audience",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "delay_minutes",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "sound",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'default'::text"
+    }
+  ],
+  "page_brands_mapping": [
+    {
+      "column": "page_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "brand_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    }
+  ],
+  "page_faqs_mapping": [
+    {
+      "column": "page_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "faq_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    }
+  ],
+  "page_localities": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "page_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "locality_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "pincode",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "page_problems": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "page_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "problem_title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "problem_description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "icon_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "page_services": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "page_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "service_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "price_starts_at",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "page_settings": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "page_id",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "problems_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": [], \"title\": \"Problems We Solve\", \"subtitle\": \"Expert solutions for all your appliance troubles\"}'::jsonb"
+    },
+    {
+      "column": "brands_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": []}'::jsonb"
+    },
+    {
+      "column": "localities_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": [], \"title\": \"We''re in your neighbourhood\", \"subtitle\": \"Quick doorstep service across Mumbai\"}'::jsonb"
+    },
+    {
+      "column": "services_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": [], \"title\": \"Popular in your area\", \"subtitle\": \"Quality repairs at honest prices\"}'::jsonb"
+    },
+    {
+      "column": "faqs_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": []}'::jsonb"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "hero_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"title\": \"\", \"bg_type\": \"gradient\", \"subtitle\": \"\", \"bg_color_to\": \"#4f46e5\", \"bg_image_url\": \"\", \"bg_color_from\": \"#6366f1\", \"overlay_opacity\": 0.85}'::jsonb"
+    },
+    {
+      "column": "subcategories_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"items\": [], \"title\": \"Appliance Types\", \"subtitle\": \"Choose your specific appliance\"}'::jsonb"
+    },
+    {
+      "column": "page_type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "section_visibility",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"faqs\": true, \"hero\": true, \"brands\": true, \"problems\": true, \"services\": true, \"localities\": true, \"subcategories\": true}'::jsonb"
+    },
+    {
+      "column": "issues_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "section_order",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "other_locations_settings",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    }
+  ],
+  "page_views": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "session_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "page_path",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "duration_seconds",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "payment_voucher_allocations": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "payment_voucher_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "purchase_invoice_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "purchase_invoice_ref",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "amount_applied",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "payment_vouchers": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "payment_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "payment_mode",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'cash'::text"
+    },
+    {
+      "column": "reference_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "narration",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "payment_account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'cleared'::text"
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "print_settings": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "company_name",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "company_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "company_phone",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "company_email",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "gst_number",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "logo_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "show_logo",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "show_gst",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "show_terms",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "paper_size",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'A4'::character varying"
+    },
+    {
+      "column": "font_size",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'medium'::character varying"
+    },
+    {
+      "column": "include_signature",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "template_style",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'modern-boxes'::character varying"
+    },
+    {
+      "column": "gst_breakdown",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"cgstRate\": 9, \"igstRate\": 18, \"sgstRate\": 9, \"showCGST\": true, \"showIGST\": true, \"showSGST\": true}'::jsonb"
+    },
+    {
+      "column": "invoice_terms",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "quotation_terms",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "rental_terms",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "amc_terms",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "invoice_show_gst",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "quotation_show_gst",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "rental_show_gst",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "amc_show_gst",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "signature_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "pan",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "website",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "whatsapp_preview_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "product_links": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "product_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "service_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "auto_add",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "products": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "hsn_code",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "unit",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pcs'::text"
+    },
+    {
+      "column": "rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "tax_rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "18"
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "properties": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "address",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "locality",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "city",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "pincode",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "property_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'residential'::text"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "flat_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "building_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "latitude",
+      "type": "double precision",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "longitude",
+      "type": "double precision",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "location_verified_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "location_verified_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "purchase_invoices": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "invoice_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "items",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "billing_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "shipping_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "subtotal",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "discount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "cgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "sgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "igst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_tax",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'draft'::text"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terms",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "po_reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "vendor_invoice_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_phone",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_email",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "paid_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "handed_to_service_center",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "paid_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'company'::text"
+    }
+  ],
+  "qrcodes": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "image_url",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "target_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "assigned_to",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "priority",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "1"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "quick_booking_settings": [
+    {
+      "column": "id",
+      "type": "bigint",
+      "nullable": "NO",
+      "default": "1"
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'Book A Technician Now'::text"
+    },
+    {
+      "column": "subtitle",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'Get same day service | Transparent pricing | Licensed technicians'::text"
+    },
+    {
+      "column": "serviceable_pincodes",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "ARRAY['400001'::text, '400002'::text, '400003'::text, '400004'::text, '400005'::text, '400008'::text, '400012'::text, '400014'::text, '400050'::text, '400051'::text, '400052'::text, '400053'::text, '400063'::text, '400070'::text, '400077'::text]"
+    },
+    {
+      "column": "valid_pincode_message",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'✓ We serve here!'::text"
+    },
+    {
+      "column": "invalid_pincode_message",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'✗ Not serviceable'::text"
+    },
+    {
+      "column": "help_text",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'We currently serve Mumbai areas. Call us for other locations.'::text"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "categories",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "advanced_pincodes",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    }
+  ],
+  "quotations": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "quote_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "valid_until",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "items",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "billing_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "shipping_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "subtotal",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "discount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "cgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "sgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "igst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_tax",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'draft'::text"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terms",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "account_mobile",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_email",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_gstin",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_state",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_phone",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "technician_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "receipt_voucher_allocations": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "receipt_voucher_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "invoice_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount_applied",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "receipt_vouchers": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "receipt_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "payment_mode",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'cash'::text"
+    },
+    {
+      "column": "reference_number",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "narration",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "payment_account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'cleared'::text"
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "reminders": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "due_date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "priority",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'medium'::text"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'pending'::text"
+    },
+    {
+      "column": "related_to_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "related_to_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_recurring",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "recurrence_pattern",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "completed_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "rental_plans": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "product_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "product_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "product_image",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "tenure_options",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "included_services",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "terms",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "free_visits",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    }
+  ],
+  "sales_invoices": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "invoice_number",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "items",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'[]'::jsonb"
+    },
+    {
+      "column": "billing_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "shipping_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "subtotal",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "discount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "cgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "sgst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "igst",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_tax",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "total_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'draft'::text"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "terms",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "account_mobile",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_email",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_gstin",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "account_state",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "items_subtotal",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "charges_total",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "account_phone",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "paid_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "technician_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "support_articles": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "slug",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "icon",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'📄'::text"
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "tags",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "content",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "admin_content",
+      "type": "text",
+      "nullable": "YES",
+      "default": "''::text"
+    },
+    {
+      "column": "is_published",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "order_index",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "audience",
+      "type": "text",
+      "nullable": "NO",
+      "default": "'all'::text"
+    }
+  ],
+  "support_emails": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "recipient_email",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "sender_email",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "sender_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "subject",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "body_text",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "body_html",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "NO",
+      "default": "'unread'::text"
+    },
+    {
+      "column": "received_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "now()"
+    },
+    {
+      "column": "metadata",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    }
+  ],
+  "technician_attendance": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "shift_start_time",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "shift_end_time",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "lunch_start_time",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "lunch_end_time",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "technician_leaves": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "leave_date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reason",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "status",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'pending'::character varying"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "technician_live_locations": [
+    {
+      "column": "technician_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "latitude",
+      "type": "double precision",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "longitude",
+      "type": "double precision",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "is_on_job",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "tracking_source",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'web'::character varying"
+    },
+    {
+      "column": "is_online",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "location_precision",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'precise'::text"
+    },
+    {
+      "column": "ip_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "battery_level",
+      "type": "integer",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "connectivity_status",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_mocked",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "duty_status",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'offline'::character varying"
+    }
+  ],
+  "technician_location_logs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "latitude",
+      "type": "double precision",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "longitude",
+      "type": "double precision",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "is_on_job",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "tracking_source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_online",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "location_precision",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "battery_level",
+      "type": "integer",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "connectivity_status",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_mocked",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "technician_stock": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "product_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "technician_stock_transactions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "technician_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "product_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "transaction_type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "reference_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_by",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "technicians": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "email",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "phone",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "skills",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": "'{}'::text[]"
+    },
+    {
+      "column": "status",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'available'::text"
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "username",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "password_hash",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "ledger_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "firebase_uid",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "fcm_token",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "photo_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rating",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "years_experience",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "bio",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "specializations",
+      "type": "ARRAY",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_card_fields",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{\"show_bio\": false, \"show_name\": true, \"show_photo\": true, \"show_rating\": true, \"show_experience\": true}'::jsonb"
+    },
+    {
+      "column": "current_session_token",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "last_device_ip",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "date_joined",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "last_working_day",
+      "type": "date",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "weekly_off_day",
+      "type": "text",
+      "nullable": "YES",
+      "default": "'Sunday'::text"
+    },
+    {
+      "column": "aadhaar_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "pan_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "appointment_letter_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_fired",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "mdm_device_id",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "transaction_line_items": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "transaction_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "item_type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "item_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "quantity",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "1"
+    },
+    {
+      "column": "unit",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rate",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "tax_rate",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0.00"
+    },
+    {
+      "column": "tax_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0.00"
+    },
+    {
+      "column": "total_amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "transactions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "transaction_type",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "transaction_number",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "transaction_date",
+      "type": "date",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "account_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "customer_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "job_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "tax_amount",
+      "type": "numeric",
+      "nullable": "YES",
+      "default": "0.00"
+    },
+    {
+      "column": "total_amount",
+      "type": "numeric",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "payment_method",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "payment_status",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": "'pending'::character varying"
+    },
+    {
+      "column": "notes",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_by",
+      "type": "character varying",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "visitor_clicks": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "session_id",
+      "type": "uuid",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "click_type",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "page_path",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    }
+  ],
+  "visitor_sessions": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "visitor_id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "ip_address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "user_agent",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "referrer",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "utm_source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "utm_medium",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "utm_campaign",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO",
+      "default": "timezone('utc'::text, now())"
+    },
+    {
+      "column": "gclid",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    }
+  ],
+  "website_booking_slots": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "day_of_week",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "start_time",
+      "type": "time without time zone",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "end_time",
+      "type": "time without time zone",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "slot_label",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_brands": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "logo_url",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "website_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_config": [
+    {
+      "column": "key",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "value",
+      "type": "jsonb",
+      "nullable": "NO",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_faqs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "question",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "answer",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_frequently_booked": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "service_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "service_path",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "icon_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "price_starts_at",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_how_it_works": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "step_number",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "icon_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_locations": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "address",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "area",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "city",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "pincode",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "phone",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "email",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "map_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_head_office",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "display_in_header",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "display_in_footer",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "display_in_service_areas",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "header_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "footer_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "service_area_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_section_configs": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "section_id",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "extra_config",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_seo_settings": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "page_route",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "meta_title",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "meta_description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "meta_keywords",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "og_image_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_service_icons": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "icon_url",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "category",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_settings": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "column": "key",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "value",
+      "type": "jsonb",
+      "nullable": "YES",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_static_pages": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "slug",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "content",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "last_updated",
+      "type": "date",
+      "nullable": "YES",
+      "default": "CURRENT_DATE"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "website_testimonials": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "customer_name",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "location",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "rating",
+      "type": "integer",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "review_text",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "customer_image_url",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_verified",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "date",
+      "type": "date",
+      "nullable": "YES",
+      "default": "CURRENT_DATE"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "source",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "show_on_website",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    },
+    {
+      "column": "service_type",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "is_featured",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "false"
+    }
+  ],
+  "website_why_choose_us": [
+    {
+      "column": "id",
+      "type": "uuid",
+      "nullable": "NO",
+      "default": "uuid_generate_v4()"
+    },
+    {
+      "column": "title",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "icon_name",
+      "type": "text",
+      "nullable": "YES",
+      "default": null
+    },
+    {
+      "column": "display_order",
+      "type": "integer",
+      "nullable": "YES",
+      "default": "0"
+    },
+    {
+      "column": "is_active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ],
+  "why_choose_us_features": [
+    {
+      "column": "id",
+      "type": "integer",
+      "nullable": "NO",
+      "default": "nextval('why_choose_us_features_id_seq'::regclass)"
+    },
+    {
+      "column": "title",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "description",
+      "type": "text",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "icon",
+      "type": "character varying",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "order_index",
+      "type": "integer",
+      "nullable": "NO",
+      "default": null
+    },
+    {
+      "column": "active",
+      "type": "boolean",
+      "nullable": "YES",
+      "default": "true"
+    },
+    {
+      "column": "created_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    },
+    {
+      "column": "updated_at",
+      "type": "timestamp without time zone",
+      "nullable": "YES",
+      "default": "now()"
+    }
+  ]
+}

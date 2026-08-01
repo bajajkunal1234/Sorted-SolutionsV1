@@ -2,24 +2,44 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import { sampleProducts } from '../../data/inventoryData';
 
-function ProductSelector({ value, onChange, label = 'Item/Product', onProductSelect }) {
+function ProductSelector({ value, onChange, label = 'Item/Product', onProductSelect, dbProducts = [] }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Get all products from inventory
-    const allProducts = sampleProducts.map(product => ({
-        id: product.id,
-        sku: product.sku,
-        name: product.name,
-        unitOfMeasure: product.unitOfMeasure,
-        hsnCode: product.hsnCode,
-        gstRate: product.gstRate,
-        sellingPrice: product.salePrice,
-        type: product.type,
-        category: product.category,
-        currentStock: product.currentStock
-    }));
+    // Merge database products with static sampleProducts (avoiding duplicates by id/sku/name)
+    const mergedProducts = [...dbProducts.map(p => ({
+        id: p.id,
+        sku: p.sku || `PROD-${p.id.slice(0, 4).toUpperCase()}`,
+        name: p.name,
+        unitOfMeasure: p.unit || 'piece',
+        hsnCode: p.hsn_code || '',
+        gstRate: p.tax_rate !== undefined && p.tax_rate !== null ? Number(p.tax_rate) : 18,
+        sellingPrice: p.rate !== undefined && p.rate !== null ? Number(p.rate) : 0,
+        type: p.type || 'product',
+        category: p.category || 'spare-parts',
+        currentStock: p.current_stock !== undefined && p.current_stock !== null ? Number(p.current_stock) : 99
+    }))];
+
+    // Add sample products if they are not already in the merged list
+    sampleProducts.forEach(sample => {
+        if (!mergedProducts.some(p => p.id === sample.id || p.sku === sample.sku)) {
+            mergedProducts.push({
+                id: sample.id,
+                sku: sample.sku,
+                name: sample.name,
+                unitOfMeasure: sample.unitOfMeasure,
+                hsnCode: sample.hsnCode,
+                gstRate: sample.gstRate,
+                sellingPrice: sample.salePrice,
+                type: sample.type,
+                category: sample.category,
+                currentStock: sample.currentStock
+            });
+        }
+    });
+
+    const allProducts = mergedProducts;
 
     // Filter products based on search term
     const filteredProducts = allProducts.filter(product =>

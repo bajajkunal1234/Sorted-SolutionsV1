@@ -62,7 +62,7 @@ export default function ExpensesList({ technicianId }) {
 
     useEffect(() => {
         // Fetch admin-defined expense categories
-        fetch('/api/admin/expense-categories')
+        apiCall('/api/admin/expense-categories')
             .then(r => r.json())
             .then(data => {
                 const cats = data.categories || [];

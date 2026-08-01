@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Plus, Trash2, Send, Eye, Edit2, X } from 'lucide-react';
 import ProductSelector from '@/components/common/ProductSelector';
 import PaymentQRDisplay from '@/components/technician/PaymentQRDisplay';
 import FeedbackQRDisplay from '@/components/technician/FeedbackQRDisplay';
+import { apiCall } from '@/lib/offlineSync';
 
 // Pre-defined spare parts and service charges by product type
 const spareParts = {
@@ -45,6 +46,25 @@ const serviceCharges = {
 function CreateQuotation({ job, onComplete, onCancel, timerElapsed }) {
     const productType = job.product.type;
     const defaultServiceCharge = serviceCharges[productType] || serviceCharges['default'];
+
+    const [dbProducts, setDbProducts] = useState([]);
+
+    useEffect(() => {
+        const loadProducts = async () => {
+            try {
+                const response = await apiCall('/api/products');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.products) {
+                        setDbProducts(data.products);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load products from DB:', err);
+            }
+        };
+        loadProducts();
+    }, []);
 
     const [items, setItems] = useState([
         { id: 1, description: 'Service Charge', qty: 1, rate: defaultServiceCharge, editable: true }
@@ -229,6 +249,7 @@ GST (18%): ₹${gst.toFixed(2)}
                             {!quotationSent && (
                                 <div style={{ marginBottom: 'var(--spacing-xs)' }}>
                                     <ProductSelector
+                                        dbProducts={dbProducts}
                                         value={item.productId}
                                         onChange={(productId) => {
                                             const newItems = [...items];

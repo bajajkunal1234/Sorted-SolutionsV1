@@ -1090,17 +1090,7 @@ function TechnicianApp() {
     const fetchPendingCashPayments = async () => {
         if (!technicianId) return;
         try {
-            const token = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
-            let sessionToken = null;
-            if (token) {
-                sessionToken = JSON.parse(token).session_token;
-            }
-
-            const response = await fetch(`/api/technician/payment?technicianId=${technicianId}&t=${Date.now()}`, {
-                headers: {
-                    ...(sessionToken ? { 'x-session-token': sessionToken } : {})
-                }
-            });
+            const response = await apiCall(`/api/technician/payment?technicianId=${technicianId}&t=${Date.now()}`);
             if (response.ok) {
                 const json = await response.json();
                 if (json.success) {

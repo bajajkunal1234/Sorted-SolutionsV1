@@ -81,17 +81,17 @@ export default function CollectPaymentFlow({
                 const needsJobs = !prefilledJob;
 
                 const promises = [
-                    fetch('/api/admin/qrcodes').then(r => r.json()).catch(() => ({ success: false }))
+                    apiCall('/api/admin/qrcodes').then(r => r.json()).catch(() => ({ success: false }))
                 ];
 
                 if (needsCustomers) {
-                    promises.push(fetch('/api/admin/accounts?type=customer').then(r => r.json()).catch(() => ({ success: false })));
+                    promises.push(apiCall('/api/admin/accounts?type=customer').then(r => r.json()).catch(() => ({ success: false })));
                 }
                 if (needsJobs) {
                     const jobsUrl = context === 'technician' 
                         ? `/api/technician/jobs` 
                         : `/api/admin/jobs`;
-                    promises.push(fetch(jobsUrl).then(r => r.json()).catch(() => ({ success: false })));
+                    promises.push(apiCall(jobsUrl).then(r => r.json()).catch(() => ({ success: false })));
                 }
 
                 const results = await Promise.all(promises);
