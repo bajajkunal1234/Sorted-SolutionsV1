@@ -1987,9 +1987,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 })
             });
 
-            const [logRes, updateRes] = await Promise.all([logPromise, updatePromise]);
-            const updateData = await updateRes.json();
-            if (!updateRes.ok) throw new Error(updateData.error || 'Failed to update job status');
+            // Close the location verification modal and transition UI instantly!
+            setShowLocationVerifyModal(false);
+            setBeforePhotos([]);
+            setBeforePhotosDescription('');
 
             setEditedJob(prev => ({
                 ...prev,
@@ -2016,11 +2017,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 });
             }
 
-            // Close the location verification modal
-            setShowLocationVerifyModal(false);
-            // Reset state
-            setBeforePhotos([]);
-            setBeforePhotosDescription('');
+            // Execute the network requests in the background
+            (async () => {
+                try {
+                    const [logRes, updateRes] = await Promise.all([logPromise, updatePromise]);
+                    if (!updateRes.ok) {
+                        const updateData = await updateRes.json();
+                        console.warn('[Offline] Background check-in update queued or failed:', updateData.error);
+                    }
+                } catch (e) {
+                    console.warn('[Offline] Background check-in updates queued or failed:', e);
+                }
+            })();
         } catch (err) {
             alert('Failed to submit before photos: ' + err.message);
         } finally {
@@ -2066,6 +2074,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         try {
             // 1. Compress and upload/queue photos concurrently
             const uploadPromises = afterPhotos.filter(photo => photo.file).map(async (photo) => {
@@ -2104,7 +2113,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     job_id: editedJob.id,
                     date: new Date().toISOString().split('T')[0],
                     due_date: new Date().toISOString().split('T')[0],
-                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    invoice_number: invoiceNum,
                     reference: savedQuotation.quote_number,
                     status: 'unpaid',
                     items: savedQuotation.items,
@@ -2121,39 +2130,71 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 })
             });
 
-            const [photosLogRes, invoiceRes] = await Promise.all([logPhotosPromise, invoicePromise]);
-            const data = await invoiceRes.json();
-            if (data.success) {
-                setSavedInvoice(data.data);
-                const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
-                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'invoice-created',
-                        category: 'billing',
-                        description: detailedInvDesc,
-                        user_name: techName,
-                        customer_id: editedJob.customerId || null,
-                        metadata: {
-                            invoice_number: data.data.invoice_number,
-                            invoice_id: data.data.id,
-                            total_amount: data.data.total_amount,
-                            subtotal: data.data.subtotal,
-                            tax: data.data.total_tax,
-                            items: data.data.items
-                        }
-                    })
-                });
+            // Construct fallback/mock invoice object for immediate UI transition
+            const mockInvoice = {
+                id: `temp-inv-${Date.now()}`,
+                invoice_number: invoiceNum,
+                total_amount: savedQuotation.total_amount,
+                subtotal: savedQuotation.subtotal,
+                total_tax: savedQuotation.total_tax,
+                items: savedQuotation.items,
+                status: 'unpaid'
+            };
 
-                // Reset states and close modal
-                setShowAfterPhotosModal(false);
-                setAfterPhotos([]);
-                setAfterPhotosDescription('');
-                setShowWhatsappPopup({ type: 'invoice', doc: data.data });
-            } else throw new Error(data.error);
+            setSavedInvoice(mockInvoice);
+
+            // Close modal and transition UI instantly!
+            setShowAfterPhotosModal(false);
+            setAfterPhotos([]);
+            setAfterPhotosDescription('');
+            setShowWhatsappPopup({ type: 'invoice', doc: mockInvoice });
+
+            // Run requests and update real data in background
+            (async () => {
+                try {
+                    const [photosLogRes, invoiceRes] = await Promise.all([logPhotosPromise, invoicePromise]);
+                    const data = await invoiceRes.json();
+                    if (data.success || data.queued) {
+                        const finalInvoice = data.success ? data.data : mockInvoice;
+                        if (data.success) {
+                            setSavedInvoice(finalInvoice);
+                            setShowWhatsappPopup(prev => {
+                                if (prev && prev.type === 'invoice' && prev.doc.invoice_number === invoiceNum) {
+                                    return { type: 'invoice', doc: finalInvoice };
+                                }
+                                return prev;
+                            });
+                        }
+                        
+                        const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(finalInvoice, 'Invoice');
+                        await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: 'invoice-created',
+                                category: 'billing',
+                                description: detailedInvDesc,
+                                user_name: techName,
+                                customer_id: editedJob.customerId || null,
+                                metadata: {
+                                    invoice_number: finalInvoice.invoice_number,
+                                    invoice_id: finalInvoice.id,
+                                    total_amount: finalInvoice.total_amount,
+                                    subtotal: finalInvoice.subtotal,
+                                    tax: finalInvoice.total_tax,
+                                    items: finalInvoice.items
+                                }
+                            })
+                        });
+                    } else {
+                        console.warn('[Offline] Background invoice generation returned non-success:', data.error);
+                    }
+                } catch (e) {
+                    console.warn('[Offline] Background invoice generation queued or failed:', e);
+                }
+            })();
 
         } catch (err) {
-            alert('Failed to save after photos and create invoice: ' + err.message);
+            alert('Failed to save after photos and create invoice: ' + (err.message || 'Unknown error'));
         } finally {
             setAfterPhotosLoading(false);
         }
@@ -2208,27 +2249,50 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 metadata: { attachments: uploadedUrls },
             };
 
-            const res = await apiCall('/api/admin/interactions', {
+            const notePromise = apiCall('/api/admin/interactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
 
-            const data = await res.json();
+            // Optimistic update
+            const tempId = `temp-note-${Date.now()}`;
+            const noteData = {
+                id: tempId,
+                ...payload
+            };
 
-            if (!res.ok || !data.success) {
-                throw new Error(data.error || `Server error ${res.status}`);
-            }
-
-            // 3. Prepend to local interactions list
             setEditedJob(prev => ({
                 ...prev,
-                interactions: [data.data, ...(prev.interactions || [])]
+                interactions: [noteData, ...(prev.interactions || [])]
             }));
+
+            setIsAddingNote(false);
+
+            // Execute request in background
+            (async () => {
+                try {
+                    const res = await notePromise;
+                    const data = await res.json();
+                    if (data.success || data.queued) {
+                        if (data.success && data.data) {
+                            // Swap temp note with final server note (containing correct ID)
+                            setEditedJob(prev => ({
+                                ...prev,
+                                interactions: (prev.interactions || []).map(i => i.id === tempId ? data.data : i)
+                            }));
+                        }
+                    } else {
+                        console.warn('[Offline] Background note saving returned non-success:', data.error);
+                    }
+                } catch (e) {
+                    console.warn('[Offline] Background note saving queued or failed:', e);
+                }
+            })();
+
         } catch (err) {
             console.error('Failed to save note:', err);
-            alert(`Failed to save note: ${err.message}`);
-        } finally {
+            alert(`Failed to save note: ${err.message || 'Unknown error'}`);
             setIsAddingNote(false);
         }
     };
