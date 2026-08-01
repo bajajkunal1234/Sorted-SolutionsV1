@@ -134,7 +134,7 @@ function TechnicianApp() {
     const [copied, setCopied] = useState(false);
 
     const handleCopyLink = () => {
-        const url = 'https://sortedsolutions.in/downloads/technician-app.apk';
+        const url = 'https://sortedsolutions.in/downloads/technician-app-v3.apk';
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url)
                 .then(() => {
@@ -160,7 +160,7 @@ function TechnicianApp() {
             setCopied(true);
             setTimeout(() => setCopied(false), 3000);
         } catch (err) {
-            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app.apk');
+            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v3.apk');
         }
     };
 
@@ -192,7 +192,7 @@ function TechnicianApp() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        fetch('/downloads/technician-app.apk', { method: 'HEAD' })
+        fetch('/downloads/technician-app-v3.apk', { method: 'HEAD' })
             .then(res => {
                 const bytes = res.headers.get('Content-Length');
                 if (bytes) {
@@ -2537,8 +2537,8 @@ function TechnicianApp() {
                     Install the native Android app for thermal printer support and reliable push notifications.
                 </p>
                 <a
-                    href="/downloads/technician-app.apk"
-                    download="SortedTechnician.apk"
+                    href="/downloads/technician-app-v3.apk"
+                    download="SortedTechnician_v3.apk"
                     target="_blank"
                     style={{
                         display: 'flex',
@@ -2563,7 +2563,7 @@ function TechnicianApp() {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
                 >
                     <Download size={16} />
-                    Download APK (Latest Version - 6.55 MB)
+                    Download Tech App v3 APK ({apkSize})
                 </a>
             </div>
 
@@ -3425,7 +3425,7 @@ function TechnicianApp() {
                         onClick={() => {
                             if (typeof window !== 'undefined') {
                                 const isNative = isNativePlatform();
-                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app.apk';
+                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v3.apk';
                                 if (isNative && GPSBridgePlugin && GPSBridgePlugin.openSystemBrowser) {
                                     GPSBridgePlugin.openSystemBrowser({ url: downloadUrl }).catch(() => {
                                         window.location.href = downloadUrl;
