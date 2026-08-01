@@ -50,15 +50,36 @@ self.addEventListener('activate', (event) => {
 });
 
 // ─── Fetch — network-first (falls back to cache) ─────────────────────────────
-// Only intercept navigation requests to our app-shell URLs.
+// Intercept requests to our app-shell URLs.
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-    if (request.mode !== 'navigate') return; // Only HTML navigation
+    if (request.method !== 'GET') return;
+
     const url = new URL(request.url);
-    if (!APP_SHELL_URLS.some(p => url.pathname.startsWith(p.split('?')[0]))) return;
+    const isAppShell = APP_SHELL_URLS.some(p => url.pathname.startsWith(p.split('?')[0]));
+
+    // In WebView, request.mode might not be 'navigate' for direct loads.
+    // Intercept if it's navigate mode OR it's a GET request for a shell URL.
+    const isNavigation = request.mode === 'navigate' || isAppShell;
+
+    if (!isNavigation) return;
 
     event.respondWith(
-        fetch(request).catch(() => caches.match(request))
+        fetch(request).catch(() => {
+            console.log('[SW] Network failed. Serving from cache:', request.url);
+            return caches.match(request).then(cachedResponse => {
+                if (cachedResponse) return cachedResponse;
+
+                // Fallback: If specific subpath isn't cached, try to match the base dashboard url
+                if (url.pathname.startsWith('/technician/')) {
+                    return caches.match('/technician/dashboard');
+                }
+                if (url.pathname.startsWith('/customer/')) {
+                    return caches.match('/customer/dashboard');
+                }
+                return null;
+            });
+        })
     );
 });
 
