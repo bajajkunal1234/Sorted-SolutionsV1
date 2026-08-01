@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
@@ -128,6 +128,7 @@ function TechnicianApp() {
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [syncItems, setSyncItems] = useState([]);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isRefreshingData, setIsRefreshingData] = useState(false);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
     const [apkSize, setApkSize] = useState('6.53 MB');
     const [showForceUpdateModal, setShowForceUpdateModal] = useState(false);
@@ -1157,6 +1158,33 @@ function TechnicianApp() {
             }
         } catch (err) {
             console.error('Error fetching profile:', err);
+        }
+    };
+
+    const handleForceRefreshCache = async () => {
+        if (!isDeviceOnline) {
+            alert('Cannot refresh data while offline. Please connect to the internet first.');
+            return;
+        }
+        setIsRefreshingData(true);
+        try {
+            await Promise.all([
+                fetchJobs(true),
+                fetchProfile(),
+                fetchIncentives(),
+                fetchPurchaseRequests(),
+                fetchPendingCashPayments(),
+                fetchScheduledJobs(),
+                apiCall('/api/products').catch(err => console.warn('Failed to cache products:', err)),
+                apiCall('/api/admin/print-settings').catch(err => console.warn('Failed to cache print settings:', err)),
+                apiCall(`/api/technician/leaves?technicianId=${technicianId}`).catch(err => console.warn('Failed to cache leaves:', err))
+            ]);
+            alert('Offline Sync Preload Complete! All jobs, product catalogs, and settings are now cached and ready for offline use.');
+        } catch (err) {
+            console.error('Error preloading cache:', err);
+            alert('Cache preload completed with some warnings. Please verify your connection.');
+        } finally {
+            setIsRefreshingData(false);
         }
     };
 
@@ -2376,7 +2404,29 @@ function TechnicianApp() {
                     <div style={{ textAlign: 'center', padding: '16px 0', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
                         <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>✅</span>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Up to Date</span>
-                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', margin: 0 }}>All actions and photos are fully synced.</p>
+                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', marginBottom: '12px' }}>All actions and photos are fully synced.</p>
+                        <button
+                            onClick={handleForceRefreshCache}
+                            disabled={isRefreshingData || !isDeviceOnline}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '6px 12px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                height: 'auto',
+                                backgroundColor: isDeviceOnline ? 'var(--bg-primary)' : 'var(--bg-tertiary)',
+                                color: isDeviceOnline ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                border: '1px solid var(--border-primary)',
+                                opacity: (isRefreshingData || !isDeviceOnline) ? 0.6 : 1,
+                                cursor: (isRefreshingData || !isDeviceOnline) ? 'not-allowed' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            <RefreshCw size={12} className={isRefreshingData ? 'spin' : ''} />
+                            {isRefreshingData ? 'Preloading...' : 'Preload Offline Cache'}
+                        </button>
                     </div>
                 ) : (
                     <div>
