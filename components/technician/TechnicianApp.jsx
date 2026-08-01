@@ -166,6 +166,12 @@ function TechnicianApp() {
     };
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/firebase-messaging-sw.js')
+                .then(reg => console.log('[ServiceWorker] Registered on startup:', reg.scope))
+                .catch(err => console.warn('[ServiceWorker] Registration failed on startup:', err));
+        }
+
         const checkAppVersion = async () => {
             const isNative = isNativePlatform();
             if (isNative && GPSBridgePlugin) {
@@ -1104,7 +1110,7 @@ function TechnicianApp() {
     };
 
     const fetchJobs = async (isBackground = false) => {
-        if (!technicianId) return;
+        if (!technicianId) return [];
         try {
             if (!isBackground) setLoading(true);
             const response = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
@@ -1114,11 +1120,28 @@ function TechnicianApp() {
             }
 
             const data = await response.json();
-            setJobs(data.jobs || []);
+            const jobsList = data.jobs || [];
+            setJobs(jobsList);
             setError(null);
+
+            // Silently warm/preload individual job details in the background
+            if (jobsList.length > 0) {
+                setTimeout(() => {
+                    jobsList.forEach(job => {
+                        apiCall(`/api/technician/jobs/${job.id}`).catch(() => {});
+                        apiCall(`/api/technician/jobs/${job.id}/interactions`).catch(() => {});
+                        apiCall(`/api/technician/jobs/${job.id}/quotation`).catch(() => {});
+                        apiCall(`/api/technician/jobs/${job.id}/invoice`).catch(() => {});
+                        apiCall(`/api/admin/interactions?job_id=${job.id}`).catch(() => {});
+                    });
+                }, 200);
+            }
+
+            return jobsList;
         } catch (err) {
             console.error('Error fetching jobs:', err);
             if (!isBackground) setError('Failed to load jobs. Please try again.');
+            return [];
         } finally {
             if (!isBackground) setLoading(false);
         }
@@ -1168,7 +1191,7 @@ function TechnicianApp() {
         }
         setIsRefreshingData(true);
         try {
-            await Promise.all([
+            const [fetchedJobs] = await Promise.all([
                 fetchJobs(true),
                 fetchProfile(),
                 fetchIncentives(),
@@ -1177,9 +1200,26 @@ function TechnicianApp() {
                 fetchScheduledJobs(),
                 apiCall('/api/products').catch(err => console.warn('Failed to cache products:', err)),
                 apiCall('/api/admin/print-settings').catch(err => console.warn('Failed to cache print settings:', err)),
+                apiCall('/api/admin/qrcodes').catch(err => console.warn('Failed to cache QR codes:', err)),
+                apiCall(`/api/technician/stock?technicianId=${technicianId}`).catch(err => console.warn('Failed to cache stock:', err)),
                 apiCall(`/api/technician/leaves?technicianId=${technicianId}`).catch(err => console.warn('Failed to cache leaves:', err))
             ]);
-            alert('Offline Sync Preload Complete! All jobs, product catalogs, and settings are now cached and ready for offline use.');
+
+            // Specifically wait for all detailed job caches to be warmed/updated to make sure it's 100% complete
+            const jobsData = fetchedJobs || [];
+            if (jobsData.length > 0) {
+                const warmPromises = [];
+                jobsData.forEach(job => {
+                    warmPromises.push(apiCall(`/api/technician/jobs/${job.id}`).catch(() => {}));
+                    warmPromises.push(apiCall(`/api/technician/jobs/${job.id}/interactions`).catch(() => {}));
+                    warmPromises.push(apiCall(`/api/technician/jobs/${job.id}/quotation`).catch(() => {}));
+                    warmPromises.push(apiCall(`/api/technician/jobs/${job.id}/invoice`).catch(() => {}));
+                    warmPromises.push(apiCall(`/api/admin/interactions?job_id=${job.id}`).catch(() => {}));
+                });
+                await Promise.all(warmPromises);
+            }
+
+            alert('Offline Sync Preload Complete! All jobs, product catalogs, stock, QR codes, and settings are now cached and ready for offline use.');
         } catch (err) {
             console.error('Error preloading cache:', err);
             alert('Cache preload completed with some warnings. Please verify your connection.');
@@ -1218,6 +1258,13 @@ function TechnicianApp() {
         fetchScheduledJobs();
         fetchPurchaseRequests();
         fetchPendingCashPayments();
+
+        // Silently warm/preload essential caches in background for offline use
+        apiCall('/api/products').catch(() => {});
+        apiCall('/api/admin/print-settings').catch(() => {});
+        apiCall('/api/admin/qrcodes').catch(() => {});
+        apiCall(`/api/technician/stock?technicianId=${technicianId}`).catch(() => {});
+        apiCall(`/api/technician/leaves?technicianId=${technicianId}`).catch(() => {});
 
         // Listen for offline sync completion to reload jobs list
         const handleSyncComplete = () => {

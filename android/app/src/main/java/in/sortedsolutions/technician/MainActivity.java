@@ -51,7 +51,7 @@ public class MainActivity extends BridgeActivity {
             // Lock text zoom to 100% to ignore system font size changes
             try {
                 getBridge().getWebView().getSettings().setTextZoom(100);
-                getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK);
+                getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
                 getBridge().getWebView().getSettings().setDomStorageEnabled(true);
                 getBridge().getWebView().getSettings().setDatabaseEnabled(true);
             } catch (Exception e) {

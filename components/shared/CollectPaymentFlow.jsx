@@ -896,6 +896,51 @@ export default function CollectPaymentFlow({
                                             </div>
                                         )}
                                         <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Scan to Pay ₹{currentAmount.toFixed(2)}</div>
+                                        {(() => {
+                                            const url = companyQr?.target_url || companyQr?.name || '';
+                                            let upiId = '';
+                                            try {
+                                                if (url.startsWith('upi:')) {
+                                                    const match = url.match(/[?&]pa=([^&]+)/);
+                                                    if (match && match[1]) {
+                                                        upiId = decodeURIComponent(match[1]);
+                                                    }
+                                                } else {
+                                                    const parsed = new URL(url);
+                                                    const pa = parsed.searchParams.get('pa');
+                                                    if (pa) upiId = pa;
+                                                }
+                                            } catch (e) {
+                                                const match = url.match(/[?&]pa=([^&]+)/);
+                                                if (match && match[1]) {
+                                                    upiId = decodeURIComponent(match[1]);
+                                                }
+                                            }
+                                            if (!upiId && url.includes('@') && !url.includes(':') && !url.includes('/')) {
+                                                upiId = url;
+                                            }
+                                            if (!upiId) return null;
+                                            return (
+                                                <div style={{ marginTop: '12px', fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(0,0,0,0.4)' }}>UPI ID Fallback (Offline)</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(0,0,0,0.04)', padding: '6px 12px', borderRadius: '18px', border: '1px solid rgba(0,0,0,0.08)' }}>
+                                                        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#333' }}>{upiId}</span>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                navigator.clipboard.writeText(upiId);
+                                                                alert('UPI ID copied to clipboard!');
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'var(--color-primary)', display: 'flex', alignItems: 'center' }}
+                                                            title="Copy UPI ID"
+                                                        >
+                                                            <Copy size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                     
                                     <div style={{

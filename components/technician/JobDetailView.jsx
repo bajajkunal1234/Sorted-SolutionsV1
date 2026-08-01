@@ -3374,66 +3374,85 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                             }
                                                                         }
 
-                                                                        const res = await apiCall(`/api/admin/transactions?type=sales`, {
-                                                                            method: 'POST',
-                                                                            headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({
-                                                                                account_id: serviceQuote.account_id,
-                                                                                account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
-                                                                                accountGSTIN: serviceQuote.accountGSTIN || '',
-                                                                                accountState: serviceQuote.accountState || 'Maharashtra',
-                                                                                billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                                                                                job_id: editedJob.id,
-                                                                                date: new Date().toISOString().split('T')[0],
-                                                                                due_date: new Date().toISOString().split('T')[0],
-                                                                                invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                                                                                reference: serviceQuote.quote_number,
-                                                                                status: 'unpaid',
-                                                                                items: serviceQuote.items,
-                                                                                subtotal: serviceQuote.subtotal,
-                                                                                cgst: serviceQuote.cgst,
-                                                                                sgst: serviceQuote.sgst,
-                                                                                igst: serviceQuote.igst,
-                                                                                total_tax: serviceQuote.total_tax,
-                                                                                total_amount: serviceQuote.total_amount,
-                                                                                notes: 'Auto-generated from service charge quotation',
-                                                                                terms: serviceQuote.terms,
-                                                                                technician_id: serviceQuote.technician_id || techId,
-                                                                                technician_name: serviceQuote.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                                                                            })
-                                                                        });
-                                                                        const data = await res.json();
-                                                                        if (data.success) {
-                                                                            setSavedInvoice(data.data);
-                                                                            const detailedInvDesc = `Final invoice ${data.data.invoice_number} created from service charge quotation ${serviceQuote.quote_number}\n\n` + formatTransactionDetails(data.data, 'Invoice');
-                                                                            await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({
-                                                                                    type: 'invoice-created',
-                                                                                    category: 'billing',
-                                                                                    description: detailedInvDesc,
-                                                                                    user_name: techName,
-                                                                                    customer_id: editedJob.customerId || null,
-                                                                                    metadata: {
-                                                                                        invoice_number: data.data.invoice_number,
-                                                                                        invoice_id: data.data.id,
-                                                                                        total_amount: data.data.total_amount,
-                                                                                        subtotal: data.data.subtotal,
-                                                                                        tax: data.data.total_tax,
-                                                                                        items: data.data.items
-                                                                                    }
-                                                                                })
-                                                                            }).catch(() => {});
-                                                                            
-                                                                            await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: techName })
-                                                                            }).catch(() => {});
-                                                                            
-                                                                            setShowServiceChargeCollectPayment(true);
-                                                                        } else throw new Error(data.error);
+                                                                        const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+                                                                        const invoicePayload = {
+                                                                            account_id: serviceQuote.account_id,
+                                                                            account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
+                                                                            accountGSTIN: serviceQuote.accountGSTIN || '',
+                                                                            accountState: serviceQuote.accountState || 'Maharashtra',
+                                                                            billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                            job_id: editedJob.id,
+                                                                            date: new Date().toISOString().split('T')[0],
+                                                                            due_date: new Date().toISOString().split('T')[0],
+                                                                            invoice_number: invoiceNum,
+                                                                            reference: serviceQuote.quote_number,
+                                                                            status: 'unpaid',
+                                                                            items: serviceQuote.items,
+                                                                            subtotal: serviceQuote.subtotal,
+                                                                            cgst: serviceQuote.cgst,
+                                                                            sgst: serviceQuote.sgst,
+                                                                            igst: serviceQuote.igst,
+                                                                            total_tax: serviceQuote.total_tax,
+                                                                            total_amount: serviceQuote.total_amount,
+                                                                            notes: 'Auto-generated from service charge quotation',
+                                                                            terms: serviceQuote.terms,
+                                                                            technician_id: serviceQuote.technician_id || techId,
+                                                                            technician_name: serviceQuote.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                                                                        };
+
+                                                                        const mockInvoice = { ...invoicePayload, id: `temp-inv-${Date.now()}` };
+                                                                        
+                                                                        // Optimistically update invoice and open payment collection instantly
+                                                                        setSavedInvoice(mockInvoice);
+                                                                        setShowServiceChargeCollectPayment(true);
+
+                                                                        // Fire API request in background
+                                                                        (async () => {
+                                                                            try {
+                                                                                const res = await apiCall(`/api/admin/transactions?type=sales`, {
+                                                                                    method: 'POST',
+                                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify(invoicePayload)
+                                                                                });
+                                                                                const data = await res.json();
+                                                                                const isQueued = data.queued || res.status === 202;
+                                                                                if (res.ok && (data.success || isQueued)) {
+                                                                                    const finalInvoice = isQueued ? mockInvoice : data.data;
+                                                                                    setSavedInvoice(finalInvoice);
+                                                                                    
+                                                                                    const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from service charge quotation ${serviceQuote.quote_number}\n\n` + formatTransactionDetails(finalInvoice, 'Invoice');
+                                                                                    await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                        body: JSON.stringify({
+                                                                                            type: 'invoice-created',
+                                                                                            category: 'billing',
+                                                                                            description: detailedInvDesc,
+                                                                                            user_name: techName,
+                                                                                            customer_id: editedJob.customerId || null,
+                                                                                            metadata: {
+                                                                                                invoice_number: finalInvoice.invoice_number,
+                                                                                                invoice_id: finalInvoice.id,
+                                                                                                total_amount: finalInvoice.total_amount,
+                                                                                                subtotal: finalInvoice.subtotal,
+                                                                                                tax: finalInvoice.total_tax,
+                                                                                                items: finalInvoice.items
+                                                                                            }
+                                                                                        })
+                                                                                    }).catch(() => {});
+                                                                                    
+                                                                                    await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                        body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: techName })
+                                                                                    }).catch(() => {});
+                                                                                }
+                                                                                
+                                                                            } catch (bgErr) {
+                                                                                console.warn('[Offline] Background service charge invoice failed/queued:', bgErr);
+                                                                            }
+                                                                        })();
+                                                                        
                                                                     } catch (e) {
-                                                                        alert('Failed to auto-create invoice: ' + e.message);
+                                                                        alert('Failed to proceed with service charge: ' + e.message);
                                                                     } finally {
                                                                         setLoading(false);
                                                                     }
