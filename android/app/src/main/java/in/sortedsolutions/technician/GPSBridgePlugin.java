@@ -280,7 +280,13 @@ public class GPSBridgePlugin extends Plugin {
     @PluginMethod
     public void getAppVersion(PluginCall call) {
         JSObject ret = new JSObject();
-        ret.put("version", "1.3.0");
+        try {
+            String versionName = getContext().getPackageManager()
+                .getPackageInfo(getContext().getPackageName(), 0).versionName;
+            ret.put("version", versionName);
+        } catch (Exception e) {
+            ret.put("version", "1.4.0");
+        }
         call.resolve(ret);
     }
 
