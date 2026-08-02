@@ -41,6 +41,50 @@ const TechnicianJobsMapView = dynamic(() => import('@/components/technician/Tech
     )
 });
 
+const applyPendingQueueUpdates = (jobsList) => {
+    if (typeof window === 'undefined') return jobsList;
+    try {
+        const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+        if (queue.length === 0) return jobsList;
+
+        return jobsList.map(job => {
+            let updatedJob = { ...job };
+            // Find all pending requests in the queue related to this job
+            queue.forEach(item => {
+                const isJobUrl = (item.url || '').includes(`/api/technician/jobs/${job.id}`) || 
+                                 ((item.url || '').includes(`/api/admin/transactions`) && item.body && (item.body || '').includes(job.id));
+                if (isJobUrl) {
+                    try {
+                        const bodyObj = JSON.parse(item.body);
+                        if (bodyObj) {
+                            if (bodyObj.status) {
+                                updatedJob.status = bodyObj.status;
+                            }
+                            if (bodyObj.arrived_at) {
+                                updatedJob.arrived_at = bodyObj.arrived_at;
+                            }
+                            if (bodyObj.repair_note_added_at) {
+                                updatedJob.repair_note_added_at = bodyObj.repair_note_added_at;
+                            }
+                            if ((item.url || '').includes('/complete-job') || bodyObj.action === 'complete' || bodyObj.action === 'close_job' || ((item.url || '').includes('/interactions') && bodyObj.type === 'job-closed')) {
+                                updatedJob.status = 'closed';
+                            }
+                        }
+                    } catch (e) {
+                        if ((item.url || '').includes('/complete-job') || (item.url || '').includes('/interactions')) {
+                            updatedJob.status = 'closed';
+                        }
+                    }
+                }
+            });
+            return updatedJob;
+        });
+    } catch (e) {
+        console.warn('[Offline] Error applying pending queue updates:', e);
+        return jobsList;
+    }
+};
+
 function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -60,6 +104,10 @@ function TechnicianApp() {
     }, []);
 
     const [jobs, setJobs] = useState([]);
+    const setJobsWithQueueMerge = (rawJobsList) => {
+        const merged = applyPendingQueueUpdates(rawJobsList).filter(j => j.status !== 'closed' && j.status !== 'cancelled');
+        setJobs(merged);
+    };
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [groupBy, setGroupBy] = useState('none');
@@ -1121,7 +1169,7 @@ function TechnicianApp() {
 
             const data = await response.json();
             const jobsList = data.jobs || [];
-            setJobs(jobsList);
+            setJobsWithQueueMerge(jobsList);
             setError(null);
 
             // Silently warm/preload individual job details in the background
@@ -1973,7 +2021,7 @@ function TechnicianApp() {
                                 setLoading(true);
                                 apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(r => r.json())
-                                    .then(d => { setJobs(d.jobs || []); setError(null); })
+                                    .then(d => { setJobsWithQueueMerge(d.jobs || []); setError(null); })
                                     .catch(() => setError('Failed to refresh.'))
                                     .finally(() => setLoading(false));
                             }}
@@ -3901,7 +3949,9 @@ function TechnicianApp() {
                         if (updatedJob) {
                             setSelectedJob(prev => ({ ...prev, ...updatedJob }));
                             setJobs(prevJobs =>
-                                prevJobs.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j)
+                                prevJobs
+                                    .map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j)
+                                    .filter(j => j.status !== 'closed' && j.status !== 'cancelled')
                             );
                         }
                         // Background refetch for full consistency
@@ -3910,7 +3960,7 @@ function TechnicianApp() {
                                 apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(res => res.json())
                                     .then(data => {
-                                        setJobs(data.jobs || []);
+                                        setJobsWithQueueMerge(data.jobs || []);
                                         fetchPendingCashPayments();
                                     })
                                     .catch(err => console.error('Error refreshing jobs:', err));

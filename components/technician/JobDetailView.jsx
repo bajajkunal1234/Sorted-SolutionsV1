@@ -14,7 +14,7 @@ import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
-import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
+import { apiCall, uploadOrQueueFile, storeOfflineFile } from '@/lib/offlineSync';
 
 const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -1980,48 +1980,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setBeforePhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Compress and upload/queue photos concurrently
-            const uploadPromises = beforePhotos.filter(photo => photo.file).map(async (photo) => {
-                const compressed = await compressImage(photo.file);
-                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'before_image.jpg';
-                return uploadOrQueueFile(compressed, safeFileName);
+            // Generate local file mappings and placeholder URLs instantly
+            const uploadMappings = beforePhotos.filter(photo => photo.file).map(photo => {
+                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                return {
+                    fileId,
+                    file: photo.file,
+                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
+                };
             });
-            const uploadedUrls = await Promise.all(uploadPromises);
+            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
 
             // Calculate visit number dynamically
             const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
 
-            // 2. Log interaction with photos and description
             const descText = beforePhotosDescription.trim() 
                 ? `Before Photos uploaded for Visit #${nextVisitNum}.\nNote: ${beforePhotosDescription.trim()}`
                 : `Before Photos uploaded for Visit #${nextVisitNum}.`;
 
-            // 2. Log interaction and update status concurrently
-            const logPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'before-photos-uploaded',
-                    category: 'job',
-                    description: descText,
-                    user_name: techName,
-                    metadata: { attachments: uploadedUrls, visit_number: nextVisitNum }
-                })
-            });
-
             const pending = pendingArrivedDataRef.current;
             const newStatus = editedJob.status === 'scheduled' ? 'diagnosing_quoting' : editedJob.status;
             
-            const updatePromise = apiCall(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: newStatus,
-                    arrived_at: pending?.arrivedAt || new Date().toISOString(),
-                    updated_by_name: techName
-                })
-            });
-
             // Close the location verification modal and transition UI instantly!
             setShowLocationVerifyModal(false);
             setBeforePhotos([]);
@@ -2052,9 +2031,47 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 });
             }
 
-            // Execute the network requests in the background
+            // Perform slow image compression, storage, and API calls in the background!
             (async () => {
                 try {
+                    // 1. Compress and write to IndexedDB asynchronously
+                    for (const item of uploadMappings) {
+                        try {
+                            const compressed = await compressImage(item.file);
+                            await storeOfflineFile(item.fileId, compressed);
+                        } catch (compErr) {
+                            console.error('[Offline] Background check-in compression failed, storing raw:', compErr);
+                            try {
+                                await storeOfflineFile(item.fileId, item.file);
+                            } catch (storeErr) {
+                                console.error('[Offline] Background check-in raw store failed:', storeErr);
+                            }
+                        }
+                    }
+
+                    // 2. Call the APIs now that files are safely in IndexedDB
+                    const logPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'before-photos-uploaded',
+                            category: 'job',
+                            description: descText,
+                            user_name: techName,
+                            metadata: { attachments: uploadedUrls, visit_number: nextVisitNum }
+                        })
+                    });
+
+                    const updatePromise = apiCall(`/api/technician/jobs/${job.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            status: newStatus,
+                            arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                            updated_by_name: techName
+                        })
+                    });
+
                     const [logRes, updateRes] = await Promise.all([logPromise, updatePromise]);
                     if (!updateRes.ok) {
                         const updateData = await updateRes.json();
@@ -2111,59 +2128,20 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         try {
-            // 1. Compress and upload/queue photos concurrently
-            const uploadPromises = afterPhotos.filter(photo => photo.file).map(async (photo) => {
-                const compressed = await compressImage(photo.file);
-                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'after_image.jpg';
-                return uploadOrQueueFile(compressed, safeFileName);
+            // Generate local file mappings and placeholder URLs instantly
+            const uploadMappings = afterPhotos.filter(photo => photo.file).map(photo => {
+                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                return {
+                    fileId,
+                    file: photo.file,
+                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
+                };
             });
-            const uploadedUrls = await Promise.all(uploadPromises);
+            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
 
-            // 2. Log interaction and Create the final sales invoice concurrently
             const descText = afterPhotosDescription.trim() 
                 ? `After Photos uploaded.\nNote: ${afterPhotosDescription.trim()}`
                 : `After Photos uploaded.`;
-
-            const logPhotosPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'after-photos-uploaded',
-                    category: 'job',
-                    description: descText,
-                    user_name: techName,
-                    metadata: { attachments: uploadedUrls }
-                })
-            });
-
-            const invoicePromise = apiCall(`/api/admin/transactions?type=sales`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    account_id: savedQuotation.account_id,
-                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
-                    accountGSTIN: savedQuotation.accountGSTIN || '',
-                    accountState: savedQuotation.accountState || 'Maharashtra',
-                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                    job_id: editedJob.id,
-                    date: new Date().toISOString().split('T')[0],
-                    due_date: new Date().toISOString().split('T')[0],
-                    invoice_number: invoiceNum,
-                    reference: savedQuotation.quote_number,
-                    status: 'unpaid',
-                    items: savedQuotation.items,
-                    subtotal: savedQuotation.subtotal,
-                    cgst: savedQuotation.cgst,
-                    sgst: savedQuotation.sgst,
-                    igst: savedQuotation.igst,
-                    total_tax: savedQuotation.total_tax,
-                    total_amount: savedQuotation.total_amount,
-                    notes: 'Auto-generated from approved quotation',
-                    terms: savedQuotation.terms,
-                    technician_id: savedQuotation.technician_id || techId,
-                    technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                })
-            });
 
             // Construct fallback/mock invoice object for immediate UI transition
             const mockInvoice = {
@@ -2184,9 +2162,66 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             setAfterPhotosDescription('');
             setShowWhatsappPopup({ type: 'invoice', doc: mockInvoice });
 
-            // Run requests and update real data in background
+            // Run compression, local storage, and real network requests in background!
             (async () => {
                 try {
+                    // 1. Compress and write to IndexedDB asynchronously
+                    for (const item of uploadMappings) {
+                        try {
+                            const compressed = await compressImage(item.file);
+                            await storeOfflineFile(item.fileId, compressed);
+                        } catch (compErr) {
+                            console.error('[Offline] Background checkout compression failed, storing raw:', compErr);
+                            try {
+                                await storeOfflineFile(item.fileId, item.file);
+                            } catch (storeErr) {
+                                console.error('[Offline] Background checkout raw store failed:', storeErr);
+                            }
+                        }
+                    }
+
+                    // 2. Call the APIs now that files are safely in IndexedDB
+                    const logPhotosPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'after-photos-uploaded',
+                            category: 'job',
+                            description: descText,
+                            user_name: techName,
+                            metadata: { attachments: uploadedUrls }
+                        })
+                    });
+
+                    const invoicePromise = apiCall(`/api/admin/transactions?type=sales`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            account_id: savedQuotation.account_id,
+                            account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                            accountGSTIN: savedQuotation.accountGSTIN || '',
+                            accountState: savedQuotation.accountState || 'Maharashtra',
+                            billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                            job_id: editedJob.id,
+                            date: new Date().toISOString().split('T')[0],
+                            due_date: new Date().toISOString().split('T')[0],
+                            invoice_number: invoiceNum,
+                            reference: savedQuotation.quote_number,
+                            status: 'unpaid',
+                            items: savedQuotation.items,
+                            subtotal: savedQuotation.subtotal,
+                            cgst: savedQuotation.cgst,
+                            sgst: savedQuotation.sgst,
+                            igst: savedQuotation.igst,
+                            total_tax: savedQuotation.total_tax,
+                            total_amount: savedQuotation.total_amount,
+                            notes: 'Auto-generated from approved quotation',
+                            terms: savedQuotation.terms,
+                            technician_id: savedQuotation.technician_id || techId,
+                            technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                        })
+                    });
+
                     const [photosLogRes, invoiceRes] = await Promise.all([logPhotosPromise, invoicePromise]);
                     const data = await invoiceRes.json();
                     if (data.success || data.queued) {
@@ -2219,15 +2254,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     items: finalInvoice.items
                                 }
                             })
-                        });
+                        }).catch(() => {});
                     } else {
                         console.warn('[Offline] Background invoice generation returned non-success:', data.error);
                     }
-                } catch (e) {
-                    console.warn('[Offline] Background invoice generation queued or failed:', e);
+                } catch (bgErr) {
+                    console.warn('[Offline] Background invoice creation failed/queued:', bgErr);
                 }
             })();
-
         } catch (err) {
             alert('Failed to save after photos and create invoice: ' + (err.message || 'Unknown error'));
         } finally {
@@ -2249,54 +2283,48 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         try {
-            // 1. Compress and upload attachments concurrently
+            // Generate local file mappings and placeholder URLs instantly
+            const uploadMappings = (note.attachments || []).filter(att => att.file).map(att => {
+                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                return {
+                    fileId,
+                    file: att.file,
+                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
+                };
+            });
+
+            // Map final list of attachment URLs to include placeholders and existing URLs
             const uploadedUrls = [];
             if (note.attachments && note.attachments.length > 0) {
-                const uploadPromises = note.attachments.map(async (att) => {
+                note.attachments.forEach(att => {
                     if (att.file) {
-                        try {
-                            const compressed = await compressImage(att.file);
-                            const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
-                            return await uploadOrQueueFile(compressed, safeFileName);
-                        } catch (uploadErr) {
-                            console.error('Error during uploadOrQueueFile:', uploadErr);
-                            return null;
-                        }
+                        const match = uploadMappings.find(m => m.file === att.file);
+                        if (match) uploadedUrls.push(match.placeholderUrl);
                     } else if (att.url && !att.url.startsWith('blob:')) {
-                        return att.url;
+                        uploadedUrls.push(att.url);
                     }
-                    return null;
                 });
-                const results = await Promise.all(uploadPromises);
-                uploadedUrls.push(...results.filter(Boolean));
             }
 
-            // 2. Save the interaction
             const payload = {
                 job_id: editedJob.id,
                 customer_id: editedJob.customerId || editedJob.customer_id || null,
                 type: 'note-added',
                 category: note.category || 'communication',
                 description: note.description,
-                performed_by_name: techName, // Ensures the By: field isn't generic
+                performed_by_name: techName,
                 source: 'Technician App',
                 timestamp: new Date().toISOString(),
                 metadata: { attachments: uploadedUrls },
             };
 
-            const notePromise = apiCall('/api/admin/interactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            // Optimistic update
             const tempId = `temp-note-${Date.now()}`;
             const noteData = {
                 id: tempId,
                 ...payload
             };
 
+            // Optimistically update notes feed instantly
             setEditedJob(prev => ({
                 ...prev,
                 interactions: [noteData, ...(prev.interactions || [])]
@@ -2304,10 +2332,31 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             setIsAddingNote(false);
 
-            // Execute request in background
+            // Perform slow image compression, storage, and API call in background
             (async () => {
                 try {
-                    const res = await notePromise;
+                    // 1. Compress and store new files asynchronously in the background
+                    for (const item of uploadMappings) {
+                        try {
+                            const compressed = await compressImage(item.file);
+                            await storeOfflineFile(item.fileId, compressed);
+                        } catch (compErr) {
+                            console.error('[Offline] Background note photo compression failed, storing raw:', compErr);
+                            try {
+                                await storeOfflineFile(item.fileId, item.file);
+                            } catch (storeErr) {
+                                console.error('[Offline] Background note photo raw store failed:', storeErr);
+                            }
+                        }
+                    }
+
+                    // 2. Call the API now that files are in IndexedDB
+                    const res = await apiCall('/api/admin/interactions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    
                     const data = await res.json();
                     if (data.success || data.queued) {
                         if (data.success && data.data) {
@@ -2346,41 +2395,32 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         try {
-            // 1. Upload new attachments if any
+            // Generate local file mappings and placeholders for new attachments
+            const uploadMappings = (editedNote.attachments || []).filter(att => att.file).map(att => {
+                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                return {
+                    fileId,
+                    file: att.file,
+                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
+                };
+            });
+
+            // Map final list of attachment URLs
             const uploadedUrls = [];
             if (editedNote.attachments && editedNote.attachments.length > 0) {
-                for (const att of editedNote.attachments) {
+                editedNote.attachments.forEach(att => {
                     if (att.file) {
-                        try {
-                            const safeFileName = att.file.name ? att.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
-                            const url = await uploadOrQueueFile(att.file, safeFileName);
-                            if (url) uploadedUrls.push(url);
-                        } catch (uploadErr) {
-                            console.error('Edit upload error:', uploadErr);
-                        }
+                        const match = uploadMappings.find(m => m.file === att.file);
+                        if (match) uploadedUrls.push(match.placeholderUrl);
                     } else if (att.url && !att.url.startsWith('blob:')) {
                         uploadedUrls.push(att.url);
                     }
-                }
+                });
             }
 
-            // 2. Patch the original note
-            const patchRes = await apiCall('/api/admin/interactions', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: editedNote.id,
-                    description: editedNote.description,
-                    metadata: { ...editedNote.metadata, attachments: uploadedUrls }
-                })
-            });
-            const patchData = await patchRes.json();
-            if (!patchRes.ok || !patchData.success) {
-                throw new Error(patchData.error || 'Failed to update note');
-            }
-
-            // 3. Insert the edit interaction history log
-            const interactionPayload = {
+            const tempHistoryId = `temp-edit-hist-${Date.now()}`;
+            const mockHistoryLog = {
+                id: tempHistoryId,
                 job_id: editedJob.id,
                 customer_id: editedJob.customerId || editedJob.customer_id || null,
                 type: 'note-edited',
@@ -2392,37 +2432,78 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 metadata: editInteractionData.metadata,
             };
 
-            const postRes = await apiCall('/api/admin/interactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(interactionPayload),
-            });
-            const postData = await postRes.json();
-            
-            if (!postRes.ok || !postData.success) {
-                console.error("Failed to log edit interaction history:", postData.error);
-                // We don't throw here because the main action (editing the note) succeeded
-            }
-
-            // 4. Update UI state directly by mapping and prepend new history log
+            // Update UI state optimistically
             setEditedJob(prev => {
                 const prevInts = prev.interactions || [];
                 const updatedInts = prevInts.map(int => 
-                    int.id === editedNote.id ? { ...int, description: patchData.data.description, metadata: patchData.data.metadata } : int
+                    int.id === editedNote.id ? { ...int, description: editedNote.description, metadata: { ...int.metadata, attachments: uploadedUrls } } : int
                 );
-                
-                // If the post succeeded, prepend it
-                if (postData.success) {
-                    return { ...prev, interactions: [postData.data, ...updatedInts] };
-                }
-                
-                return { ...prev, interactions: updatedInts };
+                return { ...prev, interactions: [mockHistoryLog, ...updatedInts] };
             });
+
+            setIsAddingNote(false);
+
+            // Perform file storage and backend sync in background
+            (async () => {
+                try {
+                    // 1. Store new files in IndexedDB
+                    for (const item of uploadMappings) {
+                        try {
+                            await storeOfflineFile(item.fileId, item.file);
+                        } catch (storeErr) {
+                            console.error('[Offline] Background note edit file storage failed:', storeErr);
+                        }
+                    }
+
+                    // 2. Patch the original note
+                    const patchRes = await apiCall('/api/admin/interactions', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: editedNote.id,
+                            description: editedNote.description,
+                            metadata: { ...editedNote.metadata, attachments: uploadedUrls }
+                        })
+                    });
+                    const patchData = await patchRes.json();
+                    
+                    // 3. Log the history interaction
+                    const postRes = await apiCall('/api/admin/interactions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            job_id: editedJob.id,
+                            customer_id: editedJob.customerId || editedJob.customer_id || null,
+                            type: 'note-edited',
+                            category: editInteractionData.category || 'communication',
+                            description: editInteractionData.description,
+                            performed_by_name: techName,
+                            source: 'Technician App',
+                            timestamp: new Date().toISOString(),
+                            metadata: editInteractionData.metadata,
+                        }),
+                    });
+                    const postData = await postRes.json();
+
+                    if (patchRes.ok && patchData.success) {
+                        // Swap final patch details and final history details if successful
+                        setEditedJob(prev => {
+                            return {
+                                ...prev,
+                                interactions: (prev.interactions || []).map(i => i.id === tempHistoryId ? ((postRes.ok && postData.success) ? postData.data : mockHistoryLog) : i).map(int => 
+                                    int.id === editedNote.id ? patchData.data : int
+                                )
+                            };
+                        });
+                    }
+                } catch (bgErr) {
+                    console.warn('[Offline] Background edit note update failed/queued:', bgErr);
+                }
+            })();
 
         } catch (err) {
             console.error('Failed to edit note:', err);
             alert(`Failed to edit note: ${err.message}`);
-        } finally {
             setIsAddingNote(false);
         }
     };
@@ -4279,59 +4360,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
-                                            // 1. Compress and upload/queue photos concurrently
-                                            const uploadPromises = partsPhotos.filter(photo => photo.file).map(async (photo) => {
-                                                const compressed = await compressImage(photo.file);
-                                                const safeFileName = compressed.name ? compressed.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'parts_image.jpg';
-                                                return uploadOrQueueFile(compressed, safeFileName);
+                                            // Generate local file mappings and placeholder URLs instantly
+                                            const uploadMappings = partsPhotos.filter(photo => photo.file).map(photo => {
+                                                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+                                                return {
+                                                    fileId,
+                                                    file: photo.file,
+                                                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
+                                                };
                                             });
-                                            const uploadedUrls = await Promise.all(uploadPromises);
+                                            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
 
-                                            // 2. Add repair note (sets repair_note_added_at on job)
                                             const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()} | Est. Price Range: ₹${partsMinPrice} to ₹${partsMaxPrice} | Est. Time Range: ${partsMinDays} to ${partsMaxDays} days`;
-                                            const noteRes = await apiCall(`/api/technician/jobs/${job.id}`, {
-                                                method: 'PUT',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ 
-                                                    action: 'add_repair_note', 
-                                                    repair_note: detailedNote, 
-                                                    note_text: detailedNote,
-                                                    updated_by_name: techName,
-                                                    latitude: lat,
-                                                    longitude: lng
-                                                })
-                                            });
-                                            const noteData = await noteRes.json();
-                                            if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
-
-                                            // 3. Log interaction with attachments
-                                            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                    type: 'repair-note-added',
-                                                    category: 'job',
-                                                    description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
-                                                    user_name: techName,
-                                                    metadata: {
-                                                        attachments: uploadedUrls,
-                                                        parts_action: partsActionType,
-                                                        note_text: partsNoteText.trim(),
-                                                        min_price: partsMinPrice,
-                                                        max_price: partsMaxPrice,
-                                                        min_days: partsMinDays,
-                                                        max_days: partsMaxDays
-                                                    }
-                                                })
-                                            }).catch(() => {});
-
-                                            // 4. Set status to parts_ordered
-                                            await handleSaveStatus('parts_ordered');
-
+                                            
+                                            // Optimistically transition the UI immediately!
                                             setEditedJob(prev => ({ 
                                                 ...prev, 
-                                                repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString()
+                                                status: 'parts_ordered',
+                                                repair_note_added_at: new Date().toISOString()
                                             }));
+
+                                            if (onJobUpdate) {
+                                                onJobUpdate({
+                                                    ...editedJob,
+                                                    status: 'parts_ordered',
+                                                    repair_note_added_at: new Date().toISOString()
+                                                });
+                                            }
+
                                             setShowPartsNoteModal(false);
                                             setPartsNoteText('');
                                             setPartsPhotos([]);
@@ -4347,6 +4403,70 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             } else {
                                                 setShowAdvanceConfirmModal(true);
                                             }
+
+                                            // Perform background compression, storage, and API calls!
+                                            (async () => {
+                                                try {
+                                                    // 1. Compress and store files in IndexedDB asynchronously
+                                                    for (const item of uploadMappings) {
+                                                        try {
+                                                            const compressed = await compressImage(item.file);
+                                                            await storeOfflineFile(item.fileId, compressed);
+                                                        } catch (compErr) {
+                                                            console.error('[Offline] Background parts photo compression failed, storing raw:', compErr);
+                                                            try {
+                                                                await storeOfflineFile(item.fileId, item.file);
+                                                            } catch (storeErr) {
+                                                                console.error('[Offline] Background parts photo raw store failed:', storeErr);
+                                                            }
+                                                        }
+                                                    }
+
+                                                    // 2. Add repair note (sets repair_note_added_at on job)
+                                                    const noteRes = await apiCall(`/api/technician/jobs/${job.id}`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ 
+                                                            action: 'add_repair_note', 
+                                                            repair_note: detailedNote, 
+                                                            note_text: detailedNote,
+                                                            updated_by_name: techName,
+                                                            latitude: lat,
+                                                            longitude: lng
+                                                        })
+                                                    });
+                                                    const noteData = await noteRes.json();
+                                                    if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
+
+                                                    // 3. Log interaction with attachments
+                                                    await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            type: 'repair-note-added',
+                                                            category: 'job',
+                                                            description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
+                                                            user_name: techName,
+                                                            metadata: {
+                                                                attachments: uploadedUrls,
+                                                                parts_action: partsActionType,
+                                                                note_text: partsNoteText.trim(),
+                                                                min_price: partsMinPrice,
+                                                                max_price: partsMaxPrice,
+                                                                min_days: partsMinDays,
+                                                                max_days: partsMaxDays
+                                                            }
+                                                        })
+                                                    }).catch(() => {});
+
+                                                    // 4. Set status to parts_ordered
+                                                    await handleSaveStatus('parts_ordered');
+
+                                                } catch (bgErr) {
+                                                    console.warn('[Offline] Background saveRepairNote failed/queued:', bgErr);
+                                                }
+                                            })();
+
                                         } catch (err) {
                                             alert('Could not save parts ordered details: ' + err.message);
                                         } finally {
@@ -4641,17 +4761,35 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 job={editedJob}
                 onSuccess={async () => {
                     setShowFeedbackCloseFlow(false);
+                    // 1. Instantly (optimistically) mark status as closed locally
+                    const closedJob = { ...editedJob, status: 'closed' };
+                    setEditedJob(closedJob);
+                    if (onJobUpdate) onJobUpdate(closedJob);
+
                     try {
                         const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
                         const data = await res.json();
+                        
+                        // Check if the offline sync queue still has pending operations for this job
+                        const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+                        const hasPending = queue.some(item => 
+                            (item.url || '').includes(`/api/technician/jobs/${editedJob.id}`) ||
+                            ((item.url || '').includes(`/api/admin/transactions`) && item.body && (item.body || '').includes(editedJob.id))
+                        );
+
                         if (data.success && data.job) {
-                            setEditedJob(data.job);
-                            if (onJobUpdate) onJobUpdate(data.job);
-                        } else {
-                            if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                            if (hasPending || data.job.status !== 'closed') {
+                                // Defer to closed status locally because sync is still pending or database is not yet updated
+                                const mergedJob = { ...data.job, status: 'closed' };
+                                setEditedJob(mergedJob);
+                                if (onJobUpdate) onJobUpdate(mergedJob);
+                            } else {
+                                setEditedJob(data.job);
+                                if (onJobUpdate) onJobUpdate(data.job);
+                            }
                         }
                     } catch (e) {
-                        if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                        console.warn('[Offline] Failed to refetch closed job, keeping local closed state:', e);
                     }
                 }}
             />
