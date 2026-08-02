@@ -397,6 +397,16 @@ function TechnicianApp() {
     }, [showCashFlowModal]);
 
     useEffect(() => {
+        if (!showEmailInbox) return;
+        const handler = () => setShowEmailInbox(false);
+        window.backHandlers = window.backHandlers || [];
+        window.backHandlers.push(handler);
+        return () => {
+            window.backHandlers = (window.backHandlers || []).filter(h => h !== handler);
+        };
+    }, [showEmailInbox]);
+
+    useEffect(() => {
         if (!showCollectPayment) return;
         const handler = () => setShowCollectPayment(false);
         window.backHandlers = window.backHandlers || [];
@@ -3987,7 +3997,7 @@ function TechnicianApp() {
             {/* Bottom Tabs */}
             <nav className="bottom-tabs">
                 <button
-                    className={`tab-item ${(activeTab === 'dashboard' && !showSupport && !showEmailInbox && !showStockModal && !showCashFlowModal) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'dashboard' && !showSupport) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
                         setShowEmailInbox(false);
@@ -4001,7 +4011,7 @@ function TechnicianApp() {
                     <span>Dashboard</span>
                 </button>
                 <button
-                    className={`tab-item ${(activeTab === 'jobs' && !showSupport && !showEmailInbox) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'jobs' && !showSupport) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
                         setShowEmailInbox(false);
@@ -4014,7 +4024,7 @@ function TechnicianApp() {
                     <span>Jobs</span>
                 </button>
                 <button
-                    className={`tab-item ${(activeTab === 'performance' && !showSupport && !showEmailInbox) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'performance' && !showSupport) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
                         setShowEmailInbox(false);
@@ -4027,7 +4037,7 @@ function TechnicianApp() {
                     <span>Performance</span>
                 </button>
                 <button
-                    className={`tab-item ${(activeTab === 'settings' || showSupport || showEmailInbox) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'settings' || showSupport) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
                         setShowEmailInbox(false);
