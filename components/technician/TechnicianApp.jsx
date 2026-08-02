@@ -183,7 +183,7 @@ function TechnicianApp() {
     const [copied, setCopied] = useState(false);
 
     const handleCopyLink = () => {
-        const url = 'https://sortedsolutions.in/downloads/technician-app-v5.apk';
+        const url = 'https://sortedsolutions.in/downloads/technician-app-v6.apk';
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url)
                 .then(() => {
@@ -209,7 +209,7 @@ function TechnicianApp() {
             setCopied(true);
             setTimeout(() => setCopied(false), 3000);
         } catch (err) {
-            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v5.apk');
+            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v6.apk');
         }
     };
 
@@ -227,7 +227,7 @@ function TechnicianApp() {
                     // Check if getAppVersion method exists on the plugin
                     if (GPSBridgePlugin.getAppVersion) {
                         const res = await GPSBridgePlugin.getAppVersion();
-                        if (res && res.version === '1.5.0') {
+                        if (res && res.version === '1.6.0') {
                             // Up to date!
                             return;
                         }
@@ -247,7 +247,7 @@ function TechnicianApp() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        fetch('/downloads/technician-app-v5.apk', { method: 'HEAD' })
+        fetch('/downloads/technician-app-v6.apk', { method: 'HEAD' })
             .then(res => {
                 const bytes = res.headers.get('Content-Length');
                 if (bytes) {
@@ -2682,8 +2682,8 @@ function TechnicianApp() {
                     Install the native Android app for thermal printer support and reliable push notifications.
                 </p>
                 <a
-                    href="/downloads/technician-app-v5.apk"
-                    download="SortedTechnician_v5.apk"
+                    href="/downloads/technician-app-v6.apk"
+                    download="SortedTechnician_v6.apk"
                     target="_blank"
                     style={{
                         display: 'flex',
@@ -2708,7 +2708,7 @@ function TechnicianApp() {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
                 >
                     <Download size={16} />
-                    Download Tech App v5 APK ({apkSize})
+                    Download Tech App v6 APK ({apkSize})
                 </a>
             </div>
 
@@ -3556,7 +3556,7 @@ function TechnicianApp() {
                         onClick={() => {
                             if (typeof window !== 'undefined') {
                                 const isNative = isNativePlatform();
-                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v5.apk';
+                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v6.apk';
                                 if (isNative && GPSBridgePlugin && GPSBridgePlugin.openSystemBrowser) {
                                     GPSBridgePlugin.openSystemBrowser({ url: downloadUrl }).catch(() => {
                                         window.location.href = downloadUrl;

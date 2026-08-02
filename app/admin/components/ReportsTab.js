@@ -207,14 +207,14 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                         <Download size={18} />
                     </a>
                     <a
-                        href="/downloads/technician-app-v5.apk"
-                        download="technician-app-v5.apk"
+                        href="/downloads/technician-app-v6.apk"
+                        download="technician-app-v6.apk"
                         className="btn btn-secondary"
                         onClick={(e) => {
                             if (typeof window !== 'undefined' && window.Capacitor) {
                                 e.preventDefault();
                                 const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : 'https://sortedsolutions.in';
-                                window.open(`${baseUrl}/downloads/technician-app-v5.apk`, '_system');
+                                window.open(`${baseUrl}/downloads/technician-app-v6.apk`, '_system');
                             }
                         }}
                         style={{
@@ -223,7 +223,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                             justifyContent: 'center',
                             padding: '10px 12px'
                         }}
-                        title="Download Tech App v5 APK"
+                        title="Download Tech App v6 APK"
                     >
                         <Download size={18} />
                     </a>
