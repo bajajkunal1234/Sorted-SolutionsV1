@@ -2924,20 +2924,6 @@ function TechnicianApp() {
 
         const cardsData = [
             {
-                title: 'Estimate Calculator',
-                description: 'Create an invoice or quotation for a job',
-                icon: <Calculator size={20} color="#8b5cf6" />,
-                color: '#8b5cf6',
-                onClick: () => setShowJobSelectorModal(true)
-            },
-            {
-                title: 'Collect Payment',
-                description: 'Log cash, company UPI, or send Razorpay link',
-                icon: <DollarSign size={20} color="#10b981" />,
-                color: '#10b981',
-                onClick: () => setShowCollectPayment(true)
-            },
-            {
                 title: 'Physical Stock',
                 description: 'View your spare parts and inventory stock levels',
                 icon: <Package size={20} color="#f59e0b" />,
