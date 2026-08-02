@@ -119,8 +119,11 @@ export async function GET(request) {
             const positiveDetails = [];
 
             if (st.quantity < 0) {
-                // Find sales
-                const sales = productTxs.filter(t => t.transaction_type === 'sale');
+                // Find sales, excluding any that have a corresponding return transaction (deleted/edited invoices)
+                const returns = productTxs.filter(t => t.transaction_type === 'return');
+                const returnedRefIds = new Set(returns.map(r => r.reference_id).filter(Boolean));
+                
+                const sales = productTxs.filter(t => t.transaction_type === 'sale' && !returnedRefIds.has(t.reference_id));
                 sales.forEach(s => {
                     const invDetail = invoiceMap[s.reference_id] || { job_number: 'N/A', location: 'Unknown' };
                     negativeDetails.push({

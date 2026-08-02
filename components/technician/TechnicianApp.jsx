@@ -2914,10 +2914,271 @@ function TechnicianApp() {
         );
     };
 
+    const renderStockView = () => {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                {/* Header Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <button 
+                        onClick={() => setShowStockModal(false)} 
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: 'var(--text-primary)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            padding: '4px' 
+                        }}
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
+                        <Package size={20} color="#f59e0b" /> My Physical Stock
+                    </h3>
+                </div>
+
+                {stockLoading ? (
+                    <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        Loading inventory...
+                    </div>
+                ) : stock.length === 0 ? (
+                    <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                        No spare parts currently in your physical inventory. Handovers from the Service Center will appear here.
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {stock.map(item => (
+                            <div 
+                                key={item.id}
+                                style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column',
+                                    padding: '14px', 
+                                    backgroundColor: 'var(--bg-secondary)', 
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--border-primary)',
+                                    gap: '10px'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {item.name}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                            <span>SKU: {item.sku || 'N/A'}</span>
+                                            <span>•</span>
+                                            <span>{item.category}</span>
+                                        </div>
+                                    </div>
+                                    <span 
+                                        style={{ 
+                                            fontSize: '12px', 
+                                            fontWeight: 700, 
+                                            padding: '4px 10px', 
+                                            borderRadius: '6px', 
+                                            backgroundColor: item.quantity <= 0 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                                            color: item.quantity <= 0 ? '#ef4444' : '#10b981'
+                                        }}
+                                    >
+                                        {item.quantity} Qty
+                                    </span>
+                                </div>
+
+                                {/* Audit Details - Negative Stock Trace */}
+                                {item.quantity < 0 && item.negative_details && item.negative_details.length > 0 && (
+                                    <div style={{ padding: '8px 10px', backgroundColor: 'rgba(239,68,68,0.06)', borderRadius: '6px', borderLeft: '3px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Billed On Jobs (Negative Stock Trace):</div>
+                                        {item.negative_details.map((neg, idx) => (
+                                            <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.negative_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.negative_details.length - 1 ? '4px' : '0' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    <span>Job: {neg.job_number}</span>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(neg.date).toLocaleDateString('en-GB')}</span>
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>📍 {neg.location}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Audit Details - Positive Stock Handover Trace */}
+                                {item.quantity > 0 && item.positive_details && item.positive_details.length > 0 && (
+                                    <div style={{ padding: '8px 10px', backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: '6px', borderLeft: '3px solid #10b981', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service Center Handover Log:</div>
+                                        {item.positive_details.map((pos, idx) => (
+                                            <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.positive_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.positive_details.length - 1 ? '4px' : '0' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    <span>Handover: {pos.handover_id.slice(0, 8)}...</span>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(pos.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                                {pos.other_items && pos.other_items.length > 0 && (
+                                                    <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '3px', fontStyle: 'italic' }}>
+                                                        📦 Other items in batch: {pos.other_items.join(', ')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderCashFlowView = () => {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                {/* Header Row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <button 
+                        onClick={() => setShowCashFlowModal(false)} 
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: 'var(--text-primary)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            padding: '4px' 
+                        }}
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
+                        <DollarSign size={20} color="#10b981" /> Cash Flow Details
+                    </h3>
+                </div>
+
+                {/* Summary Card */}
+                <div style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>Total Cash to Handover:</span>
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#10b981' }}>
+                        ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                    Handover this cash to the service center at the end of your shift. Once the admin verifies and posts the receipt, these entries will vanish.
+                </p>
+
+                {pendingCashPayments.length === 0 ? (
+                    <div style={{
+                        padding: '24px',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--bg-secondary)',
+                        borderRadius: '8px',
+                        border: '1px dashed var(--border-primary)',
+                        color: 'var(--text-tertiary)',
+                        fontSize: '13px',
+                        fontWeight: 500
+                    }}>
+                        🎉 No pending cash handover. All cash settled!
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {pendingCashPayments.map((payment) => {
+                            const collectedDate = new Date(payment.created_at || payment.date);
+                            const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
+                            
+                            const propData = payment.jobs?.property;
+                            const locality = propData?.locality || propData?.city || 'No location';
+                            const appliance = payment.jobs?.appliance || 'No appliance';
+
+                            return (
+                                <div
+                                    key={payment.id}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px',
+                                        padding: '12px 14px',
+                                        borderRadius: '8px',
+                                        backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
+                                        border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
+                                        transition: 'border-color 0.2s'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                {payment.jobs?.customer_name || 'Walk-in Customer'}
+                                            </span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                Job: #{payment.jobs?.job_number || 'General'}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: '15px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
+                                            ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        flexWrap: 'wrap', 
+                                        gap: '12px', 
+                                        fontSize: '12px',
+                                        color: 'var(--text-secondary)',
+                                        borderTop: '1px solid var(--border-primary)',
+                                        paddingTop: '8px',
+                                        marginTop: '2px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <MapPin size={12} color="var(--text-tertiary)" />
+                                            <span>{locality}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Briefcase size={12} color="var(--text-tertiary)" />
+                                            <span>{appliance}</span>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                            Collected: {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                        </span>
+                                        {isOneDayAgo && (
+                                            <span style={{
+                                                fontSize: '10px',
+                                                fontWeight: 700,
+                                                color: '#ef4444'
+                                            }}>
+                                                ⚠️ Overdue Handover
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Dashboard Tab Content
     const renderDashboardTab = () => {
         if (showPurchaseRequestsList) {
             return renderPurchaseRequestsList();
+        }
+        if (showStockModal) {
+            return renderStockView();
+        }
+        if (showCashFlowModal) {
+            return renderCashFlowView();
         }
 
         const openJobsCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'closed' && j.status !== 'cancelled').length;
@@ -3970,214 +4231,7 @@ function TechnicianApp() {
                 />
             )}
 
-            {/* Cash Flow Details Modal */}
-            {showCashFlowModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(4px)',
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 'var(--spacing-md)'
-                }}>
-                    <div style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-lg)',
-                        width: '100%',
-                        maxWidth: '480px',
-                        maxHeight: '85vh',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        boxShadow: 'var(--shadow-lg)',
-                        border: '1px solid var(--border-primary)',
-                        overflow: 'hidden'
-                    }}>
-                        {/* Header */}
-                        <div style={{
-                            padding: 'var(--spacing-md) var(--spacing-lg)',
-                            borderBottom: '1px solid var(--border-primary)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            backgroundColor: 'var(--bg-secondary)'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <DollarSign size={20} color="#10b981" /> Cash Flow Details
-                            </h3>
-                            <button
-                                onClick={() => setShowCashFlowModal(false)}
-                                style={{
-                                    border: 'none',
-                                    backgroundColor: 'transparent',
-                                    color: 'var(--text-secondary)',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    padding: '4px'
-                                }}
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {/* Content */}
-                        <div style={{
-                            padding: 'var(--spacing-lg)',
-                            overflowY: 'auto',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 'var(--spacing-md)'
-                        }}>
-                            {/* Summary card inside modal */}
-                            <div style={{
-                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                                borderRadius: '8px',
-                                padding: '12px 16px',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                            }}>
-                                <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>Total Cash to Handover:</span>
-                                <span style={{ fontSize: '20px', fontWeight: 700, color: '#10b981' }}>
-                                    ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                            </div>
-
-                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                                Handover this cash to the service center at the end of your shift. Once the admin verifies and posts the receipt, these entries will vanish.
-                            </p>
-
-                            {pendingCashPayments.length === 0 ? (
-                                <div style={{
-                                    padding: '24px',
-                                    textAlign: 'center',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    borderRadius: '8px',
-                                    border: '1px dashed var(--border-primary)',
-                                    color: 'var(--text-tertiary)',
-                                    fontSize: '13px',
-                                    fontWeight: 500
-                                }}>
-                                    🎉 No pending cash handover. All cash settled!
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {pendingCashPayments.map((payment) => {
-                                        const collectedDate = new Date(payment.created_at || payment.date);
-                                        const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
-                                        
-                                        // Resolve locality and appliance
-                                        const propData = payment.jobs?.property;
-                                        const locality = propData?.locality || propData?.city || 'No location';
-                                        const appliance = payment.jobs?.appliance || 'No appliance';
-
-                                        return (
-                                            <div
-                                                key={payment.id}
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '8px',
-                                                    padding: '12px 14px',
-                                                    borderRadius: '8px',
-                                                    backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
-                                                    border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
-                                                    transition: 'border-color 0.2s'
-                                                }}
-                                            >
-                                                {/* Header Row */}
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                            {payment.jobs?.customer_name || 'Walk-in Customer'}
-                                                        </span>
-                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                                            Job: #{payment.jobs?.job_number || 'General'}
-                                                        </span>
-                                                    </div>
-                                                    <span style={{ fontSize: '15px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
-                                                        ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                    </span>
-                                                </div>
-
-                                                {/* Details Row (Locality & Appliance) */}
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    flexWrap: 'wrap', 
-                                                    gap: '12px', 
-                                                    fontSize: '12px',
-                                                    color: 'var(--text-secondary)',
-                                                    borderTop: '1px solid var(--border-primary)',
-                                                    paddingTop: '8px',
-                                                    marginTop: '2px'
-                                                }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <MapPin size={12} color="var(--text-tertiary)" />
-                                                        <span>{locality}</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Briefcase size={12} color="var(--text-tertiary)" />
-                                                        <span>{appliance}</span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Date and Warning */}
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                        Collected: {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                    </span>
-                                                    {isOneDayAgo && (
-                                                        <span style={{
-                                                            fontSize: '10px',
-                                                            fontWeight: 700,
-                                                            color: '#ef4444'
-                                                        }}>
-                                                            ⚠️ Overdue Handover
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div style={{
-                            padding: 'var(--spacing-md) var(--spacing-lg)',
-                            borderTop: '1px solid var(--border-primary)',
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            backgroundColor: 'var(--bg-secondary)'
-                        }}>
-                            <button
-                                onClick={() => setShowCashFlowModal(false)}
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    backgroundColor: '#10b981',
-                                    color: 'white',
-                                    fontWeight: 'bold',
-                                    fontSize: '13px',
-                                    cursor: 'pointer',
-                                    boxShadow: 'var(--shadow-sm)'
-                                }}
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Estimate/Repair Calculator Overlay */}
             {calculatorJob && (
@@ -4740,134 +4794,7 @@ function TechnicianApp() {
                     </div>
                 </div>
             )}
-            {/* Physical Stock Modal */}
-            {showStockModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: 'var(--spacing-md)'
-                }}
-                    onClick={() => setShowStockModal(false)}
-                >
-                    <div
-                        style={{
-                            backgroundColor: 'var(--bg-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)',
-                            maxWidth: '500px',
-                            width: '100%',
-                            maxHeight: '80vh',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            boxShadow: 'var(--shadow-xl)',
-                            border: '1px solid var(--border-primary)'
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
-                                <Package size={20} color="#f59e0b" /> My Physical Stock
-                            </h3>
-                            <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {stockLoading ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                Loading inventory...
-                            </div>
-                        ) : stock.length === 0 ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                No spare parts currently in your physical inventory. Handovers from the Service Center will appear here.
-                            </div>
-                        ) : (
-                            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {stock.map(item => (
-                                    <div 
-                                        key={item.id}
-                                        style={{ 
-                                            display: 'flex', 
-                                            flexDirection: 'column',
-                                            padding: '14px', 
-                                            backgroundColor: 'var(--bg-secondary)', 
-                                            borderRadius: '8px',
-                                            border: '1px solid var(--border-primary)',
-                                            gap: '10px'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-                                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {item.name}
-                                                </div>
-                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '2px' }}>
-                                                    <span>SKU: {item.sku || 'N/A'}</span>
-                                                    <span>•</span>
-                                                    <span>{item.category}</span>
-                                                </div>
-                                            </div>
-                                            <span 
-                                                style={{ 
-                                                    fontSize: '12px', 
-                                                    fontWeight: 700, 
-                                                    padding: '4px 10px', 
-                                                    borderRadius: '6px', 
-                                                    backgroundColor: item.quantity <= 0 ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
-                                                    color: item.quantity <= 0 ? '#ef4444' : '#10b981'
-                                                }}
-                                            >
-                                                {item.quantity} Qty
-                                            </span>
-                                        </div>
-
-                                        {/* Audit Details - Negative Stock Trace */}
-                                        {item.quantity < 0 && item.negative_details && item.negative_details.length > 0 && (
-                                            <div style={{ padding: '8px 10px', backgroundColor: 'rgba(239,68,68,0.06)', borderRadius: '6px', borderLeft: '3px solid #ef4444', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
-                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Billed On Jobs (Negative Stock Trace):</div>
-                                                {item.negative_details.map((neg, idx) => (
-                                                    <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.negative_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.negative_details.length - 1 ? '4px' : '0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                            <span>Job: {neg.job_number}</span>
-                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(neg.date).toLocaleDateString('en-GB')}</span>
-                                                        </div>
-                                                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>📍 {neg.location}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Audit Details - Positive Stock Handover Trace */}
-                                        {item.quantity > 0 && item.positive_details && item.positive_details.length > 0 && (
-                                            <div style={{ padding: '8px 10px', backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: '6px', borderLeft: '3px solid #10b981', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
-                                                <div style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Service Center Handover Log:</div>
-                                                {item.positive_details.map((pos, idx) => (
-                                                    <div key={idx} style={{ fontSize: '11px', color: 'var(--text-secondary)', borderBottom: idx < item.positive_details.length - 1 ? '1px dashed var(--border-primary)' : 'none', paddingBottom: idx < item.positive_details.length - 1 ? '4px' : '0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                            <span>Handover: {pos.handover_id.slice(0, 8)}...</span>
-                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(pos.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                                                        </div>
-                                                        {pos.other_items && pos.other_items.length > 0 && (
-                                                            <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '3px', fontStyle: 'italic' }}>
-                                                                📦 Other items in batch: {pos.other_items.join(', ')}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
             {backPressToast && (
                 <div style={{
                     position: 'fixed',
