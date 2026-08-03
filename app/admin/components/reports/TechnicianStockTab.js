@@ -10,6 +10,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
     // Handover Modal State
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'ledger'
 
     // Initial default technician selection
     useEffect(() => {
@@ -154,11 +155,50 @@ export default function TechnicianStockTab({ technicians = [] }) {
                 </button>
             </div>
 
+            {/* Subtabs Bar */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0, marginBottom: '10px' }}>
+                <button
+                    onClick={() => setActiveSubTab('inventory')}
+                    style={{
+                        padding: '8px 16px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderBottom: activeSubTab === 'inventory' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: activeSubTab === 'inventory' ? 'var(--color-primary)' : 'var(--text-secondary)',
+                        fontWeight: activeSubTab === 'inventory' ? 600 : 400,
+                        fontSize: '13px',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    Currently Held Spare Parts
+                </button>
+                <button
+                    onClick={() => setActiveSubTab('ledger')}
+                    style={{
+                        padding: '8px 16px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        borderBottom: activeSubTab === 'ledger' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: activeSubTab === 'ledger' ? 'var(--color-primary)' : 'var(--text-secondary)',
+                        fontWeight: activeSubTab === 'ledger' ? 600 : 400,
+                        fontSize: '13px',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    Transaction Audit Ledger
+                </button>
+            </div>
+
             {/* Selected Technician details */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                 {selectedTech ? (
                     <>
                         {/* Stock Inventory Section */}
+                        {activeSubTab === 'inventory' && (
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
                                 Currently Held Spare Parts
@@ -251,8 +291,10 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                 </div>
                             )}
                         </div>
+                        )}
 
                         {/* Audit Log / History Section */}
+                        {activeSubTab === 'ledger' && (
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
                                 Transaction Audit Ledger
@@ -324,6 +366,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                 </div>
                             )}
                         </div>
+                        )}
                     </>
                 ) : (
                     <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: '300px', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-lg)', color: 'var(--text-secondary)', fontSize: '13px' }}>
