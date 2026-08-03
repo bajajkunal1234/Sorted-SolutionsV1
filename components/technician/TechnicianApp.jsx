@@ -334,6 +334,7 @@ function TechnicianApp() {
     const [showStockModal, setShowStockModal] = useState(false);
     const [stock, setStock] = useState([]);
     const [stockLoading, setStockLoading] = useState(false);
+    const [showEmailInbox, setShowEmailInbox] = useState(false);
     const [showPurchaseJobSelectorModal, setShowPurchaseJobSelectorModal] = useState(false);
     const [purchaseJob, setPurchaseJob] = useState(null);
     const [showPurchaseCalculator, setShowPurchaseCalculator] = useState(false);
@@ -558,7 +559,6 @@ function TechnicianApp() {
 
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [showSupport, setShowSupport] = useState(false);
-    const [showEmailInbox, setShowEmailInbox] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
