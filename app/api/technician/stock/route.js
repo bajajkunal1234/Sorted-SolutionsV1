@@ -127,7 +127,11 @@ export async function GET(request) {
                 
                 const sales = productTxs.filter(t => t.transaction_type === 'sale' && !returnedRefIds.has(t.reference_id));
                 sales.forEach(s => {
-                    const invDetail = invoiceMap[s.reference_id] || { job_number: 'N/A', location: 'Unknown' };
+                    const invDetail = invoiceMap[s.reference_id];
+                    if (!invDetail) {
+                        // Skip deleted/ghost sales records that don't have resolved invoices
+                        return;
+                    }
                     negativeDetails.push({
                         date: s.created_at,
                         quantity: Math.abs(s.quantity),
