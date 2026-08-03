@@ -28,6 +28,17 @@ export default function TechnicianStockTab({ technicians = [] }) {
     const [ledgerSort, setLedgerSort] = useState({ column: 'date', direction: 'desc' });
     const [showColSettings, setShowColSettings] = useState(false);
 
+    const cleanNotes = (notes) => {
+        if (!notes) return '';
+        // Replace "for job <uuid>" (case-insensitive)
+        let cleaned = notes.replace(/for job [a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '');
+        cleaned = cleaned.replace(/job [a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '');
+        // Replace any standalone UUID
+        cleaned = cleaned.replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '');
+        // Clean up multiple spaces or trailing hyphens/spaces
+        return cleaned.replace(/\s+/g, ' ').trim();
+    };
+
     // Ledger Filters State
     const [filterType, setFilterType] = useState('all'); // 'all', 'sale', 'handover', 'return'
     const [searchTerm, setSearchTerm] = useState('');
@@ -374,8 +385,8 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                     No physical stock listed. Click "Handover Spare Parts" to allocate inventory.
                                 </div>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                <div className="admin-sticky-table-container" style={{ overflow: 'auto', maxHeight: '500px', width: '100%' }}>
+                                    <table className="admin-sticky-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                         <thead>
                                             <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
                                                 <th style={{ padding: '12px 16px', fontWeight: 600 }}>Part Name</th>
@@ -655,8 +666,8 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                     No stock transaction ledger available matching your criteria.
                                 </div>
                             ) : (
-                                <div style={{ overflowX: 'auto', width: '100%' }}>
-                                    <table className="admin-table" style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <div className="admin-sticky-table-container" style={{ overflow: 'auto', maxHeight: '500px', width: '100%' }}>
+                                    <table className="admin-sticky-table" style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                                         <thead>
                                             <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
                                                 {ledgerColumns.filter(c => c.visible).map((col) => {
@@ -784,7 +795,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                                             case 'notes':
                                                                 return (
                                                                     <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.notes}>
-                                                                        {tx.notes || '—'}
+                                                                        {cleanNotes(tx.notes) || '—'}
                                                                     </td>
                                                                 );
                                                             default:
