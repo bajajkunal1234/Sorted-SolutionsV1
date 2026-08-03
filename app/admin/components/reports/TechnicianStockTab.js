@@ -11,6 +11,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
     const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'ledger'
+    const [expandedItems, setExpandedItems] = useState({}); // item.id -> boolean
 
     // Filter active (non-fired, active status) technicians
     const activeTechs = technicians.filter(t => t.is_active !== false && !t.is_fired);
@@ -234,16 +235,42 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                         <tbody>
                                             {stock.map(item => (
                                                 <React.Fragment key={item.id}>
-                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                        <td style={{ padding: '12px 16px', fontWeight: 500 }}>{item.name}</td>
+                                                    <tr 
+                                                        onClick={() => {
+                                                            setExpandedItems(prev => ({
+                                                                ...prev,
+                                                                [item.id]: !prev[item.id]
+                                                            }));
+                                                        }}
+                                                        style={{ 
+                                                            borderBottom: '1px solid var(--border-primary)', 
+                                                            cursor: 'pointer',
+                                                            backgroundColor: expandedItems[item.id] ? 'rgba(99, 102, 241, 0.04)' : 'transparent',
+                                                            transition: 'background-color 0.15s'
+                                                        }}
+                                                    >
+                                                        <td style={{ padding: '12px 16px', fontWeight: 500 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ 
+                                                                    fontSize: '10px', 
+                                                                    color: 'var(--text-secondary)', 
+                                                                    display: 'inline-block',
+                                                                    transition: 'transform 0.2s', 
+                                                                    transform: expandedItems[item.id] ? 'rotate(90deg)' : 'none' 
+                                                                }}>
+                                                                    ▶
+                                                                </span>
+                                                                <span>{item.name}</span>
+                                                            </div>
+                                                        </td>
                                                         <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.sku || 'N/A'}</td>
                                                         <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.category}</td>
                                                         <td style={{ padding: '12px 16px', fontWeight: 700, textAlign: 'right', color: item.quantity <= 0 ? '#ef4444' : 'var(--text-primary)' }}>
                                                             {item.quantity} Units
                                                         </td>
                                                     </tr>
-                                                    {/* Show detail rows if any */}
-                                                    {((item.quantity < 0 && item.negative_details && item.negative_details.length > 0) || 
+                                                    {/* Show detail rows if any and expanded */}
+                                                    {expandedItems[item.id] && ((item.quantity < 0 && item.negative_details && item.negative_details.length > 0) || 
                                                       (item.quantity > 0 && item.positive_details && item.positive_details.length > 0)) && (
                                                         <tr>
                                                             <td colSpan="4" style={{ padding: '4px 16px 12px 16px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>

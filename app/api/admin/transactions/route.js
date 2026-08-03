@@ -298,6 +298,18 @@ export async function POST(request) {
                     const prodId = item.productId || item.product_id;
                     const qty = Number(item.qty) || 1;
                     if (prodId) {
+                        // Fetch item details from inventory to check if it's a product
+                        const { data: invItem } = await supabase
+                            .from('inventory')
+                            .select('type')
+                            .eq('id', prodId)
+                            .maybeSingle();
+
+                        if (invItem && invItem.type === 'service') {
+                            // Skip stock adjustments for service charges
+                            continue;
+                        }
+
                         // Fetch current stock
                         const { data: currentStock } = await supabase
                             .from('technician_stock')
@@ -712,6 +724,18 @@ export async function DELETE(request) {
                         const prodId = item.productId || item.product_id;
                         const qty = Number(item.qty) || 1;
                         if (prodId) {
+                            // Fetch item details from inventory to check if it's a product
+                            const { data: invItem } = await supabase
+                                .from('inventory')
+                                .select('type')
+                                .eq('id', prodId)
+                                .maybeSingle();
+
+                            if (invItem && invItem.type === 'service') {
+                                // Skip stock adjustments for service charges
+                                continue;
+                            }
+
                             // Add back to stock
                             const { data: currentStock } = await supabase
                                 .from('technician_stock')

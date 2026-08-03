@@ -40,7 +40,8 @@ export async function GET(request) {
                     id,
                     name,
                     category,
-                    sku
+                    sku,
+                    type
                 )
             `)
             .eq('technician_id', technicianId)
@@ -113,7 +114,8 @@ export async function GET(request) {
         });
 
         // Format stock items and assign detailed context
-        const formattedStock = (stock || []).map(st => {
+        const filteredStock = (stock || []).filter(st => st.inventory?.type !== 'service');
+        const formattedStock = filteredStock.map(st => {
             const productTxs = (txs || []).filter(t => t.product_id === st.product_id);
             const negativeDetails = [];
             const positiveDetails = [];

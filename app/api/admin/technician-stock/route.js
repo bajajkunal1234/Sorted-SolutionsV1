@@ -29,7 +29,8 @@ export async function GET(request) {
                     id,
                     name,
                     category,
-                    sku
+                    sku,
+                    type
                 )
             `)
             .eq('technician_id', technicianId)
@@ -51,7 +52,8 @@ export async function GET(request) {
                 product_id,
                 inventory (
                     name,
-                    sku
+                    sku,
+                    type
                 )
             `)
             .eq('technician_id', technicianId)
@@ -123,7 +125,8 @@ export async function GET(request) {
         });
 
         // 7. Format stock items and assign detailed context
-        const formattedStock = (stock || []).map(st => {
+        const filteredStock = (stock || []).filter(st => st.inventory?.type !== 'service');
+        const formattedStock = filteredStock.map(st => {
             const productTxs = (allTxs || []).filter(t => t.product_id === st.product_id);
             const negativeDetails = [];
             const positiveDetails = [];
@@ -174,7 +177,8 @@ export async function GET(request) {
         });
 
         // 8. Format ledger transactions to include resolved job details
-        const formattedTx = (transactions || []).map(tx => {
+        const filteredTransactions = (transactions || []).filter(tx => tx.inventory?.type !== 'service');
+        const formattedTx = filteredTransactions.map(tx => {
             const invDetail = invoiceMap[tx.reference_id] || null;
             return {
                 id: tx.id,
