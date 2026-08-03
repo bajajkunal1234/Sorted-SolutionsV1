@@ -12,17 +12,28 @@ export default function TechnicianStockTab({ technicians = [] }) {
     const [saving, setSaving] = useState(false);
     const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'ledger'
 
+    // Filter active (non-fired, active status) technicians
+    const activeTechs = technicians.filter(t => t.is_active !== false && !t.is_fired);
+
     // Initial default technician selection
     useEffect(() => {
-        if (technicians.length > 0 && !selectedTech) {
-            setSelectedTech(technicians[0]);
+        if (activeTechs.length > 0) {
+            const isCurrentlyActiveSelected = selectedTech && activeTechs.some(t => String(t.id) === String(selectedTech.id));
+            if (!isCurrentlyActiveSelected) {
+                setSelectedTech(activeTechs[0]);
+            }
+        } else {
+            setSelectedTech(null);
         }
-    }, [technicians]);
+    }, [activeTechs, selectedTech]);
 
     // Fetch stock and transactions when technician changes
     useEffect(() => {
         if (selectedTech) {
             fetchStockData(selectedTech.id);
+        } else {
+            setStock([]);
+            setTransactions([]);
         }
     }, [selectedTech]);
 
@@ -111,7 +122,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
                     <select
                         value={selectedTech?.id || ''}
                         onChange={(e) => {
-                            const tech = technicians.find(t => String(t.id) === String(e.target.value));
+                            const tech = activeTechs.find(t => String(t.id) === String(e.target.value));
                             if (tech) setSelectedTech(tech);
                         }}
                         style={{
@@ -126,8 +137,8 @@ export default function TechnicianStockTab({ technicians = [] }) {
                             outline: 'none'
                         }}
                     >
-                        {technicians.map(t => (
-                            <option key={t.id} value={t.id}>{t.name} ({t.phone})</option>
+                        {activeTechs.map(t => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                     </select>
                 </div>
