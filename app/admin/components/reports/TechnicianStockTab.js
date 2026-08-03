@@ -13,6 +13,92 @@ export default function TechnicianStockTab({ technicians = [] }) {
     const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'ledger'
     const [expandedItems, setExpandedItems] = useState({}); // item.id -> boolean
 
+    // Ledger Columns and Settings State
+    const [ledgerColumns, setLedgerColumns] = useState([
+        { id: 'date', label: 'Date & Time', width: 160, visible: true },
+        { id: 'part_name', label: 'Part Name', width: 200, visible: true },
+        { id: 'type', label: 'Type', width: 90, visible: true },
+        { id: 'qty', label: 'Qty', width: 70, visible: true },
+        { id: 'invoice_number', label: 'Invoice No', width: 140, visible: true },
+        { id: 'job', label: 'Job', width: 160, visible: true },
+        { id: 'to', label: 'To', width: 150, visible: true },
+        { id: 'by', label: 'By', width: 120, visible: true },
+        { id: 'notes', label: 'Notes / Reference', width: 220, visible: true }
+    ]);
+    const [ledgerSort, setLedgerSort] = useState({ column: 'date', direction: 'desc' });
+    const [showColSettings, setShowColSettings] = useState(false);
+
+    // Ledger Filters State
+    const [filterType, setFilterType] = useState('all'); // 'all', 'sale', 'handover', 'return'
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    // Load ledger columns configuration from localStorage after mount
+    useEffect(() => {
+        const saved = localStorage.getItem('ledger_columns_config');
+        if (saved) {
+            try {
+                setLedgerColumns(JSON.parse(saved));
+            } catch (e) {}
+        }
+    }, []);
+
+    // Save ledger columns configuration when changed
+    useEffect(() => {
+        if (ledgerColumns && ledgerColumns.length > 0) {
+            localStorage.setItem('ledger_columns_config', JSON.stringify(ledgerColumns));
+        }
+    }, [ledgerColumns]);
+
+    const handleColumnResizeMouseDown = (colId, e) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const currentCol = ledgerColumns.find(c => c.id === colId);
+        if (!currentCol) return;
+        const startWidth = currentCol.width || 120;
+
+        const handleMouseMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            setLedgerColumns(prev => prev.map(c => 
+                c.id === colId ? { ...c, width: Math.max(60, startWidth + deltaX) } : c
+            ));
+        };
+
+        const handleMouseUp = () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleSortLedger = (colId) => {
+        setLedgerSort(prev => {
+            if (prev.column === colId) {
+                return { column: colId, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { column: colId, direction: 'asc' };
+        });
+    };
+
+    const moveLedgerColumn = (index, direction) => {
+        const newCols = [...ledgerColumns];
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= newCols.length) return;
+        const temp = newCols[index];
+        newCols[index] = newCols[targetIndex];
+        newCols[targetIndex] = temp;
+        setLedgerColumns(newCols);
+    };
+
+    const toggleLedgerColumnVisibility = (colId) => {
+        setLedgerColumns(prev => prev.map(c => 
+            c.id === colId ? { ...c, visible: !c.visible } : c
+        ));
+    };
+
     // Filter active (non-fired, active status) technicians
     const activeTechs = technicians.filter(t => t.is_active !== false && !t.is_fired);
 
@@ -104,6 +190,72 @@ export default function TechnicianStockTab({ technicians = [] }) {
                 return { backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' };
         }
     };
+
+    // Filter transactions on client side for responsive instant results
+    const filteredTxList = (transactions || []).filter(tx => {
+        if (filterType !== 'all' && tx.transaction_type?.toLowerCase() !== filterType.toLowerCase()) {
+            return false;
+        }
+        if (searchTerm && !tx.product_name?.toLowerCase().includes(searchTerm.toLowerCase())) {
+            return false;
+        }
+        if (startDate && new Date(tx.created_at) < new Date(startDate)) {
+            return false;
+        }
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            if (new Date(tx.created_at) > end) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    // Sort transactions
+    const sortedTxList = [...filteredTxList].sort((a, b) => {
+        const col = ledgerSort.column;
+        const dir = ledgerSort.direction === 'asc' ? 1 : -1;
+        
+        let valA, valB;
+        if (col === 'date') {
+            valA = new Date(a.created_at).getTime();
+            valB = new Date(b.created_at).getTime();
+        } else if (col === 'part_name') {
+            valA = a.product_name || '';
+            valB = b.product_name || '';
+        } else if (col === 'type') {
+            valA = a.transaction_type || '';
+            valB = b.transaction_type || '';
+        } else if (col === 'qty') {
+            valA = a.quantity || 0;
+            valB = b.quantity || 0;
+        } else if (col === 'invoice_number') {
+            valA = a.invoice_number || '';
+            valB = b.invoice_number || '';
+        } else if (col === 'job') {
+            valA = a.job_number || '';
+            valB = b.job_number || '';
+        } else if (col === 'to') {
+            valA = a.to_party || '';
+            valB = b.to_party || '';
+        } else if (col === 'by') {
+            valA = a.created_by || '';
+            valB = b.created_by || '';
+        } else if (col === 'notes') {
+            valA = a.notes || '';
+            valB = b.notes || '';
+        } else {
+            return 0;
+        }
+
+        if (typeof valA === 'string') {
+            return valA.localeCompare(valB) * dir;
+        }
+        return (valA < valB ? -1 : valA > valB ? 1 : 0) * dir;
+    });
+
+    const totalTableWidth = ledgerColumns.filter(c => c.visible).reduce((sum, c) => sum + (c.width || 120), 0);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
@@ -334,69 +486,311 @@ export default function TechnicianStockTab({ technicians = [] }) {
                         {/* Audit Log / History Section */}
                         {activeSubTab === 'ledger' && (
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
-                                Transaction Audit Ledger
+                            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                <span>Transaction Audit Ledger</span>
                             </div>
+
+                            {/* Toolbar: Search, Filters & Manage Columns */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', padding: '12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', position: 'relative' }}>
+                                <input 
+                                    type="text" 
+                                    placeholder="🔍 Search Part Name..." 
+                                    value={searchTerm} 
+                                    onChange={e => setSearchTerm(e.target.value)} 
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '13px',
+                                        outline: 'none',
+                                        width: '200px'
+                                    }}
+                                />
+
+                                <select
+                                    value={filterType}
+                                    onChange={e => setFilterType(e.target.value)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        outline: 'none'
+                                    }}
+                                >
+                                    <option value="all">All Types</option>
+                                    <option value="sale">Sale</option>
+                                    <option value="handover">Handover</option>
+                                    <option value="return">Return</option>
+                                </select>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>From:</span>
+                                    <input 
+                                        type="date" 
+                                        value={startDate} 
+                                        onChange={e => setStartDate(e.target.value)} 
+                                        style={{
+                                            padding: '5px 8px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '12px',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>To:</span>
+                                    <input 
+                                        type="date" 
+                                        value={endDate} 
+                                        onChange={e => setEndDate(e.target.value)} 
+                                        style={{
+                                            padding: '5px 8px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '12px',
+                                            outline: 'none'
+                                        }}
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setSearchTerm('');
+                                        setFilterType('all');
+                                        setStartDate('');
+                                        setEndDate('');
+                                    }}
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                        color: '#ef4444',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    Clear Filters
+                                </button>
+
+                                {/* Manage Columns Popover Toggle */}
+                                <div style={{ position: 'relative', marginLeft: 'auto' }}>
+                                    <button 
+                                        onClick={() => setShowColSettings(!showColSettings)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '13px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}
+                                    >
+                                        ⚙️ columns
+                                    </button>
+                                    {showColSettings && (
+                                        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 6, width: 260, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 12, zIndex: 999, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)' }}>
+                                            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span>Manage Columns</span>
+                                                <button onClick={() => setLedgerColumns([
+                                                    { id: 'date', label: 'Date & Time', width: 160, visible: true },
+                                                    { id: 'part_name', label: 'Part Name', width: 200, visible: true },
+                                                    { id: 'type', label: 'Type', width: 90, visible: true },
+                                                    { id: 'qty', label: 'Qty', width: 70, visible: true },
+                                                    { id: 'invoice_number', label: 'Invoice No', width: 140, visible: true },
+                                                    { id: 'job', label: 'Job', width: 160, visible: true },
+                                                    { id: 'to', label: 'To', width: 150, visible: true },
+                                                    { id: 'by', label: 'By', width: 120, visible: true },
+                                                    { id: 'notes', label: 'Notes / Reference', width: 220, visible: true }
+                                                ])} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Reset</button>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                                                {ledgerColumns.map((col, idx) => (
+                                                    <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, padding: '4px 0' }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', flex: 1 }}>
+                                                            <input 
+                                                                type="checkbox" 
+                                                                checked={col.visible} 
+                                                                onChange={() => toggleLedgerColumnVisibility(col.id)} 
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                            <span style={{ opacity: col.visible ? 1 : 0.5 }}>{col.label}</span>
+                                                        </label>
+                                                        <div style={{ display: 'flex', gap: 2 }}>
+                                                            <button onClick={() => moveLedgerColumn(idx, -1)} disabled={idx === 0} style={{ padding: '2px 4px', fontSize: 10, cursor: idx === 0 ? 'not-allowed' : 'pointer', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+                                                            <button onClick={() => moveLedgerColumn(idx, 1)} disabled={idx === ledgerColumns.length - 1} style={{ padding: '2px 4px', fontSize: 10, cursor: idx === ledgerColumns.length - 1 ? 'not-allowed' : 'pointer', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, opacity: idx === ledgerColumns.length - 1 ? 0.3 : 1 }}>▼</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div style={{ marginTop: 8, padding: '4px 0', borderTop: '1px solid var(--border-primary)', textAlign: 'center' }}>
+                                                <button onClick={() => setShowColSettings(false)} className="btn btn-secondary" style={{ width: '100%', padding: '4px 8px', fontSize: 11 }}>Done</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {loading ? (
                                 <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading ledger...</div>
-                            ) : transactions.length === 0 ? (
+                            ) : sortedTxList.length === 0 ? (
                                 <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                    No stock transaction ledger available.
+                                    No stock transaction ledger available matching your criteria.
                                 </div>
                             ) : (
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                <div style={{ overflowX: 'auto', width: '100%' }}>
+                                    <table className="admin-table" style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
                                         <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600 }}>Date & Time</th>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600 }}>Part Name</th>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600 }}>Type</th>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600, textAlign: 'right' }}>Qty</th>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600 }}>Notes / Reference</th>
-                                                <th style={{ padding: '10px 16px', fontWeight: 600 }}>By</th>
+                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                                {ledgerColumns.filter(c => c.visible).map((col) => {
+                                                    return (
+                                                        <th 
+                                                            key={col.id} 
+                                                            style={{ 
+                                                                width: `${col.width}px`, 
+                                                                minWidth: `${col.width}px`, 
+                                                                position: 'relative',
+                                                                cursor: 'pointer',
+                                                                userSelect: 'none',
+                                                                textAlign: col.id === 'qty' ? 'right' : 'left',
+                                                                padding: '10px 16px'
+                                                            }}
+                                                            onClick={() => handleSortLedger(col.id)}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.id === 'qty' ? 'flex-end' : 'flex-start', gap: 4 }}>
+                                                                <span>{col.label}</span>
+                                                                {ledgerSort.column === col.id && (
+                                                                    <span style={{ fontSize: 10, color: 'var(--color-primary)' }}>{ledgerSort.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </div>
+                                                            <span 
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    right: 0,
+                                                                    top: 0,
+                                                                    bottom: 0,
+                                                                    width: '5px',
+                                                                    cursor: 'col-resize',
+                                                                    zIndex: 10
+                                                                }}
+                                                                onMouseDown={(e) => handleColumnResizeMouseDown(col.id, e)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </th>
+                                                    );
+                                                })}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {transactions.map(tx => (
-                                                <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
-                                                        {new Date(tx.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                                                    </td>
-                                                    <td style={{ padding: '10px 16px', fontWeight: 500 }}>{tx.product_name}</td>
-                                                    <td style={{ padding: '10px 16px' }}>
-                                                        <span style={{
-                                                            padding: '2px 8px',
-                                                            borderRadius: '4px',
-                                                            fontSize: '10px',
-                                                            fontWeight: 600,
-                                                            textTransform: 'uppercase',
-                                                            ...getBadgeStyle(tx.transaction_type)
-                                                        }}>
-                                                            {tx.transaction_type}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{
-                                                        padding: '10px 16px',
-                                                        fontWeight: 700,
-                                                        textAlign: 'right',
-                                                        color: tx.quantity > 0 ? '#10b981' : '#ef4444'
-                                                    }}>
-                                                        {tx.quantity > 0 ? `+${tx.quantity}` : tx.quantity}
-                                                    </td>
-                                                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', maxWidth: '250px' }}>
-                                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {tx.notes || '-'}
-                                                        </div>
-                                                        {tx.job_id && (
-                                                            <button 
-                                                                onClick={() => window.openJobInJobsTab && window.openJobInJobsTab({ id: tx.job_id })}
-                                                                style={{ display: 'block', background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: '4px', textAlign: 'left' }}
-                                                            >
-                                                                View Job {tx.job_number} ({tx.job_location})
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{tx.created_by}</td>
+                                            {sortedTxList.map(tx => (
+                                                <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color 0.15s' }}>
+                                                    {ledgerColumns.filter(c => c.visible).map((col) => {
+                                                        switch (col.id) {
+                                                            case 'date':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', color: 'var(--text-secondary)' }}>
+                                                                        {new Date(tx.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                                                    </td>
+                                                                );
+                                                            case 'part_name':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', fontWeight: 500 }}>
+                                                                        {tx.product_name}
+                                                                    </td>
+                                                                );
+                                                            case 'type':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px' }}>
+                                                                        <span style={{
+                                                                            padding: '2px 8px',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '10px',
+                                                                            fontWeight: 600,
+                                                                            textTransform: 'uppercase',
+                                                                            ...getBadgeStyle(tx.transaction_type)
+                                                                        }}>
+                                                                            {tx.transaction_type}
+                                                                        </span>
+                                                                    </td>
+                                                                );
+                                                            case 'qty':
+                                                                return (
+                                                                    <td key={col.id} style={{
+                                                                        width: `${col.width}px`,
+                                                                        minWidth: `${col.width}px`,
+                                                                        padding: '10px 16px',
+                                                                        fontWeight: 700,
+                                                                        textAlign: 'right',
+                                                                        color: tx.quantity > 0 ? '#10b981' : '#ef4444'
+                                                                    }}>
+                                                                        {tx.quantity > 0 ? `+${tx.quantity}` : tx.quantity}
+                                                                    </td>
+                                                                );
+                                                            case 'invoice_number':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px' }}>
+                                                                        {tx.invoice_number ? (
+                                                                            <button 
+                                                                                onClick={() => window.open(`/print?type=sales&id=${tx.invoice_id}`, '_blank')}
+                                                                                style={{ background: 'none', border: 'none', color: '#3b82f6', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '12px' }}
+                                                                            >
+                                                                                {tx.invoice_number}
+                                                                            </button>
+                                                                        ) : '—'}
+                                                                    </td>
+                                                                );
+                                                            case 'job':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px' }}>
+                                                                        {tx.job_id ? (
+                                                                            <button 
+                                                                                onClick={() => window.openJobInJobsTab && window.openJobInJobsTab({ id: tx.job_id })}
+                                                                                style={{ background: 'none', border: 'none', color: '#3b82f6', fontWeight: 600, cursor: 'pointer', padding: 0, textDecoration: 'underline', fontSize: '12px', textAlign: 'left' }}
+                                                                            >
+                                                                                Job {tx.job_number}
+                                                                            </button>
+                                                                        ) : '—'}
+                                                                    </td>
+                                                                );
+                                                            case 'to':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', color: 'var(--text-secondary)' }}>
+                                                                        {tx.to_party}
+                                                                    </td>
+                                                                );
+                                                            case 'by':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', color: 'var(--text-secondary)' }}>
+                                                                        {tx.created_by}
+                                                                    </td>
+                                                                );
+                                                            case 'notes':
+                                                                return (
+                                                                    <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '10px 16px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.notes}>
+                                                                        {tx.notes || '—'}
+                                                                    </td>
+                                                                );
+                                                            default:
+                                                                return null;
+                                                        }
+                                                    })}
                                                 </tr>
                                             ))}
                                         </tbody>

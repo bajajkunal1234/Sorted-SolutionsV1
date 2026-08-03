@@ -50,6 +50,9 @@ export async function GET(request) {
                 created_by,
                 created_at,
                 product_id,
+                technicians (
+                    name
+                ),
                 inventory (
                     name,
                     sku,
@@ -80,11 +83,13 @@ export async function GET(request) {
                 .from('sales_invoices')
                 .select(`
                     id,
+                    invoice_number,
                     job_id,
                     jobs (
                         id,
                         job_number,
-                        property
+                        property,
+                        customer_name
                     )
                 `)
                 .in('id', invoiceIds);
@@ -92,9 +97,11 @@ export async function GET(request) {
             (invoices || []).forEach(inv => {
                 const prop = inv.jobs?.property || {};
                 invoiceMap[inv.id] = {
+                    invoice_number: inv.invoice_number || 'N/A',
                     job_id: inv.job_id,
                     job_number: inv.jobs?.job_number || 'N/A',
-                    location: [prop.locality, prop.city].filter(Boolean).join(', ') || 'Unknown Location'
+                    location: [prop.locality, prop.city].filter(Boolean).join(', ') || 'Unknown Location',
+                    customer_name: inv.jobs?.customer_name || 'Customer'
                 };
             });
         }
@@ -188,6 +195,14 @@ export async function GET(request) {
         const filteredTransactions = (transactions || []).filter(tx => tx.inventory?.type !== 'service');
         const formattedTx = filteredTransactions.map(tx => {
             const invDetail = invoiceMap[tx.reference_id] || null;
+            
+            let toField = 'Service Center';
+            if (tx.transaction_type === 'sale') {
+                toField = invDetail?.customer_name || 'Customer';
+            } else if (tx.transaction_type === 'handover' || tx.transaction_type === 'return') {
+                toField = tx.technicians?.name || 'Technician';
+            }
+
             return {
                 id: tx.id,
                 product_id: tx.product_id,
@@ -199,9 +214,12 @@ export async function GET(request) {
                 created_at: tx.created_at,
                 product_name: tx.inventory?.name || 'Unknown Part',
                 product_sku: tx.inventory?.sku || '',
+                invoice_number: invDetail?.invoice_number || null,
+                invoice_id: tx.transaction_type === 'sale' ? tx.reference_id : null,
                 job_id: invDetail?.job_id || null,
                 job_number: invDetail?.job_number || null,
-                job_location: invDetail?.location || null
+                job_location: invDetail?.location || null,
+                to_party: toField
             };
         });
 
