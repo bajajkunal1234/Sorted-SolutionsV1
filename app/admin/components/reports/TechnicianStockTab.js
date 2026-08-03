@@ -93,78 +93,71 @@ export default function TechnicianStockTab({ technicians = [] }) {
     };
 
     return (
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', width: '100%' }}>
-            {/* Left Column: Technicians list */}
-            <div style={{ flex: '0 0 280px', minWidth: '280px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
-                    Technicians List
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+            {/* Control Row */}
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                backgroundColor: 'var(--bg-elevated)', 
+                border: '1px solid var(--border-primary)', 
+                borderRadius: 'var(--radius-lg)', 
+                padding: '12px 16px',
+                flexWrap: 'wrap'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Select Technician:</span>
+                    <select
+                        value={selectedTech?.id || ''}
+                        onChange={(e) => {
+                            const tech = technicians.find(t => String(t.id) === String(e.target.value));
+                            if (tech) setSelectedTech(tech);
+                        }}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            outline: 'none'
+                        }}
+                    >
+                        {technicians.map(t => (
+                            <option key={t.id} value={t.id}>{t.name} ({t.phone})</option>
+                        ))}
+                    </select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '600px', overflowY: 'auto' }}>
-                    {technicians.map(t => (
-                        <div
-                            key={t.id}
-                            onClick={() => setSelectedTech(t)}
-                            style={{
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                borderBottom: '1px solid var(--border-primary)',
-                                backgroundColor: selectedTech?.id === t.id ? 'var(--bg-secondary)' : 'transparent',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <img
-                                src={t.photo_url || '/placeholder.jpg'}
-                                alt=""
-                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border-primary)' }}
-                                onError={(e) => { e.target.src = 'https://via.placeholder.com/150' }}
-                            />
-                            <div>
-                                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{t.name}</div>
-                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t.phone}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+
+                <button
+                    className="btn btn-primary"
+                    onClick={() => setShowModal(true)}
+                    disabled={!selectedTech}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        backgroundColor: 'var(--color-primary)',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        marginLeft: 'auto'
+                    }}
+                >
+                    📦 Handover Spare Parts
+                </button>
             </div>
 
-            {/* Right Column: Selected Technician details */}
-            <div style={{ flex: 1, minWidth: '350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Selected Technician details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                 {selectedTech ? (
                     <>
-                        {/* Header Details Card */}
-                        <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                            <div>
-                                <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    {selectedTech.name}'s Physical Inventory
-                                </h3>
-                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                    Manage physical stocks and perform part allocations from the Service Center.
-                                </p>
-                            </div>
-                            <button
-                                className="btn btn-primary"
-                                onClick={() => setShowModal(true)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '10px 16px',
-                                    borderRadius: '8px',
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    backgroundColor: 'var(--color-primary)',
-                                    color: '#fff',
-                                    border: 'none',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                📦 Handover Spare Parts
-                            </button>
-                        </div>
-
                         {/* Stock Inventory Section */}
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
@@ -258,7 +251,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
                                 </div>
                             )}
                         </div>
- 
+
                         {/* Audit Log / History Section */}
                         <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: '13px' }}>
@@ -334,7 +327,7 @@ export default function TechnicianStockTab({ technicians = [] }) {
                     </>
                 ) : (
                     <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', height: '300px', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-lg)', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                        Select a technician from the list to manage physical stock levels.
+                        Select a technician to manage physical stock levels.
                     </div>
                 )}
             </div>

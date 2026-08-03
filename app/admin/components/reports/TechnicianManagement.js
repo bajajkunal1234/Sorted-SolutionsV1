@@ -963,13 +963,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                     background-color: var(--color-primary, #6366f1) !important;
                 }
             ` }} />
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
-                <div>
-                    <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Technician Management</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Manage profiles, customer visibility, and expense approvals</p>
-                </div>
-            </div>
+
 
             {/* Top-level subtabs */}
             <div className="admin-tabs-container" style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0, overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
