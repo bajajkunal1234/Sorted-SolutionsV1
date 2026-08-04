@@ -15,6 +15,7 @@ import QRCodeManager from './admin/QRCodeManager';
 import RentalsTab from './reports/RentalsTab';
 import AMCTab from './reports/AMCTab';
 import BankStatementReconciler from './reports/BankStatementReconciler';
+import BankAccountsReport from './reports/BankAccountsReport';
 import InteractionsTab from './InteractionsTab';
 import CompanyDetailsModal from './CompanyDetailsModal';
 import TechnicianManagement from './reports/TechnicianManagement';
@@ -73,6 +74,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
         { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
         { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' },
+        { id: 'bank-accounts', label: 'Bank Accounts', icon: Building2, component: BankAccountsReport, color: '#10b981', description: 'Manage bank settings and view transaction logs' },
         { id: 'customer-payments', label: 'Customer Payments (Pending)', icon: DollarSign, component: CustomerPayments, color: '#f59e0b', description: 'Verify tracking of payments collected by technicians' },
         { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
         { id: 'support-inbox', label: 'Support Inbox', icon: Mail, component: SupportInbox, color: '#3b82f6', description: 'Manage customer emails sent to support@sortedsolutions.in and other mailboxes' },
