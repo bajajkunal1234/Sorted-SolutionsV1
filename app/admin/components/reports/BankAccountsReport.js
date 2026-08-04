@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, ShieldCheck, HelpCircle, Loader2, ArrowUpRight, ArrowDownRight, Edit2, Calendar } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/accountingHelpers';
+import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, Loader2, User, ChevronDown } from 'lucide-react';
 
 export default function BankAccountsReport() {
     const [activeSubTab, setActiveSubTab] = useState('setup'); // 'setup' | 'transactions'
@@ -17,8 +16,16 @@ export default function BankAccountsReport() {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
     const [testStatus, setTestStatus] = useState(null); // { success: boolean, msg: string }
+    const [isMobile, setIsMobile] = useState(false);
+
+    // Responsive screen detection
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // New Bank Account Form Fields
     const [newAccount, setNewAccount] = useState({
@@ -90,7 +97,6 @@ export default function BankAccountsReport() {
             setImapSettings(settings);
 
             if (accData && accData.length > 0) {
-                // Keep selection or default to first
                 if (!selectedAccountId || !accData.some(a => a.id === selectedAccountId)) {
                     setSelectedAccountId(accData[0].id);
                 }
@@ -141,7 +147,6 @@ export default function BankAccountsReport() {
                 status: p.status
             }));
 
-            // Merge & sort descending
             const merged = [...recList, ...payList].sort((a, b) => new Date(b.date) - new Date(a.date));
             setTransactions(merged);
         } catch (err) {
@@ -149,7 +154,6 @@ export default function BankAccountsReport() {
         }
     };
 
-    // Save IMAP setup credentials
     const handleSaveSetup = async (e) => {
         e.preventDefault();
         if (!selectedAccountId) return;
@@ -186,7 +190,6 @@ export default function BankAccountsReport() {
         }
     };
 
-    // Test IMAP Connection (Mock verification response with timeout simulation)
     const handleTestConnection = async () => {
         if (!setupForm.email || !setupForm.app_password) {
             alert('Please provide both the email address and app password to test.');
@@ -197,12 +200,10 @@ export default function BankAccountsReport() {
             setTesting(true);
             setTestStatus(null);
             
-            // Simulate IMAP login request delay
             await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Gmail validation test logic
             const email = setupForm.email.toLowerCase();
-            const pass = setupForm.app_password.replace(/\s/g, ''); // strip spaces
+            const pass = setupForm.app_password.replace(/\s/g, '');
             
             if (!email.includes('@')) {
                 setTestStatus({ success: false, msg: 'Invalid email address format.' });
@@ -224,7 +225,6 @@ export default function BankAccountsReport() {
         }
     };
 
-    // Create New Bank Account Ledger
     const handleCreateAccount = async (e) => {
         e.preventDefault();
         if (!newAccount.name || !newAccount.bank_name) {
@@ -235,7 +235,6 @@ export default function BankAccountsReport() {
         try {
             setSaving(true);
             
-            // Insert account under bank-accounts group
             const { data, error } = await supabase
                 .from('accounts')
                 .insert({
@@ -260,7 +259,6 @@ export default function BankAccountsReport() {
             alert(`Bank account "${data.name}" created successfully!`);
             setShowCreateModal(false);
             
-            // Reset form
             setNewAccount({
                 name: '',
                 bank_name: '',
@@ -271,7 +269,6 @@ export default function BankAccountsReport() {
                 account_type: 'savings'
             });
 
-            // Reload listing
             await fetchAccountsAndSettings();
             setSelectedAccountId(data.id);
         } catch (err) {
@@ -293,415 +290,426 @@ export default function BankAccountsReport() {
     }
 
     return (
-        <div style={{ padding: 'var(--spacing-lg)', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-lg)', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
-            {/* Tab Header Controls */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', gap: '8px', backgroundColor: 'var(--bg-secondary)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+            {/* Header controls (Tabs & Add Bank) */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '2px', backgroundColor: 'var(--bg-secondary)', padding: '2px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                     <button
                         onClick={() => setActiveSubTab('setup')}
                         style={{
-                            padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                            padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: 'none',
                             backgroundColor: activeSubTab === 'setup' ? 'var(--bg-elevated)' : 'transparent',
                             color: activeSubTab === 'setup' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontWeight: 600, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                            fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
                             transition: 'all 0.15s'
                         }}
                     >
-                        <Settings2 size={14} />
-                        Setup Alert Integration
+                        <Settings2 size={13} />
+                        Setup
                     </button>
                     <button
                         onClick={() => setActiveSubTab('transactions')}
                         style={{
-                            padding: '6px 14px', borderRadius: 'var(--radius-sm)', border: 'none',
+                            padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: 'none',
                             backgroundColor: activeSubTab === 'transactions' ? 'var(--bg-elevated)' : 'transparent',
                             color: activeSubTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontWeight: 600, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                            fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
                             transition: 'all 0.15s'
                         }}
                     >
-                        <History size={14} />
-                        Transactions History
+                        <History size={13} />
+                        Transactions
                     </button>
                 </div>
 
-                <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Plus size={16} />
-                    Add Bank Account
+                <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
+                    <Plus size={14} />
+                    Add Bank
                 </button>
             </div>
 
-            {/* Split Screen Layout */}
+            {/* Empty accounts fallback */}
             {accounts.length === 0 ? (
-                <div style={{ padding: '80px 40px', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
-                    <Building2 size={48} style={{ color: 'var(--text-tertiary)', margin: '0 auto 16px', opacity: 0.3 }} />
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>No Bank Accounts Registered</h3>
-                    <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 16px', fontSize: '13px' }}>
+                <div style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
+                    <Building2 size={40} style={{ color: 'var(--text-tertiary)', margin: '0 auto 12px', opacity: 0.3 }} />
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>No Bank Accounts Registered</h3>
+                    <p style={{ color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 auto 12px', fontSize: '12px' }}>
                         You have not registered any bank accounts under current assets ledger group yet.
                     </p>
-                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary">
+                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ fontSize: '12px' }}>
                         Register Bank Ledger
                     </button>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 'var(--spacing-lg)', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Left Sidebar: Select Bank Account */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderRight: '1px solid var(--border-primary)', paddingRight: 'var(--spacing-md)', overflowY: 'auto' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                            🏦 Choose Bank Account
+                    {/* Bank Selector Dropdown instead of Sidebar */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                        <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            🏦 Active Bank Account
+                        </label>
+                        <div style={{ position: 'relative', width: '100%', marginTop: '4px' }}>
+                            <select
+                                value={selectedAccountId || ''}
+                                onChange={e => setSelectedAccountId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    paddingRight: '36px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-primary)',
+                                    cursor: 'pointer',
+                                    appearance: 'none'
+                                }}
+                            >
+                                {accounts.map(acc => {
+                                    const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
+                                    return (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.name} ({acc.bank_name || 'N/A'}{acc.account_number ? ` - ending ${acc.account_number.slice(-4)}` : ''}) {isConfigured ? '🟢' : '⚪'}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <ChevronDown size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
                         </div>
-                        {accounts.map(acc => {
-                            const isSelected = acc.id === selectedAccountId;
-                            const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
-                            return (
-                                <div
-                                    key={acc.id}
-                                    onClick={() => setSelectedAccountId(acc.id)}
-                                    style={{
-                                        padding: '12px',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                                        backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-elevated)',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '4px',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '170px' }}>
-                                            {acc.name}
-                                        </span>
-                                        {isConfigured ? (
-                                            <span title="Alerts active" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                                        ) : (
-                                            <span title="Not integrated" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-tertiary)' }} />
-                                        )}
-                                    </div>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                        {acc.bank_name || 'N/A'}
-                                    </span>
-                                    {acc.account_number && (
-                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>
-                                            A/c ending {acc.account_number.slice(-4)}
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        })}
                     </div>
 
-                    {/* Right Panel: Content */}
-                    <div style={{ overflowY: 'auto', paddingLeft: '4px' }}>
-                        {selectedAccount && (
-                            <>
-                                {activeSubTab === 'setup' ? (
-                                    
-                                    /* SUBTAB: SETUP ALERT CREDENTIALS */
-                                    <div style={{ maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        <div>
-                                            <h3 style={{ fontSize: '16px', fontWeight: 600, margin: 0 }}>
-                                                Configure Instant Transaction Alerts
-                                            </h3>
-                                            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
-                                                Set up automated Gmail scraper parameters for <strong>{selectedAccount.name}</strong>.
-                                            </p>
-                                        </div>
-
-                                        <form onSubmit={handleSaveSetup} style={{ display: 'flex', flexDirection: 'column', gap: '16px', backgroundColor: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
-                                            
-                                            {/* Email Address */}
-                                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    Scraper Gmail Address
-                                                    <span style={{ color: '#ef4444' }}>*</span>
-                                                </label>
-                                                <input
-                                                    type="email"
-                                                    className="form-control"
-                                                    required
-                                                    placeholder="e.g. your_alerts_email@gmail.com"
-                                                    value={setupForm.email}
-                                                    onChange={e => setSetupForm({ ...setupForm, email: e.target.value })}
-                                                />
-                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                                    The inbox where your HDFC / Bank transaction emails are received.
-                                                </span>
-                                            </div>
-
-                                            {/* Google App Password */}
-                                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    Google App Password
-                                                    <span style={{ color: '#ef4444' }}>*</span>
-                                                </label>
-                                                <input
-                                                    type="password"
-                                                    className="form-control"
-                                                    required
-                                                    placeholder="16-character app password (e.g. abcd efgh ijkl mnop)"
-                                                    value={setupForm.app_password}
-                                                    onChange={e => setSetupForm({ ...setupForm, app_password: e.target.value })}
-                                                />
-                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                                    Generated in Google Account ➔ Security ➔ 2-Step Verification ➔ App passwords. Do NOT use your normal Gmail login password.
-                                                </span>
-                                            </div>
-
-                                            {/* Account Suffix Matching */}
-                                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                    Account Suffix (Last 4 Digits)
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    maxLength="4"
-                                                    className="form-control"
-                                                    placeholder="e.g. 8771"
-                                                    value={setupForm.account_ending}
-                                                    onChange={e => setSetupForm({ ...setupForm, account_ending: e.target.value.replace(/\D/g, '') })}
-                                                />
-                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                                    Limits matching alerts strictly to emails mentioning account ending in these digits (autofilled from your ledger config).
-                                                </span>
-                                            </div>
-
-                                            {/* Connection Status & Activation Switch */}
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-primary)', paddingTop: '16px', marginTop: '4px' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Active Scraper Listener</span>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Process new alerts dynamically</span>
-                                                </div>
-                                                <input
-                                                    type="checkbox"
-                                                    style={{ width: '38px', height: '20px', cursor: 'pointer' }}
-                                                    checked={setupForm.is_active}
-                                                    onChange={e => setSetupForm({ ...setupForm, is_active: e.target.checked })}
-                                                />
-                                            </div>
-
-                                            {/* Testing Feedback Message */}
-                                            {testStatus && (
-                                                <div style={{
-                                                    display: 'flex', gap: '8px', padding: '12px', borderRadius: 'var(--radius-md)',
-                                                    backgroundColor: testStatus.success ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                                                    border: `1px solid ${testStatus.success ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-                                                    fontSize: '12px', color: testStatus.success ? '#10b981' : '#ef4444'
-                                                }}>
-                                                    {testStatus.success ? <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '1px' }} /> : <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />}
-                                                    <span>{testStatus.msg}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Action Buttons */}
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleTestConnection}
-                                                    disabled={testing || saving}
-                                                    className="btn btn-secondary"
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                                >
-                                                    {testing ? <Loader2 size={14} className="spin" /> : null}
-                                                    Test Connection
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={saving || testing}
-                                                    className="btn btn-primary"
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                                                >
-                                                    {saving ? <Loader2 size={14} className="spin" /> : null}
-                                                    Save Configuration
-                                                </button>
-                                            </div>
-
-                                        </form>
+                    {/* Content Panel */}
+                    {selectedAccount && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
+                            {activeSubTab === 'setup' ? (
+                                
+                                /* SETUP TAB */
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                        <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>
+                                            Configure Instant Alerts
+                                        </h3>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0 0' }}>
+                                            Assign email transaction scraper credentials for <strong>{selectedAccount.name}</strong>.
+                                        </p>
                                     </div>
-                                ) : (
-                                    
-                                    /* SUBTAB: TRANSACTION HISTORY LOGS */
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                                    <form onSubmit={handleSaveSetup} style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                         
-                                        {/* Summary Cards */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                                            <div className="card" style={{ padding: '12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Ledger Balance</span>
-                                                <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                                                    ₹{parseFloat(selectedAccount.closing_balance || selectedAccount.opening_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                            <div className="card" style={{ padding: '12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Inflow (Receipts)</span>
-                                                <span style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>
-                                                    ₹{transactions.filter(t => t.type === 'receipt').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
-                                            <div className="card" style={{ padding: '12px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase' }}>Outflow (Payments)</span>
-                                                <span style={{ fontSize: '18px', fontWeight: 800, color: '#ef4444' }}>
-                                                    ₹{transactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </div>
+                                        {/* Email Address */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                Scraper Gmail Address *
+                                            </label>
+                                            <input
+                                                type="email" required placeholder="e.g. spendlogs@gmail.com" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                                value={setupForm.email} onChange={e => setSetupForm({ ...setupForm, email: e.target.value })}
+                                            />
                                         </div>
 
-                                        {/* Transactions Table */}
-                                        <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                                <thead>
-                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600, width: '90px' }}>Date</th>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600, width: '100px' }}>Voucher No.</th>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600, width: '80px' }}>Type</th>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Particulars / Party</th>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600, width: '80px' }}>Mode</th>
-                                                        <th style={{ padding: '10px 12px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right', width: '110px' }}>Amount</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {transactions.map(t => (
-                                                        <tr key={t.id} style={{ borderBottom: '1px solid var(--border-primary)', hover: { backgroundColor: 'rgba(255,255,255,0.02)' } }}>
-                                                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                                                                {new Date(t.date).toLocaleDateString('en-GB')}
-                                                            </td>
-                                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{t.number}</td>
-                                                            <td style={{ padding: '10px 12px' }}>
+                                        {/* Google App Password */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                Google App Password *
+                                            </label>
+                                            <input
+                                                type="password" required placeholder="16-character code" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                                value={setupForm.app_password} onChange={e => setSetupForm({ ...setupForm, app_password: e.target.value })}
+                                            />
+                                        </div>
+
+                                        {/* Account Suffix Matching */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                Account Suffix (Last 4 Digits)
+                                            </label>
+                                            <input
+                                                type="text" maxLength="4" placeholder="e.g. 8771" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                                value={setupForm.account_ending} onChange={e => setSetupForm({ ...setupForm, account_ending: e.target.value.replace(/\D/g, '') })}
+                                            />
+                                        </div>
+
+                                        {/* Active Switch */}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-primary)', paddingTop: '10px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 600 }}>Active Scraper Listener</span>
+                                            <input
+                                                type="checkbox" style={{ width: '34px', height: '18px', cursor: 'pointer' }}
+                                                checked={setupForm.is_active} onChange={e => setSetupForm({ ...setupForm, is_active: e.target.checked })}
+                                            />
+                                        </div>
+
+                                        {/* Testing Message */}
+                                        {testStatus && (
+                                            <div style={{
+                                                display: 'flex', gap: '6px', padding: '10px', borderRadius: 'var(--radius-md)',
+                                                backgroundColor: testStatus.success ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                                                border: `1px solid ${testStatus.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                                                fontSize: '11px', color: testStatus.success ? '#10b981' : '#ef4444'
+                                            }}>
+                                                <AlertCircle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                                <span>{testStatus.msg}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                                            <button
+                                                type="button" onClick={handleTestConnection} disabled={testing || saving}
+                                                className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
+                                            >
+                                                {testing && <Loader2 size={12} className="spin" />}
+                                                Test
+                                            </button>
+                                            <button
+                                                type="submit" disabled={saving || testing}
+                                                className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
+                                            >
+                                                {saving && <Loader2 size={12} className="spin" />}
+                                                Save
+                                            </button>
+                                        </div>
+
+                                    </form>
+                                </div>
+                            ) : (
+                                
+                                /* TRANSACTIONS TAB */
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
+                                    
+                                    {/* Brief Summary Cards */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Balance</span>
+                                            <span style={{ fontSize: '12px', fontWeight: 700 }}>
+                                                ₹{parseFloat(selectedAccount.closing_balance || selectedAccount.opening_balance || 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Inflow</span>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#10b981' }}>
+                                                ₹{transactions.filter(t => t.type === 'receipt').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Outflow</span>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
+                                                ₹{transactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Responsive Mobile Layout for Transaction Logs */}
+                                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                                        {isMobile ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                {transactions.map(t => (
+                                                    <div
+                                                        key={t.id}
+                                                        style={{
+                                                            padding: '10px 12px',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '75%' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                 <span style={{
-                                                                    fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', padding: '2px 6px', borderRadius: '4px',
+                                                                    fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: '3px',
                                                                     backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                                                     color: t.type === 'receipt' ? '#10b981' : '#ef4444'
                                                                 }}>
-                                                                    {t.type}
+                                                                    {t.type === 'receipt' ? 'IN' : 'OUT'}
                                                                 </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 12px' }}>
-                                                                <div style={{ fontWeight: 500 }}>{t.party || '—'}</div>
-                                                                {t.narration && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{t.narration}</div>}
-                                                            </td>
-                                                            <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                                                                {t.payment_mode || 'bank'}
-                                                            </td>
-                                                            <td style={{
-                                                                padding: '10px 12px', textAlign: 'right', fontWeight: 700,
-                                                                color: t.type === 'receipt' ? '#10b981' : '#ef4444'
-                                                            }}>
-                                                                {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                            </td>
+                                                                <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                                    {t.number}
+                                                                </span>
+                                                            </div>
+                                                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {t.party || '—'}
+                                                            </span>
+                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                                {new Date(t.date).toLocaleDateString('en-GB')} · {t.payment_mode}
+                                                            </span>
+                                                            {t.narration && (
+                                                                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {t.narration}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
+                                                            {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                                {transactions.length === 0 && (
+                                                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
+                                                        No transactions found.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            
+                                            /* Desktop standard table */
+                                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
+                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Date</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Voucher No.</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Type</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Party Ledger</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Mode</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
                                                         </tr>
-                                                    ))}
-                                                    {transactions.length === 0 && (
-                                                        <tr>
-                                                            <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                                                                No matching transactions registered for this account.
-                                                            </td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-
+                                                    </thead>
+                                                    <tbody>
+                                                        {transactions.map(t => (
+                                                            <tr key={t.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                                                    {new Date(t.date).toLocaleDateString('en-GB')}
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px', fontWeight: 600 }}>{t.number}</td>
+                                                                <td style={{ padding: '8px 10px' }}>
+                                                                    <span style={{
+                                                                        fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', padding: '2px 4px', borderRadius: '4px',
+                                                                        backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                        color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                    }}>
+                                                                        {t.type}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px' }}>
+                                                                    <div style={{ fontWeight: 500 }}>{t.party || '—'}</div>
+                                                                    {t.narration && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{t.narration}</div>}
+                                                                </td>
+                                                                <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                                                                    {t.payment_mode || 'bank'}
+                                                                </td>
+                                                                <td style={{
+                                                                    padding: '8px 10px', textAlign: 'right', fontWeight: 700,
+                                                                    color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                }}>
+                                                                    {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        {transactions.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                                                    No transactions registered.
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </>
-                        )}
-                    </div>
+
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                 </div>
             )}
 
-            {/* CREATE BANK ACCOUNT LEDGER MODAL */}
+            {/* CREATE BANK ACCOUNT MODAL */}
             {showCreateModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '12px' }}>
+                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         
-                        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Building2 size={18} style={{ color: 'var(--color-primary)' }} />
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Building2 size={16} style={{ color: 'var(--color-primary)' }} />
                                 Add Bank Account Ledger
                             </h3>
-                            <button onClick={() => setShowCreateModal(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }}>✕</button>
+                            <button onClick={() => setShowCreateModal(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', fontSize: '14px' }}>✕</button>
                         </div>
 
-                        <form onSubmit={handleCreateAccount} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        <form onSubmit={handleCreateAccount} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             
                             {/* Account Name */}
-                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ledger Account Name *</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ledger Account Name *</label>
                                 <input
-                                    type="text" required placeholder="e.g. HDFC Current A/c 8771" className="form-control"
+                                    type="text" required placeholder="e.g. HDFC Bank 8771" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                     value={newAccount.name} onChange={e => setNewAccount({ ...newAccount, name: e.target.value })}
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 {/* Bank Name */}
-                                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Name *</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Name *</label>
                                     <input
-                                        type="text" required placeholder="e.g. HDFC Bank" className="form-control"
+                                        type="text" required placeholder="e.g. HDFC Bank" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                         value={newAccount.bank_name} onChange={e => setNewAccount({ ...newAccount, bank_name: e.target.value })}
                                     />
                                 </div>
                                 {/* Account Type */}
-                                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Type</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Type</label>
                                     <select
-                                        className="form-control" value={newAccount.account_type}
-                                        onChange={e => setNewAccount({ ...newAccount, account_type: e.target.value })}
+                                        className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        value={newAccount.account_type} onChange={e => setNewAccount({ ...newAccount, account_type: e.target.value })}
                                     >
-                                        <option value="savings">Savings Account</option>
-                                        <option value="current">Current Account</option>
-                                        <option value="od">Overdraft (OD)</option>
+                                        <option value="savings">Savings</option>
+                                        <option value="current">Current</option>
+                                        <option value="od">OD A/c</option>
                                     </select>
                                 </div>
                             </div>
 
                             {/* Account Number */}
-                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Number</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Number</label>
                                 <input
-                                    type="text" placeholder="Full Account Number" className="form-control"
+                                    type="text" placeholder="Full Account Number" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                     value={newAccount.account_number} onChange={e => setNewAccount({ ...newAccount, account_number: e.target.value.replace(/\D/g, '') })}
                                 />
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                                 {/* IFSC Code */}
-                                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>IFSC Code</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>IFSC Code</label>
                                     <input
-                                        type="text" placeholder="IFSC Code" className="form-control"
+                                        type="text" placeholder="IFSC Code" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                         value={newAccount.ifsc_code} onChange={e => setNewAccount({ ...newAccount, ifsc_code: e.target.value })}
                                     />
                                 </div>
                                 {/* Branch Name */}
-                                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Branch</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Branch</label>
                                     <input
-                                        type="text" placeholder="e.g. Bandra West" className="form-control"
+                                        type="text" placeholder="e.g. Bandra" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                         value={newAccount.branch} onChange={e => setNewAccount({ ...newAccount, branch: e.target.value })}
                                     />
                                 </div>
                             </div>
 
                             {/* Opening Balance */}
-                            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Opening Balance (₹)</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Opening Balance (₹)</label>
                                 <input
-                                    type="number" step="0.01" placeholder="0.00" className="form-control"
+                                    type="number" step="0.01" placeholder="0.00" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
                                     value={newAccount.opening_balance} onChange={e => setNewAccount({ ...newAccount, opening_balance: e.target.value })}
                                 />
                             </div>
 
                             {/* Submit */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px' }}>
-                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary">Cancel</button>
-                                <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    {saving ? <Loader2 size={14} className="spin" /> : null}
-                                    Create Bank Ledger
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
+                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Cancel</button>
+                                <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
+                                    {saving && <Loader2 size={12} className="spin" />}
+                                    Create Account
                                 </button>
                             </div>
 
