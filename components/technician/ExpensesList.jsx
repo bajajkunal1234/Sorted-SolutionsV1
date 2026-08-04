@@ -221,7 +221,25 @@ export default function ExpensesList({ technicianId }) {
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to submit expense');
 
-            setExpenses([data.expense, ...expenses]);
+            let newExpense = data.expense;
+            if (!newExpense && (data.queued || data.offline || data.ok)) {
+                newExpense = {
+                    id: `temp-${Date.now()}`,
+                    technician_id: technicianId,
+                    technician_name: techName,
+                    date: formData.date,
+                    category: formData.category,
+                    amount: parseFloat(formData.amount),
+                    description: formData.description,
+                    receipt: receiptPhoto || receiptUrl,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                };
+            }
+
+            if (newExpense) {
+                setExpenses(prev => [newExpense, ...prev]);
+            }
             setFormData({ date: getLocalDateString(), category: categories[0]?.id || '', amount: '', description: '' });
             setReceiptPhoto(null);
             setReceiptUrl(null);
@@ -273,8 +291,8 @@ export default function ExpensesList({ technicianId }) {
         const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         return `${datePart}, ${timePart}`;
     };
-    const getTotalExpenses = () => expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
-    const pendingCount = expenses.filter(e => e.status === 'pending').length;
+    const getTotalExpenses = () => expenses.reduce((sum, exp) => sum + parseFloat(exp?.amount || 0), 0);
+    const pendingCount = expenses.filter(e => e?.status === 'pending').length;
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -486,6 +504,7 @@ export default function ExpensesList({ technicianId }) {
                         ) : (
                             <div style={{ display: 'grid', gap: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                                 {expenses.map(expense => {
+                                    if (!expense) return null;
                                     const cat = getCatInfo(expense.category);
                                     return (
                                         <div key={expense.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${expense.status === 'rejected' ? 'rgba(239,68,68,0.3)' : expense.status === 'approved' ? 'rgba(16,185,129,0.3)' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-sm)' }}>
