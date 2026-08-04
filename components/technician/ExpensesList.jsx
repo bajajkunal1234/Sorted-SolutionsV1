@@ -275,10 +275,12 @@ export default function ExpensesList({ technicianId }) {
             approved: { icon: <CheckCircle size={11} />, label: 'Approved', bg: '#d1fae5', color: '#059669' },
             rejected: { icon: <XCircle size={11} />, label: 'Rejected', bg: '#fee2e2', color: '#dc2626' }
         };
-        const s = map[status] || map.pending;
+        const isApproved = status === 'approved' || status?.toLowerCase().includes('approved');
+        const s = isApproved ? map.approved : (map[status] || map.pending);
+        const labelText = status === 'approved' ? 'Approved' : (isApproved ? status.charAt(0).toUpperCase() + status.slice(1) : s.label);
         return (
             <span style={{ display:'inline-flex', alignItems:'center', gap:'3px', padding:'2px 7px', borderRadius:'9999px', fontSize:'10px', fontWeight:600, backgroundColor:s.bg, color:s.color }}>
-                {s.icon} {s.label}
+                {s.icon} {labelText}
             </span>
         );
     };

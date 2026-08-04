@@ -722,7 +722,8 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: payingExpense.id,
-                    status: 'approved',
+                    status: 'approved and paid',
+                    purchase_invoice_id: payingExpense.purchase_invoice_id || null,
                     payment_voucher_id: voucher.id,
                     admin_notes: reviewNotes[payingExpense.id] || ''
                 })
@@ -735,7 +736,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             setPayingExpense(null);
             setReviewNotes(prev => { const n = {...prev}; delete n[payingExpense.id]; return n; });
             fetchExpenses();
-            alert('✅ Expense approved and payment voucher linked successfully!');
+            alert('✅ Expense approved and payment voucher posted successfully!');
         } catch (err) {
             console.error('Error saving payment and approving expense:', err);
             alert('Error: ' + err.message);
@@ -832,33 +833,23 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             const response = await transactionsAPI.create(purchaseData, 'purchase');
             if (!response || !response.id) throw new Error('Failed to create purchase invoice for expense');
 
-            const patchRes = await fetch('/api/admin/expenses', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: expense.id,
-                    status: 'approved',
-                    purchase_invoice_id: response.id,
-                    admin_notes: reviewNotes[expense.id] || ''
-                })
+            // Open the PaymentVoucherForm modal prefilled with all details to create a payment entry
+            setPayingExpense({
+                ...expense,
+                purchase_invoice_id: response.id
             });
-
-            const patchData = await patchRes.json();
-            if (!patchData.success) throw new Error(patchData.error || 'Failed to update expense status');
-
-            setReviewNotes(prev => { const n = {...prev}; delete n[expense.id]; return n; });
-            fetchExpenses();
-            alert(`✅ Expense approved and posted to ${tech.name}'s account ledger successfully!`);
         } catch (err) {
-            console.error('Error approving expense:', err);
+            console.error('Error approving expense (purchase invoice stage):', err);
             alert('Failed to approve expense: ' + err.message);
         }
     };
 
     const statusBadge = (status) => {
         const map = { pending: { label: 'Pending', bg: '#fef3c7', color: '#d97706' }, approved: { label: 'Approved', bg: '#d1fae5', color: '#059669' }, rejected: { label: 'Rejected', bg: '#fee2e2', color: '#dc2626' } };
-        const s = map[status] || map.pending;
-        return <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: s.bg, color: s.color }}>{s.label}</span>;
+        const isApproved = status === 'approved' || status?.toLowerCase().includes('approved');
+        const s = isApproved ? map.approved : (map[status] || map.pending);
+        const labelText = status === 'approved' ? 'Approved' : (isApproved ? status.charAt(0).toUpperCase() + status.slice(1) : s.label);
+        return <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: s.bg, color: s.color }}>{labelText}</span>;
     };
 
     if (loading) return <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}><p>Loading...</p></div>;
@@ -2942,20 +2933,24 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                 <TechnicianStockTab technicians={technicians} />
             )}
 
-            {payingExpense && (
-                <PaymentVoucherForm
-                    onClose={() => setPayingExpense(null)}
-                    onSave={handleSavePaymentVoucher}
-                    accountType="expense"
-                    existingPayment={{
-                        account_id: getPrefilledAccount(payingExpense)?.id || '',
-                        account_name: getPrefilledAccount(payingExpense)?.name || '',
-                        amount: payingExpense.amount,
-                        notes: getPrefilledNarration(payingExpense),
-                        date: new Date().toISOString().split('T')[0]
-                    }}
-                />
-            )}
+            {payingExpense && (() => {
+                const techId = payingExpense.technician_id || payingExpense.technician?.id;
+                const tech = technicians.find(t => t.id === techId);
+                return (
+                    <PaymentVoucherForm
+                        onClose={() => setPayingExpense(null)}
+                        onSave={handleSavePaymentVoucher}
+                        accountType="technician"
+                        existingPayment={{
+                            account_id: tech?.ledger_id || '',
+                            account_name: tech?.name || '',
+                            amount: payingExpense.amount,
+                            notes: getPrefilledNarration(payingExpense),
+                            date: new Date().toISOString().split('T')[0]
+                        }}
+                    />
+                );
+            })()}
 
             {editingPurchase && (
                 <PurchaseInvoiceForm
