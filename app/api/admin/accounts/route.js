@@ -43,7 +43,7 @@ export async function GET(request) {
                 if (type === 'customer') {
                     dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%');
                 } else if (type === 'supplier' || type === 'vendor') {
-                    dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%');
+                    dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%');
                 } else {
                     dropdownQuery = dropdownQuery.eq('type', type);
                 }
@@ -63,7 +63,7 @@ export async function GET(request) {
             if (type === 'customer') {
                 query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%')
             } else if (type === 'supplier' || type === 'vendor') {
-                query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%')
+                query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%')
             } else if (type === 'technician') {
                 query = query.or('type.eq.technician,under.ilike.%technician%,under.ilike.%creditor%')
             } else if (type === 'payment_method') {
