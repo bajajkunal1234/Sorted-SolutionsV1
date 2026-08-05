@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { generateAccountSKU } from '@/lib/generateAccountSKU'
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 // GET - Fetch all accounts
 export async function GET(request) {
     try {
+        const supabase = createServerSupabase()
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type')
         const id = searchParams.get('id')
@@ -132,6 +133,7 @@ const ALLOWED_COLUMNS = [
 // POST - Create new account
 export async function POST(request) {
     try {
+        const supabase = createServerSupabase()
         const body = await request.json()
 
         // Normalize mobile phone number to raw 10 digits
@@ -326,6 +328,7 @@ export async function POST(request) {
 // PUT - Update account
 export async function PUT(request) {
     try {
+        const supabase = createServerSupabase()
         const body = await request.json()
         const { id, ...updates } = body
 
@@ -496,6 +499,7 @@ export async function PUT(request) {
 // DELETE - Delete account
 export async function DELETE(request) {
     try {
+        const supabase = createServerSupabase()
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
