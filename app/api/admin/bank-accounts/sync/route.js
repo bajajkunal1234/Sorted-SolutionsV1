@@ -164,7 +164,10 @@ export async function POST(request) {
                 from: 'alerts@hdfcbank.bank.in'
             });
 
-            for (const msgId of searchResults) {
+            // Limit to newest 15 messages per run to avoid serverless timeout limits (approx. 3-4s execution time)
+            const limitedResults = searchResults.slice(-15);
+
+            for (const msgId of limitedResults) {
                 // Fetch email source
                 const emailData = await client.download(msgId);
                 const parsedEmail = await simpleParser(emailData.content);
