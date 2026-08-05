@@ -183,6 +183,7 @@ export async function POST(request) {
                 const parsedEmail = await simpleParser(emailData.content);
                 
                 const subject = parsedEmail.subject || '';
+                const bodyText = parsedEmail.text || parsedEmail.html || '';
  
                 // Extract transaction parameters from text or html
                 const alert = parseHdfcEmail(subject, parsedEmail.text, parsedEmail.html);
