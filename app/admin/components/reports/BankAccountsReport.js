@@ -7,8 +7,10 @@ import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import { transactionsAPI } from '@/lib/adminAPI';
 
-export default function BankAccountsReport() {
-    const [activeSubTab, setActiveSubTab] = useState('setup'); // 'setup' | 'transactions'
+export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
+    const [localSubTab, setLocalSubTab] = useState('setup');
+    const activeSubTab = propActiveSubTab || localSubTab;
+    const setActiveSubTab = propSetActiveSubTab || setLocalSubTab;
     const [accounts, setAccounts] = useState([]);
     const [imapSettings, setImapSettings] = useState({});
     const [selectedAccountId, setSelectedAccountId] = useState(null);
@@ -391,56 +393,6 @@ export default function BankAccountsReport() {
     return (
         <div style={{ padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-lg)', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
-            {/* Header controls (Tabs & Sync / Add Bank) */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '2px', backgroundColor: 'var(--bg-secondary)', padding: '2px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                    <button
-                        onClick={() => setActiveSubTab('setup')}
-                        style={{
-                            padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: 'none',
-                            backgroundColor: activeSubTab === 'setup' ? 'var(--bg-elevated)' : 'transparent',
-                            color: activeSubTab === 'setup' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                            transition: 'all 0.15s'
-                        }}
-                    >
-                        <Settings2 size={13} />
-                        Setup
-                    </button>
-                    <button
-                        onClick={() => setActiveSubTab('transactions')}
-                        style={{
-                            padding: '6px 10px', borderRadius: 'var(--radius-sm)', border: 'none',
-                            backgroundColor: activeSubTab === 'transactions' ? 'var(--bg-elevated)' : 'transparent',
-                            color: activeSubTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                            transition: 'all 0.15s'
-                        }}
-                    >
-                        <History size={13} />
-                        Transactions
-                    </button>
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    {activeSubTab === 'transactions' && selectedAccountId && (
-                        <button
-                            onClick={triggerSync}
-                            disabled={syncing}
-                            className="btn btn-secondary"
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
-                        >
-                            {syncing ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
-                            Sync Alerts
-                        </button>
-                    )}
-                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
-                        <Plus size={14} />
-                        Add Bank
-                    </button>
-                </div>
-            </div>
-
             {/* Empty accounts fallback */}
             {accounts.length === 0 ? (
                 <div style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
@@ -456,39 +408,63 @@ export default function BankAccountsReport() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Bank Selector Dropdown */}
+                    {/* Bank Selector & Sync Button Row */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                         <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             🏦 Active Bank Account
                         </label>
-                        <div style={{ position: 'relative', width: '100%', marginTop: '4px' }}>
-                            <select
-                                value={selectedAccountId || ''}
-                                onChange={e => setSelectedAccountId(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    paddingRight: '36px',
-                                    fontSize: '13px',
-                                    fontWeight: 600,
-                                    borderRadius: 'var(--radius-md)',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    color: 'var(--text-primary)',
-                                    border: '1px solid var(--border-primary)',
-                                    cursor: 'pointer',
-                                    appearance: 'none'
-                                }}
-                            >
-                                {accounts.map(acc => {
-                                    const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
-                                    return (
-                                        <option key={acc.id} value={acc.id}>
-                                            {acc.name} ({acc.bank_name || 'N/A'}{acc.account_number ? ` - ending ${acc.account_number.slice(-4)}` : ''}) {isConfigured ? '🟢' : '⚪'}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                            <ChevronDown size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <select
+                                    value={selectedAccountId || ''}
+                                    onChange={e => setSelectedAccountId(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        paddingRight: '36px',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-primary)',
+                                        cursor: 'pointer',
+                                        appearance: 'none'
+                                    }}
+                                >
+                                    {accounts.map(acc => {
+                                        const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
+                                        return (
+                                            <option key={acc.id} value={acc.id}>
+                                                {acc.name} ({acc.bank_name || 'N/A'}{acc.account_number ? ` - ending ${acc.account_number.slice(-4)}` : ''}) {isConfigured ? '🟢' : '⚪'}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                <ChevronDown size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+                            </div>
+
+                            {activeSubTab === 'transactions' && selectedAccountId && (
+                                <button
+                                    onClick={triggerSync}
+                                    disabled={syncing}
+                                    className="btn btn-secondary"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        padding: '8px 16px',
+                                        fontSize: '13px',
+                                        height: '38px',
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {syncing ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                                    {!isMobile && "Sync Alerts"}
+                                </button>
+                            )}
                         </div>
                     </div>
 

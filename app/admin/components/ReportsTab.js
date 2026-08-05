@@ -35,6 +35,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     const [activeSection, setActiveSection] = useState(null); // null = homepage
     const [subSection, setSubSection] = useState(null);
     const [customSubTab, setCustomSubTab] = useState(null);
+    const [bankAccountsSubTab, setBankAccountsSubTab] = useState('setup');
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -337,6 +338,36 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                         )}
                     </>
                 )}
+                {activeSection === 'bank-accounts' && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '2px', backgroundColor: 'var(--bg-secondary)', padding: '2px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                        <button
+                            onClick={() => setBankAccountsSubTab('setup')}
+                            style={{
+                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                backgroundColor: bankAccountsSubTab === 'setup' ? 'var(--bg-elevated)' : 'transparent',
+                                color: bankAccountsSubTab === 'setup' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <Settings size={12} style={{ opacity: 0.8 }} />
+                            Setup
+                        </button>
+                        <button
+                            onClick={() => setBankAccountsSubTab('transactions')}
+                            style={{
+                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                backgroundColor: bankAccountsSubTab === 'transactions' ? 'var(--bg-elevated)' : 'transparent',
+                                color: bankAccountsSubTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <History size={12} style={{ opacity: 0.8 }} />
+                            Transactions
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Content Area */}
@@ -500,6 +531,8 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                             setActiveSection(sectionId);
                             setCustomSubTab(subTabId);
                         }}
+                        activeSubTab={bankAccountsSubTab}
+                        setActiveSubTab={setBankAccountsSubTab}
                     />
                 ) : (
                     <div style={{
