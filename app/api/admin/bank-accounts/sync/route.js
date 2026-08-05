@@ -167,7 +167,7 @@ export async function POST(request) {
             for (const msgId of searchResults) {
                 // Fetch email source
                 const emailData = await client.download(msgId);
-                const parsedEmail = await simpleParser(emailData);
+                const parsedEmail = await simpleParser(emailData.content);
                 
                 const subject = parsedEmail.subject || '';
                 const bodyText = parsedEmail.text || parsedEmail.html || '';
