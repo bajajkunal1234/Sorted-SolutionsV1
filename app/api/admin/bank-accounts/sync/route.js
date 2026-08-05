@@ -9,8 +9,10 @@ export const dynamic = 'force-dynamic';
 function parseHdfcEmail(subject, text, html) {
     let bodyToParse = text || '';
     if (!bodyToParse && html) {
-        // Strip HTML tags
-        bodyToParse = html.replace(/<[^>]*>/g, ' ');
+        // Strip style and script blocks
+        let cleanedHtml = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        cleanedHtml = cleanedHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+        bodyToParse = cleanedHtml.replace(/<[^>]*>/g, ' ');
     }
     
     const textClean = bodyToParse
@@ -20,19 +22,17 @@ function parseHdfcEmail(subject, text, html) {
         .replace(/&gt;/gi, '>')
         .replace(/\s+/g, ' ');
     
-    // Pattern 1: Rs.10.00 is debited from your account ending 8771 towards VPA bajaj.bhavesh.94@okicici (bajaj.bhavesh.94@okicici) on 05-08-26.
-    const upiDebRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+is\s+(debited|credited)\s+from\s+your\s+account\s+ending\s+(\d{4})\s+towards\s+VPA\s+([^\s]+)\s+on\s+(\d{2}-\d{2}-\d{2})/i;
+    // Pattern 1: Rs.10.00 is debited from your account ending 4298 towards VPA bajajkunal1234@okicici (KUNAL VASUDEO BAJAJ) on 05-08-26.
+    // Handles optional parenthesis payee name between VPA and "on"
+    const upiDebRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+is\s+(debited|credited)\s+from\s+your\s+account\s+ending\s+(\d{4})\s+towards\s+VPA\s+([^\s]+)(?:\s+\([^)]+\))?\s+on\s+(\d{2}-\d{2}-\d{2})/i;
     
     // Pattern 2: Generic Debit/Credit Alert
-    // Rs.1,500.00 was debited from HDFC Bank Account ending 1234 towards merchant on 05-08-26
-    const genericRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+is\s+(debited|credited)\s+from\s+your\s+account\s+ending\s+(\d{4})\s+towards\s+([^\s]+)\s+on\s+(\d{2}-\d{2}-\d{2})/i;
+    const genericRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+is\s+(debited|credited)\s+from\s+your\s+account\s+ending\s+(\d{4})\s+towards\s+([^\s]+)(?:\s+\([^)]+\))?\s+on\s+(\d{2}-\d{2}-\d{2})/i;
 
-    // Pattern 3: spent/debited on debit/credit card
-    // Rs.500.00 was spent on HDFC Bank Credit Card ending 1234 at PAYTM on 05-08-26
-    const cardRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+(?:was\s+spent|was\s+debited|debited)\s+on\s+your\s+HDFC\s+Bank\s+(?:Credit|Debit)\s+Card\s+ending\s+(\d{4})\s+(?:at|to)\s+([^\s]+)\s+on\s+(\d{2}-\d{2}-\d{2})/i;
+    // Pattern 3: spent/debited on card
+    // Rs.10000.00 is debited from your HDFC Bank Debit Card ending 6099 at GOOGLESERVIS on 28 Jul, 2026 at 14:31:49.
+    const cardRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+(?:was\s+spent|was\s+debited|debited|is\s+debited)\s+from\s+your\s+HDFC\s+Bank\s+(?:Credit|Debit)\s+Card\s+ending\s+(\d{4})\s+(?:at|to)\s+([^\s]+)\s+on\s+(\d{1,2}\s+[a-z]{3},?\s*\d{4})/i;
 
-    // UPI reference match
-    // UPI transaction reference no.: 621716076591
     const upiRefRegex = /(?:UPI\s+transaction\s+reference\s+no\.:|UTR\s+No\.:)\s*(\d+)/i;
 
     let match = textClean.match(upiDebRegex);
@@ -83,9 +83,9 @@ function parseHdfcEmail(subject, text, html) {
 
         let formattedDate = new Date().toISOString().split('T')[0];
         if (dateRaw) {
-            const parts = dateRaw.split('-');
-            if (parts.length === 3) {
-                formattedDate = `20${parts[2]}-${parts[1]}-${parts[0]}`;
+            const parseDate = new Date(dateRaw.replace(',', ''));
+            if (!isNaN(parseDate.getTime())) {
+                formattedDate = parseDate.toISOString().split('T')[0];
             }
         }
 
