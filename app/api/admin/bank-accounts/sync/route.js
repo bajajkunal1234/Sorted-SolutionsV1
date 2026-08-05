@@ -33,7 +33,49 @@ function parseHdfcEmail(subject, text, html) {
     // Rs.10000.00 is debited from your HDFC Bank Debit Card ending 6099 at GOOGLESERVIS on 28 Jul, 2026 at 14:31:49.
     const cardRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+(?:was\s+spent|was\s+debited|debited|is\s+debited)\s+from\s+your\s+HDFC\s+Bank\s+(?:Credit|Debit)\s+Card\s+ending\s+(\d{4})\s+(?:at|to)\s+([^\s]+)\s+on\s+(\d{1,2}\s+[a-z]{3},?\s*\d{4})/i;
 
+    // Pattern 4: HDFC Account Update Credit/Debit style
+    // We're writing to inform you that Rs.9900.00 has been successfully credited to your HDFC Bank account ending in 4298.
+    const accountUpdateRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+has\s+been\s+successfully\s+(credited|debited)\s+to\s+your\s+HDFC\s+Bank\s+account\s+ending\s+(?:in|with)\s+(\d{4})/i;
+
     const upiRefRegex = /(?:UPI\s+transaction\s+reference\s+no\.:|UTR\s+No\.:)\s*(\d+)/i;
+
+    // Try Account Update match
+    const updateMatch = textClean.match(accountUpdateRegex);
+    if (updateMatch) {
+        const amount = parseFloat(updateMatch[1].replace(/,/g, ''));
+        const type = updateMatch[2].toLowerCase() === 'credited' ? 'credit' : 'debit';
+        const accountEnding = updateMatch[3];
+        
+        // Extract Date: Date: 02-08-26
+        const dateMatch = textClean.match(/Date:\s*(\d{2}-\d{2}-\d{2})/i);
+        const dateRaw = dateMatch ? dateMatch[1] : null;
+        let formattedDate = new Date().toISOString().split('T')[0];
+        if (dateRaw) {
+            const parts = dateRaw.split('-');
+            if (parts.length === 3) {
+                formattedDate = `20${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+        }
+
+        // Extract Sender: Sender: KUNAL VASUDEO BAJAJ (VPA: bajajkunal1234@okicici)
+        const senderMatch = textClean.match(/Sender:\s*([^\n\r(]+)(?:\(VPA:\s*([^)]+)\))?/i);
+        const partyName = senderMatch ? senderMatch[1].trim() : 'Unknown Sender';
+        const vpa = senderMatch && senderMatch[2] ? senderMatch[2].trim() : '';
+
+        // Extract Reference Number
+        const refMatch = textClean.match(/(?:UPI\s+Reference\s+No\.:|Reference\s+No\.:|UTR\s+No\.:)\s*(\d+)/i);
+        const refNo = refMatch ? refMatch[1] : null;
+
+        return {
+            amount,
+            type,
+            accountEnding,
+            partyName: partyName || vpa || 'HDFC Bank Credit',
+            date: formattedDate,
+            referenceNumber: refNo,
+            narration: `Gmail Account Update: Credit of ₹${amount} from ${partyName} ${vpa ? `(${vpa})` : ''}`
+        };
+    }
 
     let match = textClean.match(upiDebRegex);
     if (!match) match = textClean.match(genericRegex);
