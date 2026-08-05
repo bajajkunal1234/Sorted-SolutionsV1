@@ -6,8 +6,19 @@ import { simpleParser } from 'mailparser';
 export const dynamic = 'force-dynamic';
 
 // Helper: Parse HDFC Email Alerts using regex
-function parseHdfcEmail(subject, text) {
-    const textClean = (text || '').replace(/\s+/g, ' ');
+function parseHdfcEmail(subject, text, html) {
+    let bodyToParse = text || '';
+    if (!bodyToParse && html) {
+        // Strip HTML tags
+        bodyToParse = html.replace(/<[^>]*>/g, ' ');
+    }
+    
+    const textClean = bodyToParse
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\s+/g, ' ');
     
     // Pattern 1: Rs.10.00 is debited from your account ending 8771 towards VPA bajaj.bhavesh.94@okicici (bajaj.bhavesh.94@okicici) on 05-08-26.
     const upiDebRegex = /Rs\.?\s*([\d,]+\.?\d*)\s+is\s+(debited|credited)\s+from\s+your\s+account\s+ending\s+(\d{4})\s+towards\s+VPA\s+([^\s]+)\s+on\s+(\d{2}-\d{2}-\d{2})/i;
@@ -158,25 +169,23 @@ export async function POST(request) {
 
         let lock = await client.getMailboxLock(mailbox);
         try {
-            // Search for unseen transaction emails from HDFC Bank
+            // Search for transaction emails from HDFC Bank (read or unread)
             const searchResults = await client.search({
-                seen: false,
                 from: 'alerts@hdfcbank.bank.in'
             });
-
-            // Limit to newest 15 messages per run to avoid serverless timeout limits (approx. 3-4s execution time)
-            const limitedResults = searchResults.slice(-15);
-
+ 
+            // Limit to newest 30 messages per run to avoid serverless timeout limits (approx. 5s execution time) and allow backfilling
+            const limitedResults = searchResults.slice(-30);
+ 
             for (const msgId of limitedResults) {
                 // Fetch email source
                 const emailData = await client.download(msgId);
                 const parsedEmail = await simpleParser(emailData.content);
                 
                 const subject = parsedEmail.subject || '';
-                const bodyText = parsedEmail.text || parsedEmail.html || '';
-
-                // Extract transaction parameters
-                const alert = parseHdfcEmail(subject, bodyText);
+ 
+                // Extract transaction parameters from text or html
+                const alert = parseHdfcEmail(subject, parsedEmail.text, parsedEmail.html);
 
                 if (alert && (!config.account_ending || alert.accountEnding === config.account_ending)) {
                     // Check if this reference number or transaction date+amount combination is already logged
