@@ -566,28 +566,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 /* TRANSACTIONS TAB */
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
                                     
-                                    {/* Brief Summary Cards */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
-                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Balance</span>
-                                            <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                                                ₹{parseFloat(selectedAccount.closing_balance || selectedAccount.opening_balance || 0).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
-                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Inflow</span>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#10b981' }}>
-                                                ₹{transactions.filter(t => t.type === 'receipt').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                        <div style={{ padding: '8px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'center' }}>
-                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Outflow</span>
-                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>
-                                                ₹{transactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + t.amount, 0).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                    </div>
-
                                     {/* Responsive Mobile Layout for Transaction Logs */}
                                     <div style={{ flex: 1, overflowY: 'auto' }}>
                                         {isMobile ? (
