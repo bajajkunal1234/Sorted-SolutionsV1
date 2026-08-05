@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, Loader2, ChevronDown, RefreshCw, ArrowRight } from 'lucide-react';
+import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, Loader2, ChevronDown, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle, Calendar, FileSpreadsheet } from 'lucide-react';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import { transactionsAPI } from '@/lib/adminAPI';
+import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
 
 export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
     const [localSubTab, setLocalSubTab] = useState('setup');
@@ -15,6 +16,26 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [imapSettings, setImapSettings] = useState({});
     const [selectedAccountId, setSelectedAccountId] = useState(null);
     const [transactions, setTransactions] = useState([]);
+
+    // Date Range Selection States
+    const getMonthRange = () => {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), 1);
+        const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        return {
+            from: start.toISOString().split('T')[0],
+            to: end.toISOString().split('T')[0]
+        };
+    };
+    const initialRange = getMonthRange();
+    const [datePreset, setDatePreset] = useState('month');
+    const [fromDate, setFromDate] = useState(initialRange.from);
+    const [toDate, setToDate] = useState(initialRange.to);
+
+    // Bank Statement Reconciliation States
+    const [activeStatement, setActiveStatement] = useState(null);
+    const [statementTransactions, setStatementTransactions] = useState([]);
+    const [statementStats, setStatementStats] = useState({ total: 0, reconciled: 0, pending: 0, alerts: 0 });
     
     // Form & Modal States
     const [loading, setLoading] = useState(true);
@@ -22,7 +43,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [testing, setTesting] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showVoucherForm, setShowVoucherForm] = useState(null); // { type: 'payment'|'receipt', data: {}, alertId: string }
+    const [showVoucherForm, setShowVoucherForm] = useState(null); // { type: 'payment'|'receipt', data: {}, alertId: string, statementTxId: string }
     const [testStatus, setTestStatus] = useState(null); // { success: boolean, msg: string }
     const [isMobile, setIsMobile] = useState(false);
 
@@ -70,17 +91,219 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 is_active: saved.is_active !== false
             });
             setTestStatus(null);
-
-            // Fetch transactions
-            fetchAccountTransactions(selectedAccountId);
         }
     }, [selectedAccountId, imapSettings, accounts]);
+
+    useEffect(() => {
+        if (selectedAccountId) {
+            fetchAccountTransactions(selectedAccountId);
+            fetchStatementData(selectedAccountId);
+        }
+    }, [selectedAccountId, fromDate, toDate]);
+
+    const handlePresetClick = (preset) => {
+        setDatePreset(preset);
+        if (preset === 'custom') return;
+
+        const today = new Date();
+        let from = new Date();
+        let to = new Date();
+
+        if (preset === 'today') {
+            from = today;
+            to = today;
+        } else if (preset === 'yesterday') {
+            from.setDate(today.getDate() - 1);
+            to.setDate(today.getDate() - 1);
+        } else if (preset === 'week') {
+            const day = today.getDay();
+            const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+            from = new Date(today.setDate(diff));
+            to = new Date(from);
+            to.setDate(from.getDate() + 6);
+        } else if (preset === 'month') {
+            from = new Date(today.getFullYear(), today.getMonth(), 1);
+            to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
+
+        setFromDate(from.toISOString().split('T')[0]);
+        setToDate(to.toISOString().split('T')[0]);
+    };
+
+    const fetchStatementData = async (accountId) => {
+        if (!accountId) return;
+        try {
+            const { data: stmtList, error: stErr } = await supabase
+                .from('bank_statements')
+                .select('*')
+                .eq('bank_account_id', accountId);
+
+            if (stErr) throw stErr;
+
+            const active = (stmtList || []).find(s => {
+                return (s.from_date <= toDate && s.to_date >= fromDate);
+            });
+
+            if (active) {
+                setActiveStatement(active);
+                const { data: txList, error: txErr } = await supabase
+                    .from('bank_statement_transactions')
+                    .select('*')
+                    .eq('bank_statement_id', active.id)
+                    .order('date', { ascending: false });
+
+                if (txErr) throw txErr;
+
+                // Load existing payments and receipts for duplicate check
+                const { data: existingVouchers } = await supabase
+                    .from('payment_vouchers')
+                    .select('payment_number, amount, date')
+                    .eq('payment_account_id', accountId);
+                
+                const { data: existingReceipts } = await supabase
+                    .from('receipt_vouchers')
+                    .select('receipt_number, amount, date')
+                    .eq('payment_account_id', accountId);
+
+                const allVouchers = [
+                    ...(existingVouchers || []).map(v => ({ ...v, number: v.payment_number, type: 'payment' })),
+                    ...(existingReceipts || []).map(r => ({ ...r, number: r.receipt_number, type: 'receipt' }))
+                ];
+
+                const enriched = (txList || []).map(t => {
+                    const potentialDuplicate = allVouchers.find(ev => {
+                        const amountMatches = Math.abs(parseFloat(ev.amount) - parseFloat(t.amount)) < 0.01;
+                        const tDate = new Date(t.date);
+                        const evDate = new Date(ev.date);
+                        const diffDays = Math.abs(tDate - evDate) / (1000 * 60 * 60 * 24);
+                        return amountMatches && diffDays <= 3;
+                    });
+                    return { ...t, potentialDuplicate };
+                });
+
+                setStatementTransactions(enriched);
+
+                const { count: alertsCount } = await supabase
+                    .from('bank_alerts_log')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('bank_account_id', accountId)
+                    .eq('status', 'unreconciled')
+                    .gte('date', fromDate)
+                    .lte('date', toDate);
+
+                setStatementStats({
+                    total: enriched.length,
+                    reconciled: enriched.filter(x => x.status === 'reconciled').length,
+                    pending: enriched.filter(x => x.status === 'unreconciled').length,
+                    alerts: alertsCount || 0
+                });
+            } else {
+                setActiveStatement(null);
+                setStatementTransactions([]);
+                setStatementStats({ total: 0, reconciled: 0, pending: 0, alerts: 0 });
+            }
+        } catch (err) {
+            console.error('Failed to load statement data:', err);
+        }
+    };
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !selectedAccountId) return;
+
+        try {
+            setSyncing(true);
+            const fileName = file.name.toLowerCase();
+            const reader = new FileReader();
+
+            reader.onload = async (event) => {
+                try {
+                    let parsed;
+                    if (fileName.endsWith('.csv')) {
+                        const text = event.target.result;
+                        parsed = parseBankCSV(text);
+                    } else if (fileName.endsWith('.xls') || fileName.endsWith('.xlsx')) {
+                        const buffer = event.target.result;
+                        parsed = parseBankExcel(buffer);
+                    } else {
+                        throw new Error('Unsupported file format. Please upload CSV or Excel.');
+                    }
+
+                    if (parsed.length === 0) {
+                        alert('No transactions found in the statement.');
+                        return;
+                    }
+
+                    const dates = parsed.map(t => new Date(t.date)).filter(d => !isNaN(d));
+                    const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
+                    const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+
+                    await supabase
+                        .from('bank_statements')
+                        .delete()
+                        .eq('bank_account_id', selectedAccountId)
+                        .eq('from_date', minDate)
+                        .eq('to_date', maxDate);
+
+                    const { data: statement, error: stErr } = await supabase
+                        .from('bank_statements')
+                        .insert({
+                            bank_account_id: selectedAccountId,
+                            filename: file.name,
+                            from_date: minDate,
+                            to_date: maxDate,
+                            transaction_count: parsed.length,
+                            total_value: parsed.reduce((sum, t) => sum + t.amount, 0)
+                        })
+                        .select()
+                        .single();
+
+                    if (stErr) throw stErr;
+
+                    const statementTxns = parsed.map(t => ({
+                        bank_statement_id: statement.id,
+                        date: t.date,
+                        particulars: t.particulars,
+                        ref_no: t.refNo || null,
+                        amount: t.amount,
+                        type: t.type,
+                        suggested_account: t.suggestedAccount || null,
+                        status: 'unreconciled'
+                    }));
+
+                    const { error: txErr } = await supabase
+                        .from('bank_statement_transactions')
+                        .insert(statementTxns);
+
+                    if (txErr) throw txErr;
+
+                    alert(`Statement "${file.name}" uploaded successfully! parsed ${parsed.length} transactions.`);
+                    
+                    setFromDate(minDate);
+                    setToDate(maxDate);
+                    setDatePreset('custom');
+                    
+                    fetchAccountTransactions(selectedAccountId);
+                    fetchStatementData(selectedAccountId);
+                } catch (error) {
+                    console.error('Parsing/upload error:', error);
+                    alert(error.message || 'Failed to upload statement.');
+                }
+            };
+
+            if (fileName.endsWith('.csv')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const fetchAccountsAndSettings = async () => {
         try {
             setLoading(true);
-            
-            // 1. Fetch bank accounts from accounts table (under: 'bank-accounts')
             const { data: accData, error: accErr } = await supabase
                 .from('accounts')
                 .select('*')
@@ -90,7 +313,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
             if (accErr) throw accErr;
 
-            // 2. Fetch IMAP settings from website_settings
             const { data: setRes, error: setErr } = await supabase
                 .from('website_settings')
                 .select('value')
@@ -117,27 +339,29 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
     const fetchAccountTransactions = async (accountId) => {
         try {
-            // A. Fetch Ledger Vouchers (Receipts & Payments)
             const [recRes, payRes, alertRes] = await Promise.all([
                 supabase
                     .from('receipt_vouchers')
                     .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status')
                     .eq('payment_account_id', accountId)
-                    .order('date', { ascending: false })
-                    .limit(100),
+                    .gte('date', fromDate)
+                    .lte('date', toDate)
+                    .order('date', { ascending: false }),
                 supabase
                     .from('payment_vouchers')
                     .select('id, payment_number, date, amount, payment_mode, narration, account_name, status')
                     .eq('payment_account_id', accountId)
-                    .order('date', { ascending: false })
-                    .limit(100),
+                    .gte('date', fromDate)
+                    .lte('date', toDate)
+                    .order('date', { ascending: false }),
                 supabase
                     .from('bank_alerts_log')
                     .select('*')
                     .eq('bank_account_id', accountId)
                     .eq('status', 'unreconciled')
+                    .gte('date', fromDate)
+                    .lte('date', toDate)
                     .order('date', { ascending: false })
-                    .limit(100)
             ]);
 
             const recList = (recRes.data || []).map(r => ({
@@ -350,13 +574,29 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         });
     };
 
+    const handleReconcileStatementTx = (t) => {
+        setShowVoucherForm({
+            type: t.type,
+            statementTxId: t.id,
+            data: {
+                date: t.date,
+                amount: t.amount,
+                narration: `Bank statement reconciled: ${t.particulars}. Ref: ${t.ref_no || ''}`,
+                reference_number: t.ref_no || '',
+                payment_mode: 'bank_transfer',
+                payment_account_id: selectedAccountId,
+                account_id: ''
+            }
+        });
+    };
+
     const handleVoucherSave = async (voucherData) => {
         try {
             setSaving(true);
             const type = showVoucherForm.type;
             const res = await transactionsAPI.create(voucherData, type);
 
-            // Update alert status to reconciled in Supabase
+            // Update alert status to reconciled in Supabase if linked to an alert
             if (showVoucherForm.alertId) {
                 const { error: updateErr } = await supabase
                     .from('bank_alerts_log')
@@ -369,9 +609,62 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 if (updateErr) console.error('Failed to update alert state:', updateErr);
             }
 
+            // Update statement transaction status to reconciled if linked to a statement row
+            if (showVoucherForm.statementTxId) {
+                const { error: stmtTxErr } = await supabase
+                    .from('bank_statement_transactions')
+                    .update({
+                        status: 'reconciled',
+                        voucher_id: res.data?.id,
+                        reconciled_at: new Date().toISOString()
+                    })
+                    .eq('id', showVoucherForm.statementTxId);
+
+                if (stmtTxErr) console.error('Failed to update statement transaction:', stmtTxErr);
+
+                // Auto-link matching Gmail alert if any exists
+                const stmtTx = statementTransactions.find(x => x.id === showVoucherForm.statementTxId);
+                if (stmtTx) {
+                    let alertMatch = null;
+                    if (stmtTx.ref_no) {
+                        const { data } = await supabase
+                            .from('bank_alerts_log')
+                            .select('id')
+                            .eq('bank_account_id', selectedAccountId)
+                            .eq('reference_number', stmtTx.ref_no)
+                            .eq('status', 'unreconciled')
+                            .maybeSingle();
+                        alertMatch = data;
+                    }
+                    
+                    if (!alertMatch) {
+                        const { data } = await supabase
+                            .from('bank_alerts_log')
+                            .select('id')
+                            .eq('bank_account_id', selectedAccountId)
+                            .eq('date', stmtTx.date)
+                            .eq('amount', stmtTx.amount)
+                            .eq('status', 'unreconciled')
+                            .maybeSingle();
+                        alertMatch = data;
+                    }
+
+                    if (alertMatch) {
+                        await supabase
+                            .from('bank_alerts_log')
+                            .update({
+                                status: 'reconciled',
+                                voucher_id: res.data?.id
+                            })
+                            .eq('id', alertMatch.id);
+                    }
+                }
+            }
+
             alert('Voucher reconciled and recorded successfully!');
             setShowVoucherForm(null);
             fetchAccountTransactions(selectedAccountId);
+            fetchStatementData(selectedAccountId);
         } catch (err) {
             console.error('Reconciliation failed:', err);
             alert('Failed to save voucher: ' + err.message);
@@ -445,28 +738,182 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                             </div>
 
                             {activeSubTab === 'transactions' && selectedAccountId && (
-                                <button
-                                    onClick={triggerSync}
-                                    disabled={syncing}
-                                    className="btn btn-secondary"
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '6px',
-                                        padding: '8px 16px',
-                                        fontSize: '13px',
-                                        height: '38px',
-                                        fontWeight: 600,
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    {syncing ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
-                                    {!isMobile && "Sync Alerts"}
-                                </button>
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button
+                                        onClick={triggerSync}
+                                        disabled={syncing}
+                                        className="btn btn-secondary"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            padding: '8px 16px',
+                                            fontSize: '13px',
+                                            height: '38px',
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {syncing ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                                        {!isMobile && "Sync Alerts"}
+                                    </button>
+
+                                    <label
+                                        className="btn btn-secondary"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '6px',
+                                            padding: '8px 16px',
+                                            fontSize: '13px',
+                                            height: '38px',
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap',
+                                            cursor: 'pointer',
+                                            margin: 0
+                                        }}
+                                    >
+                                        <Upload size={13} />
+                                        {!isMobile && "Upload Statement"}
+                                        <input
+                                            type="file"
+                                            accept=".csv,.xls,.xlsx"
+                                            onChange={handleFileUpload}
+                                            style={{ display: 'none' }}
+                                        />
+                                    </label>
+                                </div>
                             )}
                         </div>
                     </div>
+
+                    {/* Date Range Selector Row */}
+                    {activeSubTab === 'transactions' && selectedAccountId && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '12px',
+                            backgroundColor: 'var(--bg-elevated)',
+                            padding: '10px 14px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-primary)'
+                        }}>
+                            {/* Presets */}
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                {['today', 'yesterday', 'week', 'month', 'custom'].map(preset => (
+                                    <button
+                                        key={preset}
+                                        onClick={() => handlePresetClick(preset)}
+                                        style={{
+                                            padding: '5px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: datePreset === preset ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                                            color: datePreset === preset ? '#fff' : 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            textTransform: 'capitalize',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        {preset === 'week' ? 'This Week' : preset === 'month' ? 'This Month' : preset === 'custom' ? 'Custom Range' : preset}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Date Pickers */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>From:</span>
+                                    <input
+                                        type="date"
+                                        value={fromDate}
+                                        onChange={e => {
+                                            setFromDate(e.target.value);
+                                            setDatePreset('custom');
+                                        }}
+                                        style={{
+                                            padding: '4px 8px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '12px',
+                                            fontWeight: 600
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>To:</span>
+                                    <input
+                                        type="date"
+                                        value={toDate}
+                                        onChange={e => {
+                                            setToDate(e.target.value);
+                                            setDatePreset('custom');
+                                        }}
+                                        style={{
+                                            padding: '4px 8px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '12px',
+                                            fontWeight: 600
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Thin Statement Status Info Row */}
+                    {activeSubTab === 'transactions' && selectedAccountId && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            backgroundColor: activeStatement ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                            border: `1px solid ${activeStatement ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+                            color: activeStatement ? '#10b981' : '#ef4444'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {activeStatement ? (
+                                    <>
+                                        <CheckCircle size={13} style={{ flexShrink: 0 }} />
+                                        <span>
+                                            📁 Statement Uploaded: <strong>{activeStatement.filename}</strong> ({activeStatement.from_date} to {activeStatement.to_date})
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                                        <span>
+                                            ⚠️ No statement uploaded for this period. Gmail transaction alerts require immediate update.
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                            
+                            {activeStatement && (
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <span>Total: <strong>{statementStats.total}</strong></span>
+                                    <span style={{ color: '#10b981' }}>Reconciled: <strong>{statementStats.reconciled}</strong></span>
+                                    <span style={{ color: '#ef4444' }}>Pending: <strong>{statementStats.pending}</strong></span>
+                                    <span style={{ color: '#d97706' }}>Alerts: <strong>{statementStats.alerts}</strong></span>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Content Panel */}
                     {selectedAccount && (
@@ -563,159 +1010,358 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </div>
                             ) : (
                                 
-                                /* TRANSACTIONS TAB */
+                                /* TRANSACTIONS / RECONCILIATION TAB */
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
-                                    
-                                    {/* Responsive Mobile Layout for Transaction Logs */}
-                                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                                        {isMobile ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {transactions.map(t => (
-                                                    <div
-                                                        key={t.id}
-                                                        style={{
-                                                            padding: '10px 12px',
-                                                            backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.05)' : 'var(--bg-elevated)',
-                                                            border: `1px solid ${t.isAlert ? 'rgba(245, 158, 11, 0.25)' : 'var(--border-primary)'}`,
-                                                            borderRadius: 'var(--radius-md)',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'center'
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: t.isAlert ? '60%' : '75%' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                <span style={{
-                                                                    fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: '3px',
-                                                                    backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.15)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
-                                                                    color: t.isAlert ? '#d97706' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
-                                                                }}>
-                                                                    {t.isAlert ? 'GMAIL ALERT' : (t.type === 'receipt' ? 'IN' : 'OUT')}
-                                                                </span>
-                                                                <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                                                    {t.number}
-                                                                </span>
-                                                            </div>
-                                                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {t.party || '—'}
-                                                            </span>
-                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                                {new Date(t.date).toLocaleDateString('en-GB')} {t.payment_mode ? `· ${t.payment_mode}` : ''}
-                                                            </span>
-                                                            {t.narration && (
-                                                                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                    {t.narration}
-                                                                </span>
-                                                            )}
-                                                        </div>
+                                    <style>{`
+                                        @keyframes pulse-red {
+                                            0% {
+                                                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+                                            }
+                                            70% {
+                                                box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+                                            }
+                                            100% {
+                                                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+                                            }
+                                        }
+                                    `}</style>
 
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                                            <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
-                                                                {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
-                                                            </span>
-                                                            {t.isAlert && (
-                                                                <button
-                                                                    onClick={() => handleReconcileAlert(t)}
-                                                                    className="btn btn-primary"
-                                                                    style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '2px', border: 'none', backgroundColor: '#f59e0b', color: '#000' }}
-                                                                >
-                                                                    Reconcile
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {transactions.length === 0 && (
-                                                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
-                                                        No transactions found.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            
-                                            /* Desktop standard table */
-                                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                                    <thead>
-                                                        <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Date</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Voucher No.</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Type</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Party Ledger</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Mode</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
-                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {transactions.map(t => (
-                                                            <tr
+                                    {activeStatement ? (
+                                        /* STATEMENT RECONCILIATION VIEW */
+                                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                                            {isMobile ? (
+                                                /* Mobile statement list cards */
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    {statementTransactions.map(t => {
+                                                        const isReconciled = t.status === 'reconciled';
+                                                        return (
+                                                            <div
                                                                 key={t.id}
                                                                 style={{
-                                                                    borderBottom: '1px solid var(--border-primary)',
-                                                                    backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.03)' : 'transparent'
+                                                                    padding: '10px 12px',
+                                                                    backgroundColor: isReconciled ? 'rgba(16, 185, 129, 0.03)' : (t.potentialDuplicate ? 'rgba(245, 158, 11, 0.03)' : 'var(--bg-elevated)'),
+                                                                    border: `1px solid ${isReconciled ? 'rgba(16, 185, 129, 0.15)' : (t.potentialDuplicate ? 'rgba(245, 158, 11, 0.15)' : 'var(--border-primary)')}`,
+                                                                    borderRadius: 'var(--radius-md)',
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between',
+                                                                    alignItems: 'center',
+                                                                    opacity: isReconciled ? 0.6 : 1
                                                                 }}
                                                             >
-                                                                <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
-                                                                    {new Date(t.date).toLocaleDateString('en-GB')}
-                                                                </td>
-                                                                <td style={{ padding: '8px 10px', fontWeight: 600 }}>
-                                                                    {t.number}
-                                                                </td>
-                                                                <td style={{ padding: '8px 10px' }}>
-                                                                    <span style={{
-                                                                        fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', padding: '2px 4px', borderRadius: '4px',
-                                                                        backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.15)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
-                                                                        color: t.isAlert ? '#d97706' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
-                                                                    }}>
-                                                                        {t.isAlert ? 'Alert' : t.type}
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '70%' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <span style={{
+                                                                            fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: '3px',
+                                                                            backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                            color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                        }}>
+                                                                            {t.type === 'receipt' ? 'DEP' : 'WDL'}
+                                                                        </span>
+                                                                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                                            {new Date(t.date).toLocaleDateString('en-GB')}
+                                                                        </span>
+                                                                    </div>
+                                                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>
+                                                                        {t.particulars}
                                                                     </span>
-                                                                </td>
-                                                                <td style={{ padding: '8px 10px' }}>
-                                                                    <div style={{ fontWeight: 500 }}>{t.party || '—'}</div>
-                                                                    {t.narration && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{t.narration}</div>}
-                                                                </td>
-                                                                <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                                                                    {t.payment_mode || '—'}
-                                                                </td>
-                                                                <td style={{
-                                                                    padding: '8px 10px', textAlign: 'right', fontWeight: 700,
-                                                                    color: t.type === 'receipt' ? '#10b981' : '#ef4444'
-                                                                }}>
-                                                                    {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                                </td>
-                                                                <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                                                    {t.isAlert ? (
+                                                                    {t.ref_no && (
+                                                                        <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>
+                                                                            Ref: {t.ref_no}
+                                                                        </span>
+                                                                    )}
+                                                                    {t.suggested_account && !isReconciled && (
+                                                                        <span style={{ fontSize: '9px', color: 'var(--primary-color)', fontWeight: 600 }}>
+                                                                            💡 Suggestion: {t.suggested_account}
+                                                                        </span>
+                                                                    )}
+                                                                    {t.potentialDuplicate && !isReconciled && (
+                                                                        <span style={{ fontSize: '9px', color: '#d97706', fontWeight: 600 }}>
+                                                                            ⚠️ Potential duplicate voucher found!
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                                    <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
+                                                                        {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
+                                                                    </span>
+                                                                    {isReconciled ? (
+                                                                        <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '2px', fontSize: '9px', fontWeight: 600 }}>
+                                                                            <CheckCircle size={10} /> Reconciled
+                                                                        </span>
+                                                                    ) : (
                                                                         <button
+                                                                            onClick={() => handleReconcileStatementTx(t)}
                                                                             className="btn btn-primary"
-                                                                            style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto', backgroundColor: '#f59e0b', color: '#000', border: 'none' }}
-                                                                            onClick={() => handleReconcileAlert(t)}
+                                                                            style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '2px', border: 'none', backgroundColor: '#f59e0b', color: '#000' }}
                                                                         >
                                                                             Reconcile
-                                                                            <ArrowRight size={12} />
                                                                         </button>
-                                                                    ) : '—'}
-                                                                </td>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {statementTransactions.length === 0 && (
+                                                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
+                                                            No transactions found in statement for this period.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* Desktop statement table */
+                                                <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, width: '90px' }}>Date</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Particulars / Narration</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, width: '140px' }}>Ref No.</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, width: '110px', textAlign: 'right' }}>Amount</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, width: '160px' }}>Status / Suggestion</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, width: '140px', textAlign: 'center' }}>Action</th>
                                                             </tr>
-                                                        ))}
-                                                        {transactions.length === 0 && (
-                                                            <tr>
-                                                                <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                                                                    No transactions registered.
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
+                                                        </thead>
+                                                        <tbody>
+                                                            {statementTransactions.map(t => {
+                                                                const isReconciled = t.status === 'reconciled';
+                                                                return (
+                                                                    <tr
+                                                                        key={t.id}
+                                                                        style={{
+                                                                            borderBottom: '1px solid var(--border-primary)',
+                                                                            backgroundColor: isReconciled ? 'rgba(16, 185, 129, 0.02)' : (t.potentialDuplicate ? 'rgba(245, 158, 11, 0.02)' : 'transparent'),
+                                                                            opacity: isReconciled ? 0.6 : 1
+                                                                        }}
+                                                                    >
+                                                                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', verticalAlign: 'top' }}>
+                                                                            {new Date(t.date).toLocaleDateString('en-GB')}
+                                                                        </td>
+                                                                        <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                                                            <div style={{ fontWeight: 500, wordBreak: 'break-word' }}>{t.particulars}</div>
+                                                                            {t.potentialDuplicate && !isReconciled && (
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#d97706', fontSize: '10px', marginTop: '4px', fontWeight: 600 }}>
+                                                                                    <AlertTriangle size={11} />
+                                                                                    Potential duplicate: {t.potentialDuplicate.type} #{t.potentialDuplicate.number} (₹{parseFloat(t.potentialDuplicate.amount).toLocaleString()})
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td style={{ padding: '8px 10px', fontFamily: 'monospace', verticalAlign: 'top' }}>
+                                                                            {t.ref_no || '—'}
+                                                                        </td>
+                                                                        <td style={{
+                                                                            padding: '8px 10px', textAlign: 'right', fontWeight: 700,
+                                                                            color: t.type === 'receipt' ? '#10b981' : '#ef4444',
+                                                                            verticalAlign: 'top'
+                                                                        }}>
+                                                                            {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                        </td>
+                                                                        <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                                                            {isReconciled ? (
+                                                                                <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                                                                                    <CheckCircle size={13} /> Reconciled
+                                                                                </span>
+                                                                            ) : (
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                    <span style={{
+                                                                                        fontSize: '9px', padding: '2px 6px',
+                                                                                        backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                                        color: t.type === 'receipt' ? '#10b981' : '#ef4444',
+                                                                                        borderRadius: '10px', width: 'fit-content', fontWeight: 600, textTransform: 'uppercase'
+                                                                                    }}>
+                                                                                        {t.type === 'receipt' ? 'Deposit' : 'Withdrawal'}
+                                                                                    </span>
+                                                                                    {t.suggested_account && (
+                                                                                        <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+                                                                                            💡 {t.suggested_account}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                                                                            {!isReconciled && (
+                                                                                <button
+                                                                                    className="btn btn-primary"
+                                                                                    style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto', backgroundColor: '#f59e0b', color: '#000', border: 'none' }}
+                                                                                    onClick={() => handleReconcileStatementTx(t)}
+                                                                                >
+                                                                                    {t.potentialDuplicate ? 'Review & Link' : 'Confirm & Create'}
+                                                                                    <ArrowRight size={12} />
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                            {statementTransactions.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                                                        No transactions found in statement.
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        /* DEFAULT LEDGER & SCRAPED ALERTS VIEW */
+                                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                                            {isMobile ? (
+                                                /* Mobile transaction list cards */
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    {transactions.map(t => (
+                                                        <div
+                                                            key={t.id}
+                                                            style={{
+                                                                padding: '10px 12px',
+                                                                backgroundColor: t.isAlert ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-elevated)',
+                                                                border: `1px solid ${t.isAlert ? 'rgba(239, 68, 68, 0.25)' : 'var(--border-primary)'}`,
+                                                                borderRadius: 'var(--radius-md)',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: t.isAlert ? '60%' : '75%' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <span style={{
+                                                                        fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: '3px',
+                                                                        backgroundColor: t.isAlert ? 'rgba(239, 68, 68, 0.15)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                                                                        color: t.isAlert ? '#ef4444' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
+                                                                    }}>
+                                                                        {t.isAlert ? 'GMAIL ALERT' : (t.type === 'receipt' ? 'IN' : 'OUT')}
+                                                                    </span>
+                                                                    <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                                        {t.number}
+                                                                    </span>
+                                                                </div>
+                                                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {t.party || '—'}
+                                                                </span>
+                                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                                    {new Date(t.date).toLocaleDateString('en-GB')} {t.payment_mode ? `· ${t.payment_mode}` : ''}
+                                                                </span>
+                                                                {t.narration && (
+                                                                    <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                        {t.narration}
+                                                                    </span>
+                                                                )}
+                                                            </div>
 
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                                <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
+                                                                    {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
+                                                                </span>
+                                                                {t.isAlert && (
+                                                                    <button
+                                                                        onClick={() => handleReconcileAlert(t)}
+                                                                        className="btn btn-primary"
+                                                                        style={{
+                                                                            padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '2px', border: 'none',
+                                                                            backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, animation: 'pulse-red 2s infinite'
+                                                                        }}
+                                                                    >
+                                                                        ⚠️ Missing Statement
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    {transactions.length === 0 && (
+                                                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
+                                                            No transactions found.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* Desktop transaction list table */
+                                                <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                        <thead>
+                                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Date</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Voucher No.</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Type</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Party Ledger</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Mode</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
+                                                                <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {transactions.map(t => (
+                                                                <tr
+                                                                    key={t.id}
+                                                                    style={{
+                                                                        borderBottom: '1px solid var(--border-primary)',
+                                                                        backgroundColor: t.isAlert ? 'rgba(239, 68, 68, 0.02)' : 'transparent'
+                                                                    }}
+                                                                >
+                                                                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                                                                        {new Date(t.date).toLocaleDateString('en-GB')}
+                                                                    </td>
+                                                                    <td style={{ padding: '8px 10px', fontWeight: 600 }}>
+                                                                        {t.number}
+                                                                    </td>
+                                                                    <td style={{ padding: '8px 10px' }}>
+                                                                        <span style={{
+                                                                            fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', padding: '2px 4px', borderRadius: '4px',
+                                                                            backgroundColor: t.isAlert ? 'rgba(239, 68, 68, 0.1)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                                                                            color: t.isAlert ? '#ef4444' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
+                                                                        }}>
+                                                                            {t.isAlert ? 'Alert' : t.type}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ padding: '8px 10px' }}>
+                                                                        <div style={{ fontWeight: 500 }}>{t.party || '—'}</div>
+                                                                        {t.narration && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{t.narration}</div>}
+                                                                    </td>
+                                                                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
+                                                                        {t.payment_mode || '—'}
+                                                                    </td>
+                                                                    <td style={{
+                                                                        padding: '8px 10px', textAlign: 'right', fontWeight: 700,
+                                                                        color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                    }}>
+                                                                        {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                    </td>
+                                                                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                                        {t.isAlert ? (
+                                                                            <button
+                                                                                className="btn btn-primary"
+                                                                                style={{
+                                                                                    padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto',
+                                                                                    backgroundColor: '#ef4444', color: '#fff', border: 'none', fontWeight: 600,
+                                                                                    animation: 'pulse-red 2s infinite'
+                                                                                }}
+                                                                                onClick={() => handleReconcileAlert(t)}
+                                                                            >
+                                                                                ⚠️ Missing Statement
+                                                                            </button>
+                                                                        ) : '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                            {transactions.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                                                        No transactions registered.
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
                     )}
-
                 </div>
             )}
 

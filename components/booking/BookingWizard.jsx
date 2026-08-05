@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle, CheckCircle, Navigation } from 'lucide-react';
+import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle, CheckCircle, Navigation, Pencil } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { getPincodeForLocality, getLocalityForPincode } from '@/lib/data/mumbaiLocalities';
@@ -88,6 +88,10 @@ export default function BookingWizard() {
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
 
+    const isLogisticsAddressFilled = !!(formData.slotTime && formData.address?.trim() && formData.building_name?.trim());
+    const logisticsButtonText = 'Confirm Booking';
+    const isLogisticsButtonDisabled = !isLogisticsAddressFilled || submitting;
+
     useEffect(() => {
         const init = async () => {
             try {
@@ -95,7 +99,7 @@ export default function BookingWizard() {
                 const [bookingRes, brandsRes, slotsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
                     fetch('/api/settings/booking-brands'),
-                    fetch('/api/booking/available-slots?days=3')
+                    fetch('/api/booking/available-slots?days=3&showAll=true')
                 ]);
                 const [bookingData, brandsData, slotsData] = await Promise.all([
                     bookingRes.json(), brandsRes.json(), slotsRes.json()
@@ -449,7 +453,20 @@ export default function BookingWizard() {
             
             <div className="booking-card">
                 <div className="booking-header">
-                    <BookingSteps currentStep={currentStep} />
+                    <BookingSteps
+                        currentStep={currentStep}
+                        availabilitySummary={[getName('appliance', formData.category), getName('type', formData.subcategory), getName('issue', formData.issue)].filter(s => s && s !== '—' && s !== 'Selected').join(' • ')}
+                        bookingSummary={(() => {
+                            if (!formData.slotDate || !formData.slotTime) return '';
+                            const d = new Date(formData.slotDate);
+                            const today = new Date();
+                            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+                            const isToday = d.toDateString() === today.toDateString();
+                            const isTomorrow = d.toDateString() === tomorrow.toDateString();
+                            const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                            return `${dateLabel}, ${formatSlotRange(formData.slotTime)}`;
+                        })()}
+                    />
                 </div>
 
                 <div className="booking-body">
@@ -553,76 +570,103 @@ export default function BookingWizard() {
                     {/* ── STAGE 2: LOGISTICS ── */}
                     {currentStep === 'logistics' && (
                         <div className="step-content">
-                            <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-                                <h2 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                    Technician Available Today! <span className="animate-tick" style={{ display: 'flex' }}><CheckCircle size={28} /></span>
-                                </h2>
+                            <div style={{ textAlign: 'center', marginBottom: formData.slotTime ? '16px' : 'var(--spacing-xl)' }}>
+                                {!formData.slotTime && (
+                                    <h2 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        Technician Available Today! <span className="animate-tick" style={{ display: 'flex' }}><CheckCircle size={28} /></span>
+                                    </h2>
+                                )}
 
                                 {/* Slot Selector UI */}
-                                <div style={{ margin: '20px 0' }}>
-                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-                                        {Object.keys(availableSlots).map(dateStr => {
-                                            const d = new Date(dateStr);
-                                            const today = new Date();
-                                            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-                                            const isToday = d.toDateString() === today.toDateString();
-                                            const isTomorrow = d.toDateString() === tomorrow.toDateString();
-                                            const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-                                            
-                                            return (
-                                                <button
-                                                    key={dateStr}
-                                                    onClick={() => { setSlotTab(dateStr); setFormData({ ...formData, slotDate: dateStr, slotTime: '' }); }}
-                                                    style={{
-                                                        padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
-                                                        border: slotTab === dateStr ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                                        backgroundColor: slotTab === dateStr ? 'var(--color-primary)' : 'transparent',
-                                                        color: slotTab === dateStr ? 'white' : 'var(--text-secondary)',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    {label}
-                                                </button>
-                                            );
-                                        })}
+                                {!formData.slotTime ? (
+                                    <div style={{ margin: '24px 0' }}>
+                                        <div className="booking-date-tabs-container">
+                                            {Object.keys(availableSlots).map(dateStr => {
+                                                const d = new Date(dateStr);
+                                                const today = new Date();
+                                                const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+                                                const isToday = d.toDateString() === today.toDateString();
+                                                const isTomorrow = d.toDateString() === tomorrow.toDateString();
+                                                const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                                                
+                                                return (
+                                                    <button
+                                                        key={dateStr}
+                                                        type="button"
+                                                        onClick={() => { setSlotTab(dateStr); setFormData({ ...formData, slotDate: dateStr, slotTime: '' }); }}
+                                                        className={`booking-date-tab ${slotTab === dateStr ? 'active' : ''}`}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        <div className="booking-time-slots-grid">
+                                            {(availableSlots[slotTab] || []).map(slot => {
+                                                const isSelected = formData.slotTime === slot.label;
+                                                const isAvailable = slot.available;
+                                                return (
+                                                    <button
+                                                        key={slot.id}
+                                                        type="button"
+                                                        disabled={!isAvailable}
+                                                        onClick={() => setFormData({ ...formData, slotDate: slotTab, slotTime: slot.label })}
+                                                        className={`booking-time-slot ${isSelected ? 'selected' : ''} ${!isAvailable ? 'disabled' : ''}`}
+                                                    >
+                                                        <span className="time-slot-label">{slot.label}</span>
+                                                        {isAvailable ? (
+                                                            <span className="time-slot-status">{slot.slotsAvailableCount} slots available</span>
+                                                        ) : (
+                                                            <span className="time-slot-status full">Slot Full</span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                            {(!availableSlots[slotTab] || availableSlots[slotTab].length === 0) && (
+                                                <div style={{ gridColumn: '1 / -1', padding: '24px', color: 'var(--text-tertiary)', fontSize: '13px', textAlign: 'center' }}>
+                                                    No slots available for this date.
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, margin: '16px 0', textAlign: 'center' }}>
+                                            Please select your preferred time.
+                                        </p>
                                     </div>
-                                    
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px', marginTop: '12px' }}>
-                                        {(availableSlots[slotTab] || []).map(slot => (
-                                            <button
-                                                key={slot.id}
-                                                onClick={() => setFormData({ ...formData, slotDate: slotTab, slotTime: slot.label })}
-                                                style={{
-                                                    padding: '10px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
-                                                    border: formData.slotTime === slot.label ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                                    backgroundColor: formData.slotTime === slot.label ? 'rgba(99,102,241,0.05)' : 'var(--bg-secondary)',
-                                                    color: formData.slotTime === slot.label ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                                    cursor: 'pointer', textAlign: 'center'
-                                                }}
-                                            >
-                                                {slot.label}
-                                            </button>
-                                        ))}
-                                        {(!availableSlots[slotTab] || availableSlots[slotTab].length === 0) && (
-                                            <div style={{ gridColumn: '1 / -1', padding: '20px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
-                                                No slots available for this date.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {formData.slotTime && (
-                                    <p style={{ color: 'var(--color-success, #10b981)', fontSize: '17px', fontWeight: 700, margin: '14px 0', animation: 'fadeIn 0.2s ease-out' }}>
-                                        Technician will arrive between {formatSlotRange(formData.slotTime)}
-                                    </p>
-                                )}
+                                ) : null}
                             </div>
 
                             {formData.slotTime && (
                                 <div style={{ marginTop: '32px', animation: 'fadeIn 0.3s ease-out' }}>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, marginBottom: '16px', textAlign: 'center' }}>
-                                        Where should our Sorted Solutions expert arrive?
-                                    </p>
+                                    <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                                        <p style={{ color: 'var(--color-success, #10b981)', fontSize: '18px', fontWeight: 700, margin: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                            Technician will arrive between {formatSlotRange(formData.slotTime)}
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, slotTime: '' })}
+                                                style={{
+                                                    background: 'none', border: 'none', color: 'var(--text-tertiary)',
+                                                    cursor: 'pointer', display: 'inline-flex', padding: '4px', borderRadius: '4px',
+                                                    alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseOver={e => { e.currentTarget.style.color = 'var(--color-primary)'; e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.08)'; }}
+                                                onMouseOut={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                title="Change schedule"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                        </p>
+                                        <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: 700, margin: '4px 0' }}>
+                                            Visit &amp; Diagnosis Fee: {(() => {
+                                                const selectedIssueObj = metadata.issues?.find(item => item.id?.toString() === formData.issue?.toString());
+                                                const issuePrice = selectedIssueObj?.price;
+                                                return issuePrice != null ? `₹${issuePrice}/-` : '₹199/-';
+                                            })()}, <span style={{ color: 'var(--color-primary)' }}>Pay on Visit!</span>
+                                        </p>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0' }}>
+                                            Fill in your information to complete booking.
+                                        </p>
+                                    </div>
 
                                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                                         <label className="form-label">Full Name *</label>
@@ -728,6 +772,11 @@ export default function BookingWizard() {
                                                     dropdownZIndex={1100}
                                                 />
                                             </div>
+                                            {isLogisticsAddressFilled && (
+                                                <p style={{ color: 'var(--color-primary)', fontSize: '13px', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', animation: 'fadeIn 0.2s ease-out' }}>
+                                                    Our technician will call to confirm your visit.
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -811,8 +860,8 @@ export default function BookingWizard() {
                     )}
                     
                     {currentStep === 'logistics' && (
-                        <button onClick={handleLogisticsNext} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px' }}>
-                            {submitting ? 'Sending...' : 'Send OTP & Confirm Booking'}
+                        <button onClick={handleLogisticsNext} disabled={isLogisticsButtonDisabled} className="btn btn-primary" style={{ padding: '12px 32px' }}>
+                            {submitting ? 'Sending...' : logisticsButtonText}
                         </button>
                     )}
 

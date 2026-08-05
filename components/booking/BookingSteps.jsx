@@ -9,7 +9,7 @@ const steps = [
     { id: 'otp', name: 'Verification' },
 ];
 
-export default function BookingSteps({ currentStep }) {
+export default function BookingSteps({ currentStep, availabilitySummary, bookingSummary }) {
     const currentStepIndex = steps.findIndex(s => s.id === currentStep);
 
     return (
@@ -32,6 +32,12 @@ export default function BookingSteps({ currentStep }) {
                                 )}
                             </div>
                             <span className="step-label">{step.name}</span>
+                            {step.id === 'location' && availabilitySummary && (
+                                <span className="step-subtext">{availabilitySummary}</span>
+                            )}
+                            {step.id === 'logistics' && bookingSummary && (
+                                <span className="step-subtext">{bookingSummary}</span>
+                            )}
                         </li>
                     );
                 })}

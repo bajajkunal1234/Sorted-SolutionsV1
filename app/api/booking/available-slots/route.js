@@ -20,12 +20,23 @@ const DEFAULT_SLOTS = [
 ];
 
 
+function getDeterministicSlotsAvailable(dateStr, label) {
+    const str = `${dateStr}-${label}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0; // Convert to 32bit integer
+    }
+    return Math.abs(hash % 5) + 1;
+}
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const daysParam = parseInt(searchParams.get('days')) || 3;
         const startDateParam = searchParams.get('startDate'); // optional YYYY-MM-DD
         const bypassFilter = searchParams.get('bypassFilter') === 'true' || searchParams.get('admin') === 'true';
+        const showAll = searchParams.get('showAll') === 'true';
         
         const supabase = createServerSupabase();
         
@@ -134,28 +145,43 @@ export async function GET(request) {
                     const label = template.name;
                     const bookedCount = jobCounts[dateStr]?.[label] || 0;
                     
-                    if (bookedCount < slotConfig.maxBookings) {
-                        let isExpired = false;
-                        if (!bypassFilter && dateStr === todayStr) {
-                            const startTime = template.startTime || '00:00';
-                            const endTime = template.endTime || '00:00';
-                            const [startH, startM] = startTime.split(':').map(Number);
-                            const [endH, endM] = endTime.split(':').map(Number);
-                            const startMin = startH * 60 + startM;
-                            let endMin = endH * 60 + endM;
-                            if (endMin < startMin) {
-                                endMin += 24 * 60; // handle overnight crossover
-                            }
-                            // Midpoint of the slot
-                            const midMin = (startMin + endMin) / 2;
-                            
-                            // If current IST time is past the midpoint (strictly greater), it has expired
-                            if (currentMin > midMin) {
-                                isExpired = true;
-                            }
-                        }
+                    const startTime = template.startTime || '00:00';
+                    const endTime = template.endTime || '00:00';
+                    const [startH, startM] = startTime.split(':').map(Number);
+                    const [endH, endM] = endTime.split(':').map(Number);
+                    const startMin = startH * 60 + startM;
+                    let endMin = endH * 60 + endM;
+                    if (endMin < startMin) {
+                        endMin += 24 * 60; // handle overnight crossover
+                    }
 
-                        if (!isExpired) {
+                    let isExpired = false;
+                    if (!bypassFilter && dateStr === todayStr) {
+                        // Cutoff: 30 minutes before slot start time
+                        const cutoffMin = startMin - 30;
+                        if (currentMin >= cutoffMin) {
+                            isExpired = true;
+                        }
+                    }
+
+                    const isFull = bookedCount >= slotConfig.maxBookings;
+                    const available = !isExpired && !isFull;
+                    const slotsAvailableCount = getDeterministicSlotsAvailable(dateStr, label);
+
+                    if (showAll) {
+                        availableSlots.push({
+                            id: template.id,
+                            label: label,
+                            startTime: template.startTime,
+                            endTime: template.endTime,
+                            maxBookings: slotConfig.maxBookings,
+                            bookedCount: bookedCount,
+                            available: available,
+                            slotsAvailableCount: slotsAvailableCount,
+                            reason: isExpired ? 'expired' : (isFull ? 'full' : null)
+                        });
+                    } else {
+                        if (available || bypassFilter) {
                             availableSlots.push({
                                 id: template.id,
                                 label: label,
@@ -163,7 +189,8 @@ export async function GET(request) {
                                 endTime: template.endTime,
                                 maxBookings: slotConfig.maxBookings,
                                 bookedCount: bookedCount,
-                                available: true
+                                available: true,
+                                slotsAvailableCount: slotsAvailableCount
                             });
                         }
                     }
