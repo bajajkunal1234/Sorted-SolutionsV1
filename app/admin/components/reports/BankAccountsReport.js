@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, Loader2, User, ChevronDown } from 'lucide-react';
+import { Building2, Settings2, History, Plus, AlertCircle, CheckCircle2, Loader2, ChevronDown, RefreshCw, ArrowRight } from 'lucide-react';
+import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
+import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
+import { transactionsAPI } from '@/lib/adminAPI';
 
 export default function BankAccountsReport() {
     const [activeSubTab, setActiveSubTab] = useState('setup'); // 'setup' | 'transactions'
@@ -15,7 +18,9 @@ export default function BankAccountsReport() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showVoucherForm, setShowVoucherForm] = useState(null); // { type: 'payment'|'receipt', data: {}, alertId: string }
     const [testStatus, setTestStatus] = useState(null); // { success: boolean, msg: string }
     const [isMobile, setIsMobile] = useState(false);
 
@@ -110,7 +115,8 @@ export default function BankAccountsReport() {
 
     const fetchAccountTransactions = async (accountId) => {
         try {
-            const [recRes, payRes] = await Promise.all([
+            // A. Fetch Ledger Vouchers (Receipts & Payments)
+            const [recRes, payRes, alertRes] = await Promise.all([
                 supabase
                     .from('receipt_vouchers')
                     .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status')
@@ -121,6 +127,13 @@ export default function BankAccountsReport() {
                     .from('payment_vouchers')
                     .select('id, payment_number, date, amount, payment_mode, narration, account_name, status')
                     .eq('payment_account_id', accountId)
+                    .order('date', { ascending: false })
+                    .limit(100),
+                supabase
+                    .from('bank_alerts_log')
+                    .select('*')
+                    .eq('bank_account_id', accountId)
+                    .eq('status', 'unreconciled')
                     .order('date', { ascending: false })
                     .limit(100)
             ]);
@@ -133,7 +146,8 @@ export default function BankAccountsReport() {
                 amount: parseFloat(r.amount) || 0,
                 narration: r.narration,
                 party: r.account_name,
-                status: r.status
+                status: r.status,
+                isAlert: false
             }));
 
             const payList = (payRes.data || []).map(p => ({
@@ -144,10 +158,25 @@ export default function BankAccountsReport() {
                 amount: parseFloat(p.amount) || 0,
                 narration: p.narration,
                 party: p.account_name,
-                status: p.status
+                status: p.status,
+                isAlert: false
             }));
 
-            const merged = [...recList, ...payList].sort((a, b) => new Date(b.date) - new Date(a.date));
+            // B. Fetch Unreconciled Gmail Alerts
+            const alertList = (alertRes.data || []).map(a => ({
+                id: a.id,
+                number: 'GMAIL-ALERT',
+                type: a.type === 'debit' ? 'payment' : 'receipt',
+                date: a.date,
+                amount: parseFloat(a.amount) || 0,
+                narration: a.narration || `UPI alert: ${a.party_name}`,
+                party: a.party_name || 'HDFC Payee',
+                status: 'pending_reconciliation',
+                isAlert: true,
+                referenceNumber: a.reference_number
+            }));
+
+            const merged = [...recList, ...payList, ...alertList].sort((a, b) => new Date(b.date) - new Date(a.date));
             setTransactions(merged);
         } catch (err) {
             console.error('Failed to fetch transactions:', err);
@@ -225,6 +254,30 @@ export default function BankAccountsReport() {
         }
     };
 
+    // Trigger Gmail Sync Route
+    const triggerSync = async () => {
+        if (!selectedAccountId) return;
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/admin/bank-accounts/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accountId: selectedAccountId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.msg);
+                fetchAccountTransactions(selectedAccountId);
+            } else {
+                alert('Sync failed: ' + data.error);
+            }
+        } catch (err) {
+            alert('Sync failed: ' + err.message);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     const handleCreateAccount = async (e) => {
         e.preventDefault();
         if (!newAccount.name || !newAccount.bank_name) {
@@ -279,6 +332,52 @@ export default function BankAccountsReport() {
         }
     };
 
+    // Open Voucher form with prefilled alert info
+    const handleReconcileAlert = (t) => {
+        setShowVoucherForm({
+            type: t.type,
+            alertId: t.id,
+            data: {
+                date: t.date,
+                amount: t.amount,
+                narration: `Gmail alert spend: ${t.narration}. Ref UTR: ${t.referenceNumber || ''}`,
+                reference_number: t.referenceNumber || '',
+                payment_mode: 'bank_transfer',
+                payment_account_id: selectedAccountId // select this bank account as source of funds
+            }
+        });
+    };
+
+    const handleVoucherSave = async (voucherData) => {
+        try {
+            setSaving(true);
+            const type = showVoucherForm.type;
+            const res = await transactionsAPI.create(voucherData, type);
+
+            // Update alert status to reconciled in Supabase
+            if (showVoucherForm.alertId) {
+                const { error: updateErr } = await supabase
+                    .from('bank_alerts_log')
+                    .update({
+                        status: 'reconciled',
+                        voucher_id: res.data?.id
+                    })
+                    .eq('id', showVoucherForm.alertId);
+
+                if (updateErr) console.error('Failed to update alert state:', updateErr);
+            }
+
+            alert('Voucher reconciled and recorded successfully!');
+            setShowVoucherForm(null);
+            fetchAccountTransactions(selectedAccountId);
+        } catch (err) {
+            console.error('Reconciliation failed:', err);
+            alert('Failed to save voucher: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
     if (loading && accounts.length === 0) {
@@ -292,7 +391,7 @@ export default function BankAccountsReport() {
     return (
         <div style={{ padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-lg)', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
-            {/* Header controls (Tabs & Add Bank) */}
+            {/* Header controls (Tabs & Sync / Add Bank) */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '2px', backgroundColor: 'var(--bg-secondary)', padding: '2px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                     <button
@@ -323,10 +422,23 @@ export default function BankAccountsReport() {
                     </button>
                 </div>
 
-                <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
-                    <Plus size={14} />
-                    Add Bank
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    {activeSubTab === 'transactions' && selectedAccountId && (
+                        <button
+                            onClick={triggerSync}
+                            disabled={syncing}
+                            className="btn btn-secondary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
+                        >
+                            {syncing ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                            Sync Alerts
+                        </button>
+                    )}
+                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
+                        <Plus size={14} />
+                        Add Bank
+                    </button>
+                </div>
             </div>
 
             {/* Empty accounts fallback */}
@@ -344,7 +456,7 @@ export default function BankAccountsReport() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Bank Selector Dropdown instead of Sidebar */}
+                    {/* Bank Selector Dropdown */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                         <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             🏦 Active Bank Account
@@ -509,22 +621,22 @@ export default function BankAccountsReport() {
                                                         key={t.id}
                                                         style={{
                                                             padding: '10px 12px',
-                                                            backgroundColor: 'var(--bg-elevated)',
-                                                            border: '1px solid var(--border-primary)',
+                                                            backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.05)' : 'var(--bg-elevated)',
+                                                            border: `1px solid ${t.isAlert ? 'rgba(245, 158, 11, 0.25)' : 'var(--border-primary)'}`,
                                                             borderRadius: 'var(--radius-md)',
                                                             display: 'flex',
                                                             justifyContent: 'space-between',
                                                             alignItems: 'center'
                                                         }}
                                                     >
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '75%' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: t.isAlert ? '60%' : '75%' }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                 <span style={{
                                                                     fontSize: '8px', fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: '3px',
-                                                                    backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                                    color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                    backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.15)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                                                                    color: t.isAlert ? '#d97706' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
                                                                 }}>
-                                                                    {t.type === 'receipt' ? 'IN' : 'OUT'}
+                                                                    {t.isAlert ? 'GMAIL ALERT' : (t.type === 'receipt' ? 'IN' : 'OUT')}
                                                                 </span>
                                                                 <span style={{ fontWeight: 600, fontSize: '11px', color: 'var(--text-secondary)' }}>
                                                                     {t.number}
@@ -534,7 +646,7 @@ export default function BankAccountsReport() {
                                                                 {t.party || '—'}
                                                             </span>
                                                             <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                                {new Date(t.date).toLocaleDateString('en-GB')} · {t.payment_mode}
+                                                                {new Date(t.date).toLocaleDateString('en-GB')} {t.payment_mode ? `· ${t.payment_mode}` : ''}
                                                             </span>
                                                             {t.narration && (
                                                                 <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -542,9 +654,21 @@ export default function BankAccountsReport() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
-                                                            {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
-                                                        </span>
+
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                            <span style={{ fontWeight: 700, fontSize: '13px', color: t.type === 'receipt' ? '#10b981' : '#ef4444' }}>
+                                                                {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN')}
+                                                            </span>
+                                                            {t.isAlert && (
+                                                                <button
+                                                                    onClick={() => handleReconcileAlert(t)}
+                                                                    className="btn btn-primary"
+                                                                    style={{ padding: '2px 6px', fontSize: '9px', display: 'flex', alignItems: 'center', gap: '2px', border: 'none', backgroundColor: '#f59e0b', color: '#000' }}
+                                                                >
+                                                                    Reconcile
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 ))}
                                                 {transactions.length === 0 && (
@@ -566,22 +690,31 @@ export default function BankAccountsReport() {
                                                             <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Party Ledger</th>
                                                             <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Mode</th>
                                                             <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Amount</th>
+                                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Action</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {transactions.map(t => (
-                                                            <tr key={t.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                            <tr
+                                                                key={t.id}
+                                                                style={{
+                                                                    borderBottom: '1px solid var(--border-primary)',
+                                                                    backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.03)' : 'transparent'
+                                                                }}
+                                                            >
                                                                 <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
                                                                     {new Date(t.date).toLocaleDateString('en-GB')}
                                                                 </td>
-                                                                <td style={{ padding: '8px 10px', fontWeight: 600 }}>{t.number}</td>
+                                                                <td style={{ padding: '8px 10px', fontWeight: 600 }}>
+                                                                    {t.number}
+                                                                </td>
                                                                 <td style={{ padding: '8px 10px' }}>
                                                                     <span style={{
                                                                         fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', padding: '2px 4px', borderRadius: '4px',
-                                                                        backgroundColor: t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                                        color: t.type === 'receipt' ? '#10b981' : '#ef4444'
+                                                                        backgroundColor: t.isAlert ? 'rgba(245, 158, 11, 0.15)' : (t.type === 'receipt' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                                                                        color: t.isAlert ? '#d97706' : (t.type === 'receipt' ? '#10b981' : '#ef4444')
                                                                     }}>
-                                                                        {t.type}
+                                                                        {t.isAlert ? 'Alert' : t.type}
                                                                     </span>
                                                                 </td>
                                                                 <td style={{ padding: '8px 10px' }}>
@@ -589,7 +722,7 @@ export default function BankAccountsReport() {
                                                                     {t.narration && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{t.narration}</div>}
                                                                 </td>
                                                                 <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                                                                    {t.payment_mode || 'bank'}
+                                                                    {t.payment_mode || '—'}
                                                                 </td>
                                                                 <td style={{
                                                                     padding: '8px 10px', textAlign: 'right', fontWeight: 700,
@@ -597,11 +730,23 @@ export default function BankAccountsReport() {
                                                                 }}>
                                                                     {t.type === 'receipt' ? '+' : '-'}₹{t.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                                 </td>
+                                                                <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                                    {t.isAlert ? (
+                                                                        <button
+                                                                            className="btn btn-primary"
+                                                                            style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', margin: '0 auto', backgroundColor: '#f59e0b', color: '#000', border: 'none' }}
+                                                                            onClick={() => handleReconcileAlert(t)}
+                                                                        >
+                                                                            Reconcile
+                                                                            <ArrowRight size={12} />
+                                                                        </button>
+                                                                    ) : '—'}
+                                                                </td>
                                                             </tr>
                                                         ))}
                                                         {transactions.length === 0 && (
                                                             <tr>
-                                                                <td colSpan="6" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                                                <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
                                                                     No transactions registered.
                                                                 </td>
                                                             </tr>
@@ -635,7 +780,6 @@ export default function BankAccountsReport() {
 
                         <form onSubmit={handleCreateAccount} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             
-                            {/* Account Name */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ledger Account Name *</label>
                                 <input
@@ -645,7 +789,6 @@ export default function BankAccountsReport() {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                {/* Bank Name */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Name *</label>
                                     <input
@@ -653,7 +796,6 @@ export default function BankAccountsReport() {
                                         value={newAccount.bank_name} onChange={e => setNewAccount({ ...newAccount, bank_name: e.target.value })}
                                     />
                                 </div>
-                                {/* Account Type */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Type</label>
                                     <select
@@ -667,7 +809,6 @@ export default function BankAccountsReport() {
                                 </div>
                             </div>
 
-                            {/* Account Number */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Number</label>
                                 <input
@@ -677,7 +818,6 @@ export default function BankAccountsReport() {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                {/* IFSC Code */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>IFSC Code</label>
                                     <input
@@ -685,7 +825,6 @@ export default function BankAccountsReport() {
                                         value={newAccount.ifsc_code} onChange={e => setNewAccount({ ...newAccount, ifsc_code: e.target.value })}
                                     />
                                 </div>
-                                {/* Branch Name */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Branch</label>
                                     <input
@@ -695,7 +834,6 @@ export default function BankAccountsReport() {
                                 </div>
                             </div>
 
-                            {/* Opening Balance */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Opening Balance (₹)</label>
                                 <input
@@ -704,7 +842,6 @@ export default function BankAccountsReport() {
                                 />
                             </div>
 
-                            {/* Submit */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
                                 <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Cancel</button>
                                 <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
@@ -717,6 +854,23 @@ export default function BankAccountsReport() {
 
                     </div>
                 </div>
+            )}
+
+            {/* INLINE RECONCILIATION MODALS */}
+            {showVoucherForm && (
+                showVoucherForm.type === 'payment' ? (
+                    <PaymentVoucherForm
+                        onClose={() => setShowVoucherForm(null)}
+                        existingPayment={showVoucherForm.data}
+                        onSave={handleVoucherSave}
+                    />
+                ) : (
+                    <ReceiptVoucherForm
+                        onClose={() => setShowVoucherForm(null)}
+                        existingReceipt={showVoucherForm.data}
+                        onSave={handleVoucherSave}
+                    />
+                )
             )}
 
         </div>
