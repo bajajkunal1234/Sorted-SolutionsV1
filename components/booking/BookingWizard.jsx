@@ -87,6 +87,7 @@ export default function BookingWizard() {
     const [confirmationResult, setConfirmationResult] = useState(null);
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
+    const [isEditingPhone, setIsEditingPhone] = useState(false);
 
     const isLogisticsAddressFilled = !!(formData.slotTime && formData.address?.trim() && formData.building_name?.trim());
     const logisticsButtonText = 'Confirm Booking';
@@ -756,28 +757,62 @@ export default function BookingWizard() {
                                     </div>
 
                                     {formData.address.trim().length > 0 && (
-                                        <div className="form-group" style={{ marginBottom: 'var(--spacing-md)', animation: 'slideDown 0.3s ease-out' }}>
-                                            <label className="form-label">Locality / Area</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <LocalityCombobox
-                                                    value={formData.locality}
-                                                    pincode={formData.pincode}
-                                                    showPincode={false}
-                                                    onChange={(loc, pin) => setFormData(prev => ({
-                                                        ...prev,
-                                                        locality: loc,
-                                                        pincode: pin || prev.pincode,
-                                                    }))}
-                                                    inputClassName="form-input"
-                                                    dropdownZIndex={1100}
-                                                />
+                                        <>
+                                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)', animation: 'slideDown 0.3s ease-out' }}>
+                                                <label className="form-label">Locality / Area</label>
+                                                <div style={{ position: 'relative' }}>
+                                                    <LocalityCombobox
+                                                        value={formData.locality}
+                                                        pincode={formData.pincode}
+                                                        showPincode={false}
+                                                        onChange={(loc, pin) => setFormData(prev => ({
+                                                            ...prev,
+                                                            locality: loc,
+                                                            pincode: pin || prev.pincode,
+                                                        }))}
+                                                        inputClassName="form-input"
+                                                        dropdownZIndex={1100}
+                                                    />
+                                                </div>
                                             </div>
+
+                                            {/* Prefilled Mobile Number Field */}
+                                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)', animation: 'slideDown 0.3s ease-out' }}>
+                                                <label className="form-label">Mobile Number *</label>
+                                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                    <div style={{ position: 'relative', flex: 1 }}>
+                                                        <Phone size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                                        <input
+                                                            type="tel"
+                                                            className="form-input"
+                                                            placeholder="Enter your 10-digit number"
+                                                            disabled={!isEditingPhone}
+                                                            value={formData.phone}
+                                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                                            style={{ paddingLeft: '44px', fontSize: '15px', fontWeight: 600 }}
+                                                        />
+                                                    </div>
+                                                    {!isEditingPhone && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsEditingPhone(true)}
+                                                            style={{
+                                                                background: 'none', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)',
+                                                                padding: '10px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                            }}
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
                                             {isLogisticsAddressFilled && (
-                                                <p style={{ color: 'var(--color-primary)', fontSize: '13px', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', animation: 'fadeIn 0.2s ease-out' }}>
+                                                <p style={{ color: 'var(--color-success, #10b981)', fontSize: '14px', fontWeight: 600, marginTop: '16px', textAlign: 'center', width: '100%', animation: 'fadeIn 0.2s ease-out' }}>
                                                     Our technician will call to confirm your visit.
                                                 </p>
                                             )}
-                                        </div>
+                                        </>
                                     )}
                                 </div>
                             )}
