@@ -309,7 +309,7 @@ const VisitsLogTab = ({ visits = [], onTabChange, onViewDocument }) => {
     );
 };
 
-export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true }) {
+export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true, shouldHideAddress = false }) {
     const [activeTab, setActiveTab] = useState('actions');
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
@@ -2865,45 +2865,50 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                         <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                                         <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
-                                            {editedJob.address && (
-                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
+                                            {shouldHideAddress ? (
+                                                <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '14px' }}>•••••••••• (Go online/working hours to view)</span>
+                                            ) : (
+                                                <>
+                                                    {editedJob.address && (
+                                                        <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
+                                                    )}
+                                                    {(editedJob.locality || editedJob.city) && (
+                                                        <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                            {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
-                                            {(editedJob.locality || editedJob.city) && (
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
+                                            {!shouldHideAddress && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+                                                    <a
+                                                        href={
+                                                            hasCoords
+                                                                ? `https://www.google.com/maps?q=${latVal},${lngVal}`
+                                                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
+                                                        }
+                                                        onClick={handleMapsNavigateClick}
+                                                        target="_blank" rel="noreferrer"
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: buttonColor, padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
+                                                    >
+                                                        {buttonLabel}
+                                                    </a>
+                                                    <span style={{ 
+                                                        fontSize: '11px', 
+                                                        color: hasCoords ? 'var(--text-secondary)' : '#f59e0b',
+                                                        fontWeight: hasCoords ? 500 : 600,
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        backgroundColor: hasCoords ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
+                                                        border: hasCoords ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
+                                                    }}>
+                                                        {hasCoords 
+                                                            ? `Coords: ${latVal.toFixed(5)}, ${lngVal.toFixed(5)}`
+                                                            : '⚠️ No pin location details'
+                                                        }
+                                                    </span>
                                                 </div>
                                             )}
-                                            {!editedJob.address && !editedJob.locality && (
-                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
-                                            )}
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-                                                <a
-                                                    href={
-                                                        hasCoords
-                                                            ? `https://www.google.com/maps?q=${latVal},${lngVal}`
-                                                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
-                                                    }
-                                                    onClick={handleMapsNavigateClick}
-                                                    target="_blank" rel="noreferrer"
-                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: buttonColor, padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
-                                                >
-                                                    {buttonLabel}
-                                                </a>
-                                                <span style={{ 
-                                                    fontSize: '11px', 
-                                                    color: hasCoords ? 'var(--text-secondary)' : '#f59e0b',
-                                                    fontWeight: hasCoords ? 500 : 600,
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    backgroundColor: hasCoords ? 'rgba(255,255,255,0.04)' : 'rgba(245, 158, 11, 0.08)',
-                                                    border: hasCoords ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(245, 158, 11, 0.15)'
-                                                }}>
-                                                    {hasCoords 
-                                                        ? `Coords: ${latVal.toFixed(5)}, ${lngVal.toFixed(5)}`
-                                                        : '⚠️ No pin location details'
-                                                    }
-                                                </span>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -3856,7 +3861,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {editedJob.address && (
                                         <p style={{ fontSize: 12, color: '#64748b', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
                                             <MapPin size={11} />
-                                            {[editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', ')}
+                                            {shouldHideAddress ? '•••••••••• (Go online/working hours to view)' : [editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', ')}
                                         </p>
                                     )}
                                 </div>

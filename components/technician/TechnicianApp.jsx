@@ -794,6 +794,22 @@ function TechnicianApp() {
         return hours >= 8 && hours < 21; // 8:00 AM - 9:00 PM
     };
 
+    const getLocalityColor = (locality) => {
+        if (!locality) return 'var(--text-secondary)';
+        const cleanLoc = locality.toLowerCase().trim();
+        if (cleanLoc.includes('aarey')) return '#fbbf24';
+        if (cleanLoc.includes('goregaon east')) return '#38bdf8';
+        if (cleanLoc.includes('goregaon west')) return '#818cf8';
+        if (cleanLoc.includes('bandra')) return '#f472b6';
+        if (cleanLoc.includes('kandivali')) return '#34d399';
+        let hash = 0;
+        for (let i = 0; i < locality.length; i++) {
+            hash = locality.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const hue = Math.abs(hash) % 360;
+        return `hsl(${hue}, 85%, 70%)`;
+    };
+
     const getTodayLocalString = () => {
         const d = new Date();
         const year = d.getFullYear();
@@ -2132,10 +2148,36 @@ function TechnicianApp() {
                                             const priority = getPriorityBadge(job.priority);
                                             const isUrgent = job.priority === 'urgent';
                                             
-                                            // Kanban uses standard card view layout inside columns
+                                            const assignedDate = new Date(job.assignedAt || job.createdAt || job.created_at);
+                                            const diffMs = Date.now() - assignedDate.getTime();
+                                            const hoursCrossed = Math.max(0, Math.floor(diffMs / (3600 * 1000)));
+                                            let ribbonColor = '#3b82f6';
+                                            if (hoursCrossed >= 25 && hoursCrossed <= 48) {
+                                                ribbonColor = '#f97316';
+                                            } else if (hoursCrossed > 48) {
+                                                ribbonColor = '#ef4444';
+                                            }
+
+                                            const shouldHideAddress = !isOnline && !isWorkingHours();
+
                                             return (
-                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', position: 'relative', overflow: 'hidden' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        right: 0,
+                                                        backgroundColor: ribbonColor,
+                                                        color: '#ffffff',
+                                                        padding: '3px 8px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold',
+                                                        borderRadius: '0 0 0 8px',
+                                                        zIndex: 2
+                                                    }}>
+                                                        {hoursCrossed} hrs
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px', paddingRight: '48px' }}>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
                                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.customerName}{(job.product?.brand && job.product.brand !== 'Unknown') ? ` · ${job.product.brand}` : ''}</div>
@@ -2144,42 +2186,51 @@ function TechnicianApp() {
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
-                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}>{job.locality || job.city || 'No location'}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                                                            <MapPin size={14} color={getLocalityColor(job.locality)} style={{ marginTop: '2px', flexShrink: 0 }} />
+                                                            <span style={{ 
+                                                                fontSize: '13px', 
+                                                                fontWeight: 'bold', 
+                                                                color: getLocalityColor(job.locality), 
+                                                                lineHeight: 1.4, 
+                                                                whiteSpace: 'normal', 
+                                                                wordBreak: 'break-word' 
+                                                            }}>
+                                                                {shouldHideAddress ? '••••••••••' : (job.locality || job.city || 'No location')}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-primary)' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-primary)', gap: '8px' }} onClick={e => e.stopPropagation()}>
+                                                        {job.priority_note ? (
                                                             <div style={{
-                                                                width: '24px',
-                                                                height: '24px',
-                                                                borderRadius: '50%',
-                                                                background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                                backgroundColor: '#ffffff',
+                                                                color: '#000000',
+                                                                border: '1.5px solid #000000',
+                                                                borderRadius: '12px 12px 12px 1px',
+                                                                padding: '3px 8px',
+                                                                fontSize: '11px',
+                                                                fontWeight: 700,
+                                                                whiteSpace: 'nowrap',
+                                                                boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                color: 'var(--text-inverse)',
-                                                                fontSize: '11px',
-                                                                fontWeight: 600
+                                                                gap: '3px',
+                                                                zIndex: 10
                                                             }}>
-                                                                {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
+                                                                ☁️ {job.priority_note}
                                                             </div>
-                                                            {job.priority_note && (
-                                                                <div style={{
-                                                                    backgroundColor: '#ffffff',
-                                                                    color: '#000000',
-                                                                    border: '1.5px solid #000000',
-                                                                    borderRadius: '12px 12px 12px 1px',
-                                                                    padding: '3px 8px',
-                                                                    fontSize: '11px',
-                                                                    fontWeight: 700,
-                                                                    whiteSpace: 'nowrap',
-                                                                    boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '3px',
-                                                                    zIndex: 10
-                                                                }}>
-                                                                    ☁️ {job.priority_note}
-                                                                </div>
+                                                        ) : <div />}
+                                                        
+                                                        <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                                                            {job.mobile && isOnline && (
+                                                                <a href={`tel:${job.mobile}`} style={{ padding: '5px 10px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', gap: '3px' }}>📞 Call</a>
+                                                            )}
+                                                            {!shouldHideAddress && (
+                                                                (job.location?.lat && job.location?.lng) ? (
+                                                                    <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', gap: '3px' }}>📍 Map</a>
+                                                                ) : (job.locality || job.city || job.address) ? (
+                                                                    <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ padding: '5px 10px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', gap: '3px' }}>📍 Map</a>
+                                                                ) : null
                                                             )}
                                                         </div>
                                                     </div>
@@ -2274,7 +2325,7 @@ function TechnicianApp() {
 
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
-                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{job.locality || job.city || job.address || 'No location'}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{(!isOnline && !isWorkingHours()) ? '•••••••••• (Go online/working hours to view)' : (job.locality || job.city || job.address || 'No location')}</span></div>
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>
@@ -2321,7 +2372,9 @@ function TechnicianApp() {
                                                     <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                                                         <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>🧮 Estimate</button>
                                                         {job.mobile && isOnline ? <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a> : null}
-                                                        {(job.location?.lat && job.location?.lng) ? <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : (job.locality || job.city || job.address) ? <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : null}
+                                                        {!(!isOnline && !isWorkingHours()) && (
+                                                            (job.location?.lat && job.location?.lng) ? <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : (job.locality || job.city || job.address) ? <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : null
+                                                        )}
                                                     </div>
                                                 </div>
                                             );
@@ -4225,6 +4278,7 @@ function TechnicianApp() {
                     job={selectedJob}
                     onClose={() => setSelectedJob(null)}
                     isOnline={isOnline}
+                    shouldHideAddress={!isOnline && !isWorkingHours()}
                     onJobUpdate={(updatedJob) => {
                         // Update both the jobs list AND the selectedJob so the header/status reflects immediately
                         if (updatedJob) {
