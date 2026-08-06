@@ -29,7 +29,8 @@ const uid = () => Math.random().toString(36).slice(2, 9);
 
 /** Apply tag-based filters + search to job list */
 function applyTags(jobs, tags, searchTerm) {
-    let result = [...jobs];
+    const safeJobs = Array.isArray(jobs) ? jobs : [];
+    let result = [...safeJobs];
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         result = result.filter(j => {
@@ -49,7 +50,8 @@ function applyTags(jobs, tags, searchTerm) {
             );
         });
     }
-    for (const tag of tags) {
+    const safeTags = Array.isArray(tags) ? tags : [];
+    for (const tag of safeTags) {
         if (tag.type === 'preset') {
             const f = tag.filter;
             if (f._preset === 'dueToday') {
@@ -225,10 +227,10 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
     };
 
     // ── Fetch jobs ────────────────────────────────────────────────
-    const fetchJobs = useCallback(async () => {
+    const fetchJobs = useCallback(async (force = false) => {
         try {
             setLoading(true);
-            const data = await jobsAPI.getAll();
+            const data = await jobsAPI.getAll(force ? { _t: Date.now() } : {});
             setJobs(data || []);
             setError(null);
         } catch (err) {
@@ -332,9 +334,9 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
     };
 
     // ── CRUD ──────────────────────────────────────────────────────
-    const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); } catch (err) { alert('Failed to create job: ' + err.message); } };
-    const handleUpdateJob   = async (updated, keepOpen = false) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); if (keepOpen) { setSelectedJob(updated); } else { setSelectedJob(null); } } catch (err) { alert('Failed to update job: ' + err.message); } };
-    const handleUpdateJobFromForm = async (updated) => { try { await jobsAPI.update(editJobFormJob.id, updated); await fetchJobs(); setEditJobFormJob(null); } catch (err) { alert('Failed to update job: ' + err.message); } };
+    const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(true); setShowCreateForm(false); } catch (err) { alert('Failed to create job: ' + err.message); } };
+    const handleUpdateJob   = async (updated, keepOpen = false) => { if (updated === 'deleted') { await fetchJobs(true); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(true); if (keepOpen) { setSelectedJob(updated); } else { setSelectedJob(null); } } catch (err) { alert('Failed to update job: ' + err.message); } };
+    const handleUpdateJobFromForm = async (updated) => { try { await jobsAPI.update(editJobFormJob.id, updated); await fetchJobs(true); setEditJobFormJob(null); } catch (err) { alert('Failed to update job: ' + err.message); } };
 
     const handleJobClick    = (job) => { 
         if ((job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') && job.source !== 'customer_app') {
@@ -386,7 +388,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
 
                 {/* Refresh + Count */}
                 <button
-                    onClick={fetchJobs}
+                    onClick={() => fetchJobs(true)}
                     title="Refresh jobs"
                     style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}
                 >
@@ -531,7 +533,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
             </div>
 
             {/* ── Modals ── */}
-            {reviewBooking && <BookingReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} onConverted={async () => { setReviewBooking(null); await fetchJobs(); }} onDismissed={async () => { setReviewBooking(null); await fetchJobs(); }} />}
+            {reviewBooking && <BookingReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} onConverted={async () => { setReviewBooking(null); await fetchJobs(true); }} onDismissed={async () => { setReviewBooking(null); await fetchJobs(true); }} />}
             {selectedJob   && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} onUpdate={handleUpdateJob} />}
             {showCreateForm && <CreateJobForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
             {editJobFormJob && <CreateJobForm existingJob={editJobFormJob} onClose={() => setEditJobFormJob(null)} onCreate={handleUpdateJobFromForm} />}
