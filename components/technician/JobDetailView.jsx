@@ -3218,8 +3218,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         </div>
                                     )}
 
-                                    {/* Order/Collect Parts Button (shown after quotation is created, status is quotation_sent) */}
-                                    {editedJob.status === 'quotation_sent' && (
+                                    {/* Order/Collect Parts Button (shown after quotation is created, status is quotation_sent or work_in_progress) */}
+                                    {['quotation_sent', 'work_in_progress'].includes(editedJob.status) && (
                                         <div style={{ padding: '0 4px' }}>
                                             <button
                                                 className="btn"
@@ -4400,8 +4400,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             if (!savedQuotation) {
                                                 setIsPartsFlowQuotationPending(true);
                                                 setActiveForm('calculator');
-                                            } else {
+                                            } else if (!advancePaymentInt) {
                                                 setShowAdvanceConfirmModal(true);
+                                            } else {
+                                                // Reload job to show updated status after saving
+                                                (async () => {
+                                                    await new Promise(r => setTimeout(r, 1000));
+                                                    const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                                                    const data = await res.json();
+                                                    if (data.success && data.job) {
+                                                        const [intRes, jobIntRes] = await Promise.all([
+                                                            apiCall(`/api/admin/interactions?job_id=${editedJob.id}`),
+                                                            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`)
+                                                        ]);
+                                                        const intData = await intRes.json().catch(() => ({ data: [] }));
+                                                        const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
+                                                        const allInt = deduplicateInteractions([
+                                                            ...(intData.data || []),
+                                                            ...(jobIntData.data || []).map(ji => ({
+                                                                ...ji,
+                                                                performed_by_name: ji.user_name || ji.performed_by_name || 'Technician',
+                                                                description: ji.message || ji.description || '',
+                                                                timestamp: ji.created_at || ji.timestamp,
+                                                            }))
+                                                        ]);
+                                                        const freshJob = { ...data.job, interactions: allInt };
+                                                        setEditedJob(freshJob);
+                                                    }
+                                                })();
                                             }
 
                                             // Perform background compression, storage, and API calls!
