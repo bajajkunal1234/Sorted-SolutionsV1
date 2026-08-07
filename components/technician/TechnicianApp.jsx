@@ -2317,9 +2317,36 @@ function TechnicianApp() {
                                             }
                                             
                                             // CARD & DETAIL MODE RENDERER
+                                            const assignedDate = new Date(job.assignedAt || job.createdAt || job.created_at);
+                                            const diffMs = Date.now() - assignedDate.getTime();
+                                            const hoursCrossed = Math.max(0, Math.floor(diffMs / (3600 * 1000)));
+                                            let ribbonColor = '#3b82f6';
+                                            if (hoursCrossed >= 25 && hoursCrossed <= 48) {
+                                                ribbonColor = '#f97316';
+                                            } else if (hoursCrossed > 48) {
+                                                ribbonColor = '#ef4444';
+                                            }
+
+                                            const shouldHideAddress = !isOnline && !isWorkingHours();
+
                                             return (
-                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: isDetail ? '16px' : '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', display: 'flex', flexDirection: 'column' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: isDetail ? '16px' : '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', flexShrink: 0 }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        right: 0,
+                                                        backgroundColor: ribbonColor,
+                                                        color: '#ffffff',
+                                                        padding: '3px 8px',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold',
+                                                        borderRadius: '0 0 0 8px',
+                                                        zIndex: 2
+                                                    }}>
+                                                        {hoursCrossed} hrs
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px', paddingRight: '48px' }}>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ fontSize: isDetail ? '16px' : '13px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
                                                             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
@@ -2331,7 +2358,19 @@ function TechnicianApp() {
 
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
-                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{(!isOnline && !isWorkingHours()) ? '•••••••••• (Go online/working hours to view)' : (job.locality || job.city || job.address || 'No location')}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                                                            <MapPin size={14} color={getLocalityColor(job.locality)} style={{ marginTop: '2px', flexShrink: 0 }} />
+                                                            <span style={{ 
+                                                                fontSize: '13px', 
+                                                                fontWeight: 'bold', 
+                                                                color: getLocalityColor(job.locality), 
+                                                                lineHeight: 1.4, 
+                                                                whiteSpace: 'normal', 
+                                                                wordBreak: 'break-word' 
+                                                            }}>
+                                                                {shouldHideAddress ? '••••••••••' : (job.locality || job.city || 'No location')}
+                                                            </span>
+                                                        </div>
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>
@@ -2340,20 +2379,6 @@ function TechnicianApp() {
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', marginBottom: '8px' }}>
-                                                        <div style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            borderRadius: '50%',
-                                                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            color: 'var(--text-inverse)',
-                                                            fontSize: '10px',
-                                                            fontWeight: 600
-                                                        }}>
-                                                            {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
-                                                        </div>
                                                         {job.priority_note && (
                                                             <div style={{
                                                                 backgroundColor: '#ffffff',
@@ -2376,7 +2401,6 @@ function TechnicianApp() {
                                                     </div>
 
                                                     <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
-                                                        <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>🧮 Estimate</button>
                                                         {job.mobile ? (
                                                             isOnline ? (
                                                                 <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a>
@@ -2384,7 +2408,7 @@ function TechnicianApp() {
                                                                 <button onClick={() => alert('Please go online to call customers.')} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', opacity: 0.6 }}>📞 Call</button>
                                                             )
                                                         ) : null}
-                                                        {(!isOnline && !isWorkingHours()) ? (
+                                                        {shouldHideAddress ? (
                                                             <button onClick={() => alert('Please go online/working hours to view map.')} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)', border: '1px solid var(--border-primary)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', opacity: 0.6 }}>📍 Map</button>
                                                         ) : (
                                                             (job.location?.lat && job.location?.lng) ? (
