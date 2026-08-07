@@ -212,6 +212,7 @@ export async function GET(request) {
                 defect: job.issue || '',
                 issueCategory: job.category || '',
                 priority: job.priority || 'normal',
+                priority_note: job.priority_note || '',
                 status: job.status || 'new_job_request',
                 assignedTo: job.technician_id,
                 assignedAt: job.created_at,
