@@ -2182,7 +2182,6 @@ function TechnicianApp() {
                                                             <div style={{ fontSize: '13px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
                                                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.customerName}{(job.product?.brand && job.product.brand !== 'Unknown') ? ` · ${job.product.brand}` : ''}</div>
                                                         </div>
-                                                        <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
@@ -2196,7 +2195,7 @@ function TechnicianApp() {
                                                                 whiteSpace: 'normal', 
                                                                 wordBreak: 'break-word' 
                                                             }}>
-                                                                {shouldHideAddress ? '••••••••••' : (job.locality || job.city || 'No location')}
+                                                                {job.locality || job.city || 'No location'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -2221,7 +2220,8 @@ function TechnicianApp() {
                                                             </div>
                                                         ) : <div />}
                                                         
-                                                        <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
+                                                        <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto', alignItems: 'center' }}>
+                                                            <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600, marginRight: '4px', whiteSpace: 'nowrap' }}>{priority.text}</div>
                                                             {job.mobile ? (
                                                                 isOnline ? (
                                                                     <a href={`tel:${job.mobile}`} style={{ padding: '5px 10px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', gap: '3px' }}>📞 Call</a>
@@ -2353,7 +2353,6 @@ function TechnicianApp() {
                                                                 {job.customerName}{(job.product?.brand && job.product.brand !== 'Unknown') ? <span style={{ color: 'var(--text-tertiary)' }}> · {job.product.brand}</span> : null}{job.description && job.product?.type ? <span style={{ color: 'var(--text-tertiary)' }}> · {job.product.type}</span> : null}
                                                             </div>
                                                         </div>
-                                                        <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
                                                     </div>
 
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
@@ -2368,7 +2367,7 @@ function TechnicianApp() {
                                                                 whiteSpace: 'normal', 
                                                                 wordBreak: 'break-word' 
                                                             }}>
-                                                                {shouldHideAddress ? '••••••••••' : (job.locality || job.city || 'No location')}
+                                                                {job.locality || job.city || 'No location'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -2400,7 +2399,8 @@ function TechnicianApp() {
                                                         )}
                                                     </div>
 
-                                                    <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                                                    <div style={{ display: 'flex', gap: '6px', marginTop: 'auto', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                                                        <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600, marginRight: '4px', whiteSpace: 'nowrap' }}>{priority.text}</div>
                                                         {job.mobile ? (
                                                             isOnline ? (
                                                                 <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a>
