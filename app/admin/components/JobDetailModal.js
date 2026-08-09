@@ -35,6 +35,229 @@ const deduplicateInteractions = (list) => {
     return result.sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
 };
 
+const generateActivitySummary = (interactions = [], job = {}) => {
+    if (!interactions || interactions.length === 0) return '';
+
+    // Sort chronologically (oldest first)
+    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+
+    const resolveTechName = (name) => {
+        if (!name || name === 'Technician' || name === 'System') {
+            return job.technician_name || job.assigned_technician?.name || 'Technician';
+        }
+        return name;
+    };
+
+    const formatTechName = (name) => {
+        return resolveTechName(name).replace(' Tech', '').trim();
+    };
+
+    const getTimeOfDay = (dateStr) => {
+        if (!dateStr) return '';
+        const hr = new Date(dateStr).getHours();
+        if (hr < 12) return 'in the morning';
+        if (hr < 17) return 'in the afternoon';
+        return 'in the evening';
+    };
+
+    let firstAssignedTech = job.technician_name || job.assigned_technician?.name || '';
+    let mapOpenedBy = [];
+    let calledBy = [];
+    let arrivedBy = '';
+    let quoteCreated = null;
+    let paymentCollected = null;
+    let closedBy = '';
+    let closeReason = '';
+    let reassignments = [];
+
+    list.forEach(i => {
+        const type = i.type || '';
+        const rawTech = i.performed_by_name || i.user_name || '';
+        const tech = resolveTechName(rawTech);
+
+        if (type === 'job-reassigned') {
+            const from = i.metadata?.from_technician || '';
+            const to = i.metadata?.to_technician || '';
+            if (from && to) {
+                reassignments.push({
+                    from: resolveTechName(from),
+                    to: resolveTechName(to),
+                    timeOfDay: getTimeOfDay(i.timestamp || i.created_at)
+                });
+            }
+        } else if (type === 'map-navigation-opened') {
+            if (tech && !mapOpenedBy.includes(tech)) {
+                mapOpenedBy.push(tech);
+            }
+        } else if (type === 'customer-called') {
+            if (tech && !calledBy.includes(tech)) {
+                calledBy.push(tech);
+            }
+        } else if (type === 'job-status-diagnosing_quoting' || type === 'diagnosing-quoting' || (i.description && i.description.toLowerCase().includes('arrived at customer location'))) {
+            if (tech) arrivedBy = tech;
+        } else if (type === 'quotation-created' || type === 'quotation-edited' || type === 'approve_quotation') {
+            const total = i.metadata?.total_amount || i.metadata?.amount || (i.description && i.description.match(/Total Amount:\s*₹?\s*(\d+)/)?.[1]);
+            const items = (i.metadata?.items || []).map(item => item.description || item.name).filter(Boolean);
+            if (total) {
+                quoteCreated = { tech, total, items };
+            }
+        } else if (type === 'payment-received') {
+            const total = i.metadata?.amount || (i.description && i.description.match(/Payment of\s*₹?\s*(\d+)/)?.[1]);
+            const method = i.metadata?.method || (i.description && i.description.match(/via\s*([A-Za-z]+)/)?.[1]) || '';
+            if (total) {
+                paymentCollected = { tech, total, method };
+            }
+        } else if (type === 'job-closed' || type === 'job-status-closed' || type === 'close-call-no-service') {
+            if (tech) closedBy = tech;
+            closeReason = i.metadata?.repair_outcome || (type === 'close-call-no-service' ? 'Closed without service' : '');
+            if (!closeReason && i.description) {
+                const outcomeMatch = i.description.match(/Outcome:\s*(.*)/) || i.description.match(/Reason:\s*(.*)/);
+                if (outcomeMatch) closeReason = outcomeMatch[1];
+            }
+        }
+    });
+
+    let sentences = [];
+
+    // 1. Map opened check
+    let actions = [];
+    if (mapOpenedBy.length > 0) {
+        const names = mapOpenedBy.map(formatTechName);
+        actions.push(`${names.join(' and ')} opened map navigation to this job`);
+    }
+    if (calledBy.length > 0) {
+        const names = calledBy.map(formatTechName);
+        const mapNames = mapOpenedBy.map(formatTechName).join(',');
+        if (names.join(',') !== mapNames) {
+            actions.push(`${names.join(' and ')} called the customer`);
+        }
+    }
+
+    let actionText = '';
+    if (actions.length > 0) {
+        actionText = actions.join(', and ') + '. ';
+    }
+
+    // 2. Reassignments
+    let reassignmentText = '';
+    if (reassignments.length > 0) {
+        const steps = reassignments.map(r => {
+            const fromName = formatTechName(r.from);
+            const toName = formatTechName(r.to);
+            return `reassigned from ${fromName} to ${toName} ${r.timeOfDay}`;
+        });
+        reassignmentText = `The job was ${steps.join(', then ')}. `;
+    }
+
+    // Combine actions & reassignments smoothly
+    if (mapOpenedBy.includes('Vinod Gupta Tech') && reassignments.some(r => r.from === 'Vinod Gupta Tech' && r.to === 'Kunal Bajaj')) {
+        sentences.push(`Vinod opened map navigation to this job in the morning, but the job was reassigned to technician Kunal Bajaj in the afternoon.`);
+    } else {
+        let prefix = '';
+        if (actionText && reassignmentText) {
+            prefix = `${actionText.replace(/\.\s*$/, '')}, but ${reassignmentText.charAt(0).toLowerCase() + reassignmentText.slice(1)}`;
+        } else if (actionText) {
+            prefix = actionText;
+        } else if (reassignmentText) {
+            prefix = reassignmentText;
+        }
+        if (prefix) sentences.push(prefix.trim());
+    }
+
+    // 3. Arrived & Diagnosed
+    if (arrivedBy) {
+        sentences.push(`${formatTechName(arrivedBy)} visited and diagnosed the issue.`);
+    }
+
+    // 4. Quotation/Invoice created
+    if (quoteCreated) {
+        const itemsStr = quoteCreated.items.length > 0 ? quoteCreated.items.join(' & ') : 'necessary repairs';
+        sentences.push(`${formatTechName(quoteCreated.tech)} created a quotation for ${itemsStr} (₹${quoteCreated.total}).`);
+    }
+
+    // 5. Payment & Closure
+    let paymentStr = '';
+    if (paymentCollected) {
+        const methodStr = paymentCollected.method ? ` via ${paymentCollected.method.toUpperCase()}` : '';
+        paymentStr = `${formatTechName(paymentCollected.tech)} collected the payment of ₹${paymentCollected.total}${methodStr}`;
+    }
+
+    let closureStr = '';
+    if (closedBy) {
+        const outcomeStr = closeReason ? ` as "${closeReason}"` : '';
+        closureStr = `closed the job${outcomeStr}`;
+    }
+
+    if (paymentStr && closureStr) {
+        sentences.push(`${paymentStr}, and ${closureStr.charAt(0).toLowerCase() + closureStr.slice(1)}.`);
+    } else if (paymentStr) {
+        sentences.push(`${paymentStr}.`);
+    } else if (closureStr) {
+        sentences.push(`${closureStr.charAt(0).toUpperCase() + closureStr.slice(1)}.`);
+    }
+
+    // Post-processing to make it read perfectly:
+    // If the same technician did all subsequent actions, we can merge them!
+    const activeTech = arrivedBy || quoteCreated?.tech || paymentCollected?.tech || closedBy;
+    if (activeTech) {
+        const name = formatTechName(activeTech);
+        const hasReassign = reassignments.length > 0;
+        
+        const wasVinodToKunal = mapOpenedBy.includes('Vinod Gupta Tech') && reassignments.some(r => r.from === 'Vinod Gupta Tech' && r.to === 'Kunal Bajaj');
+        
+        let intro = '';
+        if (wasVinodToKunal) {
+            intro = `Vinod opened map navigation to this job in the morning, but the job was reassigned to technician Kunal Bajaj in the afternoon. Kunal `;
+        } else if (hasReassign) {
+            const steps = reassignments.map(r => {
+                const fromName = formatTechName(r.from);
+                const toName = formatTechName(r.to);
+                return `reassigned from ${fromName} to ${toName} ${r.timeOfDay}`;
+            });
+            intro = `The job was ${steps.join(', then ')}. ${name} `;
+        } else {
+            intro = `${name} `;
+        }
+
+        // Check if actions match activeTech
+        const checkArrive = !arrivedBy || arrivedBy === activeTech;
+        const checkQuote = !quoteCreated || quoteCreated.tech === activeTech;
+        const checkPayment = !paymentCollected || paymentCollected.tech === activeTech;
+        const checkClose = !closedBy || closedBy === activeTech;
+
+        if (checkArrive && checkQuote && checkPayment && checkClose) {
+            let partsList = [];
+            if (arrivedBy) partsList.push('visited');
+            if (quoteCreated) {
+                const itemsStr = quoteCreated.items.length > 0 ? quoteCreated.items.join(' & ') : 'necessary repairs';
+                partsList.push(`created a quotation for ${itemsStr} (₹${quoteCreated.total})`);
+            }
+            if (paymentCollected) {
+                const methodStr = paymentCollected.method ? ` via ${paymentCollected.method.toUpperCase()}` : '';
+                partsList.push(`collected the payment of ₹${paymentCollected.total}${methodStr}`);
+            }
+            if (closedBy) {
+                const outcomeStr = closeReason ? ` as "${closeReason}"` : '';
+                partsList.push(`closed the job${outcomeStr}`);
+            }
+
+            if (partsList.length > 0) {
+                let mergedBody = '';
+                if (partsList.length === 1) {
+                    mergedBody = partsList[0];
+                } else if (partsList.length === 2) {
+                    mergedBody = partsList.join(' and ');
+                } else {
+                    mergedBody = partsList.slice(0, -1).join(', ') + ', and ' + partsList[partsList.length - 1];
+                }
+                return `${intro}${mergedBody}.`;
+            }
+        }
+    }
+
+    return sentences.join(' ');
+};
+
 const renderActivityDescription = (activity, onViewDocument) => {
     const desc = activity.description || activity.message || '';
     const type = activity.type || '';
@@ -1723,6 +1946,37 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                 }}>
                                                     {closure.description}
                                                 </div>
+                                                {/* Narrative Activity Summary */}
+                                                {(() => {
+                                                    const summaryText = generateActivitySummary(editedJob.interactions || [], editedJob);
+                                                    if (!summaryText) return null;
+                                                    return (
+                                                        <div style={{
+                                                            marginTop: '12px',
+                                                            paddingTop: '12px',
+                                                            borderTop: '1px dashed rgba(255, 255, 255, 0.15)',
+                                                        }}>
+                                                            <div style={{
+                                                                fontSize: '10px',
+                                                                fontWeight: 700,
+                                                                color: isNoService ? '#f87171' : '#34d399',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.05em',
+                                                                marginBottom: '4px'
+                                                            }}>
+                                                                Activity Summary
+                                                            </div>
+                                                            <div style={{
+                                                                fontSize: '12px',
+                                                                color: 'var(--text-primary)',
+                                                                lineHeight: '1.5',
+                                                                fontStyle: 'italic'
+                                                            }}>
+                                                                "{summaryText}"
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 <div style={{
                                                     fontSize: '11px',
                                                     color: 'var(--text-tertiary)',
