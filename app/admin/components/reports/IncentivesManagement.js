@@ -698,6 +698,45 @@ function IncentivesManagement({ initialSubTab }) {
             breakdown: []
           }
         : (technicians.find(t => t.id === selectedTechId) || technicians[0] || null);
+
+    const activeStats = useMemo(() => {
+        if (!selectedTechId || selectedTechId === 'all') {
+            return overallStats;
+        }
+        const tech = technicians.find(t => t.id === selectedTechId);
+        if (!tech || !tech.currentMetrics) {
+            return {
+                totalJobs: 0,
+                totalVisits: 0,
+                totalClosed: 0,
+                totalQuotes: 0,
+                totalInvoices: 0,
+                totalFeedbacks: 0,
+                totalRevenue: 0,
+                avgRating: '—',
+                conversion: 0,
+                avgDaysToClose: '—'
+            };
+        }
+        const m = tech.currentMetrics;
+        const ratedJobs = (m.techJobs || []).filter(j => j.customer_rating > 0);
+        const ratingSum = ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0);
+        const ratingCount = ratedJobs.length;
+        
+        return {
+            totalJobs: m.totalJobs || 0,
+            totalVisits: m.visitsCount || 0,
+            totalClosed: m.closedCount || 0,
+            totalQuotes: m.quotationsCount || 0,
+            totalInvoices: m.techInvoices ? m.techInvoices.length : 0,
+            totalFeedbacks: m.feedbackCount || 0,
+            totalRevenue: m.totalRevenue || 0,
+            avgRating: ratingCount > 0 ? (ratingSum / ratingCount).toFixed(1) : '—',
+            conversion: m.conversionRatio || 0,
+            avgDaysToClose: m.avgDaysToClose > 0 ? String(m.avgDaysToClose) : '—'
+        };
+    }, [selectedTechId, technicians, overallStats]);
+
     const [yr, mo] = activeMonth.split('-').map(Number);
     const monthStart = `${activeMonth}-01`;
     const monthEnd = selectedTech ? `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}` : '';
@@ -708,6 +747,487 @@ function IncentivesManagement({ initialSubTab }) {
     const dailyPerformanceData = selectedTech && selectedTech.currentMetrics
         ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs || [], selectedTech.currentMetrics.techInvoices || [], allInteractions, startRange, endRange)
         : [];
+
+    const handlePerformanceExport = async (format) => {
+        const startRangeD = startDate || `${activeMonth}-01`;
+        const endRangeD = endDate || (selectedTechId === 'all' ? `${activeMonth}-31` : '');
+
+        if (format === 'csv' || format === 'excel') {
+            let headers = [];
+            let rows = [];
+            let filename = '';
+
+            if (selectedTechId === 'all') {
+                headers = [
+                    'Technician Name',
+                    'Jobs Assigned',
+                    'Visits Done',
+                    'Jobs Closed',
+                    'Quotations Created',
+                    'Invoices Created',
+                    'Feedbacks Taken',
+                    'Average Rating',
+                    'Avg Days to Close',
+                    'Revenue Generated',
+                    'Conversion Ratio (%)'
+                ];
+
+                rows = technicians.map(tech => {
+                    const m = tech.currentMetrics || {};
+                    return [
+                        tech.name,
+                        m.totalJobs || 0,
+                        m.visitsCount || 0,
+                        m.closedCount || 0,
+                        m.quotationsCount || 0,
+                        m.techInvoices ? m.techInvoices.length : 0,
+                        m.feedbackCount || 0,
+                        m.avgRating > 0 ? `${m.avgRating} Stars` : '—',
+                        m.avgDaysToClose > 0 ? `${m.avgDaysToClose} days` : '—',
+                        `₹${m.totalRevenue || 0}`,
+                        `${m.conversionRatio || 0}%`
+                    ];
+                });
+
+                rows.push([
+                    'All Technicians (Combined)',
+                    overallStats.totalJobs,
+                    overallStats.totalVisits,
+                    overallStats.totalClosed,
+                    overallStats.totalQuotes,
+                    overallStats.totalInvoices,
+                    overallStats.totalFeedbacks,
+                    overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} Stars`,
+                    overallStats.avgDaysToClose === '—' ? '—' : `${overallStats.avgDaysToClose} days`,
+                    `₹${overallStats.totalRevenue}`,
+                    `${overallStats.conversion}%`
+                ]);
+
+                filename = `All_Technicians_Performance_${startRangeD}_to_${endRangeD}`;
+            } else {
+                headers = [
+                    'Date',
+                    'Visits Done',
+                    'Jobs Closed',
+                    'Repair Done',
+                    'Closed Without Repair',
+                    'Revenue Generated'
+                ];
+
+                rows = dailyPerformanceData.map(d => [
+                    d.date,
+                    d.visits,
+                    d.closed,
+                    d.repairDone,
+                    d.closedWithoutRepair,
+                    `₹${d.revenue}`
+                ]);
+
+                filename = `${selectedTech.name}_Performance_${startRangeD}_to_${endRangeD}`;
+            }
+
+            if (format === 'csv') {
+                const csv = [headers.join(','), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                filename = `${filename}.csv`;
+
+                if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+                    const handled = await window.triggerNativeDownload(blob, filename);
+                    if (handled) return;
+                }
+
+                const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                const tsv = [headers.join('\t'), ...rows.map(e => e.map(val => String(val).replace(/\t/g, ' ')).join('\t'))].join('\n');
+                const blob = new Blob([tsv], { type: 'application/vnd.ms-excel' });
+                filename = `${filename}.xls`;
+
+                if (typeof window !== 'undefined' && window.triggerNativeDownload) {
+                    const handled = await window.triggerNativeDownload(blob, filename);
+                    if (handled) return;
+                }
+
+                const encodedUri = encodeURI("data:application/vnd.ms-excel;charset=utf-8," + tsv);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", filename);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        } else if (format === 'print') {
+            const printWindow = window.open('', '_blank');
+
+            let targetsHtml = '';
+            if (selectedTechId !== 'all') {
+                const techRecord = technicians.find(t => t.id === selectedTechId);
+                if (techRecord && techRecord.breakdown) {
+                    const breakdownRows = techRecord.breakdown.map(item => `
+                        <tr>
+                            <td style="text-align: left; font-weight: 500;">${item.name}</td>
+                            <td>${item.id === 't4' || item.id === 't5' ? '₹' + item.target.toLocaleString('en-IN') : item.target + (item.id === 't3' || item.id === 't6' ? '%' : '')}</td>
+                            <td>${item.id === 't4' || item.id === 't5' ? '₹' + item.actual.toLocaleString('en-IN') : item.actual + (item.id === 't3' || item.id === 't6' ? '%' : '')}</td>
+                            <td>
+                                <span class="badge ${item.achieved ? 'success' : 'danger'}">
+                                    ${item.achieved ? 'Achieved ✓' : 'Below Target ✗'}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+
+                    targetsHtml = `
+                        <div class="section-title">Target vs. Actual Performance Dashboard</div>
+                        <div class="summary-badge-container">
+                            <div class="summary-badge ${techRecord.scorePercent >= 70 ? 'success' : 'warning'}">
+                                Target Completion: ${techRecord.achievedCount} / ${techRecord.totalTargets} Targets Met (${techRecord.scorePercent}%)
+                            </div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="text-align: left;">Performance Metric</th>
+                                    <th>Target Threshold</th>
+                                    <th>Actual Achieved</th>
+                                    <th>Evaluation Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${breakdownRows}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+
+            let dataTableHtml = '';
+            if (selectedTechId === 'all') {
+                dataTableHtml = `
+                    <div class="section-title">All Technicians Summary Table</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Technician Name</th>
+                                <th>Jobs Assigned</th>
+                                <th>Visits Done</th>
+                                <th>Jobs Closed</th>
+                                <th>Quotations</th>
+                                <th>Invoices</th>
+                                <th>Feedbacks</th>
+                                <th>Average Rating</th>
+                                <th>Avg Days to Close</th>
+                                <th>Conversion %</th>
+                                <th class="text-right">Revenue Generated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${technicians.map(t => {
+                                const m = t.currentMetrics || {};
+                                return `
+                                    <tr>
+                                        <td style="text-align: left; font-weight: 600;">${t.name}</td>
+                                        <td>${m.totalJobs || 0}</td>
+                                        <td>${m.visitsCount || 0}</td>
+                                        <td>${m.closedCount || 0}</td>
+                                        <td>${m.quotationsCount || 0}</td>
+                                        <td>${m.techInvoices ? m.techInvoices.length : 0}</td>
+                                        <td>${m.feedbackCount || 0}</td>
+                                        <td>${m.avgRating > 0 ? m.avgRating + ' ★' : '—'}</td>
+                                        <td>${m.avgDaysToClose > 0 ? m.avgDaysToClose + ' days' : '—'}</td>
+                                        <td>${m.conversionRatio || 0}%</td>
+                                        <td class="text-right">₹${(m.totalRevenue || 0).toLocaleString('en-IN')}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                            <tr class="totals-row">
+                                <td style="text-align: left;">Combined Totals</td>
+                                <td>${overallStats.totalJobs}</td>
+                                <td>${overallStats.totalVisits}</td>
+                                <td>${overallStats.totalClosed}</td>
+                                <td>${overallStats.totalQuotes}</td>
+                                <td>${overallStats.totalInvoices}</td>
+                                <td>${overallStats.totalFeedbacks}</td>
+                                <td>${overallStats.avgRating === '—' ? '—' : overallStats.avgRating + ' ★'}</td>
+                                <td>${overallStats.avgDaysToClose === '—' ? '—' : overallStats.avgDaysToClose + ' days'}</td>
+                                <td>${overallStats.conversion}%</td>
+                                <td class="text-right">₹${overallStats.totalRevenue.toLocaleString('en-IN')}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                dataTableHtml = `
+                    <div class="section-title">Daily Performance Trend Breakdown</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Visits Done</th>
+                                <th>Jobs Closed</th>
+                                <th>Repairs Done</th>
+                                <th>Closed Without Repair</th>
+                                <th class="text-right">Revenue Generated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${dailyPerformanceData.map(d => `
+                                <tr>
+                                    <td>${new Date(d.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                    <td>${d.visits}</td>
+                                    <td>${d.closed}</td>
+                                    <td>${d.repairDone}</td>
+                                    <td>${d.closedWithoutRepair}</td>
+                                    <td class="text-right">₹${d.revenue.toLocaleString('en-IN')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Performance Report - ${selectedTech.name}</title>
+                        <style>
+                            body {
+                                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                                padding: 25px;
+                                color: #1e293b;
+                                background-color: #ffffff;
+                                -webkit-print-color-adjust: exact;
+                                print-color-adjust: exact;
+                            }
+                            .header {
+                                text-align: center;
+                                border-bottom: 3px solid #3b82f6;
+                                padding-bottom: 12px;
+                                margin-bottom: 20px;
+                            }
+                            .header h1 {
+                                margin: 0;
+                                font-size: 24px;
+                                color: #1e3a8a;
+                                letter-spacing: 1px;
+                            }
+                            .header h3 {
+                                margin: 5px 0 0 0;
+                                font-size: 15px;
+                                color: #475569;
+                                font-weight: 600;
+                            }
+                            .subtitle {
+                                margin: 5px 0 0 0;
+                                font-size: 11px;
+                                color: #94a3b8;
+                            }
+                            .meta-section {
+                                display: flex;
+                                justify-content: space-between;
+                                background-color: #f8fafc;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 8px;
+                                padding: 12px 20px;
+                                margin-bottom: 20px;
+                                font-size: 13px;
+                            }
+                            .meta-item strong {
+                                color: #475569;
+                            }
+                            .meta-item span {
+                                color: #0f172a;
+                                margin-left: 5px;
+                                font-weight: 600;
+                            }
+                            .metrics-grid {
+                                display: grid;
+                                grid-template-columns: repeat(4, 1fr);
+                                gap: 12px;
+                                margin-bottom: 25px;
+                            }
+                            .metric-card {
+                                border: 1px solid #e2e8f0;
+                                border-radius: 8px;
+                                padding: 12px;
+                                text-align: center;
+                                background-color: #ffffff;
+                            }
+                            .metric-card .label {
+                                font-size: 10px;
+                                color: #64748b;
+                                text-transform: uppercase;
+                                margin-bottom: 6px;
+                                font-weight: 600;
+                            }
+                            .metric-card .value {
+                                font-size: 18px;
+                                font-weight: 700;
+                                color: #0f172a;
+                            }
+                            .section-title {
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: #1e3a8a;
+                                border-left: 4px solid #3b82f6;
+                                padding-left: 8px;
+                                margin: 25px 0 12px 0;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+                            .summary-badge-container {
+                                margin-bottom: 12px;
+                            }
+                            .summary-badge {
+                                display: inline-block;
+                                font-size: 12px;
+                                font-weight: 700;
+                                padding: 5px 12px;
+                                border-radius: 9999px;
+                            }
+                            .summary-badge.success {
+                                background-color: #d1fae5;
+                                color: #065f46;
+                            }
+                            .summary-badge.warning {
+                                background-color: #fef3c7;
+                                color: #92400e;
+                            }
+                            .badge {
+                                display: inline-block;
+                                padding: 3px 8px;
+                                font-size: 10px;
+                                font-weight: 700;
+                                border-radius: 9999px;
+                            }
+                            .badge.success {
+                                background-color: #d1fae5;
+                                color: #065f46;
+                            }
+                            .badge.danger {
+                                background-color: #fee2e2;
+                                color: #991b1b;
+                            }
+                            table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-bottom: 25px;
+                                font-size: 11px;
+                            }
+                            th, td {
+                                border: 1px solid #cbd5e1;
+                                padding: 8px 10px;
+                                text-align: center;
+                            }
+                            th {
+                                background-color: #f1f5f9;
+                                color: #334155;
+                                font-weight: 600;
+                            }
+                            td.text-right, th.text-right {
+                                text-align: right;
+                            }
+                            tr:nth-child(even) {
+                                background-color: #f8fafc;
+                            }
+                            .totals-row {
+                                background-color: #e2e8f0 !important;
+                                font-weight: 700;
+                            }
+                            .totals-row td {
+                                border-top: 2px solid #94a3b8;
+                            }
+                            @media print {
+                                body {
+                                    padding: 10px;
+                                }
+                                .metrics-grid {
+                                    grid-template-columns: repeat(4, 1fr);
+                                }
+                                table {
+                                    page-break-inside: auto;
+                                }
+                                tr {
+                                    page-break-inside: avoid;
+                                    page-break-after: auto;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h1>SORTED SOLUTIONS</h1>
+                            <h3>TECHNICIAN PERFORMANCE REVIEW</h3>
+                            <p class="subtitle">Generated on ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+
+                        <div class="meta-section">
+                            <div class="meta-item">
+                                <strong>Technician Evaluated:</strong>
+                                <span>${selectedTech.name}</span>
+                            </div>
+                            <div class="meta-item">
+                                <strong>Date Range:</strong>
+                                <span>${new Date(startRangeD).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} to ${new Date(endRangeD).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                            </div>
+                        </div>
+
+                        <div class="section-title">Key Performance Indicators Summary</div>
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="label">Jobs Assigned</div>
+                                <div class="value">${activeStats.totalJobs}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Visits Completed</div>
+                                <div class="value">${activeStats.totalVisits}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Jobs Closed</div>
+                                <div class="value">${activeStats.totalClosed}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Conversion Rate</div>
+                                <div class="value">${activeStats.conversion}%</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Invoices Raised</div>
+                                <div class="value">${activeStats.totalInvoices}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Revenue Generated</div>
+                                <div class="value">₹${activeStats.totalRevenue.toLocaleString('en-IN')}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Average Rating</div>
+                                <div class="value">${activeStats.avgRating === '—' ? '—' : activeStats.avgRating + ' ★'}</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="label">Avg Days to Close</div>
+                                <div class="value">${activeStats.avgDaysToClose === '—' ? '—' : activeStats.avgDaysToClose + ' days'}</div>
+                            </div>
+                        </div>
+
+                        ${targetsHtml}
+
+                        ${dataTableHtml}
+
+                        <script>
+                            window.onload = function() {
+                                window.print();
+                                window.close();
+                            }
+                        </script>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    };
 
     const handleExport = async (format) => {
         if (!selectedTech || !selectedTech.currentMetrics || !selectedTech.currentMetrics.techJobs) return;
@@ -1134,19 +1654,75 @@ function IncentivesManagement({ initialSubTab }) {
                         </div>
                     </div>
 
+                    {/* Technician Dropdown Filter & Export buttons */}
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        justifyContent: 'space-between',
+                        alignItems: isMobile ? 'stretch' : 'center',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: 'var(--spacing-md)',
+                        flexWrap: 'wrap',
+                        gap: 'var(--spacing-md)'
+                    }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap', width: isMobile ? '100%' : 'auto' }}>
+                            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>Technician Filter:</span>
+                            <select
+                                value={selectedTechId || 'all'}
+                                onChange={(e) => {
+                                    setSelectedTechId(e.target.value);
+                                    setSelectedDateFilter(null);
+                                }}
+                                className="form-input"
+                                style={{ fontSize: 'var(--font-size-xs)', padding: '6px 12px', width: isMobile ? '100%' : '220px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                            >
+                                <option value="all">All Technicians (Combined)</option>
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+                            <button
+                                onClick={() => handlePerformanceExport('csv')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                            >
+                                📥 Export CSV
+                            </button>
+                            <button
+                                onClick={() => handlePerformanceExport('excel')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? 1 : 'none', justifyContent: 'center' }}
+                            >
+                                📥 Export Excel
+                            </button>
+                            <button
+                                onClick={() => handlePerformanceExport('print')}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px', flex: isMobile ? '100%' : 'none', justifyContent: 'center', marginTop: isMobile ? '4px' : '0' }}
+                            >
+                                🖨️ Print / PDF
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Overall Summary Cards */}
                     <div className="performance-summary-grid">
                         {[
-                            { label: 'Jobs Assigned', value: overallStats.totalJobs },
-                            { label: 'Total Visits Done', value: overallStats.totalVisits },
-                            { label: 'Total Jobs Closed', value: overallStats.totalClosed },
-                            { label: 'Total Quotes Created', value: overallStats.totalQuotes },
-                            { label: 'Total Invoices Created', value: overallStats.totalInvoices },
-                            { label: 'Total Feedbacks Taken', value: overallStats.totalFeedbacks },
-                            { label: 'Overall Revenue', value: `₹${overallStats.totalRevenue.toLocaleString()}` },
-                            { label: 'Avg Rating', value: overallStats.avgRating === '—' ? '—' : `${overallStats.avgRating} ★` },
-                            { label: 'Overall Conversion %', value: `${overallStats.conversion}%` },
-                            { label: 'Avg Days to Close', value: overallStats.avgDaysToClose === '—' ? '—' : `${overallStats.avgDaysToClose} days` }
+                            { label: 'Jobs Assigned', value: activeStats.totalJobs },
+                            { label: 'Total Visits Done', value: activeStats.totalVisits },
+                            { label: 'Total Jobs Closed', value: activeStats.totalClosed },
+                            { label: 'Total Quotes Created', value: activeStats.totalQuotes },
+                            { label: 'Total Invoices Created', value: activeStats.totalInvoices },
+                            { label: 'Total Feedbacks Taken', value: activeStats.totalFeedbacks },
+                            { label: 'Overall Revenue', value: `₹${activeStats.totalRevenue.toLocaleString()}` },
+                            { label: 'Avg Rating', value: activeStats.avgRating === '—' ? '—' : `${activeStats.avgRating} ★` },
+                            { label: 'Overall Conversion %', value: `${activeStats.conversion}%` },
+                            { label: 'Avg Days to Close', value: activeStats.avgDaysToClose === '—' ? '—' : `${activeStats.avgDaysToClose} days` }
                         ].map((stat, idx) => (
                             <div key={idx} className="performance-summary-card">
                                 <span className="performance-summary-card-label">{stat.label}</span>
