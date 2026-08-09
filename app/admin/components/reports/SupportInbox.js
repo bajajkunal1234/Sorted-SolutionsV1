@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus, Paperclip, X } from 'lucide-react';
 import AccountDetailModal from '../AccountDetailModal';
 
 export default function SupportInbox({ subSection, setSubSection, searchTerm: headerSearch, setSearchTerm: setHeaderSearch }) {
@@ -19,6 +19,8 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         subject: '',
         body_text: ''
     });
+    const [attachments, setAttachments] = useState([]);
+    const [uploading, setUploading] = useState(false);
     
     // Filters & Search
     const [statusFilter, setStatusFilter] = useState('unread'); // 'unread', 'read', 'resolved', 'archived', 'all', 'active'
@@ -198,6 +200,49 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         });
     };
 
+    // Attach file helper
+    const handleAttachFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 10 * 1024 * 1024) {
+            alert("File size exceeds 10MB limit.");
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'support-attachments');
+            
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await res.json();
+            if (data.success && data.url) {
+                setAttachments(prev => [...prev, {
+                    url: data.url,
+                    name: data.name || file.name,
+                    type: data.type || file.type
+                }]);
+            } else {
+                throw new Error(data.error || "Upload failed");
+            }
+        } catch (err) {
+            alert(`Failed to upload attachment: ${err.message}`);
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveAttachment = (idxToRemove) => {
+        setAttachments(prev => prev.filter((_, idx) => idx !== idxToRemove));
+    };
+
     // Send email POST request
     const handleSendEmail = async (e) => {
         e.preventDefault();
@@ -216,12 +261,14 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                     to: composeForm.to,
                     subject: composeForm.subject,
                     body_text: composeForm.body_text,
-                    body_html: composeForm.body_text.split('\n').join('<br/>')
+                    body_html: composeForm.body_text.split('\n').join('<br/>'),
+                    attachments: attachments
                 })
             });
             const data = await res.json();
             if (data.success) {
                 setIsComposing(false);
+                setAttachments([]);
                 setComposeForm({
                     from: 'support@sortedsolutions.in',
                     to: '',
@@ -682,6 +729,97 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                     />
                                 </div>
 
+                                {/* Attachments Section */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Paperclip size={12} /> Attachments
+                                        </label>
+                                        <label
+                                            style={{
+                                                fontSize: 'var(--font-size-xs)',
+                                                fontWeight: 600,
+                                                color: 'var(--color-primary)',
+                                                cursor: uploading ? 'not-allowed' : 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                padding: '4px 8px',
+                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                borderRadius: 'var(--radius-md)'
+                                            }}
+                                        >
+                                            {uploading ? (
+                                                <>
+                                                     <Loader2 size={12} className="spin" /> Uploading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                     <Plus size={12} /> Add File
+                                                </>
+                                            )}
+                                            <input
+                                                type="file"
+                                                onChange={handleAttachFile}
+                                                disabled={uploading}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </label>
+                                    </div>
+
+                                    {attachments.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', backgroundColor: 'var(--bg-secondary)', padding: '8px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                            {attachments.map((file, idx) => {
+                                                const isImg = file.type?.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                                                return (
+                                                     <div
+                                                         key={idx}
+                                                         style={{
+                                                             display: 'flex',
+                                                             alignItems: 'center',
+                                                             gap: '6px',
+                                                             padding: '4px 8px',
+                                                             backgroundColor: 'var(--bg-elevated)',
+                                                             border: '1px solid var(--border-primary)',
+                                                             borderRadius: 'var(--radius-md)',
+                                                             fontSize: '11px',
+                                                             color: 'var(--text-primary)'
+                                                         }}
+                                                     >
+                                                         {isImg ? (
+                                                             <img src={file.url} alt={file.name} style={{ width: '16px', height: '16px', objectFit: 'cover', borderRadius: '2px' }} />
+                                                         ) : (
+                                                             <Paperclip size={12} color="var(--text-secondary)" />
+                                                         )}
+                                                         <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                                                             {file.name}
+                                                         </span>
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleRemoveAttachment(idx)}
+                                                             onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-danger)'}
+                                                             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                                                             style={{
+                                                                 border: 'none',
+                                                                 background: 'none',
+                                                                 cursor: 'pointer',
+                                                                 padding: '2px',
+                                                                 display: 'flex',
+                                                                 alignItems: 'center',
+                                                                 justifyContent: 'center',
+                                                                 color: 'var(--text-secondary)',
+                                                                 transition: 'color 0.15s'
+                                                             }}
+                                                         >
+                                                             <X size={12} />
+                                                         </button>
+                                                     </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* Footer Action Buttons */}
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px', marginTop: 'auto' }}>
                                     <button
@@ -973,6 +1111,59 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                         </pre>
                                     )}
                                 </div>
+
+                                {/* Attachments Section */}
+                                {selectedEmail.metadata?.attachments && selectedEmail.metadata.attachments.length > 0 && (
+                                    <div style={{
+                                        marginTop: 'var(--spacing-md)',
+                                        padding: 'var(--spacing-md)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-lg)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                            <Paperclip size={14} />
+                                            <span>Attachments ({selectedEmail.metadata.attachments.length})</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                                            {selectedEmail.metadata.attachments.map((att, idx) => {
+                                                const isImg = att.type?.startsWith('image/') || att.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                                                return (
+                                                    <a
+                                                        key={idx}
+                                                        href={att.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px',
+                                                            padding: '6px 12px',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            fontSize: 'var(--font-size-xs)',
+                                                            fontWeight: 500,
+                                                            color: 'var(--text-primary)',
+                                                            textDecoration: 'none',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s'
+                                                        }}
+                                                        className="hover-row"
+                                                    >
+                                                        {isImg ? (
+                                                            <img src={att.url} alt={att.name} style={{ width: '20px', height: '20px', objectFit: 'cover', borderRadius: '2px' }} />
+                                                        ) : (
+                                                            <Paperclip size={14} color="var(--text-secondary)" />
+                                                        )}
+                                                        <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{att.name}</span>
+                                                        <ExternalLink size={12} color="var(--text-secondary)" />
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                             </div>
                         </div>

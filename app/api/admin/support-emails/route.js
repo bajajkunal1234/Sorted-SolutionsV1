@@ -187,7 +187,7 @@ export async function DELETE(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { from, to, subject, body_text, body_html } = body
+        const { from, to, subject, body_text, body_html, attachments } = body
 
         if (!from || !to || !subject || (!body_text && !body_html)) {
             return NextResponse.json({ success: false, error: 'From, To, Subject, and Body are required' }, { status: 400 })
@@ -208,19 +208,28 @@ export async function POST(request) {
         if (resendKey) {
             provider = 'resend'
             try {
+                const resendPayload = {
+                    from: `Sorted Solutions <${from}>`,
+                    to,
+                    subject,
+                    text: body_text || '',
+                    html: body_html || body_text || ''
+                }
+                
+                if (attachments && attachments.length > 0) {
+                    resendPayload.attachments = attachments.map(att => ({
+                        path: att.url,
+                        filename: att.name
+                    }))
+                }
+
                 const res = await fetch('https://api.resend.com/emails', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${resendKey}`
                     },
-                    body: JSON.stringify({
-                        from: `Sorted Solutions <${from}>`,
-                        to,
-                        subject,
-                        text: body_text || '',
-                        html: body_html || body_text || ''
-                    })
+                    body: JSON.stringify(resendPayload)
                 })
                 const data = await res.json()
                 if (res.ok && data.id) {
@@ -234,21 +243,48 @@ export async function POST(request) {
         } else if (sendgridKey) {
             provider = 'sendgrid'
             try {
+                const sendgridAttachments = []
+                if (attachments && attachments.length > 0) {
+                    for (const att of attachments) {
+                        try {
+                            const fileRes = await fetch(att.url)
+                            if (fileRes.ok) {
+                                const fileBytes = await fileRes.arrayBuffer()
+                                const base64Content = Buffer.from(fileBytes).toString('base64')
+                                sendgridAttachments.push({
+                                    content: base64Content,
+                                    filename: att.name,
+                                    type: att.type || 'application/octet-stream',
+                                    disposition: 'attachment'
+                                })
+                            }
+                        } catch (err) {
+                            console.error('Error downloading attachment for SendGrid:', err)
+                        }
+                    }
+                }
+
+                const sendgridPayload = {
+                    personalizations: [{ to: [{ email: to }] }],
+                    from: { email: from, name: 'Sorted Solutions Support' },
+                    subject,
+                    content: [
+                        { type: 'text/plain', value: body_text || '' },
+                        { type: 'text/html', value: body_html || body_text || '' }
+                    ]
+                }
+                
+                if (sendgridAttachments.length > 0) {
+                    sendgridPayload.attachments = sendgridAttachments
+                }
+
                 const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${sendgridKey}`
                     },
-                    body: JSON.stringify({
-                        personalizations: [{ to: [{ email: to }] }],
-                        from: { email: from, name: 'Sorted Solutions Support' },
-                        subject,
-                        content: [
-                            { type: 'text/plain', value: body_text || '' },
-                            { type: 'text/html', value: body_html || body_text || '' }
-                        ]
-                    })
+                    body: JSON.stringify(sendgridPayload)
                 })
                 if (res.ok) {
                     emailSent = true
@@ -280,7 +316,8 @@ export async function POST(request) {
                     direction: 'outbound',
                     provider,
                     sent_success: emailSent,
-                    send_error: errorDetails
+                    send_error: errorDetails,
+                    attachments: attachments || []
                 }
             }])
             .select()
