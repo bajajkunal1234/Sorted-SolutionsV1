@@ -535,7 +535,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
             {/* ── Modals ── */}
             {reviewBooking && <BookingReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} onConverted={async () => { setReviewBooking(null); await fetchJobs(true); }} onDismissed={async () => { setReviewBooking(null); await fetchJobs(true); }} />}
             {selectedJob   && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} onUpdate={handleUpdateJob} />}
-            {showCreateForm && <CreateJobForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
+            {showCreateForm && <CreateJobForm existingJobs={jobs} onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
             {editJobFormJob && <CreateJobForm existingJob={editJobFormJob} onClose={() => setEditJobFormJob(null)} onCreate={handleUpdateJobFromForm} />}
             {calculatorJob && <RepairCalculator job={calculatorJob} onClose={() => setCalculatorJob(null)} onCreateQuotation={(items) => { const j = calculatorJob; setCalculatorJob(null); setSelectedJob({ ...j, _calculatorItems: items }); }} />}
         </div>

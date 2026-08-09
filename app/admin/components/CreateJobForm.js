@@ -34,7 +34,7 @@ const normalizeAddress = (p) => {
     return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 };
 
-function CreateJobForm({ onClose, onCreate, existingJob }) {
+function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
     const [submitting, setSubmitting] = useState(false);
     const isEdit = !!existingJob?.job_number;
 
@@ -821,6 +821,33 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
     const handleSubmit = async () => {
         if (!validate()) return;
+
+        // Check for duplicate jobs (same customer, appliance, and scheduled date)
+        if (!isEdit && Array.isArray(existingJobs) && existingJobs.length > 0) {
+            const selectedCustId = formData.customer?.id;
+            const selectedAppliance = (formData.product?.name || '').toLowerCase().trim();
+            const selectedDate = formData.dueDate;
+            
+            const duplicate = existingJobs.find(j => {
+                const jCustId = j.customer_id || j.customer?.id;
+                const jAppliance = (j.appliance || j.category || '').toLowerCase().trim();
+                const jDate = j.scheduled_date || j.dueDate;
+                
+                return String(jCustId) === String(selectedCustId) &&
+                       jAppliance === selectedAppliance &&
+                       jDate === selectedDate &&
+                       j.status !== 'completed' &&
+                       j.status !== 'cancelled';
+            });
+            
+            if (duplicate) {
+                const confirmMessage = `⚠️ A job (${duplicate.job_number}) for this customer for "${formData.product?.name || 'this appliance'}" is already scheduled on ${selectedDate}.\n\nDo you want to create another duplicate job?`;
+                if (typeof window !== 'undefined' && !window.confirm(confirmMessage)) {
+                    return; // Abort submission
+                }
+            }
+        }
+
         setSubmitting(true);
 
         try {
