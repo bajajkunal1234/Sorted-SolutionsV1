@@ -243,6 +243,16 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
     useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleRefresh = () => {
+            console.log('[JobsTab] Resume/focus detected, auto-refreshing jobs...');
+            fetchJobs(true); // Forces cache-bypassing fetch
+        };
+        window.addEventListener('refresh-active-tab', handleRefresh);
+        return () => window.removeEventListener('refresh-active-tab', handleRefresh);
+    }, [fetchJobs]);
+
+    useEffect(() => {
         if (jobToOpen && jobs.length > 0) {
             const j = jobs.find(j => j.id === jobToOpen.id);
             if (j) { if (j.status === 'booking_request') setReviewBooking(j); else setSelectedJob(j); }

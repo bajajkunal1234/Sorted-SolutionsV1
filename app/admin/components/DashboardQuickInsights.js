@@ -47,9 +47,9 @@ export default function DashboardQuickInsights() {
         return { todayStr, startOfTodayISO };
     };
 
-    const fetchInsights = async () => {
+    const fetchInsights = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             setError(null);
             
             const { todayStr, startOfTodayISO } = getISTTodayDateStrings();
@@ -204,6 +204,16 @@ export default function DashboardQuickInsights() {
 
     useEffect(() => {
         fetchInsights();
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleRefresh = () => {
+            console.log('[DashboardQuickInsights] Resume/focus detected, background refreshing dashboard...');
+            fetchInsights(true); // silent refresh
+        };
+        window.addEventListener('refresh-active-tab', handleRefresh);
+        return () => window.removeEventListener('refresh-active-tab', handleRefresh);
     }, []);
 
     if (loading) {

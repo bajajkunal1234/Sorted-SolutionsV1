@@ -134,6 +134,48 @@ export default function AdminApp() {
         }
     }, [])
 
+    // Listen to visibilitychange (web/PWA) and Capacitor appStateChange (native app resume) to refresh active components
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleForeground = () => {
+            console.log('[App] Foreground focus/resume detected. Broadcasting refresh event...');
+            window.dispatchEvent(new CustomEvent('refresh-active-tab'));
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                handleForeground();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        let appStateListener = null;
+        const initCapacitorState = async () => {
+            try {
+                if (window.Capacitor) {
+                    const { App } = await import('@capacitor/app');
+                    appStateListener = await App.addListener('appStateChange', (state) => {
+                        if (state.isActive) {
+                            console.log('[Capacitor] App resumed (active)');
+                            handleForeground();
+                        }
+                    });
+                }
+            } catch (err) {
+                console.warn('Capacitor AppState listener failed to initialize:', err);
+            }
+        };
+        initCapacitorState();
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            if (appStateListener) {
+                appStateListener.remove();
+            }
+        };
+    }, [])
+
     // ── Auth guard loading screen (AFTER all hooks) ─────────────────────────
     if (!authChecked) {
         return (
