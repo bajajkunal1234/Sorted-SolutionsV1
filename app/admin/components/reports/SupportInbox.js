@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus, Paperclip, X } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus, Paperclip, X, Menu, ChevronLeft } from 'lucide-react';
 import AccountDetailModal from '../AccountDetailModal';
 
 export default function SupportInbox({ subSection, setSubSection, searchTerm: headerSearch, setSearchTerm: setHeaderSearch }) {
@@ -21,6 +21,8 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
     });
     const [attachments, setAttachments] = useState([]);
     const [uploading, setUploading] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
     
     // Filters & Search
     const [statusFilter, setStatusFilter] = useState('unread'); // 'unread', 'read', 'resolved', 'archived', 'all', 'active'
@@ -39,6 +41,15 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         const observer = new MutationObserver(checkTheme);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
         return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth <= 768);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     // Load emails & mailboxes
