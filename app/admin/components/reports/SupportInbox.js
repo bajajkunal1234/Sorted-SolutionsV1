@@ -606,7 +606,13 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                 </div>
 
                 {/* RIGHT PANEL: Email Detail view */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{
+                    flex: 1,
+                    display: isMobile ? ((selectedEmail || isComposing) ? 'flex' : 'none') : 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    overflow: 'hidden'
+                }}>
                     {isComposing ? (
                         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-primary)' }}>
                             {/* Compose Header */}
@@ -618,22 +624,41 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                 alignItems: 'center',
                                 gap: '12px'
                             }}>
-                                <button 
-                                    onClick={() => setIsComposing(false)}
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    title="Go back"
-                                >
-                                    <ArrowLeft size={16} />
-                                </button>
+                                {isMobile ? (
+                                    <button 
+                                        onClick={() => setIsComposing(false)}
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        title="Go back"
+                                    >
+                                        <ArrowLeft size={16} />
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                                    >
+                                        {isSidebarCollapsed ? <Menu size={16} /> : <ChevronLeft size={16} />}
+                                    </button>
+                                )}
                                 <h3 style={{ margin: 0, fontSize: 'var(--font-size-md)', fontWeight: 700 }}>
                                     {composeForm.subject.startsWith('Re:') ? 'Reply Message' : 'Compose Message'}
                                 </h3>
                             </div>
 
                             {/* Form Body */}
-                            <form onSubmit={handleSendEmail} style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <form onSubmit={handleSendEmail} style={{
+                                flex: 1,
+                                overflowY: 'auto',
+                                padding: isMobile ? 'var(--spacing-md)' : 'var(--spacing-lg)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '16px'
+                            }}>
                                 
                                 {/* From Field */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -862,13 +887,34 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                 justifyContent: 'space-between',
                                 alignItems: 'center'
                             }}>
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    {isMobile ? (
+                                        <button
+                                            onClick={() => setSelectedEmail(null)}
+                                            className="btn btn-secondary"
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 'var(--radius-md)' }}
+                                            title="Back to list"
+                                        >
+                                            <ArrowLeft size={16} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                            className="btn btn-secondary"
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 'var(--radius-md)' }}
+                                            title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                                        >
+                                            {isSidebarCollapsed ? <Menu size={16} /> : <ChevronLeft size={16} />}
+                                        </button>
+                                    )}
                                     <button 
                                         onClick={() => handleReplyClick(selectedEmail)}
                                         className="btn btn-primary"
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px', backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}
+                                        title="Reply"
                                     >
-                                        <Send size={14} /> Reply
+                                        <Send size={14} />
+                                        {!isMobile && " Reply"}
                                     </button>
                                     {selectedEmail.status !== 'unread' && (
                                         <button 
@@ -876,8 +922,10 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                             disabled={actionLoading}
                                             className="btn btn-secondary"
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                                            title="Mark Unread"
                                         >
-                                            <Mail size={14} /> Mark Unread
+                                            <Mail size={14} />
+                                            {!isMobile && " Mark Unread"}
                                         </button>
                                     )}
                                     {selectedEmail.status !== 'resolved' && (
@@ -886,8 +934,10 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                             disabled={actionLoading}
                                             className="btn btn-primary"
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px', backgroundColor: '#10b981', borderColor: '#10b981' }}
+                                            title="Resolve"
                                         >
-                                            <CheckCircle size={14} /> Resolve
+                                            <CheckCircle size={14} />
+                                            {!isMobile && " Resolve"}
                                         </button>
                                     )}
                                     {selectedEmail.status !== 'archived' && (
@@ -896,20 +946,24 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                             disabled={actionLoading}
                                             className="btn btn-secondary"
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                                            title="Archive"
                                         >
-                                            <Archive size={14} /> Archive
+                                            <Archive size={14} />
+                                            {!isMobile && " Archive"}
                                         </button>
                                     )}
-                                    {selectedEmail.status === 'archived' || selectedEmail.status === 'resolved' ? (
+                                    {(selectedEmail.status === 'archived' || selectedEmail.status === 'resolved') && (
                                         <button 
                                             onClick={() => updateEmailStatus(selectedEmail.id, 'read')}
                                             disabled={actionLoading}
                                             className="btn btn-secondary"
                                             style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                                            title="Move to Inbox"
                                         >
-                                            <Inbox size={14} /> Move to Inbox
+                                            <Inbox size={14} />
+                                            {!isMobile && " Move to Inbox"}
                                         </button>
-                                    ) : null}
+                                    )}
                                 </div>
 
                                 <div>
@@ -918,8 +972,10 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                         disabled={actionLoading}
                                         className="btn btn-secondary"
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--error)', borderColor: 'var(--error)', fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                                        title="Delete"
                                     >
-                                        <Trash2 size={14} /> Delete
+                                        <Trash2 size={14} />
+                                        {!isMobile && " Delete"}
                                     </button>
                                 </div>
                             </div>
@@ -1064,7 +1120,7 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                                 font-size: 14px;
                                                                 line-height: 1.6;
                                                                 color: ${isDarkTheme ? '#e5e7eb' : '#1f2937'};
-                                                                background-color: transparent;
+                                                                background-color: ${isDarkTheme ? '#1e293b' : '#ffffff'};
                                                                 margin: 0;
                                                                 padding: 20px;
                                                                 word-wrap: break-word;
@@ -1082,7 +1138,8 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                     width: '100%',
                                                     minHeight: '450px',
                                                     border: 'none',
-                                                    display: 'block'
+                                                    display: 'block',
+                                                    backgroundColor: isDarkTheme ? '#1e293b' : '#ffffff'
                                                 }}
                                                 onLoad={(e) => {
                                                     try {
@@ -1169,19 +1226,42 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                         </div>
                     ) : (
                         // Placeholder detail screen
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: '100%',
-                            color: 'var(--text-tertiary)',
-                            gap: 'var(--spacing-md)'
-                        }}>
-                            <MailOpen size={64} style={{ opacity: 0.2 }} />
-                            <div style={{ textAlign: 'center' }}>
-                                <h3 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 600 }}>Select an email</h3>
-                                <p style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>Select an email message from the list to view its contents.</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                            {/* Empty Action Header for collapse toggle */}
+                            <div style={{
+                                padding: 'var(--spacing-sm) var(--spacing-md)',
+                                borderBottom: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                height: '53px'
+                            }}>
+                                {!isMobile && (
+                                    <button
+                                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                                        className="btn btn-secondary"
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: 'var(--radius-md)' }}
+                                        title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                                    >
+                                        {isSidebarCollapsed ? <Menu size={16} /> : <ChevronLeft size={16} />}
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flex: 1,
+                                color: 'var(--text-tertiary)',
+                                gap: 'var(--spacing-md)'
+                            }}>
+                                <MailOpen size={64} style={{ opacity: 0.2 }} />
+                                <div style={{ textAlign: 'center' }}>
+                                    <h3 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 600 }}>Select an email</h3>
+                                    <p style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>Select an email message from the list to view its contents.</p>
+                                </div>
                             </div>
                         </div>
                     )}
