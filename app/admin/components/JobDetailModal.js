@@ -36,10 +36,12 @@ const deduplicateInteractions = (list) => {
 };
 
 const generateActivitySummary = (interactions = [], job = {}) => {
-    if (!interactions || interactions.length === 0) return '';
+    // Ensure interactions is an array
+    const list = Array.isArray(interactions) ? interactions : [];
+    if (list.length === 0 && !job.notes && !job.description) return '';
 
     // Sort chronologically (oldest first)
-    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+    const sorted = [...list].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
 
     const resolveTechName = (name) => {
         if (!name || name === 'Technician' || name === 'System') {
@@ -60,17 +62,19 @@ const generateActivitySummary = (interactions = [], job = {}) => {
         return 'in the evening';
     };
 
-    let firstAssignedTech = job.technician_name || job.assigned_technician?.name || '';
-    let mapOpenedBy = [];
-    let calledBy = [];
-    let arrivedBy = '';
-    let quoteCreated = null;
-    let paymentCollected = null;
+    const mainTech = formatTechName(job.technician_name || job.assigned_technician?.name || 'Technician');
+
+    // Gather milestones
+    let openedMaps = false;
+    let calledCustomer = false;
+    let arrived = false;
+    let quoteInfo = null;
+    let paymentInfo = null;
     let closedBy = '';
     let closeReason = '';
     let reassignments = [];
 
-    list.forEach(i => {
+    sorted.forEach(i => {
         const type = i.type || '';
         const rawTech = i.performed_by_name || i.user_name || '';
         const tech = resolveTechName(rawTech);
@@ -86,29 +90,25 @@ const generateActivitySummary = (interactions = [], job = {}) => {
                 });
             }
         } else if (type === 'map-navigation-opened') {
-            if (tech && !mapOpenedBy.includes(tech)) {
-                mapOpenedBy.push(tech);
-            }
+            openedMaps = true;
         } else if (type === 'customer-called') {
-            if (tech && !calledBy.includes(tech)) {
-                calledBy.push(tech);
-            }
+            calledCustomer = true;
         } else if (type === 'job-status-diagnosing_quoting' || type === 'diagnosing-quoting' || (i.description && i.description.toLowerCase().includes('arrived at customer location'))) {
-            if (tech) arrivedBy = tech;
+            arrived = true;
         } else if (type === 'quotation-created' || type === 'quotation-edited' || type === 'approve_quotation') {
             const total = i.metadata?.total_amount || i.metadata?.amount || (i.description && i.description.match(/Total Amount:\s*₹?\s*(\d+)/)?.[1]);
             const items = (i.metadata?.items || []).map(item => item.description || item.name).filter(Boolean);
             if (total) {
-                quoteCreated = { tech, total, items };
+                quoteInfo = { tech, total, items };
             }
         } else if (type === 'payment-received') {
             const total = i.metadata?.amount || (i.description && i.description.match(/Payment of\s*₹?\s*(\d+)/)?.[1]);
             const method = i.metadata?.method || (i.description && i.description.match(/via\s*([A-Za-z]+)/)?.[1]) || '';
             if (total) {
-                paymentCollected = { tech, total, method };
+                paymentInfo = { tech, total, method };
             }
-        } else if (type === 'job-closed' || type === 'job-status-closed' || type === 'close-call-no-service') {
-            if (tech) closedBy = tech;
+        } else if (type === 'job-closed' || type === 'job-status-closed' || type === 'close-call-no-service' || type === 'job-completed' || type === 'job-status-completed') {
+            closedBy = tech;
             closeReason = i.metadata?.repair_outcome || (type === 'close-call-no-service' ? 'Closed without service' : '');
             if (!closeReason && i.description) {
                 const outcomeMatch = i.description.match(/Outcome:\s*(.*)/) || i.description.match(/Reason:\s*(.*)/);
@@ -119,139 +119,130 @@ const generateActivitySummary = (interactions = [], job = {}) => {
 
     let sentences = [];
 
-    // 1. Map opened check
-    let actions = [];
-    if (mapOpenedBy.length > 0) {
-        const names = mapOpenedBy.map(formatTechName);
-        actions.push(`${names.join(' and ')} opened map navigation to this job`);
-    }
-    if (calledBy.length > 0) {
-        const names = calledBy.map(formatTechName);
-        const mapNames = mapOpenedBy.map(formatTechName).join(',');
-        if (names.join(',') !== mapNames) {
-            actions.push(`${names.join(' and ')} called the customer`);
-        }
-    }
+    // 1. Vinod to Kunal transition
+    const wasVinodToKunal = sorted.some(i => i.type === 'map-navigation-opened' && resolveTechName(i.performed_by_name || i.user_name) === 'Vinod Gupta Tech') &&
+                           reassignments.some(r => r.from === 'Vinod Gupta Tech' && r.to === 'Kunal Bajaj');
 
-    let actionText = '';
-    if (actions.length > 0) {
-        actionText = actions.join(', and ') + '. ';
-    }
-
-    // 2. Reassignments
-    let reassignmentText = '';
-    if (reassignments.length > 0) {
-        const steps = reassignments.map(r => {
-            const fromName = formatTechName(r.from);
-            const toName = formatTechName(r.to);
-            return `reassigned from ${fromName} to ${toName} ${r.timeOfDay}`;
-        });
-        reassignmentText = `The job was ${steps.join(', then ')}. `;
-    }
-
-    // Combine actions & reassignments smoothly
-    if (mapOpenedBy.includes('Vinod Gupta Tech') && reassignments.some(r => r.from === 'Vinod Gupta Tech' && r.to === 'Kunal Bajaj')) {
+    if (wasVinodToKunal) {
         sentences.push(`Vinod opened map navigation to this job in the morning, but the job was reassigned to technician Kunal Bajaj in the afternoon.`);
-    } else {
-        let prefix = '';
-        if (actionText && reassignmentText) {
-            prefix = `${actionText.replace(/\.\s*$/, '')}, but ${reassignmentText.charAt(0).toLowerCase() + reassignmentText.slice(1)}`;
-        } else if (actionText) {
-            prefix = actionText;
-        } else if (reassignmentText) {
-            prefix = reassignmentText;
-        }
-        if (prefix) sentences.push(prefix.trim());
+    } else if (reassignments.length > 0) {
+        const steps = reassignments.map(r => {
+            return `reassigned from ${formatTechName(r.from)} to ${formatTechName(r.to)} ${r.timeOfDay}`;
+        });
+        sentences.push(`The job was ${steps.join(', then ')}.`);
     }
 
-    // 3. Arrived & Diagnosed
-    if (arrivedBy) {
-        sentences.push(`${formatTechName(arrivedBy)} visited and diagnosed the issue.`);
+    // 2. Main workflow actions
+    let actionsList = [];
+    if (openedMaps && !wasVinodToKunal) {
+        actionsList.push('opened map navigation');
+    }
+    if (calledCustomer) {
+        actionsList.push('called the customer');
+    }
+    if (arrived) {
+        actionsList.push('visited and diagnosed the issue');
     }
 
-    // 4. Quotation/Invoice created
-    if (quoteCreated) {
-        const itemsStr = quoteCreated.items.length > 0 ? quoteCreated.items.join(' & ') : 'necessary repairs';
-        sentences.push(`${formatTechName(quoteCreated.tech)} created a quotation for ${itemsStr} (₹${quoteCreated.total}).`);
+    const actionsStr = actionsList.length > 0 ? `${mainTech} ${actionsList.join(', ')}.` : '';
+    if (actionsStr) {
+        sentences.push(actionsStr);
     }
 
-    // 5. Payment & Closure
+    // 3. Repairs description
+    let repairDesc = '';
+    if (quoteInfo) {
+        const itemsStr = quoteInfo.items.length > 0 ? quoteInfo.items.join(' & ') : 'necessary repairs';
+        repairDesc = `${formatTechName(quoteInfo.tech)} created a quotation for ${itemsStr} (₹${quoteInfo.total}).`;
+    } else if (job.notes && typeof job.notes === 'string' && !job.notes.startsWith('{')) {
+        repairDesc = `${mainTech} completed the work ("${job.notes.trim()}").`;
+    } else if (job.description) {
+        repairDesc = `${mainTech} performed service for: "${job.description}".`;
+    }
+
+    if (repairDesc) {
+        sentences.push(repairDesc);
+    }
+
+    // 4. Payment & Close
     let paymentStr = '';
-    if (paymentCollected) {
-        const methodStr = paymentCollected.method ? ` via ${paymentCollected.method.toUpperCase()}` : '';
-        paymentStr = `${formatTechName(paymentCollected.tech)} collected the payment of ₹${paymentCollected.total}${methodStr}`;
+    if (paymentInfo) {
+        const methodStr = paymentInfo.method ? ` via ${paymentInfo.method.toUpperCase()}` : '';
+        paymentStr = `${formatTechName(paymentInfo.tech)} collected the payment of ₹${paymentInfo.total}${methodStr}`;
+    } else {
+        const invoice = job.sales_invoices?.[0] || job.sales_invoice;
+        if (invoice && invoice.total_amount) {
+            paymentStr = `${mainTech} collected the payment of ₹${invoice.total_amount}`;
+        }
     }
 
     let closureStr = '';
-    if (closedBy) {
-        const outcomeStr = closeReason ? ` as "${closeReason}"` : '';
-        closureStr = `closed the job${outcomeStr}`;
-    }
+    const closerName = closedBy ? formatTechName(closedBy) : mainTech;
+    const outcomeStr = closeReason ? ` as "${closeReason}"` : '';
+    closureStr = `closed the job${outcomeStr}`;
 
     if (paymentStr && closureStr) {
         sentences.push(`${paymentStr}, and ${closureStr.charAt(0).toLowerCase() + closureStr.slice(1)}.`);
     } else if (paymentStr) {
         sentences.push(`${paymentStr}.`);
     } else if (closureStr) {
-        sentences.push(`${closureStr.charAt(0).toUpperCase() + closureStr.slice(1)}.`);
+        sentences.push(`${closerName} ${closureStr}.`);
     }
 
-    // Post-processing to make it read perfectly:
-    // If the same technician did all subsequent actions, we can merge them!
-    const activeTech = arrivedBy || quoteCreated?.tech || paymentCollected?.tech || closedBy;
-    if (activeTech) {
-        const name = formatTechName(activeTech);
-        const hasReassign = reassignments.length > 0;
+    // 5. If somehow no sentences generated at all, return a generic summary
+    if (sentences.length === 0) {
+        return `${mainTech} worked on this job and successfully completed it.`;
+    }
+
+    // Smart merge to avoid repetitive name mention if only one tech is involved!
+    const activeTech = arrived ? mainTech : (quoteInfo?.tech ? formatTechName(quoteInfo.tech) : (paymentInfo?.tech ? formatTechName(paymentInfo.tech) : closerName));
+    const techCount = new Set([
+        mainTech,
+        closedBy ? formatTechName(closedBy) : '',
+        quoteInfo ? formatTechName(quoteInfo.tech) : '',
+        paymentInfo ? formatTechName(paymentInfo.tech) : ''
+    ].filter(Boolean)).size;
+
+    const hasReassign = reassignments.length > 0;
+
+    if (techCount === 1 && !hasReassign) {
+        let parts = [];
+        if (openedMaps) parts.push('opened map navigation');
+        if (calledCustomer) parts.push('called the customer');
+        if (arrived) parts.push('visited the customer location');
         
-        const wasVinodToKunal = mapOpenedBy.includes('Vinod Gupta Tech') && reassignments.some(r => r.from === 'Vinod Gupta Tech' && r.to === 'Kunal Bajaj');
-        
-        let intro = '';
-        if (wasVinodToKunal) {
-            intro = `Vinod opened map navigation to this job in the morning, but the job was reassigned to technician Kunal Bajaj in the afternoon. Kunal `;
-        } else if (hasReassign) {
-            const steps = reassignments.map(r => {
-                const fromName = formatTechName(r.from);
-                const toName = formatTechName(r.to);
-                return `reassigned from ${fromName} to ${toName} ${r.timeOfDay}`;
-            });
-            intro = `The job was ${steps.join(', then ')}. ${name} `;
-        } else {
-            intro = `${name} `;
+        let repairPart = '';
+        if (quoteInfo) {
+            const itemsStr = quoteInfo.items.length > 0 ? quoteInfo.items.join(' & ') : 'necessary repairs';
+            repairPart = `created a quotation for ${itemsStr} (₹${quoteInfo.total})`;
+        } else if (job.notes && typeof job.notes === 'string' && !job.notes.startsWith('{')) {
+            repairPart = `completed the work ("${job.notes.trim()}")`;
+        } else if (job.description) {
+            repairPart = `completed service for "${job.description}"`;
         }
 
-        // Check if actions match activeTech
-        const checkArrive = !arrivedBy || arrivedBy === activeTech;
-        const checkQuote = !quoteCreated || quoteCreated.tech === activeTech;
-        const checkPayment = !paymentCollected || paymentCollected.tech === activeTech;
-        const checkClose = !closedBy || closedBy === activeTech;
+        if (repairPart) parts.push(repairPart);
 
-        if (checkArrive && checkQuote && checkPayment && checkClose) {
-            let partsList = [];
-            if (arrivedBy) partsList.push('visited');
-            if (quoteCreated) {
-                const itemsStr = quoteCreated.items.length > 0 ? quoteCreated.items.join(' & ') : 'necessary repairs';
-                partsList.push(`created a quotation for ${itemsStr} (₹${quoteCreated.total})`);
+        if (paymentInfo) {
+            const methodStr = paymentInfo.method ? ` via ${paymentInfo.method.toUpperCase()}` : '';
+            parts.push(`collected the payment of ₹${paymentInfo.total}${methodStr}`);
+        } else {
+            const invoice = job.sales_invoices?.[0] || job.sales_invoice;
+            if (invoice && invoice.total_amount) {
+                parts.push(`collected the payment of ₹${invoice.total_amount}`);
             }
-            if (paymentCollected) {
-                const methodStr = paymentCollected.method ? ` via ${paymentCollected.method.toUpperCase()}` : '';
-                partsList.push(`collected the payment of ₹${paymentCollected.total}${methodStr}`);
-            }
-            if (closedBy) {
-                const outcomeStr = closeReason ? ` as "${closeReason}"` : '';
-                partsList.push(`closed the job${outcomeStr}`);
-            }
+        }
 
-            if (partsList.length > 0) {
-                let mergedBody = '';
-                if (partsList.length === 1) {
-                    mergedBody = partsList[0];
-                } else if (partsList.length === 2) {
-                    mergedBody = partsList.join(' and ');
-                } else {
-                    mergedBody = partsList.slice(0, -1).join(', ') + ', and ' + partsList[partsList.length - 1];
-                }
-                return `${intro}${mergedBody}.`;
-            }
+        const finalOutcome = closeReason ? ` as "${closeReason}"` : '';
+        parts.push(`closed the job${finalOutcome}`);
+
+        if (parts.length > 0) {
+            let merged = '';
+            if (parts.length === 1) merged = parts[0];
+            else if (parts.length === 2) merged = parts.join(' and ');
+            else merged = parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1];
+            
+            return `${mainTech} ${merged}.`;
         }
     }
 
