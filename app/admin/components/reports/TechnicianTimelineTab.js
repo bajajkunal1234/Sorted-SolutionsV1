@@ -263,9 +263,9 @@ export default function TechnicianTimelineTab() {
     };
 
     // Fetch Timeline route and interactions data
-    const fetchTimeline = async () => {
+    const fetchTimeline = async (silent = false) => {
         if (!selectedTechId || !selectedDate) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         setIsPlaying(false);
         setPlaybackIndex(null);
         try {
@@ -305,6 +305,16 @@ export default function TechnicianTimelineTab() {
 
     useEffect(() => {
         fetchTimeline();
+    }, [selectedTechId, selectedDate]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleRefresh = () => {
+            console.log('[TechnicianTimelineTab] Resume/focus detected, background refreshing timeline...');
+            fetchTimeline(true);
+        };
+        window.addEventListener('refresh-active-tab', handleRefresh);
+        return () => window.removeEventListener('refresh-active-tab', handleRefresh);
     }, [selectedTechId, selectedDate]);
 
     useEffect(() => {

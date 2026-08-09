@@ -458,9 +458,21 @@ function IncentivesManagement({ initialSubTab }) {
         }
     }, [startDate, endDate, activeMonth]);
 
-    const fetchData = async () => {
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleRefresh = () => {
+            console.log('[IncentivesManagement] Resume/focus detected, background refreshing performance data...');
+            if (startDate && endDate) {
+                fetchData(true);
+            }
+        };
+        window.addEventListener('refresh-active-tab', handleRefresh);
+        return () => window.removeEventListener('refresh-active-tab', handleRefresh);
+    }, [startDate, endDate, activeMonth]);
+
+    const fetchData = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const { supabase } = await import('@/lib/supabase');
 
             const [techsData, paramsData] = await Promise.all([
@@ -872,7 +884,7 @@ function IncentivesManagement({ initialSubTab }) {
                 <div className="performance-tabs-container">
                     {[
                         { id: 'configure', label: 'Configure Parameters', icon: Settings },
-                        { id: 'performance', label: 'Live Performance', icon: BarChart3 },
+                        { id: 'performance', label: 'Performance', icon: BarChart3 },
                         { id: 'job_details', label: 'Job-Level Details', icon: Briefcase },
                         { id: 'timeline', label: 'Technician Timeline', icon: History }
                     ].map(view => (
