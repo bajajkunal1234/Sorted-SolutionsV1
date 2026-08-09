@@ -333,13 +333,15 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                 
                 {/* LEFT PANEL: Email list & Filters */}
                 <div style={{
-                    width: '380px',
-                    borderRight: '1px solid var(--border-primary)',
-                    display: 'flex',
+                    width: isMobile ? '100%' : (isSidebarCollapsed ? '0px' : '380px'),
+                    display: isMobile ? ((selectedEmail || isComposing) ? 'none' : 'flex') : (isSidebarCollapsed ? 'none' : 'flex'),
+                    borderRight: isSidebarCollapsed ? 'none' : '1px solid var(--border-primary)',
                     flexDirection: 'column',
                     backgroundColor: 'var(--bg-elevated)',
                     height: '100%',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    transition: 'width 0.2s ease, display 0.2s ease'
                 }}>
                     {/* Header Controls */}
                     <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
