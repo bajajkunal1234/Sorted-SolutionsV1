@@ -106,40 +106,54 @@ export async function POST(request, { params }) {
 
         // Notify Admin when before photos are uploaded
         if (body.type === 'before-photos-uploaded') {
-            const { data: jobInfo } = await supabase
-                .from('jobs')
-                .select('job_number')
-                .eq('id', jobId)
-                .single();
-            const jobRef = jobInfo?.job_number || jobId;
+            try {
+                const { data: jobInfo } = await supabase
+                    .from('jobs')
+                    .select('job_number')
+                    .eq('id', jobId)
+                    .single();
+                const jobRef = jobInfo?.job_number || jobId;
 
-            await supabase.from('app_notifications').insert({
-                recipient_type: 'admin',
-                recipient_id: 'admin',
-                title: '📸 Before Photos Uploaded',
-                message: `Technician ${interactionPayload.performed_by_name} uploaded before photos for Job #${jobRef}`,
-                link: `/admin?tab=jobs&jobId=${jobId}`,
-                is_read: false
-            }).catch(e => console.error('[interactions route] Failed to notify admin:', e.message));
+                const { error: notifyError } = await supabase.from('app_notifications').insert({
+                    recipient_type: 'admin',
+                    recipient_id: 'admin',
+                    title: '📸 Before Photos Uploaded',
+                    message: `Technician ${interactionPayload.performed_by_name} uploaded before photos for Job #${jobRef}`,
+                    link: `/admin?tab=jobs&jobId=${jobId}`,
+                    is_read: false
+                });
+                if (notifyError) {
+                    console.error('[interactions route] Failed to notify admin:', notifyError.message);
+                }
+            } catch (err) {
+                console.error('[interactions route] Failed to notify admin:', err.message);
+            }
         }
 
         // Notify Admin when after photos are uploaded
         if (body.type === 'after-photos-uploaded') {
-            const { data: jobInfo } = await supabase
-                .from('jobs')
-                .select('job_number')
-                .eq('id', jobId)
-                .single();
-            const jobRef = jobInfo?.job_number || jobId;
+            try {
+                const { data: jobInfo } = await supabase
+                    .from('jobs')
+                    .select('job_number')
+                    .eq('id', jobId)
+                    .single();
+                const jobRef = jobInfo?.job_number || jobId;
 
-            await supabase.from('app_notifications').insert({
-                recipient_type: 'admin',
-                recipient_id: 'admin',
-                title: '📸 After Photos Uploaded',
-                message: `Technician ${interactionPayload.performed_by_name} uploaded after photos for Job #${jobRef}`,
-                link: `/admin?tab=jobs&jobId=${jobId}`,
-                is_read: false
-            }).catch(e => console.error('[interactions route] Failed to notify admin:', e.message));
+                const { error: notifyError } = await supabase.from('app_notifications').insert({
+                    recipient_type: 'admin',
+                    recipient_id: 'admin',
+                    title: '📸 After Photos Uploaded',
+                    message: `Technician ${interactionPayload.performed_by_name} uploaded after photos for Job #${jobRef}`,
+                    link: `/admin?tab=jobs&jobId=${jobId}`,
+                    is_read: false
+                });
+                if (notifyError) {
+                    console.error('[interactions route] Failed to notify admin:', notifyError.message);
+                }
+            } catch (err) {
+                console.error('[interactions route] Failed to notify admin:', err.message);
+            }
         }
 
         return NextResponse.json({ success: true, data: result.data });
