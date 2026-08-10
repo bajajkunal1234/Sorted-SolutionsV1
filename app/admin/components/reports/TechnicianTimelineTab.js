@@ -62,6 +62,13 @@ export default function TechnicianTimelineTab() {
         return `${mins} min${mins > 1 ? 's' : ''}`;
     };
 
+    const formatListWithAnd = (list) => {
+        if (!list || list.length === 0) return '';
+        if (list.length === 1) return list[0];
+        if (list.length === 2) return `${list[0]} and ${list[1]}`;
+        return `${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
+    };
+
     const playbackIntervalRef = useRef(null);
 
     // Fetch suppliers list on mount
@@ -451,22 +458,80 @@ export default function TechnicianTimelineTab() {
     // Helper to identify Mumbai localities from address strings
     const getLocality = (address) => {
         if (!address) return 'Unknown Locality';
-        const commonLocalities = [
-            'Bandra', 'Khar', 'Santacruz', 'Vile Parle', 'Andheri', 'Jogeshwari', 'Goregaon', 'Malad', 'Kandivali', 'Borivali',
-            'Dahisar', 'Wadala', 'Sewri', 'Dharavi', 'Sion', 'Kurla', 'Ghatkopar', 'Vikhroli', 'Bhandup', 'Mulund', 'Thane',
-            'Dadar', 'Prabhadevi', 'Worli', 'Parel', 'Byculla', 'Mazgaon', 'Colaba', 'Fort', 'Marine Lines', 'Malabar Hill',
-            'Charni Road', 'Grant Road', 'Mumbai Central', 'Mahim', 'Matunga', 'Chembur', 'Trombay', 'Mankhurd', 'Govandi'
-        ];
-        for (const loc of commonLocalities) {
-            if (address.toLowerCase().includes(loc.toLowerCase())) {
-                return loc;
+        
+        const locMap = {
+            'bandra': 'Bandra',
+            'khar': 'Khar',
+            'santacruz': 'Santacruz',
+            'santa\\s*cruz': 'Santacruz',
+            'vile\\s*parle': 'Vile Parle',
+            'ville\\s*parle': 'Vile Parle',
+            'andheri': 'Andheri',
+            'jogeshwari': 'Jogeshwari',
+            'goregaon': 'Goregaon',
+            'malad': 'Malad',
+            'kandivali': 'Kandivali',
+            'borivali': 'Borivali',
+            'dahisar': 'Dahisar',
+            'wadala': 'Wadala',
+            'sewri': 'Sewri',
+            'sewree': 'Sewri',
+            'dharavi': 'Dharavi',
+            'sion': 'Sion',
+            'kurla': 'Kurla',
+            'ghatkopar': 'Ghatkopar',
+            'vikhroli': 'Vikhroli',
+            'bhandup': 'Bhandup',
+            'mulund': 'Mulund',
+            'thane': 'Thane',
+            'dadar': 'Dadar',
+            'prabhadevi': 'Prabhadevi',
+            'worli': 'Worli',
+            'parel': 'Parel',
+            'byculla': 'Byculla',
+            'mazgaon': 'Mazgaon',
+            'mazagon': 'Mazgaon',
+            'colaba': 'Colaba',
+            'fort': 'Fort',
+            'marine\\s*lines': 'Marine Lines',
+            'malabar\\s*hill': 'Malabar Hill',
+            'charni\\s*road': 'Charni Road',
+            'grant\\s*road': 'Grant Road',
+            'mumbai\\s*central': 'Mumbai Central',
+            'mahim': 'Mahim',
+            'matunga': 'Matunga',
+            'chembur': 'Chembur',
+            'trombay': 'Trombay',
+            'mankhurd': 'Mankhurd',
+            'govandi': 'Govandi'
+        };
+
+        const normalized = address.toLowerCase();
+
+        for (const [pattern, name] of Object.entries(locMap)) {
+            const regex = new RegExp('\\b' + pattern + '\\b');
+            if (regex.test(normalized)) {
+                return name;
             }
         }
-        const parts = address.split(',').map(p => p.trim());
-        if (parts.length > 2) {
-            return parts[parts.length - 2];
+
+        // Only split real addresses (containing commas)
+        if (address.includes(',')) {
+            const parts = address.split(',').map(p => p.trim());
+            if (parts.length > 2) {
+                const candidate = parts[parts.length - 2];
+                // Ensure the candidate is brief and doesn't contain action words
+                if (candidate && candidate.split(' ').length <= 3 && candidate.length <= 30) {
+                    const cleanCandidate = candidate.replace(/\b(?:east|west|north|south)\b/gi, '').trim();
+                    const invalidTerms = ['stationary', 'stop', 'status', 'enquiry', 'enquiries', 'phone', 'alert', 'warn'];
+                    if (cleanCandidate && !/^[0-9\-\s\+]+$/.test(cleanCandidate) && !invalidTerms.some(term => cleanCandidate.toLowerCase().includes(term))) {
+                        return cleanCandidate;
+                    }
+                }
+            }
         }
-        return parts[0] || 'Unknown Locality';
+
+        return 'Unknown Locality';
     };
 
     // Dynamically generate Manager's performance audit metrics
@@ -476,17 +541,16 @@ export default function TechnicianTimelineTab() {
         const timeline = data.timeline;
         const jobsList = data.jobsList || [];
 
+        // Build unique visited localities ONLY from the jobsList (actual job properties)
         const visitedLocalities = new Set();
         jobsList.forEach(job => {
-            if (job.address) {
-                visitedLocalities.add(getLocality(job.address));
-            }
-        });
-        
-        timeline.forEach(event => {
-            if (event.description && event.description.includes('at')) {
-                const loc = getLocality(event.description);
-                if (loc !== 'Unknown Locality') visitedLocalities.add(loc);
+            if (job.locality) {
+                visitedLocalities.add(job.locality.replace(' Tech', '').trim());
+            } else if (job.address) {
+                const loc = getLocality(job.address);
+                if (loc && loc !== 'Unknown Locality') {
+                    visitedLocalities.add(loc);
+                }
             }
         });
 
@@ -529,8 +593,15 @@ export default function TechnicianTimelineTab() {
         });
 
         const alerts = [];
-        const jobEvents = {};
         
+        // Add location bypass & audit warnings directly to summary alerts
+        timeline.forEach(event => {
+            if (event.warning) {
+                alerts.push(event.warning);
+            }
+        });
+
+        const jobEvents = {};
         timeline.forEach(event => {
             let jobNum = null;
             if (event.type === 'job_action') {
@@ -587,7 +658,7 @@ export default function TechnicianTimelineTab() {
         const summary = generateDailySummary(timelineData);
         if (!summary) return <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>No dynamic activity logs recorded for this day.</div>;
 
-        const locText = summary.localities.length > 0 ? `in ${summary.localities.join(', ')}` : '';
+        const locText = summary.localities.length > 0 ? `in ${formatListWithAnd(summary.localities)}` : '';
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: '1.45' }}>

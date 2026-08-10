@@ -748,6 +748,7 @@ export async function GET(request) {
                     status: j.status,
                     customerName: j.customers?.name || j.customer_name || 'N/A',
                     propertyLocation: j.properties?.location || null,
+                    locality: j.properties?.locality || j.property?.locality || null,
                     address: [j.properties?.flat_number, j.properties?.building_name, j.properties?.address].filter(Boolean).join(', ').trim() || j.property?.address || ''
                 }))
             }
