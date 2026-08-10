@@ -609,6 +609,14 @@ function TechnicianApp() {
         const logTechSession = async () => {
             try {
                 const isNative = isNativePlatform();
+                
+                // Generate/retrieve a persistent device session ID for this browser/device
+                let devId = localStorage.getItem('device_session_id');
+                if (!devId) {
+                    devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                    localStorage.setItem('device_session_id', devId);
+                }
+                
                 await fetch('/api/admin/reports/installed-devices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -617,7 +625,8 @@ function TechnicianApp() {
                         userName: technicianData?.name || 'Technician',
                         role: 'technician',
                         platform: isNative ? 'Technician App (Mobile)' : 'Web Browser',
-                        appVersion: '1.6.0'
+                        appVersion: '1.6.0',
+                        deviceSessionId: devId
                     })
                 });
             } catch (e) {

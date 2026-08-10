@@ -159,7 +159,7 @@ export async function GET() {
 
 export async function POST(request) {
     try {
-        const { userId, userName, role, platform, appVersion, fcmToken } = await request.json();
+        const { userId, userName, role, platform, appVersion, fcmToken, deviceSessionId } = await request.json();
         
         if (!userId || !userName || !role || !platform || !appVersion) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
@@ -167,6 +167,9 @@ export async function POST(request) {
         
         const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
         const userAgent = request.headers.get('user-agent') || 'Unknown';
+        
+        // Fallback for older apps or requests lacking deviceSessionId
+        const devSessionId = deviceSessionId || `fallback_${platform.replace(/\s+/g, '_')}`;
         
         const { error } = await supabase
             .from('login_activity')
@@ -179,9 +182,10 @@ export async function POST(request) {
                 ip_address: ip,
                 user_agent: userAgent,
                 fcm_token: fcmToken || null,
+                device_session_id: devSessionId,
                 last_active_at: new Date().toISOString()
             }, {
-                onConflict: 'user_id,platform,app_version'
+                onConflict: 'user_id,device_session_id'
             });
             
         if (error) throw error;

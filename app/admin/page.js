@@ -64,6 +64,14 @@ export default function AdminApp() {
                         window.Capacitor !== undefined || 
                         window.location.protocol === 'capacitor:'
                     );
+                    
+                    // Generate/retrieve a persistent device session ID for this browser/device
+                    let devId = localStorage.getItem('device_session_id');
+                    if (!devId) {
+                        devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                        localStorage.setItem('device_session_id', devId);
+                    }
+                    
                     await fetch('/api/admin/reports/installed-devices', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -72,7 +80,8 @@ export default function AdminApp() {
                             userName: session.name || 'Admin',
                             role: 'admin',
                             platform: isNative ? 'Admin App (Mobile)' : 'Web Browser',
-                            appVersion: '1.0.0'
+                            appVersion: '1.0.0',
+                            deviceSessionId: devId
                         })
                     });
                 } catch (e) {
