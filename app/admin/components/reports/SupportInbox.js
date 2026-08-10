@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus, Paperclip, X, Menu, ChevronLeft } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus, Paperclip, X, Menu, ChevronLeft, Bold, Italic, List, ListOrdered, Table } from 'lucide-react';
 import AccountDetailModal from '../AccountDetailModal';
 
 export default function SupportInbox({ subSection, setSubSection, searchTerm: headerSearch, setSearchTerm: setHeaderSearch }) {
@@ -17,13 +17,14 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         from: 'support@sortedsolutions.in',
         to: '',
         subject: '',
-        body_text: ''
+        body_text: '',
+        body_html: ''
     });
     const [attachments, setAttachments] = useState([]);
     const [uploading, setUploading] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    
+    const editorRef = useRef(null);
     // Filters & Search
     const [statusFilter, setStatusFilter] = useState('unread'); // 'unread', 'read', 'resolved', 'archived', 'all', 'active'
     const [mailboxFilter, setMailboxFilter] = useState('all');
@@ -51,6 +52,12 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    useEffect(() => {
+        if (isComposing && editorRef.current) {
+            editorRef.current.innerHTML = composeForm.body_html || '';
+        }
+    }, [isComposing, composeForm.body_html]);
 
     // Load emails & mailboxes
     const loadInbox = async () => {
@@ -203,11 +210,14 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         setIsComposing(true);
         const isOutbound = email.metadata?.direction === 'outbound';
         
+        const replyHtml = `<br/><br/><br/><hr/><strong>On ${new Date(email.received_at).toLocaleString('en-IN')}, ${email.sender_name || email.sender_email} wrote:</strong><br/><blockquote style="border-left: 2px solid #ccc; padding-left: 10px; margin-left: 0; color: #888;">${email.body_html || email.body_text?.split('\n').join('<br/>') || ''}</blockquote>`;
+        
         setComposeForm({
             from: isOutbound ? email.sender_email : email.recipient_email,
             to: isOutbound ? email.recipient_email : email.sender_email,
             subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
-            body_text: `\n\n\nOn ${new Date(email.received_at).toLocaleString('en-IN')}, ${email.sender_name || email.sender_email} wrote:\n> ${email.body_text ? email.body_text.split('\n').join('\n> ') : ''}`
+            body_text: `\n\n\nOn ${new Date(email.received_at).toLocaleString('en-IN')}, ${email.sender_name || email.sender_email} wrote:\n> ${email.body_text ? email.body_text.split('\n').join('\n> ') : ''}`,
+            body_html: replyHtml
         });
     };
 
@@ -257,7 +267,10 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
     // Send email POST request
     const handleSendEmail = async (e) => {
         e.preventDefault();
-        if (!composeForm.to || !composeForm.subject || !composeForm.body_text) {
+        const editorText = editorRef.current ? editorRef.current.innerText.trim() : '';
+        const editorHtml = editorRef.current ? editorRef.current.innerHTML : '';
+
+        if (!composeForm.to || !composeForm.subject || !editorText) {
             alert("Please fill in all fields (To, Subject, and Message Body).");
             return;
         }
@@ -271,8 +284,8 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                     from: composeForm.from,
                     to: composeForm.to,
                     subject: composeForm.subject,
-                    body_text: composeForm.body_text,
-                    body_html: composeForm.body_text.split('\n').join('<br/>'),
+                    body_text: editorText,
+                    body_html: editorHtml,
                     attachments: attachments
                 })
             });
@@ -743,24 +756,152 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                 </div>
 
                                 {/* Body Field */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minHeight: '350px' }}>
                                     <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Message Body</label>
-                                    <textarea
-                                        required
-                                        placeholder="Type your email message here..."
-                                        value={composeForm.body_text}
-                                        onChange={(e) => setComposeForm(prev => ({ ...prev, body_text: e.target.value }))}
-                                        className="form-input"
+                                    
+                                    {/* Local component styles for empty placeholder and tables */}
+                                    <style dangerouslySetInnerHTML={{__html: `
+                                        .rich-editor {
+                                            outline: none;
+                                        }
+                                        .rich-editor:empty:before {
+                                            content: attr(placeholder);
+                                            color: var(--text-tertiary);
+                                            cursor: text;
+                                            pointer-events: none;
+                                        }
+                                        .rich-editor table {
+                                            border-collapse: collapse;
+                                            width: 100%;
+                                            margin: 10px 0;
+                                        }
+                                        .rich-editor td {
+                                            border: 1px solid var(--border-primary);
+                                            padding: 8px;
+                                            min-width: 50px;
+                                        }
+                                    `}} />
+
+                                    {/* Editor Toolbar */}
+                                    <div style={{
+                                        display: 'flex',
+                                        flexWrap: 'wrap',
+                                        gap: '6px',
+                                        padding: '6px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderBottom: 'none',
+                                        borderTopLeftRadius: 'var(--radius-md)',
+                                        borderTopRightRadius: 'var(--radius-md)',
+                                        alignItems: 'center'
+                                    }}>
+                                        {[
+                                            { command: 'bold', icon: Bold, title: 'Bold' },
+                                            { command: 'italic', icon: Italic, title: 'Italic' },
+                                            { command: 'insertUnorderedList', icon: List, title: 'Bullet List' },
+                                            { command: 'insertOrderedList', icon: ListOrdered, title: 'Numbered List' },
+                                        ].map(btn => (
+                                            <button
+                                                key={btn.command}
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault();
+                                                    if (typeof document !== 'undefined') {
+                                                        document.execCommand(btn.command, false, null);
+                                                    }
+                                                }}
+                                                className="btn btn-secondary"
+                                                style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                title={btn.title}
+                                            >
+                                                <btn.icon size={14} />
+                                            </button>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                // Insert a 3x3 table
+                                                const rows = 3;
+                                                const cols = 3;
+                                                let tableHtml = '<table style="width:100%; border-collapse:collapse; margin:10px 0; border:1px solid var(--border-primary);">';
+                                                for (let i = 0; i < rows; i++) {
+                                                    tableHtml += '<tr>';
+                                                    for (let j = 0; j < cols; j++) {
+                                                        tableHtml += '<td style="border:1px solid var(--border-primary); padding:8px; min-width:50px;">&nbsp;</td>';
+                                                    }
+                                                    tableHtml += '</tr>';
+                                                }
+                                                tableHtml += '</table><br/>';
+                                                
+                                                if (typeof window !== 'undefined') {
+                                                    const selection = window.getSelection();
+                                                    if (selection.getRangeAt && selection.rangeCount) {
+                                                        const range = selection.getRangeAt(0);
+                                                        range.deleteContents();
+                                                        
+                                                        const el = document.createElement("div");
+                                                        el.innerHTML = tableHtml;
+                                                        const frag = document.createDocumentFragment();
+                                                        let node, lastNode;
+                                                        while ((node = el.firstChild)) {
+                                                            lastNode = frag.appendChild(node);
+                                                        }
+                                                        range.insertNode(frag);
+                                                        
+                                                        if (lastNode) {
+                                                            range.setStartAfter(lastNode);
+                                                            range.setEndAfter(lastNode);
+                                                            selection.removeAllRanges();
+                                                            selection.addRange(range);
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: 'var(--font-size-xs)' }}
+                                            title="Insert Table"
+                                        >
+                                            <Table size={14} />
+                                            <span style={{ fontSize: '11px' }}>Table</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                if (typeof document !== 'undefined') {
+                                                    document.execCommand('removeFormat', false, null);
+                                                }
+                                            }}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 8px', fontSize: '11px' }}
+                                            title="Clear Formatting"
+                                        >
+                                            Tx
+                                        </button>
+                                    </div>
+
+                                    {/* Rich Text Editor Container */}
+                                    <div
+                                        ref={editorRef}
+                                        contentEditable
+                                        className="rich-editor"
+                                        placeholder="Type your email message here (supports pasting tables, formatted text from Excel or Gemini)..."
                                         style={{
                                             padding: '12px',
-                                            borderRadius: 'var(--radius-md)',
+                                            borderBottomLeftRadius: 'var(--radius-md)',
+                                            borderBottomRightRadius: 'var(--radius-md)',
+                                            borderTopLeftRadius: 0,
+                                            borderTopRightRadius: 0,
                                             backgroundColor: 'var(--bg-secondary)',
-                                            borderColor: 'var(--border-primary)',
+                                            border: '1px solid var(--border-primary)',
                                             color: 'var(--text-primary)',
                                             fontSize: 'var(--font-size-sm)',
-                                            minHeight: '200px',
+                                            minHeight: '250px',
                                             flex: 1,
-                                            resize: 'vertical',
+                                            overflowY: 'auto',
                                             fontFamily: 'inherit',
                                             lineHeight: 1.6
                                         }}
