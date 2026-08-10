@@ -128,6 +128,7 @@ function TechnicianApp() {
     const [dutyStatusError, setDutyStatusError] = useState(null);
     const [mdmProfiles, setMdmProfiles] = useState(null);
     const [shiftActionLoading, setShiftActionLoading] = useState(null); // 'start', 'end', or null
+    const [isClearingCache, setIsClearingCache] = useState(false);
 
     const isOnlineRef = useRef(isOnline);
     useEffect(() => {
@@ -1341,6 +1342,46 @@ function TechnicianApp() {
             alert('Cache preload completed with some warnings. Please verify your connection.');
         } finally {
             setIsRefreshingData(false);
+        }
+    };
+
+    const handleClearAppCache = async () => {
+        if (!confirm('This will refresh the app and clear all temporary website files and cache. Your login session and any pending offline sync changes will NOT be deleted. Do you want to proceed?')) {
+            return;
+        }
+        setIsClearingCache(true);
+        try {
+            // 1. Clear Service Worker Registrations
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            }
+
+            // 2. Clear Cache Storage API caches
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                }
+            }
+
+            // 3. Clear Session Storage
+            sessionStorage.clear();
+
+            alert('App Cache Cleared successfully! The app will now reload.');
+            
+            // 4. Force a hard reload bypassing cache by appending a unique query parameter
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('t', Date.now().toString());
+            window.location.replace(newUrl.toString());
+        } catch (err) {
+            console.error('Error clearing app cache:', err);
+            alert('Failed to clear some cache files: ' + err.message + '. We will reload anyway.');
+            window.location.reload();
+        } finally {
+            setIsClearingCache(false);
         }
     };
 
@@ -2863,6 +2904,55 @@ function TechnicianApp() {
                     <Download size={16} />
                     Download Tech App v6 APK ({apkSize})
                 </a>
+            </div>
+
+            {/* Clear Cache Section */}
+            <div style={{
+                padding: 'var(--spacing-md)',
+                backgroundColor: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: 'var(--spacing-md)'
+            }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Trash2 size={18} color="#ef4444" />
+                    <span>App Storage &amp; Cache</span>
+                </h3>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)', lineHeight: '1.4' }}>
+                    If the app is behaving incorrectly or not showing the latest updates, clear the website cache. This will reload the app without logging you out or losing pending offline changes.
+                </p>
+                <button
+                    onClick={handleClearAppCache}
+                    disabled={isClearingCache}
+                    className="btn btn-secondary"
+                    style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: '#ef4444',
+                        fontWeight: 600,
+                        border: '1px solid #ef4444',
+                        cursor: isClearingCache ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        fontSize: 'var(--font-size-sm)'
+                    }}
+                >
+                    {isClearingCache ? (
+                        <>
+                            <Loader2 size={16} className="spin" />
+                            Clearing Cache...
+                        </>
+                    ) : (
+                        <>
+                            <Trash2 size={16} />
+                            Clear App Cache
+                        </>
+                    )}
+                </button>
             </div>
 
             {/* Logout */}
