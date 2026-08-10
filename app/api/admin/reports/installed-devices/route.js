@@ -124,14 +124,22 @@ export async function GET() {
                     installedDevices: techs.filter(t => t.mdm_device_id).length,
                     registeredFcm: techs.filter(t => t.fcm_token).length,
                     loggedInDevices: techs.filter(t => t.current_session_token).length,
-                    list: techs.map(t => ({
-                        id: t.id,
-                        name: t.name,
-                        mdmDeviceId: t.mdm_device_id || null,
-                        isLoggedIn: !!t.current_session_token,
-                        lastIp: t.last_device_ip || null,
-                        hasFcm: !!t.fcm_token
-                    }))
+                    list: techs.map(t => {
+                        // Find the most recent activity log for this technician
+                        const latestLog = formattedActivity.find(log => log.userId === t.id);
+                        return {
+                            id: t.id,
+                            name: t.name,
+                            mdmDeviceId: t.mdm_device_id || null,
+                            isLoggedIn: !!t.current_session_token,
+                            lastIp: t.last_device_ip || null,
+                            hasFcm: !!t.fcm_token,
+                            platform: latestLog ? latestLog.platform : (t.mdm_device_id ? 'Technician App (Mobile)' : 'N/A'),
+                            appVersion: latestLog ? latestLog.appVersion : (t.mdm_device_id ? '1.6.0' : 'N/A'),
+                            deviceName: latestLog ? latestLog.deviceName : (t.mdm_device_id ? 'Android Device' : 'N/A'),
+                            lastActive: latestLog ? latestLog.lastActive : null
+                        };
+                    })
                 },
                 adminApp: {
                     latestVersion: '1.0.0 (v1)',

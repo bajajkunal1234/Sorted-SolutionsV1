@@ -369,7 +369,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             const longitude = pos.coords.longitude;
 
                             // Asynchronously ping location API to record this precise coordinate in the DB historical logs
-                            if (technicianId) {
+                            if (techId) {
                                 let sessionToken = null;
                                 try {
                                     const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
@@ -382,7 +382,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        technician_id: technicianId,
+                                        technician_id: techId,
                                         latitude,
                                         longitude,
                                         is_on_job: true,

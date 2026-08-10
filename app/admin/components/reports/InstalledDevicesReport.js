@@ -358,112 +358,141 @@ export default function InstalledDevicesReport() {
                             )}
                         </tbody>
                     </table>
+                ) : activeTab === 'tech' ? (
+                    <table className="table" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Technician Name</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>MDM Hardware ID</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Platform</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Device / Browser</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>App Version</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Active Session</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last IP Address</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last Active</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Push (FCM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredTechs.length > 0 ? (
+                                filteredTechs.map((tech) => (
+                                    <tr key={tech.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{tech.name}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)' }}>
+                                            {tech.mdmDeviceId ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <code style={{ fontSize: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{tech.mdmDeviceId}</code>
+                                                    <button 
+                                                        onClick={() => copyToClipboard(tech.mdmDeviceId, tech.id)} 
+                                                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
+                                                        title="Copy Device ID"
+                                                    >
+                                                        {copiedId === tech.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No device registered</span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-primary)' }}>
+                                            {tech.platform !== 'N/A' ? (
+                                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    {tech.platform}
+                                                </span>
+                                            ) : 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{tech.deviceName}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                            {tech.appVersion !== 'N/A' ? (
+                                                <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    {tech.appVersion}
+                                                </span>
+                                            ) : 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                            {tech.isLoggedIn ? (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 'bold', fontSize: '10px' }}>
+                                                    <CheckCircle size={10} /> Active
+                                                </span>
+                                            ) : (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: '10px' }}>
+                                                    Logged Out
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{tech.lastIp || 'N/A'}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                            {tech.lastActive ? new Date(tech.lastActive).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A'}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                            <span style={{
+                                                width: '8px',
+                                                height: '8px',
+                                                borderRadius: '50%',
+                                                display: 'inline-block',
+                                                backgroundColor: tech.hasFcm ? '#10b981' : '#ef4444',
+                                                boxShadow: tech.hasFcm ? '0 0 8px #10b981' : 'none'
+                                            }} title={tech.hasFcm ? 'Registered for push notifications' : 'Push token missing'} />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={9} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No technicians found matching filter.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 ) : (
                     <table className="table" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
                         <thead>
                             <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
                                 <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Device Name / Holder</th>
-                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Hardware/FCM Token</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>FCM Notification Token</th>
                                 <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Active Session</th>
-                                {activeTab === 'tech' ? (
-                                    <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last IP Address</th>
-                                ) : (
-                                    <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Registration Date</th>
-                                )}
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Registration Date</th>
                                 <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Push (FCM)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {activeTab === 'tech' ? (
-                                filteredTechs.length > 0 ? (
-                                    filteredTechs.map((tech) => (
-                                        <tr key={tech.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                            <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{tech.name}</td>
-                                            <td style={{ padding: '12px var(--spacing-sm)' }}>
-                                                {tech.mdmDeviceId ? (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <code style={{ fontSize: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{tech.mdmDeviceId}</code>
-                                                        <button 
-                                                            onClick={() => copyToClipboard(tech.mdmDeviceId, tech.id)} 
-                                                            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
-                                                            title="Copy Device ID"
-                                                        >
-                                                            {copiedId === tech.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No device registered</span>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                {tech.isLoggedIn ? (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 'bold', fontSize: '10px' }}>
-                                                        <CheckCircle size={10} /> Active
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: '10px' }}>
-                                                        Logged Out
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{tech.lastIp || 'N/A'}</td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                <span style={{
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%',
-                                                    display: 'inline-block',
-                                                    backgroundColor: tech.hasFcm ? '#10b981' : '#ef4444',
-                                                    boxShadow: tech.hasFcm ? '0 0 8px #10b981' : 'none'
-                                                }} title={tech.hasFcm ? 'Registered for push notifications' : 'Push token missing'} />
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No technicians found matching filter.</td>
+                            {filteredAdmins.length > 0 ? (
+                                filteredAdmins.map((admin) => (
+                                    <tr key={admin.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{admin.name}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <code style={{ fontSize: '9px', color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {admin.fcmToken}
+                                                </code>
+                                                <button 
+                                                    onClick={() => copyToClipboard(admin.fcmToken, admin.id)} 
+                                                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
+                                                    title="Copy FCM Token"
+                                                >
+                                                    {copiedId === admin.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>-</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                            {new Date(admin.registeredAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                            <span style={{
+                                                width: '8px',
+                                                height: '8px',
+                                                borderRadius: '50%',
+                                                display: 'inline-block',
+                                                backgroundColor: '#10b981',
+                                                boxShadow: '0 0 8px #10b981'
+                                            }} title="Registered for push notifications" />
+                                        </td>
                                     </tr>
-                                )
+                                ))
                             ) : (
-                                filteredAdmins.length > 0 ? (
-                                    filteredAdmins.map((admin) => (
-                                        <tr key={admin.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                            <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{admin.name}</td>
-                                            <td style={{ padding: '12px var(--spacing-sm)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <code style={{ fontSize: '9px', color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {admin.fcmToken}
-                                                    </code>
-                                                    <button 
-                                                        onClick={() => copyToClipboard(admin.fcmToken, admin.id)} 
-                                                        style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
-                                                        title="Copy FCM Token"
-                                                    >
-                                                        {copiedId === admin.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>-</td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                                {new Date(admin.registeredAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                                            </td>
-                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                                <span style={{
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%',
-                                                    display: 'inline-block',
-                                                    backgroundColor: '#10b981',
-                                                    boxShadow: '0 0 8px #10b981'
-                                                }} title="Registered for push notifications" />
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No registered admin devices found.</td>
-                                    </tr>
-                                )
+                                <tr>
+                                    <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No registered admin devices found.</td>
+                                </tr>
                             )}
                         </tbody>
                     </table>
