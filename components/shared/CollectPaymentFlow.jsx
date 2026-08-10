@@ -73,21 +73,28 @@ export default function CollectPaymentFlow({
         if (prefilledJob) setSelectedJob(prefilledJob);
     }, [prefilledJob]);
 
+    const needsCustomers = !prefilledCustomer || !prefilledCustomer.id;
+    const needsJobs = !prefilledJob || !prefilledJob.id;
+    const isBlockingLoad = isLoadingData && (needsCustomers || needsJobs);
+
+    const prefilledCustId = prefilledCustomer?.id;
+    const prefilledJobId = prefilledJob?.id;
+
     useEffect(() => {
         const loadInitialData = async () => {
             setIsLoadingData(true);
             try {
-                const needsCustomers = !prefilledCustomer;
-                const needsJobs = !prefilledJob;
+                const needsCustomersVal = !prefilledCustId;
+                const needsJobsVal = !prefilledJobId;
 
                 const promises = [
                     apiCall('/api/admin/qrcodes').then(r => r.json()).catch(() => ({ success: false }))
                 ];
 
-                if (needsCustomers) {
+                if (needsCustomersVal) {
                     promises.push(apiCall('/api/admin/accounts?type=customer').then(r => r.json()).catch(() => ({ success: false })));
                 }
-                if (needsJobs) {
+                if (needsJobsVal) {
                     const jobsUrl = context === 'technician' 
                         ? `/api/technician/jobs` 
                         : `/api/admin/jobs`;
@@ -104,14 +111,14 @@ export default function CollectPaymentFlow({
                 }
 
                 let resultIdx = 1;
-                if (needsCustomers) {
+                if (needsCustomersVal) {
                     const accRes = results[resultIdx++];
                     if (accRes && accRes.success) setCustomers(accRes.data || []);
                 } else {
                     setCustomers(prefilledCustomer ? [prefilledCustomer] : []);
                 }
 
-                if (needsJobs) {
+                if (needsJobsVal) {
                     const jRes = results[resultIdx++];
                     if (jRes && jRes.success) {
                         setJobs(jRes.data || []);
@@ -127,7 +134,7 @@ export default function CollectPaymentFlow({
             }
         };
         loadInitialData();
-    }, [prefilledCustomer, prefilledJob, context]);
+    }, [prefilledCustId, prefilledJobId, context]);
 
     const relevantJobs = context === 'technician'
         ? jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && String(j.technician_id) === String(currentUserId))
@@ -439,7 +446,7 @@ export default function CollectPaymentFlow({
 
                 {/* Content Body */}
                 <div style={{ padding: 'var(--spacing-lg)', overflowY: 'auto', flex: 1 }}>
-                    {isLoadingData && step === 1 ? (
+                    {isBlockingLoad && step === 1 ? (
                         <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
                             <Loader2 size={32} className="spin" style={{ margin: '0 auto var(--spacing-sm)' }} />
                             Loading data...
