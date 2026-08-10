@@ -605,6 +605,29 @@ function TechnicianApp() {
     }, [router]);
 
     useEffect(() => {
+        if (!technicianId) return;
+        const logTechSession = async () => {
+            try {
+                const isNative = isNativePlatform();
+                await fetch('/api/admin/reports/installed-devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: technicianId,
+                        userName: technicianData?.name || 'Technician',
+                        role: 'technician',
+                        platform: isNative ? 'Technician App (Mobile)' : 'Web Browser',
+                        appVersion: '1.6.0'
+                    })
+                });
+            } catch (e) {
+                console.warn('Failed to log tech session:', e);
+            }
+        };
+        logTechSession();
+    }, [technicianId, technicianData]);
+
+    useEffect(() => {
         if (showStockModal && technicianId) {
             (async () => {
                 setStockLoading(true);

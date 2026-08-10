@@ -56,6 +56,30 @@ export default function AdminApp() {
                 return
             }
             setAdminId('admin') // Always use 'admin' as the recipient_id so it matches app_notifications
+            
+            // Log active session for Installed Devices report
+            const logAdminSession = async () => {
+                try {
+                    const isNative = typeof window !== 'undefined' && (
+                        window.Capacitor !== undefined || 
+                        window.location.protocol === 'capacitor:'
+                    );
+                    await fetch('/api/admin/reports/installed-devices', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: 'admin',
+                            userName: session.name || 'Admin',
+                            role: 'admin',
+                            platform: isNative ? 'Admin App (Mobile)' : 'Web Browser',
+                            appVersion: '1.0.0'
+                        })
+                    });
+                } catch (e) {
+                    console.warn('Failed to log admin session:', e);
+                }
+            };
+            logAdminSession();
         } catch {
             router.replace('/login')
             return

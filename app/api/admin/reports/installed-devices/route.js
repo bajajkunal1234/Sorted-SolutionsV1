@@ -5,9 +5,56 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+function parseDeviceFromUserAgent(ua) {
+    if (!ua) return 'Unknown Device';
+    
+    const normalized = ua.toLowerCase();
+    
+    // Check if it's running via Capacitor/native app wrapper
+    const isApp = normalized.includes('capacitor') || normalized.includes('sortedtech') || normalized.includes('sortedadmin');
+    
+    if (isApp) {
+        if (normalized.includes('android')) {
+            const match = ua.match(/\bAndroid\b[^;]*;\s*([^;)]+)/);
+            return `Android App (${match ? match[1].trim() : 'Android Device'})`;
+        }
+        if (normalized.includes('iphone') || normalized.includes('ipad')) {
+            return 'iOS App (iPhone/iPad)';
+        }
+        return 'Mobile App';
+    }
+    
+    // Fallback: Parse Browser and OS
+    let browser = 'Browser';
+    if (ua.includes('Firefox/')) browser = 'Firefox';
+    else if (ua.includes('Chrome/')) browser = 'Chrome';
+    else if (ua.includes('Safari/')) browser = 'Safari';
+    else if (ua.includes('Edge/')) browser = 'Edge';
+    
+    let os = 'OS';
+    if (normalized.includes('windows')) os = 'Windows';
+    else if (normalized.includes('macintosh') || normalized.includes('mac os')) os = 'macOS';
+    else if (normalized.includes('linux')) os = 'Linux';
+    else if (normalized.includes('android')) {
+        const match = ua.match(/\bAndroid\b[^;]*;\s*([^;)]+)/);
+        os = match ? `Android (${match[1].trim()})` : 'Android';
+    }
+    else if (normalized.includes('iphone') || normalized.includes('ipad')) os = 'iOS';
+    
+    return `${browser} on ${os}`;
+}
+
 export async function GET() {
     try {
-        // 1. Fetch technician device details
+        // 1. Fetch live activity logs
+        const { data: activityLogs, error: actErr } = await supabase
+            .from('login_activity')
+            .select('*')
+            .order('last_active_at', { ascending: false });
+            
+        if (actErr) throw actErr;
+
+        // 2. Fetch technician details for fallback/MDM listing
         const { data: techs, error: techErr } = await supabase
             .from('technicians')
             .select('id, name, last_device_ip, fcm_token, current_session_token, mdm_device_id')
@@ -15,7 +62,7 @@ export async function GET() {
             
         if (techErr) throw techErr;
 
-        // 2. Fetch admin recipient device details
+        // 3. Fetch admin recipients for fallback
         const { data: admins, error: adminErr } = await supabase
             .from('admin_recipients')
             .select('id, name, fcm_token, created_at')
@@ -23,35 +70,37 @@ export async function GET() {
 
         if (adminErr) throw adminErr;
 
-        // 3. Get APK metadata from public directory if available
+        // 4. Get APK file sizes
         let techApkSize = '6.72 MB';
         let adminApkSize = '6.72 MB';
-        
         try {
             const publicDir = path.join(process.cwd(), 'public', 'downloads');
-            
             const techPath = path.join(publicDir, 'technician-app-v6.apk');
             if (fs.existsSync(techPath)) {
-                const stats = fs.statSync(techPath);
-                techApkSize = `${(stats.size / (1024 * 1024)).toFixed(2)} MB`;
+                techApkSize = `${(fs.statSync(techPath).size / (1024 * 1024)).toFixed(2)} MB`;
             }
-            
             const adminPath = path.join(publicDir, 'admin-app.apk');
             if (fs.existsSync(adminPath)) {
-                const stats = fs.statSync(adminPath);
-                adminApkSize = `${(stats.size / (1024 * 1024)).toFixed(2)} MB`;
+                adminApkSize = `${(fs.statSync(adminPath).size / (1024 * 1024)).toFixed(2)} MB`;
             }
         } catch (fsErr) {
-            console.error('Failed to read APK file sizes:', fsErr);
+            console.error('Failed to read APK sizes:', fsErr);
         }
 
-        // 4. Aggregate stats
-        const totalTechs = techs.length;
-        const techsWithMdm = techs.filter(t => t.mdm_device_id).length;
-        const techsWithFcm = techs.filter(t => t.fcm_token).length;
-        const techsLoggedIn = techs.filter(t => t.current_session_token).length;
+        // Process lists and merge
+        const formattedActivity = (activityLogs || []).map(log => ({
+            id: log.id,
+            userId: log.user_id,
+            userName: log.user_name,
+            role: log.role,
+            platform: log.platform,
+            appVersion: log.app_version,
+            ipAddress: log.ip_address,
+            deviceName: parseDeviceFromUserAgent(log.user_agent),
+            lastActive: log.last_active_at
+        }));
 
-        // Deduplicate admin recipients by FCM token to get unique installed devices
+        // Deduplicate admin recipients
         const uniqueAdminTokens = new Set();
         const deduplicatedAdmins = [];
         (admins || []).forEach(item => {
@@ -61,16 +110,20 @@ export async function GET() {
             }
         });
 
+        // Compute counts
+        const webActiveCount = formattedActivity.filter(a => a.platform.toLowerCase().includes('web')).length;
+        const appActiveCount = formattedActivity.filter(a => a.platform.toLowerCase().includes('app')).length;
+
         return NextResponse.json({
             success: true,
             data: {
                 techApp: {
                     latestVersion: '1.6.0 (v6)',
                     apkSize: techApkSize,
-                    totalTechnicians: totalTechs,
-                    installedDevices: techsWithMdm,
-                    registeredFcm: techsWithFcm,
-                    loggedInDevices: techsLoggedIn,
+                    totalTechnicians: techs.length,
+                    installedDevices: techs.filter(t => t.mdm_device_id).length,
+                    registeredFcm: techs.filter(t => t.fcm_token).length,
+                    loggedInDevices: techs.filter(t => t.current_session_token).length,
                     list: techs.map(t => ({
                         id: t.id,
                         name: t.name,
@@ -86,15 +139,56 @@ export async function GET() {
                     installedDevices: uniqueAdminTokens.size,
                     list: deduplicatedAdmins.map(a => ({
                         id: a.id,
-                        name: a.name || 'Admin',
+                        name: a.name || 'Admin Device',
                         fcmToken: a.fcm_token,
                         registeredAt: a.created_at
                     }))
+                },
+                activity: {
+                    webActiveCount,
+                    appActiveCount,
+                    list: formattedActivity
                 }
             }
         });
     } catch (err) {
         console.error('Installed Devices API exception:', err);
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+}
+
+export async function POST(request) {
+    try {
+        const { userId, userName, role, platform, appVersion, fcmToken } = await request.json();
+        
+        if (!userId || !userName || !role || !platform || !appVersion) {
+            return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
+        }
+        
+        const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '127.0.0.1';
+        const userAgent = request.headers.get('user-agent') || 'Unknown';
+        
+        const { error } = await supabase
+            .from('login_activity')
+            .upsert({
+                user_id: userId,
+                user_name: userName,
+                role,
+                platform,
+                app_version: appVersion,
+                ip_address: ip,
+                user_agent: userAgent,
+                fcm_token: fcmToken || null,
+                last_active_at: new Date().toISOString()
+            }, {
+                onConflict: 'user_id,platform,app_version'
+            });
+            
+        if (error) throw error;
+        
+        return NextResponse.json({ success: true });
+    } catch (err) {
+        console.error('Failed to log login session:', err);
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
 }

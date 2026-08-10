@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Smartphone, Download, RefreshCcw, Search, CheckCircle, XCircle, Info, Copy, Check } from 'lucide-react';
+import { Smartphone, Download, RefreshCcw, Search, CheckCircle, XCircle, Info, Copy, Check, Globe, Shield, Clock } from 'lucide-react';
 
 export default function InstalledDevicesReport() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState(null);
-    const [activeTab, setActiveTab] = useState('tech'); // 'tech' | 'admin'
+    const [activeTab, setActiveTab] = useState('tech'); // 'tech' | 'admin' | 'logins'
     const [searchTerm, setSearchTerm] = useState('');
     const [copiedId, setCopiedId] = useState(null);
 
@@ -62,7 +62,7 @@ export default function InstalledDevicesReport() {
         );
     }
 
-    const { techApp, adminApp } = data || {};
+    const { techApp, adminApp, activity } = data || {};
 
     const filteredTechs = (techApp?.list || []).filter(t => 
         t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,6 +73,15 @@ export default function InstalledDevicesReport() {
     const filteredAdmins = (adminApp?.list || []).filter(a => 
         a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (a.fcmToken && a.fcmToken.includes(searchTerm))
+    );
+
+    const filteredActivity = (activity?.list || []).filter(log =>
+        log.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        log.platform.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.deviceName && log.deviceName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (log.ipAddress && log.ipAddress.includes(searchTerm)) ||
+        (log.appVersion && log.appVersion.includes(searchTerm))
     );
 
     return (
@@ -89,7 +98,7 @@ export default function InstalledDevicesReport() {
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    minHeight: '160px',
+                    minHeight: '170px',
                     position: 'relative',
                     overflow: 'hidden'
                 }}>
@@ -137,7 +146,7 @@ export default function InstalledDevicesReport() {
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    minHeight: '160px',
+                    minHeight: '170px',
                     position: 'relative',
                     overflow: 'hidden'
                 }}>
@@ -160,8 +169,10 @@ export default function InstalledDevicesReport() {
                             </div>
                             <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
                             <div>
-                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: 'var(--text-secondary)' }}>-</div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Web-auth Session</div>
+                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: '#ec4899' }}>
+                                    {activity?.list.filter(a => a.role === 'admin' && a.platform.toLowerCase().includes('app')).length || 0}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Active App Logins</div>
                             </div>
                         </div>
                     </div>
@@ -174,6 +185,50 @@ export default function InstalledDevicesReport() {
                     >
                         <Download size={14} /> Download Admin APK
                     </a>
+                </div>
+
+                {/* Overall Session Stats Card */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                    borderRadius: 'var(--border-radius-lg)',
+                    padding: 'var(--spacing-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: '170px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', right: '-10px', top: '-10px', opacity: 0.1, color: '#10b981' }}>
+                        <Globe size={100} />
+                    </div>
+                    <div>
+                        <div>
+                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.05em' }}>Web & App Logins Log</span>
+                            <h3 style={{ margin: 'var(--spacing-xs) 0 0 0', color: 'var(--text-primary)', fontSize: 'var(--font-size-lg)' }}>Session Activity</h3>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+                            <div>
+                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: 'var(--text-primary)' }}>{activity?.webActiveCount || 0}</div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Web Sessions</div>
+                            </div>
+                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+                            <div>
+                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 'bold', color: '#10b981' }}>{activity?.appActiveCount || 0}</div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Mobile App Logins</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={fetchDevicesData}
+                        className="btn btn-secondary"
+                        style={{ marginTop: 'var(--spacing-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '8px' }}
+                    >
+                        <RefreshCcw size={14} /> Refresh Device Metrics
+                    </button>
                 </div>
 
             </div>
@@ -196,14 +251,21 @@ export default function InstalledDevicesReport() {
                             onClick={() => { setActiveTab('admin'); setSearchTerm(''); }}
                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
                         >
-                            Admin Devices ({filteredAdmins.length})
+                            Registered Admins ({filteredAdmins.length})
+                        </button>
+                        <button 
+                            className={`btn ${activeTab === 'logins' ? 'btn-primary' : ''}`}
+                            onClick={() => { setActiveTab('logins'); setSearchTerm(''); }}
+                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
+                        >
+                            All Active Logins ({filteredActivity.length})
                         </button>
                     </div>
 
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', maxWidth: '280px' }}>
                         <input
                             type="text"
-                            placeholder="Search by name, ID or IP..."
+                            placeholder={activeTab === 'logins' ? "Search by user, platform, device..." : "Search by name, ID or IP..."}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{
@@ -235,9 +297,11 @@ export default function InstalledDevicesReport() {
                     <Info size={16} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '1px' }} />
                     <div>
                         {activeTab === 'tech' ? (
-                            <span><strong>Technician installation logic:</strong> Devices are detected via the unique MDM hardware token registered on their login profile. If a device has a <strong>session token</strong>, they are currently logged into the app.</span>
+                            <span><strong>Technician hardware info:</strong> Shows unique MDM hardware tokens registered on each technician profile. If a device has a <strong>session token</strong>, they are currently logged into the app.</span>
+                        ) : activeTab === 'admin' ? (
+                            <span><strong>Registered admin devices:</strong> Displays FCM push notification tokens generated when the admin app is opened/initialized on a physical device.</span>
                         ) : (
-                            <span><strong>Admin installation logic:</strong> Unique devices are counted by identifying distinct FCM (Firebase Cloud Messaging) tokens generated when the admin app is installed and initialized on a physical device.</span>
+                            <span><strong>Active Login activity:</strong> A unified feed tracking web browser logins, mobile app sessions, device models (parsed from User Agent), IP addresses, and app versions.</span>
                         )}
                     </div>
                 </div>
@@ -245,114 +309,165 @@ export default function InstalledDevicesReport() {
 
             {/* List Details Table */}
             <div className="table-responsive" style={{ border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: 'var(--border-radius-lg)', overflow: 'hidden' }}>
-                <table className="table" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Device Name / Holder</th>
-                            <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Hardware/FCM Token</th>
-                            <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Active Session</th>
-                            {activeTab === 'tech' ? (
-                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last IP Address</th>
-                            ) : (
-                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Registration Date</th>
-                            )}
-                            <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Push (FCM)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {activeTab === 'tech' ? (
-                            filteredTechs.length > 0 ? (
-                                filteredTechs.map((tech) => (
-                                    <tr key={tech.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{tech.name}</td>
+                {activeTab === 'logins' ? (
+                    <table className="table" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>User / Holder</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Role</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Platform</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Device / Browser</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>App Version</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>IP Address</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last Active</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredActivity.length > 0 ? (
+                                filteredActivity.map((log) => (
+                                    <tr key={log.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{log.userName}</td>
                                         <td style={{ padding: '12px var(--spacing-sm)' }}>
-                                            {tech.mdmDeviceId ? (
+                                            <span style={{
+                                                fontSize: '10px',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontWeight: 'bold',
+                                                textTransform: 'capitalize',
+                                                background: log.role === 'admin' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                                                color: log.role === 'admin' ? '#ec4899' : '#3b82f6'
+                                            }}>{log.role}</span>
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-primary)' }}>{log.platform}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{log.deviceName}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                            <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>
+                                                {log.appVersion}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{log.ipAddress}</td>
+                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                            {new Date(log.lastActive).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={7} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No active login activity recorded.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                ) : (
+                    <table className="table" style={{ margin: 0, fontSize: 'var(--font-size-xs)' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Device Name / Holder</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Hardware/FCM Token</th>
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Active Session</th>
+                                {activeTab === 'tech' ? (
+                                    <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Last IP Address</th>
+                                ) : (
+                                    <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600 }}>Registration Date</th>
+                                )}
+                                <th style={{ padding: '12px var(--spacing-sm)', fontWeight: 600, textAlign: 'center' }}>Push (FCM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {activeTab === 'tech' ? (
+                                filteredTechs.length > 0 ? (
+                                    filteredTechs.map((tech) => (
+                                        <tr key={tech.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{tech.name}</td>
+                                            <td style={{ padding: '12px var(--spacing-sm)' }}>
+                                                {tech.mdmDeviceId ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <code style={{ fontSize: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{tech.mdmDeviceId}</code>
+                                                        <button 
+                                                            onClick={() => copyToClipboard(tech.mdmDeviceId, tech.id)} 
+                                                            style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
+                                                            title="Copy Device ID"
+                                                        >
+                                                            {copiedId === tech.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No device registered</span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                {tech.isLoggedIn ? (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 'bold', fontSize: '10px' }}>
+                                                        <CheckCircle size={10} /> Active
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: '10px' }}>
+                                                        Logged Out
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{tech.lastIp || 'N/A'}</td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                <span style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    display: 'inline-block',
+                                                    backgroundColor: tech.hasFcm ? '#10b981' : '#ef4444',
+                                                    boxShadow: tech.hasFcm ? '0 0 8px #10b981' : 'none'
+                                                }} title={tech.hasFcm ? 'Registered for push notifications' : 'Push token missing'} />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No technicians found matching filter.</td>
+                                    </tr>
+                                )
+                            ) : (
+                                filteredAdmins.length > 0 ? (
+                                    filteredAdmins.map((admin) => (
+                                        <tr key={admin.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                                            <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{admin.name}</td>
+                                            <td style={{ padding: '12px var(--spacing-sm)' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <code style={{ fontSize: '10px', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 4px', borderRadius: '4px' }}>{tech.mdmDeviceId}</code>
+                                                    <code style={{ fontSize: '9px', color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {admin.fcmToken}
+                                                    </code>
                                                     <button 
-                                                        onClick={() => copyToClipboard(tech.mdmDeviceId, tech.id)} 
+                                                        onClick={() => copyToClipboard(admin.fcmToken, admin.id)} 
                                                         style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
-                                                        title="Copy Device ID"
+                                                        title="Copy FCM Token"
                                                     >
-                                                        {copiedId === tech.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
+                                                        {copiedId === admin.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
                                                     </button>
                                                 </div>
-                                            ) : (
-                                                <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No device registered</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                            {tech.isLoggedIn ? (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 'bold', fontSize: '10px' }}>
-                                                    <CheckCircle size={10} /> Active
-                                                </span>
-                                            ) : (
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 6px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', fontSize: '10px' }}>
-                                                    Logged Out
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>{tech.lastIp || 'N/A'}</td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                            <span style={{
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%',
-                                                display: 'inline-block',
-                                                backgroundColor: tech.hasFcm ? '#10b981' : '#ef4444',
-                                                boxShadow: tech.hasFcm ? '0 0 8px #10b981' : 'none'
-                                            }} title={tech.hasFcm ? 'Registered for push notifications' : 'Push token missing'} />
-                                        </td>
+                                            </td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>-</td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                                {new Date(admin.registeredAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                                            </td>
+                                            <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
+                                                <span style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    display: 'inline-block',
+                                                    backgroundColor: '#10b981',
+                                                    boxShadow: '0 0 8px #10b981'
+                                                }} title="Registered for push notifications" />
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No registered admin devices found.</td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No technicians found matching filter.</td>
-                                </tr>
-                            )
-                        ) : (
-                            filteredAdmins.length > 0 ? (
-                                filteredAdmins.map((admin) => (
-                                    <tr key={admin.id} style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                        <td style={{ padding: '12px var(--spacing-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>{admin.name}</td>
-                                        <td style={{ padding: '12px var(--spacing-sm)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <code style={{ fontSize: '9px', color: '#ec4899', background: 'rgba(236, 72, 153, 0.1)', padding: '2px 4px', borderRadius: '4px', display: 'inline-block', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {admin.fcmToken}
-                                                </code>
-                                                <button 
-                                                    onClick={() => copyToClipboard(admin.fcmToken, admin.id)} 
-                                                    style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-secondary)' }}
-                                                    title="Copy FCM Token"
-                                                >
-                                                    {copiedId === admin.id ? <Check size={12} style={{ color: '#10b981' }} /> : <Copy size={12} />}
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>-</td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                            {new Date(admin.registeredAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                                        </td>
-                                        <td style={{ padding: '12px var(--spacing-sm)', textAlign: 'center' }}>
-                                            <span style={{
-                                                width: '8px',
-                                                height: '8px',
-                                                borderRadius: '50%',
-                                                display: 'inline-block',
-                                                backgroundColor: '#10b981',
-                                                boxShadow: '0 0 8px #10b981'
-                                            }} title="Registered for push notifications" />
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={5} style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>No registered admin devices found.</td>
-                                </tr>
-                            )
-                        )}
-                    </tbody>
-                </table>
+                                )
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );
