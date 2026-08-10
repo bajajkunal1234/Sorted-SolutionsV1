@@ -25,6 +25,7 @@ import AdminSupportPanel from '@/components/admin/support/AdminSupportPanel';
 import CustomerPayments from './reports/CustomerPayments';
 import SupportInbox from './reports/SupportInbox';
 import MapSettingsTab from './reports/MapSettingsTab';
+import InstalledDevicesReport from './reports/InstalledDevicesReport';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
@@ -78,6 +79,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
         { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
         { id: 'support-inbox', label: 'Support Inbox', icon: Mail, component: SupportInbox, color: '#3b82f6', description: 'Manage customer emails sent to support@sortedsolutions.in and other mailboxes' },
         { id: 'map-settings', label: 'Map Settings', icon: Globe, component: MapSettingsTab, color: '#06b6d4', description: 'Configure satellite views, marker styles, overlays and routing for maps' },
+        { id: 'installed-devices', label: 'Installed Devices', icon: Smartphone, component: InstalledDevicesReport, color: '#ec4899', description: 'View latest app versions, installed and logged-in devices' },
     ];
 
     // Create searchable index of all settings
