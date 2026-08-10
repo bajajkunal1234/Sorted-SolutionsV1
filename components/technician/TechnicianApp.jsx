@@ -129,6 +129,7 @@ function TechnicianApp() {
     const [mdmProfiles, setMdmProfiles] = useState(null);
     const [shiftActionLoading, setShiftActionLoading] = useState(null); // 'start', 'end', or null
     const [isClearingCache, setIsClearingCache] = useState(false);
+    const [syncError, setSyncError] = useState(null);
 
     const isOnlineRef = useRef(isOnline);
     useEffect(() => {
@@ -270,10 +271,12 @@ function TechnicianApp() {
             setPendingSyncCount(count);
             const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
             setSyncItems(queue);
+            setSyncError(localStorage.getItem('offline_sync_error'));
         };
         const handleSyncComplete = () => {
             setPendingSyncCount(0);
             setSyncItems([]);
+            setSyncError(null);
         };
 
         window.addEventListener('online', handleOnline);
@@ -284,6 +287,7 @@ function TechnicianApp() {
         const initialQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
         setPendingSyncCount(initialQueue.length);
         setSyncItems(initialQueue);
+        setSyncError(localStorage.getItem('offline_sync_error'));
 
         return () => {
             window.removeEventListener('online', handleOnline);
@@ -2689,6 +2693,27 @@ function TechnicianApp() {
                     Actions taken offline are saved to your device and sync automatically in the background when internet connectivity returns.
                 </p>
 
+                {syncError && (
+                    <div style={{
+                        marginBottom: 'var(--spacing-md)',
+                        padding: '10px',
+                        backgroundColor: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: '#ef4444',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px'
+                    }}>
+                        <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong>Last Sync Error:</strong>
+                            <div style={{ marginTop: '2px', wordBreak: 'break-all', fontWeight: 500 }}>{syncError}</div>
+                        </div>
+                    </div>
+                )}
+
                 {pendingSyncCount === 0 ? (
                     <div style={{ textAlign: 'center', padding: '16px 0', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
                         <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px' }}>✅</span>
@@ -2731,8 +2756,10 @@ function TechnicianApp() {
                                         const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
                                         setPendingSyncCount(queue.length);
                                         setSyncItems(queue);
+                                        setSyncError(localStorage.getItem('offline_sync_error'));
                                     } catch (err) {
                                         console.warn('Manual sync failed:', err);
+                                        setSyncError(err.message);
                                     } finally {
                                         setIsSyncing(false);
                                     }
