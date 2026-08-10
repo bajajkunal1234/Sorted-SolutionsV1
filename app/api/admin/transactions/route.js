@@ -280,6 +280,34 @@ export async function POST(request) {
             }
         }
 
+        // Prevent duplicate receipt vouchers (highly common due to retried offline syncs)
+        if (type === 'receipt' && payload.receipt_number) {
+            const { data: existingReceipt } = await supabase
+                .from('receipt_vouchers')
+                .select('*')
+                .eq('receipt_number', payload.receipt_number)
+                .maybeSingle();
+
+            if (existingReceipt) {
+                console.log(`[DUPLICATE CHECK] Receipt already exists: ${existingReceipt.receipt_number}`);
+                return NextResponse.json({ success: true, data: existingReceipt });
+            }
+        }
+
+        // Prevent duplicate payment vouchers
+        if (type === 'payment' && payload.payment_number) {
+            const { data: existingPayment } = await supabase
+                .from('payment_vouchers')
+                .select('*')
+                .eq('payment_number', payload.payment_number)
+                .maybeSingle();
+
+            if (existingPayment) {
+                console.log(`[DUPLICATE CHECK] Payment already exists: ${existingPayment.payment_number}`);
+                return NextResponse.json({ success: true, data: existingPayment });
+            }
+        }
+
         const { data, error } = await supabase
             .from(tableName)
             .insert([payload])
