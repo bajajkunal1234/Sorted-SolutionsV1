@@ -63,7 +63,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const [newCategory, setNewCategory] = useState({ name: '', daily_limit: '', color: '#3b82f6' });
     const [editingCat, setEditingCat] = useState(null);
     const [savingCats, setSavingCats] = useState(false);
-    const [expenseCatsCollapsed, setExpenseCatsCollapsed] = useState(false);
+    const [expenseCatsCollapsed, setExpenseCatsCollapsed] = useState(true);
     const [reviewNotes, setReviewNotes] = useState({});
     const [payingExpense, setPayingExpense] = useState(null);
     const [expenseAccounts, setExpenseAccounts] = useState([]);
@@ -1720,12 +1720,26 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                     <div>No {expenseFilter === 'all' ? '' : expenseFilter} expense requests</div>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gap: 0 }}>
-                                    {expenses.map((exp, idx) => {
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
+                                    gap: 'var(--spacing-md)', 
+                                    padding: 'var(--spacing-md)' 
+                                }}>
+                                    {expenses.map((exp) => {
                                         const cat = categories.find(c => c.id === exp.category);
                                         return (
-                                            <div key={exp.id} style={{ padding: 'var(--spacing-md)', borderBottom: idx < expenses.length - 1 ? '1px solid var(--border-primary)' : 'none' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                                            <div key={exp.id} style={{ 
+                                                padding: 'var(--spacing-md)', 
+                                                backgroundColor: 'var(--bg-secondary)', 
+                                                borderRadius: 'var(--radius-lg)', 
+                                                border: '1px solid var(--border-primary)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                gap: 'var(--spacing-sm)'
+                                            }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
                                                     {/* Header row with badges and amount */}
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
@@ -1744,10 +1758,10 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
 
                                                     {/* Metadata and details block */}
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                                             <span>{new Date(exp.created_at || exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(exp.created_at || exp.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
                                                             <span>•</span>
-                                                            <span style={{ fontWeight: 600 }}>By: {exp.technician?.name || 'Unknown Technician'}</span>
+                                                            <span style={{ fontWeight: 600 }}>By: {exp.technician?.name || 'Unknown Tech'}</span>
                                                             {['mopid-petrol', 'bike-petrol'].includes(exp.category) && exp.latitude && exp.longitude && (
                                                                 <>
                                                                     <span>•</span>
@@ -1800,14 +1814,26 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                     </div>
                                                 </div>
                                                 {exp.status === 'pending' && (
-                                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                                                        <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: '1 1 200px', minWidth: '150px', padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
-                                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
-                                                            <button onClick={() => handleApproveExpenseDirectly(exp)} style={{ flex: isMobile ? 1 : 'none', padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                                                <Check size={14} /> Approve &amp; Post to Ledger
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', paddingTop: 'var(--spacing-xs)', borderTop: '1px dashed var(--border-primary)' }}>
+                                                        <input 
+                                                            className="form-input" 
+                                                            placeholder="Admin note (optional for rejection)" 
+                                                            value={reviewNotes[exp.id] || ''} 
+                                                            onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} 
+                                                            style={{ width: '100%', padding: '6px 10px', fontSize: 'var(--font-size-xs)', boxSizing: 'border-box' }} 
+                                                        />
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            <button 
+                                                                onClick={() => handleApproveExpenseDirectly(exp)} 
+                                                                style={{ flex: 1, padding: '8px 10px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+                                                            >
+                                                                <Check size={13} /> Approve
                                                             </button>
-                                                            <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ flex: isMobile ? 1 : 'none', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                                                <X size={14} /> Reject
+                                                            <button 
+                                                                onClick={() => handleReviewExpense(exp, 'rejected')} 
+                                                                style={{ padding: '8px 12px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                                            >
+                                                                <X size={13} /> Reject
                                                             </button>
                                                         </div>
                                                     </div>
