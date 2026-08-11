@@ -11,7 +11,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
     const serialNumber = rental.serial_number || rental.serialNumber || '';
     
     const monthlyRent = Number(rental.monthly_rent || 0);
-    const securityDeposit = Number(rental.security_deposit || 0);
+    const securityDeposit = Number(rental.deposit_amount || rental.security_deposit || 0);
     
     const tenure = rental.tenure || {};
     const duration = Number(tenure.duration || 1);
@@ -208,9 +208,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                             const isPaid = !!row.linkedId;
                             // Check if this row is currently overdue (if past end date and not paid)
                             // Or maybe just past start date
-                            const rowStartDate = new Date(startDate);
-                            rowStartDate.setMonth(rowStartDate.getMonth() + (row.monthIndex - 1));
-                            const rowIsOverdue = !isPaid && isOverdue(rowStartDate.toISOString());
+                            const rowIsOverdue = !isPaid && row.monthIndex > (rental.rents_paid || 0) && isOverdue(rowStartDate.toISOString());
 
                             return (
                                 <div key={row.monthIndex} style={{
