@@ -325,8 +325,12 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
     useEffect(() => {
         if (!initialData) {
             const liveLedgers = localLedgers.length > 0 ? localLedgers : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
-            const newKU = generateShortKU(formData.under, liveLedgers, groups);
-            setFormData(prev => prev.sku !== newKU ? { ...prev, sku: newKU } : prev);
+            if (liveLedgers.length === 0) {
+                setFormData(prev => prev.sku !== '' ? { ...prev, sku: '' } : prev);
+            } else {
+                const newKU = generateShortKU(formData.under, liveLedgers, groups);
+                setFormData(prev => prev.sku !== newKU ? { ...prev, sku: newKU } : prev);
+            }
         }
     }, [formData.under, groups, localLedgers, initialData]);
 
@@ -610,7 +614,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         const account = {
             id: initialData?.id, // Include ID if editing
             name: formData.name,
-            sku: formData.sku,
+            sku: initialData ? formData.sku : '',
             alias: formData.alias,
             under: formData.under,
             type: (() => {
