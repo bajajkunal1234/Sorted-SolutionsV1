@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff, Package, Calendar, ChevronLeft, ChevronRight, Clock, Activity, CheckCircle } from 'lucide-react';
+import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff, Package, Calendar, ChevronLeft, ChevronRight, Clock, Activity, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { websiteSettingsAPI, accountsAPI, accountGroupsAPI, transactionsAPI } from '@/lib/adminAPI';
 import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
@@ -63,6 +63,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const [newCategory, setNewCategory] = useState({ name: '', daily_limit: '', color: '#3b82f6' });
     const [editingCat, setEditingCat] = useState(null);
     const [savingCats, setSavingCats] = useState(false);
+    const [expenseCatsCollapsed, setExpenseCatsCollapsed] = useState(false);
     const [reviewNotes, setReviewNotes] = useState({});
     const [payingExpense, setPayingExpense] = useState(null);
     const [expenseAccounts, setExpenseAccounts] = useState([]);
@@ -1464,47 +1465,71 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             {activeTab === 'expenses' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', flexWrap: 'wrap', gap: '12px' }}>
-                            <div>
-                                <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>Allowed Expense Categories</h3>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Define what technicians can claim and the daily limits</p>
+                        <div 
+                            style={{ 
+                                padding: 'var(--spacing-md)', 
+                                borderBottom: expenseCatsCollapsed ? 'none' : '1px solid var(--border-primary)', 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                backgroundColor: 'var(--bg-secondary)', 
+                                flexWrap: 'wrap', 
+                                gap: '12px',
+                                cursor: 'pointer',
+                                userSelect: 'none'
+                            }}
+                            onClick={() => setExpenseCatsCollapsed(!expenseCatsCollapsed)}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                {expenseCatsCollapsed ? <ChevronDown size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} /> : <ChevronUp size={20} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />}
+                                <div>
+                                    <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>Allowed Expense Categories</h3>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Define what technicians can claim and the daily limits</p>
+                                </div>
                             </div>
-                            <button className="btn btn-primary" onClick={handleSaveCategories} disabled={savingCats} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button 
+                                className="btn btn-primary" 
+                                onClick={(e) => { e.stopPropagation(); handleSaveCategories(); }} 
+                                disabled={savingCats} 
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
                                 {savingCats ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} />} Save Categories
                             </button>
                         </div>
-                        <div style={{ padding: 'var(--spacing-md)' }}>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
-                                {categories.map((cat, i) => (
-                                    <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
-                                        <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
-                                        {editingCat === i ? (
-                                            <>
-                                                <input className="form-input" value={cat.name} onChange={e => { const c=[...categories]; c[i]={...c[i],name:e.target.value}; setCategories(c); }} style={{ flex:1, padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
-                                                <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit ₹</span>
-                                                <input className="form-input" type="number" value={cat.daily_limit} onChange={e => { const c=[...categories]; c[i]={...c[i],daily_limit:parseFloat(e.target.value)||0}; setCategories(c); }} style={{ width:'90px', padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
-                                                <button className="btn-icon" onClick={() => setEditingCat(null)}><Check size={14} color="#10b981" /></button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span style={{ flex:1, fontWeight:500, fontSize:'var(--font-size-sm)' }}>{cat.name}</span>
-                                                <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit: ₹{cat.daily_limit?.toLocaleString('en-IN') || 0}</span>
-                                                <button className="btn-icon" onClick={() => setEditingCat(i)}><Edit2 size={14} /></button>
-                                                <button className="btn-icon" onClick={() => handleDeleteCategory(i)}><Trash2 size={14} color="#ef4444" /></button>
-                                            </>
-                                        )}
-                                    </div>
-                                ))}
+                        {!expenseCatsCollapsed && (
+                            <div style={{ padding: 'var(--spacing-md)' }}>
+                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+                                    {categories.map((cat, i) => (
+                                        <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
+                                            <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
+                                            {editingCat === i ? (
+                                                <>
+                                                    <input className="form-input" value={cat.name} onChange={e => { const c=[...categories]; c[i]={...c[i],name:e.target.value}; setCategories(c); }} style={{ flex:1, padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
+                                                    <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit ₹</span>
+                                                    <input className="form-input" type="number" value={cat.daily_limit} onChange={e => { const c=[...categories]; c[i]={...c[i],daily_limit:parseFloat(e.target.value)||0}; setCategories(c); }} style={{ width:'90px', padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
+                                                    <button className="btn-icon" onClick={() => setEditingCat(null)}><Check size={14} color="#10b981" /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span style={{ flex:1, fontWeight:500, fontSize:'var(--font-size-sm)' }}>{cat.name}</span>
+                                                    <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit: ₹{cat.daily_limit?.toLocaleString('en-IN') || 0}</span>
+                                                    <button className="btn-icon" onClick={() => setEditingCat(i)}><Edit2 size={14} /></button>
+                                                    <button className="btn-icon" onClick={() => handleDeleteCategory(i)}><Trash2 size={14} color="#ef4444" /></button>
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)', flexWrap: 'wrap' }}>
+                                    <input className="form-input" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory(p => ({ ...p, name: e.target.value }))} style={{ flex: '1 1 120px', minWidth: '100px', padding: '6px 10px', fontSize: 'var(--font-size-sm)' }} />
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Limit ₹</span>
+                                    <input className="form-input" type="number" placeholder="500" value={newCategory.daily_limit} onChange={e => setNewCategory(p => ({ ...p, daily_limit: e.target.value }))} style={{ width: '80px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }} />
+                                    <button className="btn btn-primary" onClick={handleAddCategory} style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Plus size={14} /> Add
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)', flexWrap: 'wrap' }}>
-                                <input className="form-input" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory(p => ({ ...p, name: e.target.value }))} style={{ flex: '1 1 120px', minWidth: '100px', padding: '6px 10px', fontSize: 'var(--font-size-sm)' }} />
-                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Limit ₹</span>
-                                <input className="form-input" type="number" placeholder="500" value={newCategory.daily_limit} onChange={e => setNewCategory(p => ({ ...p, daily_limit: e.target.value }))} style={{ width: '80px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }} />
-                                <button className="btn btn-primary" onClick={handleAddCategory} style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Plus size={14} /> Add
-                                </button>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
@@ -1700,36 +1725,48 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                         const cat = categories.find(c => c.id === exp.category);
                                         return (
                                             <div key={exp.id} style={{ padding: 'var(--spacing-md)', borderBottom: idx < expenses.length - 1 ? '1px solid var(--border-primary)' : 'none' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                                                    {/* Header row with badges and amount */}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
                                                             <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
                                                             {['mopid-petrol', 'bike-petrol'].includes(exp.category) && (
                                                                 <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
                                                                     🚲 {((parseFloat(exp.amount || 0) / 100) * (exp.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
                                                                 </span>
                                                             )}
-                                                            {['mopid-petrol', 'bike-petrol'].includes(exp.category) && exp.latitude && exp.longitude && (
-                                                                <a 
-                                                                    href={`https://www.google.com/maps?q=${exp.latitude},${exp.longitude}`} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer" 
-                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
-                                                                >
-                                                                    📍 Location
-                                                                </a>
-                                                            )}
                                                             {statusBadge(exp.status)}
-                                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                                {new Date(exp.created_at || exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(exp.created_at || exp.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                                                            </span>
-                                                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                                By: {exp.technician?.name || 'Unknown Technician'}
-                                                            </span>
                                                         </div>
-                                                        {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
+                                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                            ₹{parseFloat(exp.amount).toLocaleString('en-IN')}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Metadata and details block */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                            <span>{new Date(exp.created_at || exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(exp.created_at || exp.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
+                                                            <span>•</span>
+                                                            <span style={{ fontWeight: 600 }}>By: {exp.technician?.name || 'Unknown Technician'}</span>
+                                                            {['mopid-petrol', 'bike-petrol'].includes(exp.category) && exp.latitude && exp.longitude && (
+                                                                <>
+                                                                    <span>•</span>
+                                                                    <a 
+                                                                        href={`https://www.google.com/maps?q=${exp.latitude},${exp.longitude}`} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer" 
+                                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                                    >
+                                                                        📍 Location
+                                                                    </a>
+                                                                </>
+                                                            )}
+                                                        </div>
+
+                                                        {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', marginTop: '4px' }}>{exp.description}</div>}
+                                                        
                                                         {exp.receipt && (
-                                                            <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                                            <div style={{ marginTop: 'var(--spacing-xs)' }}>
                                                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                     <Camera size={12} /> Receipt Attachment:
                                                                 </div>
@@ -1749,6 +1786,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                                 </a>
                                                             </div>
                                                         )}
+
                                                         {exp.payment_voucher && (
                                                             <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
                                                                 <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>
@@ -1759,9 +1797,6 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                                                 <span>📄 Posted via purchase invoice {exp.purchase_invoice.invoice_number || `PUR-${exp.purchase_invoice.id.slice(0,8)}`} (₹{parseFloat(exp.purchase_invoice.total_amount || 0).toLocaleString('en-IN')})</span>
                                                             </div>
                                                         )}
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
-                                                        <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
                                                     </div>
                                                 </div>
                                                 {exp.status === 'pending' && (
