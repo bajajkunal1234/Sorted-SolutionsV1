@@ -22,7 +22,22 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
 
     // Local state for edits before save
     const [depositReceiptId, setDepositReceiptId] = useState(rental.deposit_receipt_id || null);
-    const [rentReceipts, setRentReceipts] = useState(rental.rent_receipts || {}); // { "1": receipt_id, "2": receipt_id }
+    const [rentReceipts, setRentReceipts] = useState(() => {
+        const initialReceipts = { ...(rental.rent_receipts || {}) };
+        const mRent = Number(rental.monthly_rent || 0);
+        const rAdvance = Number(rental.rent_advance || 0);
+        const advReceiptId = rental.advance_receipt_id;
+        
+        if (mRent > 0 && rAdvance > 0 && advReceiptId) {
+            const monthsCovered = Math.floor(rAdvance / mRent);
+            for (let i = 1; i <= monthsCovered; i++) {
+                if (!initialReceipts[i]) {
+                    initialReceipts[i] = advReceiptId;
+                }
+            }
+        }
+        return initialReceipts;
+    });
 
     // Receipts fetching
     const [receipts, setReceipts] = useState([]);

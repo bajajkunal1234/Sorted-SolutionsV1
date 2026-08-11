@@ -548,6 +548,13 @@ function RentalsTab() {
                                 totalRents = rentalData.tenure.duration * 12;
                             }
 
+                            const rentReceiptsInit = {};
+                            if (rentsPaidInit > 0 && rentalData.advanceReceiptId) {
+                                for (let i = 1; i <= rentsPaidInit; i++) {
+                                    rentReceiptsInit[i] = rentalData.advanceReceiptId;
+                                }
+                            }
+
                             const payload = {
                                 customer_id: rentalData.customerId,
                                 customer_name: rentalData.customerName || '',
@@ -570,6 +577,7 @@ function RentalsTab() {
                                 next_rent_due_date: nextDueDate.toISOString().split('T')[0],
                                 deposit_receipt_id: rentalData.depositReceiptId || null,
                                 advance_receipt_id: rentalData.advanceReceiptId || null,
+                                rent_receipts: rentReceiptsInit,
                                 tenure: {
                                     duration: rentalData.tenure?.duration,
                                     unit: rentalData.tenure?.unit
