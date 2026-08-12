@@ -2111,22 +2111,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
         setAfterPhotosLoading(true);
 
-        // Verify physical stock before generating invoice
-        if (savedQuotation && savedQuotation.items) {
-            const stockCheck = await checkStockAvailability(savedQuotation.items);
-            if (!stockCheck.success) {
-                const proceedAnyway = window.confirm(
-                    `Stock Alert:\n\n${stockCheck.error}\n\nDo you want to continue and create the invoice anyway? (This will result in negative stock counts)`
-                );
-                if (!proceedAnyway) {
-                    setAfterPhotosLoading(false);
-                    return;
-                }
-            }
-        }
-
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
         try {
             // Generate local file mappings and placeholder URLs instantly
             const uploadMappings = afterPhotos.filter(photo => photo.file).map(photo => {
@@ -2143,24 +2128,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 ? `After Photos uploaded.\nNote: ${afterPhotosDescription.trim()}`
                 : `After Photos uploaded.`;
 
-            // Construct fallback/mock invoice object for immediate UI transition
-            const mockInvoice = {
-                id: `temp-inv-${Date.now()}`,
-                invoice_number: invoiceNum,
-                total_amount: savedQuotation.total_amount,
-                subtotal: savedQuotation.subtotal,
-                total_tax: savedQuotation.total_tax,
-                items: savedQuotation.items,
-                status: 'unpaid'
-            };
-
-            setSavedInvoice(mockInvoice);
-
             // Close modal and transition UI instantly!
             setShowAfterPhotosModal(false);
             setAfterPhotos([]);
             setAfterPhotosDescription('');
-            setShowWhatsappPopup({ type: 'invoice', doc: mockInvoice });
+            
+            // Automatically open Collect Payment modal!
+            setShowCollectPayment(true);
 
             // Run compression, local storage, and real network requests in background!
             (async () => {
@@ -2180,8 +2154,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         }
                     }
 
-                    // 2. Call the APIs now that files are safely in IndexedDB
-                    const logPhotosPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                    // 2. Call the API to log the photos interaction
+                    await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -2193,79 +2167,137 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         })
                     });
 
-                    const invoicePromise = apiCall(`/api/admin/transactions?type=sales`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            account_id: savedQuotation.account_id,
-                            account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
-                            accountGSTIN: savedQuotation.accountGSTIN || '',
-                            accountState: savedQuotation.accountState || 'Maharashtra',
-                            billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                            job_id: editedJob.id,
-                            date: new Date().toISOString().split('T')[0],
-                            due_date: new Date().toISOString().split('T')[0],
-                            invoice_number: invoiceNum,
-                            reference: savedQuotation.quote_number,
-                            status: 'unpaid',
-                            items: savedQuotation.items,
-                            subtotal: savedQuotation.subtotal,
-                            cgst: savedQuotation.cgst,
-                            sgst: savedQuotation.sgst,
-                            igst: savedQuotation.igst,
-                            total_tax: savedQuotation.total_tax,
-                            total_amount: savedQuotation.total_amount,
-                            notes: 'Auto-generated from approved quotation',
-                            terms: savedQuotation.terms,
-                            technician_id: savedQuotation.technician_id || techId,
-                            technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                        })
-                    });
-
-                    const [photosLogRes, invoiceRes] = await Promise.all([logPhotosPromise, invoicePromise]);
-                    const data = await invoiceRes.json();
-                    if (data.success || data.queued) {
-                        const finalInvoice = data.success ? data.data : mockInvoice;
-                        if (data.success) {
-                            setSavedInvoice(finalInvoice);
-                            setShowWhatsappPopup(prev => {
-                                if (prev && prev.type === 'invoice' && prev.doc.invoice_number === invoiceNum) {
-                                    return { type: 'invoice', doc: finalInvoice };
-                                }
-                                return prev;
-                            });
-                        }
-                        
-                        const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(finalInvoice, 'Invoice');
-                        await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                type: 'invoice-created',
-                                category: 'billing',
-                                description: detailedInvDesc,
-                                user_name: techName,
-                                customer_id: editedJob.customerId || null,
-                                metadata: {
-                                    invoice_number: finalInvoice.invoice_number,
-                                    invoice_id: finalInvoice.id,
-                                    total_amount: finalInvoice.total_amount,
-                                    subtotal: finalInvoice.subtotal,
-                                    tax: finalInvoice.total_tax,
-                                    items: finalInvoice.items
-                                }
-                            })
-                        }).catch(() => {});
-                    } else {
-                        console.warn('[Offline] Background invoice generation returned non-success:', data.error);
+                    // Reload job state from server to immediately fetch the new interaction
+                    const reloadRes = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                    const reloadData = await reloadRes.json();
+                    if (reloadData.success && reloadData.job) {
+                        setEditedJob(reloadData.job);
+                        if (onJobUpdate) onJobUpdate(reloadData.job);
                     }
                 } catch (bgErr) {
-                    console.warn('[Offline] Background invoice creation failed/queued:', bgErr);
+                    console.warn('[Offline] Background photos save failed:', bgErr);
                 }
             })();
         } catch (err) {
-            alert('Failed to save after photos and create invoice: ' + (err.message || 'Unknown error'));
+            alert('Failed to save after photos: ' + (err.message || 'Unknown error'));
         } finally {
             setAfterPhotosLoading(false);
+        }
+    };
+
+    const handleGenerateInvoice = async () => {
+        if (loading) return;
+        setLoading(true);
+
+        // Verify physical stock before generating invoice
+        if (savedQuotation && savedQuotation.items) {
+            const stockCheck = await checkStockAvailability(savedQuotation.items);
+            if (!stockCheck.success) {
+                const proceedAnyway = window.confirm(
+                    `Stock Alert:\n\n${stockCheck.error}\n\nDo you want to continue and create the invoice anyway? (This will result in negative stock counts)`
+                );
+                if (!proceedAnyway) {
+                    setLoading(false);
+                    return;
+                }
+            }
+        }
+
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const invoiceNum = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        const mockInvoice = {
+            id: `temp-inv-${Date.now()}`,
+            invoice_number: invoiceNum,
+            total_amount: savedQuotation.total_amount,
+            subtotal: savedQuotation.subtotal,
+            total_tax: savedQuotation.total_tax,
+            items: savedQuotation.items,
+            status: 'unpaid'
+        };
+
+        setSavedInvoice(mockInvoice);
+        setShowWhatsappPopup({ type: 'invoice', doc: mockInvoice });
+
+        try {
+            const invoiceRes = await apiCall(`/api/admin/transactions?type=sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    account_id: savedQuotation.account_id,
+                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                    accountGSTIN: savedQuotation.accountGSTIN || '',
+                    accountState: savedQuotation.accountState || 'Maharashtra',
+                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    job_id: editedJob.id,
+                    date: new Date().toISOString().split('T')[0],
+                    due_date: new Date().toISOString().split('T')[0],
+                    invoice_number: invoiceNum,
+                    reference: savedQuotation.quote_number,
+                    status: 'unpaid',
+                    items: savedQuotation.items,
+                    subtotal: savedQuotation.subtotal,
+                    cgst: savedQuotation.cgst,
+                    sgst: savedQuotation.sgst,
+                    igst: savedQuotation.igst,
+                    total_tax: savedQuotation.total_tax,
+                    total_amount: savedQuotation.total_amount,
+                    notes: 'Auto-generated from approved quotation',
+                    terms: savedQuotation.terms,
+                    technician_id: savedQuotation.technician_id || techId,
+                    technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                })
+            });
+
+            const data = await invoiceRes.json();
+            const isQueued = data.queued || invoiceRes.status === 202;
+            if (invoiceRes.ok && (data.success || isQueued)) {
+                const finalInvoice = isQueued ? mockInvoice : data.data;
+                setSavedInvoice(finalInvoice);
+
+                // Update whatsapp doc if open
+                setShowWhatsappPopup(prev => {
+                    if (prev && prev.type === 'invoice' && prev.doc.invoice_number === invoiceNum) {
+                        return { type: 'invoice', doc: finalInvoice };
+                    }
+                    return prev;
+                });
+
+                // Log invoice-created interaction
+                const detailedInvDesc = `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedQuotation.quote_number}\n\n` + formatTransactionDetails(finalInvoice, 'Invoice');
+                await apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'invoice-created',
+                        category: 'billing',
+                        description: detailedInvDesc,
+                        user_name: techName,
+                        metadata: {
+                            invoice_number: finalInvoice.invoice_number,
+                            invoice_id: finalInvoice.id,
+                            total_amount: finalInvoice.total_amount,
+                            subtotal: finalInvoice.subtotal,
+                            tax: finalInvoice.total_tax,
+                            items: finalInvoice.items
+                        }
+                    })
+                }).catch(() => {});
+
+                // Reload job to fetch latest interactions
+                const reloadRes = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                const reloadData = await reloadRes.json();
+                if (reloadData.success && reloadData.job) {
+                    setEditedJob(reloadData.job);
+                    if (onJobUpdate) onJobUpdate(reloadData.job);
+                }
+            } else {
+                throw new Error(data.error || 'Failed to save invoice');
+            }
+        } catch (err) {
+            alert('Failed to generate final invoice: ' + err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -3636,12 +3668,28 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Start Repair / Install Parts'}
                                                                     </button>
                                                                 ) : (() => {
+                                                                     const hasAfterPhotos = editedJob.interactions?.some(i => i.type === 'after-photos-uploaded');
                                                                      const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received');
                                                                      const collectedAmount = editedJob.interactions
                                                                          ?.filter(i => i.type === 'payment-received')
                                                                          .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0;
                                                                      const quotationAmount = savedQuotation?.total_amount || 0;
                                                                      const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
+
+                                                                     if (!hasAfterPhotos) {
+                                                                         return (
+                                                                             <button
+                                                                                 className="btn"
+                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                 disabled={loading}
+                                                                                 onClick={() => {
+                                                                                     setShowAfterPhotosModal(true);
+                                                                                 }}
+                                                                             >
+                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
+                                                                             </button>
+                                                                         );
+                                                                     }
 
                                                                      if (!hasPayment) {
                                                                          return (
