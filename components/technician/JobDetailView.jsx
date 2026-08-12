@@ -320,6 +320,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [savedQuotations, setSavedQuotations] = useState([]);
     const [isNewQuotationOption, setIsNewQuotationOption] = useState(false);
     const [savedInvoice, setSavedInvoice] = useState(null);
+    const [hasUploadedPhotosLocal, setHasUploadedPhotosLocal] = useState(false);
+    const [hasPaymentLocal, setHasPaymentLocal] = useState(false);
+    const [collectedAmountLocal, setCollectedAmountLocal] = useState(0);
+
+    useEffect(() => {
+        if (editedJob?.interactions) {
+            const hasPhotos = editedJob.interactions.some(i => i.type === 'after-photos-uploaded');
+            const hasPay = editedJob.interactions.some(i => i.type === 'payment-received');
+            const payAmt = editedJob.interactions
+                .filter(i => i.type === 'payment-received')
+                .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0);
+            
+            if (hasPhotos) setHasUploadedPhotosLocal(true);
+            if (hasPay) {
+                setHasPaymentLocal(true);
+                setCollectedAmountLocal(payAmt);
+            }
+        }
+    }, [editedJob?.interactions]);
+
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
@@ -2132,6 +2152,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             setShowAfterPhotosModal(false);
             setAfterPhotos([]);
             setAfterPhotosDescription('');
+            setHasUploadedPhotosLocal(true);
             
             // Automatically open Collect Payment modal!
             setShowCollectPayment(true);
@@ -3468,7 +3489,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                         <button
                                                             className="btn"
                                                             style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
-                                                            onClick={() => setActiveForm('calculator')}
+                                                            onClick={() => {
+                                                                setIsNewQuotationOption(false);
+                                                                setActiveForm('calculator');
+                                                            }}
                                                         >
                                                             Edit / Send
                                                         </button>
@@ -3668,82 +3692,81 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                         {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Start Repair / Install Parts'}
                                                                     </button>
                                                                 ) : (() => {
-                                                                     const hasAfterPhotos = editedJob.interactions?.some(i => i.type === 'after-photos-uploaded');
-                                                                     const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received');
-                                                                     const collectedAmount = editedJob.interactions
-                                                                         ?.filter(i => i.type === 'payment-received')
-                                                                         .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0;
-                                                                     const quotationAmount = savedQuotation?.total_amount || 0;
-                                                                     const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
-
-                                                                     if (!hasAfterPhotos) {
-                                                                         return (
-                                                                             <button
-                                                                                 className="btn"
-                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
-                                                                                 disabled={loading}
-                                                                                 onClick={() => {
-                                                                                     setShowAfterPhotosModal(true);
-                                                                                 }}
-                                                                             >
-                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
-                                                                             </button>
-                                                                         );
-                                                                     }
-
-                                                                     if (!hasPayment) {
-                                                                         return (
-                                                                             <button
-                                                                                 className="btn"
-                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
-                                                                                 disabled={loading}
-                                                                                 onClick={() => {
-                                                                                     setShowCollectPayment(true);
-                                                                                 }}
-                                                                             >
-                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
-                                                                             </button>
-                                                                         );
-                                                                     }
-
-                                                                     if (isPaymentMatchingQuote) {
-                                                                         return (
-                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-                                                                                 <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '13px', color: '#10b981', fontWeight: 600, textAlign: 'center' }}>
-                                                                                     ✓ Payment of ₹{collectedAmount.toLocaleString('en-IN')} received.
-                                                                                 </div>
-                                                                                 <button
-                                                                                     className="btn"
-                                                                                     style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(139,92,246,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
-                                                                                     disabled={loading}
-                                                                                     onClick={() => {
-                                                                                         setShowAfterPhotosModal(true);
-                                                                                     }}
-                                                                                 >
-                                                                                     {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Generate Invoice'}
-                                                                                 </button>
-                                                                             </div>
-                                                                         );
-                                                                     }
-
-                                                                     return (
-                                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
-                                                                             <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '13px', color: '#f87171', fontWeight: 600, lineHeight: 1.4 }}>
-                                                                                 ⚠️ Collected payment (₹{collectedAmount.toLocaleString('en-IN')}) does not match quotation amount (₹{quotationAmount.toLocaleString('en-IN')}). Please edit the quotation to match the collected payment amount.
-                                                                             </div>
-                                                                             <button
-                                                                                 className="btn"
-                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
-                                                                                 disabled={loading}
-                                                                                 onClick={() => {
-                                                                                     setActiveForm('calculator');
-                                                                                 }}
-                                                                             >
-                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : '✏️ Edit Quotation to Match'}
-                                                                             </button>
-                                                                         </div>
-                                                                     );
-                                                                 })()}
+                                                                      const hasAfterPhotos = hasUploadedPhotosLocal || editedJob.interactions?.some(i => i.type === 'after-photos-uploaded');
+                                                                      const hasPayment = hasPaymentLocal || editedJob.interactions?.some(i => i.type === 'payment-received');
+                                                                      const collectedAmount = collectedAmountLocal || (editedJob.interactions
+                                                                          ?.filter(i => i.type === 'payment-received')
+                                                                          .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0);
+                                                                      const quotationAmount = savedQuotation?.total_amount || 0;
+                                                                      const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
+ 
+                                                                      if (!hasAfterPhotos) {
+                                                                          return (
+                                                                              <button
+                                                                                  className="btn"
+                                                                                  style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                  disabled={loading}
+                                                                                  onClick={() => {
+                                                                                      setShowAfterPhotosModal(true);
+                                                                                  }}
+                                                                              >
+                                                                                  {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
+                                                                              </button>
+                                                                          );
+                                                                      }
+ 
+                                                                      if (!hasPayment) {
+                                                                          return (
+                                                                              <button
+                                                                                  className="btn"
+                                                                                  style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                  disabled={loading}
+                                                                                  onClick={() => {
+                                                                                      setShowCollectPayment(true);
+                                                                                  }}
+                                                                              >
+                                                                                  {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
+                                                                              </button>
+                                                                          );
+                                                                      }
+ 
+                                                                      if (isPaymentMatchingQuote) {
+                                                                          return (
+                                                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                                                                                  <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '13px', color: '#10b981', fontWeight: 600, textAlign: 'center' }}>
+                                                                                      ✓ Payment of ₹{collectedAmount.toLocaleString('en-IN')} received.
+                                                                                  </div>
+                                                                                  <button
+                                                                                      className="btn"
+                                                                                      style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(139,92,246,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                      disabled={loading}
+                                                                                      onClick={handleGenerateInvoice}
+                                                                                  >
+                                                                                      {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Generate Invoice'}
+                                                                                  </button>
+                                                                              </div>
+                                                                          );
+                                                                      }
+ 
+                                                                      return (
+                                                                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                                                                              <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '13px', color: '#f87171', fontWeight: 600, lineHeight: 1.4 }}>
+                                                                                  ⚠️ Collected payment (₹{collectedAmount.toLocaleString('en-IN')}) does not match quotation amount (₹{quotationAmount.toLocaleString('en-IN')}). Please edit the quotation to match the collected payment amount.
+                                                                              </div>
+                                                                              <button
+                                                                                  className="btn"
+                                                                                  style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                  disabled={loading}
+                                                                                  onClick={() => {
+                                                                                      setIsNewQuotationOption(false);
+                                                                                      setActiveForm('calculator');
+                                                                                  }}
+                                                                              >
+                                                                                  {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : '✏️ Edit Quotation to Match'}
+                                                                              </button>
+                                                                          </div>
+                                                                      );
+                                                                  })()}
                                                             </>
                                                         );
                                                     } else {
@@ -4890,10 +4913,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 isAmountReadOnly={true}
                 onEditQuotation={() => {
                     setShowCollectPayment(false);
+                    setIsNewQuotationOption(false);
                     setActiveForm('calculator');
                 }}
                 onSuccess={async () => {
                     setShowCollectPayment(false);
+                    const baseAmt = savedInvoice?.total_amount || savedQuotation?.total_amount || 0;
+                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const pending = Math.max(0, baseAmt - parseFloat(advanceAmt));
+
+                    setHasPaymentLocal(true);
+                    setCollectedAmountLocal(pending);
+
                     let updatedJob = editedJob;
                     try {
                         const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
