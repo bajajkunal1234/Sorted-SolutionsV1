@@ -3354,7 +3354,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                         >
                                                             <CheckCircle size={14} /> Closed & Paid
                                                         </div>
-                                                    ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
+                                                    ) : (hasPaymentLocal || editedJob.interactions?.some(i => i.type === 'payment-received')) ? (
                                                         <button
                                                             className="btn"
                                                             style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'normal' }}
