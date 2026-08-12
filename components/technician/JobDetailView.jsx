@@ -1288,7 +1288,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             });
             setIsNewQuotationOption(false);
 
-            if (editedJob.status !== 'quotation_sent' && !isPartsFlowQuotationPending) {
+            if (['new_job_request', 'scheduled', 'diagnosing_quoting'].includes(editedJob.status) && !isPartsFlowQuotationPending) {
                 setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
                 if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
             }
@@ -3418,16 +3418,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
                                                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
-                                                {/* Edit goes away if approved */}
-                                                {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
-                                                    <button
-                                                        className="btn"
-                                                        style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
-                                                        onClick={() => setActiveForm('calculator')}
-                                                    >
-                                                        Edit / Send
-                                                    </button>
-                                                )}
+                                                {/* Edit goes away if approved, except when payment amount does not match approved quotation */}
+                                                {(() => {
+                                                    const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received');
+                                                    const collectedAmount = editedJob.interactions
+                                                        ?.filter(i => i.type === 'payment-received')
+                                                        .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0;
+                                                    const quotationAmount = savedQuotation?.total_amount || 0;
+                                                    const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
+
+                                                    const showEditButton = !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) || 
+                                                                          (editedJob.status === 'work_in_progress' && hasPayment && !isPaymentMatchingQuote);
+
+                                                    if (!showEditButton) return null;
+
+                                                    return (
+                                                        <button
+                                                            className="btn"
+                                                            style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
+                                                            onClick={() => setActiveForm('calculator')}
+                                                        >
+                                                            Edit / Send
+                                                        </button>
+                                                    );
+                                                })()}
                                             </div>
 
                                             {/* Approval & Proceed Flow */}
@@ -3621,18 +3635,67 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     >
                                                                         {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Start Repair / Install Parts'}
                                                                     </button>
-                                                                ) : (
-                                                                    <button
-                                                                        className="btn"
-                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
-                                                                        disabled={loading}
-                                                                        onClick={() => {
-                                                                            setShowAfterPhotosModal(true);
-                                                                        }}
-                                                                    >
-                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
-                                                                    </button>
-                                                                )}
+                                                                ) : (() => {
+                                                                     const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received');
+                                                                     const collectedAmount = editedJob.interactions
+                                                                         ?.filter(i => i.type === 'payment-received')
+                                                                         .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0;
+                                                                     const quotationAmount = savedQuotation?.total_amount || 0;
+                                                                     const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
+
+                                                                     if (!hasPayment) {
+                                                                         return (
+                                                                             <button
+                                                                                 className="btn"
+                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                 disabled={loading}
+                                                                                 onClick={() => {
+                                                                                     setShowCollectPayment(true);
+                                                                                 }}
+                                                                             >
+                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
+                                                                             </button>
+                                                                         );
+                                                                     }
+
+                                                                     if (isPaymentMatchingQuote) {
+                                                                         return (
+                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                                                                                 <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '13px', color: '#10b981', fontWeight: 600, textAlign: 'center' }}>
+                                                                                     ✓ Payment of ₹{collectedAmount.toLocaleString('en-IN')} received.
+                                                                                 </div>
+                                                                                 <button
+                                                                                     className="btn"
+                                                                                     style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(139,92,246,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                     disabled={loading}
+                                                                                     onClick={() => {
+                                                                                         setShowAfterPhotosModal(true);
+                                                                                     }}
+                                                                                 >
+                                                                                     {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Generate Invoice'}
+                                                                                 </button>
+                                                                             </div>
+                                                                         );
+                                                                     }
+
+                                                                     return (
+                                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                                                                             <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '13px', color: '#f87171', fontWeight: 600, lineHeight: 1.4 }}>
+                                                                                 ⚠️ Collected payment (₹{collectedAmount.toLocaleString('en-IN')}) does not match quotation amount (₹{quotationAmount.toLocaleString('en-IN')}). Please edit the quotation to match the collected payment amount.
+                                                                             </div>
+                                                                             <button
+                                                                                 className="btn"
+                                                                                 style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(245,158,11,0.2)', whiteSpace: 'normal', cursor: 'pointer' }}
+                                                                                 disabled={loading}
+                                                                                 onClick={() => {
+                                                                                     setActiveForm('calculator');
+                                                                                 }}
+                                                                             >
+                                                                                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : '✏️ Edit Quotation to Match'}
+                                                                             </button>
+                                                                         </div>
+                                                                     );
+                                                                 })()}
                                                             </>
                                                         );
                                                     } else {
@@ -4770,14 +4833,37 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     technician_id: techId,
                 }}
                 prefilledAmount={(() => {
-                    if (!savedInvoice?.total_amount) return '';
+                    const baseAmt = savedInvoice?.total_amount || savedQuotation?.total_amount || 0;
+                    if (!baseAmt) return '';
                     const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
-                    const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
+                    const pending = Math.max(0, baseAmt - parseFloat(advanceAmt));
                     return String(pending);
                 })()}
-                onSuccess={() => {
+                isAmountReadOnly={true}
+                onEditQuotation={() => {
                     setShowCollectPayment(false);
-                    setShowFeedbackCloseFlow(true);
+                    setActiveForm('calculator');
+                }}
+                onSuccess={async () => {
+                    setShowCollectPayment(false);
+                    let updatedJob = editedJob;
+                    try {
+                        const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                        const data = await res.json();
+                        if (data.success && data.job) {
+                            updatedJob = data.job;
+                            setEditedJob(updatedJob);
+                            if (onJobUpdate) onJobUpdate(updatedJob);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                    
+                    if (savedInvoice) {
+                        setShowFeedbackCloseFlow(true);
+                    } else {
+                        alert('Payment recorded successfully! You can now generate the final invoice.');
+                    }
                 }}
             />
         )}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy } from 'lucide-react';
+import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy, Info } from 'lucide-react';
 import AutocompleteSearch from '../admin/AutocompleteSearch';
 import imageCompression from 'browser-image-compression';
 import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
@@ -15,7 +15,9 @@ export default function CollectPaymentFlow({
     prefilledCustomer = null,
     prefilledJob = null,
     prefilledAmount = '',
-    onSuccess
+    onSuccess,
+    isAmountReadOnly = false,
+    onEditQuotation = null
 }) {
     const [step, setStep] = useState(1);
     const [mounted, setMounted] = useState(false);
@@ -638,10 +640,11 @@ export default function CollectPaymentFlow({
                                         <Banknote size={14} color="var(--color-primary)" />
                                         Amount (₹) <span style={{ color: 'var(--error)' }}>*</span>
                                     </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', cursor: 'pointer', userSelect: 'none', color: 'var(--text-secondary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', cursor: isAmountReadOnly ? 'not-allowed' : 'pointer', userSelect: 'none', color: 'var(--text-secondary)' }}>
                                         <input
                                             type="checkbox"
                                             checked={isSplit}
+                                            disabled={isAmountReadOnly}
                                             onChange={e => {
                                                 const checked = e.target.checked;
                                                 setIsSplit(checked);
@@ -652,7 +655,7 @@ export default function CollectPaymentFlow({
                                                     setSplitAmount2(String(tot - half));
                                                 }
                                             }}
-                                            style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', cursor: 'pointer' }}
+                                            style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', cursor: isAmountReadOnly ? 'not-allowed' : 'pointer' }}
                                         />
                                         Split into 2 receipts
                                     </label>
@@ -662,7 +665,9 @@ export default function CollectPaymentFlow({
                                     className="form-input"
                                     placeholder="0.00"
                                     value={amount}
+                                    readOnly={isAmountReadOnly}
                                     onChange={e => {
+                                        if (isAmountReadOnly) return;
                                         const val = e.target.value;
                                         setAmount(val);
                                         setRazorpayLink(null);
@@ -676,8 +681,25 @@ export default function CollectPaymentFlow({
                                     min="1"
                                     step="1"
                                     disabled={isSplit}
-                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, backgroundColor: isSplit ? 'var(--bg-secondary)' : 'inherit', cursor: isSplit ? 'not-allowed' : 'text' }}
+                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, backgroundColor: (isSplit || isAmountReadOnly) ? 'var(--bg-secondary)' : 'inherit', cursor: (isSplit || isAmountReadOnly) ? 'not-allowed' : 'text' }}
                                 />
+                                {isAmountReadOnly && (
+                                    <div style={{ marginTop: '12px', padding: '12px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                                        <div style={{ fontSize: '13px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, marginBottom: onEditQuotation ? '8px' : '0' }}>
+                                            <Info size={16} /> To change the amount, please edit the quotation first.
+                                        </div>
+                                        {onEditQuotation && (
+                                            <button
+                                                type="button"
+                                                className="btn"
+                                                onClick={onEditQuotation}
+                                                style={{ width: '100%', padding: '8px 12px', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 700, fontSize: '12px', borderRadius: '8px', cursor: 'pointer' }}
+                                            >
+                                                ✏️ Edit Quotation Now
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {isSplit && (
