@@ -114,10 +114,10 @@ export async function POST(request) {
         if (!session) {
             const response = NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
             // Clear any old path-restricted cookies to prevent loops
-            response.cookies.delete('newera_session', { path: '/newera' });
-            response.cookies.delete('newera_session', { path: '/' });
-            response.cookies.delete('newera_member', { path: '/newera' });
-            response.cookies.delete('newera_member', { path: '/' });
+            response.headers.append('Set-Cookie', 'newera_session=; Path=/newera; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; HttpOnly; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; HttpOnly; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_member=; Path=/newera; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_member=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict');
             return response;
         }
 
@@ -148,8 +148,11 @@ export async function POST(request) {
         if (action === 'logout') {
             await supabase.from('newera_sessions').delete().eq('id', session.id);
             const response = NextResponse.json({ success: true });
-            response.cookies.delete('newera_session', { path: '/' });
-            response.cookies.delete('newera_member', { path: '/' });
+            // Clear cookies for both paths on logout
+            response.headers.append('Set-Cookie', 'newera_session=; Path=/newera; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; HttpOnly; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; HttpOnly; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_member=; Path=/newera; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict');
+            response.headers.append('Set-Cookie', 'newera_member=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Secure; SameSite=Strict');
             return response;
         }
 
