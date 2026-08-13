@@ -24,14 +24,15 @@ import {
 
 export default function NewEraDashboard() {
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview, liabilities, schedule, payments
+    const [activeTab, setActiveTab] = useState('overview'); // overview, liabilities, schedule, payments, interactions
     const [activeMember, setActiveMember] = useState('');
     const [data, setData] = useState({
         members: [],
         loans: [],
         repayments: [],
         payments: [],
-        allocations: []
+        allocations: [],
+        interactions: []
     });
 
     // Modal control states
@@ -102,7 +103,8 @@ export default function NewEraDashboard() {
                     loans: result.loans || [],
                     repayments: result.repayments || [],
                     payments: result.payments || [],
-                    allocations: result.allocations || []
+                    allocations: result.allocations || [],
+                    interactions: result.interactions || []
                 });
 
                 // Auto initialize member id in forms if members exist
@@ -612,6 +614,13 @@ export default function NewEraDashboard() {
                     <ClipboardList size={16} />
                     <span>Payment Logs</span>
                 </button>
+                <button 
+                    onClick={() => setActiveTab('interactions')} 
+                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'interactions' ? '#6366f1' : 'transparent', color: activeTab === 'interactions' ? '#ffffff' : '#94a3b8' }}
+                >
+                    <Briefcase size={16} />
+                    <span>Activity Log</span>
+                </button>
             </nav>
 
             {/* Content Container */}
@@ -989,6 +998,69 @@ export default function NewEraDashboard() {
                                                 </tr>
                                             );
                                         })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* INTERACTIONS TAB */}
+                {activeTab === 'interactions' && (
+                    <div style={styles.tabContentSingle}>
+                        <div style={styles.tabHeaderRow}>
+                            <h2 style={styles.panelTitle}>System Activity Logs</h2>
+                            <button onClick={fetchDashboardData} style={styles.secondaryActionButton}>
+                                Refresh Log
+                            </button>
+                        </div>
+
+                        <div style={styles.scheduleTableWrapper}>
+                            {data.interactions.length === 0 ? (
+                                <div style={styles.bigEmptyState}>
+                                    <ClipboardList size={48} color="#475569" style={{ marginBottom: '1rem' }} />
+                                    <h3>No Activity Logs</h3>
+                                    <p>Logs of edits, additions, and deletions will appear here once actions are performed.</p>
+                                </div>
+                            ) : (
+                                <table style={styles.table}>
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Member</th>
+                                            <th>Action Type</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.interactions.map(log => (
+                                            <tr key={log.id}>
+                                                <td style={{ color: '#94a3b8' }}>
+                                                    {new Date(log.created_at).toLocaleString('en-IN', {
+                                                        dateStyle: 'medium',
+                                                        timeStyle: 'short'
+                                                    })}
+                                                </td>
+                                                <td>
+                                                    <span style={styles.tableMember}>
+                                                        {log.member_name}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span style={{
+                                                        ...styles.statusBadge,
+                                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                                        color: '#a5b4fc',
+                                                        borderColor: 'rgba(99, 102, 241, 0.2)'
+                                                    }}>
+                                                        {log.action_type.replace('_', ' ').toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td style={{ whiteSpace: 'normal', minWidth: '300px' }}>
+                                                    {log.description}
+                                                </td>
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             )}

@@ -22,6 +22,19 @@ async function getSession(request, supabase) {
     return session;
 }
 
+// Helper to log audit actions
+async function logInteraction(supabase, memberName, actionType, description) {
+    try {
+        await supabase.from('newera_interactions').insert({
+            member_name: memberName,
+            action_type: actionType,
+            description: description
+        });
+    } catch (e) {
+        console.error('[logInteraction-error]:', e);
+    }
+}
+
 export async function GET(request) {
     const supabase = createServerSupabase();
     if (!supabase) {
@@ -41,12 +54,13 @@ export async function GET(request) {
         }
 
         // Retrieve dashboard data
-        const [membersRes, loansRes, repaymentsRes, paymentsRes, allocationsRes] = await Promise.all([
+        const [membersRes, loansRes, repaymentsRes, paymentsRes, allocationsRes, interactionsRes] = await Promise.all([
             supabase.from('newera_members').select('*').order('name'),
             supabase.from('newera_loans').select('*').order('created_at', { ascending: false }),
             supabase.from('newera_repayments').select('*').order('due_date', { ascending: true }),
             supabase.from('newera_payments').select('*').order('payment_date', { ascending: false }),
-            supabase.from('newera_allocations').select('*')
+            supabase.from('newera_allocations').select('*'),
+            supabase.from('newera_interactions').select('*').order('created_at', { ascending: false }).limit(200)
         ]);
 
         return NextResponse.json({
@@ -57,7 +71,8 @@ export async function GET(request) {
             loans: loansRes.data || [],
             repayments: repaymentsRes.data || [],
             payments: paymentsRes.data || [],
-            allocations: allocationsRes.data || []
+            allocations: allocationsRes.data || [],
+            interactions: interactionsRes.data || []
         });
 
     } catch (error) {
@@ -237,22 +252,36 @@ export async function POST(request) {
                 }
             }
 
+            await logInteraction(supabase, session.member_name, 'create_loan', `Added new liability "${name}" (${loan_type}) with principal ₹${parseFloat(principal_amount).toLocaleString('en-IN')} from lender "${lender}"`);
+
             return NextResponse.json({ success: true, loan });
         }
 
         // 5. Delete Loan
         if (action === 'delete_loan') {
             const { loanId } = body;
+            const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loanId).maybeSingle();
+            const loanName = loan ? loan.name : 'Unknown';
+
             const { error } = await supabase.from('newera_loans').delete().eq('id', loanId);
             if (error) throw error;
+
+            await logInteraction(supabase, session.member_name, 'delete_loan', `Deleted liability account "${loanName}"`);
+
             return NextResponse.json({ success: true });
         }
 
         // 6. Close/Reopen Loan
         if (action === 'update_loan_status') {
             const { loanId, status } = body;
+            const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loanId).maybeSingle();
+            const loanName = loan ? loan.name : 'Unknown';
+
             const { error } = await supabase.from('newera_loans').update({ status }).eq('id', loanId);
             if (error) throw error;
+
+            await logInteraction(supabase, session.member_name, 'update_loan_status', `Marked liability "${loanName}" as ${status.toUpperCase()}`);
+
             return NextResponse.json({ success: true });
         }
 
@@ -271,6 +300,9 @@ export async function POST(request) {
                 notes: notes || null
             };
 
+            const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loan_id).maybeSingle();
+            const loanName = loan ? loan.name : 'Unknown';
+
             let error = null;
             if (id) {
                 // Update
@@ -279,12 +311,20 @@ export async function POST(request) {
                     .update(repaymentRow)
                     .eq('id', id);
                 error = updErr;
+
+                if (!error) {
+                    await logInteraction(supabase, session.member_name, 'update_repayment', `Updated schedule installment due on ${due_date} (Expected: ₹${parseFloat(expected_amount).toLocaleString('en-IN')}) for "${loanName}"`);
+                }
             } else {
                 // Insert
                 const { error: insErr } = await supabase
                     .from('newera_repayments')
                     .insert(repaymentRow);
                 error = insErr;
+
+                if (!error) {
+                    await logInteraction(supabase, session.member_name, 'create_repayment', `Added manual schedule installment of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} due on ${due_date} for "${loanName}"`);
+                }
             }
 
             if (error) throw error;
@@ -294,8 +334,20 @@ export async function POST(request) {
         // 8. Delete repayment item
         if (action === 'delete_repayment') {
             const { repaymentId } = body;
+            const { data: repayment } = await supabase.from('newera_repayments').select('loan_id, due_date, expected_amount').eq('id', repaymentId).maybeSingle();
+            let loanName = 'Unknown';
+            if (repayment) {
+                const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', repayment.loan_id).maybeSingle();
+                loanName = loan ? loan.name : 'Unknown';
+            }
+
             const { error } = await supabase.from('newera_repayments').delete().eq('id', repaymentId);
             if (error) throw error;
+
+            if (repayment) {
+                await logInteraction(supabase, session.member_name, 'delete_repayment', `Deleted schedule installment of ₹${parseFloat(repayment.expected_amount).toLocaleString('en-IN')} due on ${repayment.due_date} for "${loanName}"`);
+            }
+
             return NextResponse.json({ success: true });
         }
 
@@ -305,6 +357,9 @@ export async function POST(request) {
             if (!loanId || !rows || !rows.length) {
                 return NextResponse.json({ success: false, error: 'Invalid data' }, { status: 400 });
             }
+
+            const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loanId).maybeSingle();
+            const loanName = loan ? loan.name : 'Unknown';
 
             const repaymentsToInsert = rows.map((r, index) => ({
                 loan_id: loanId,
@@ -319,12 +374,21 @@ export async function POST(request) {
 
             const { error } = await supabase.from('newera_repayments').insert(repaymentsToInsert);
             if (error) throw error;
+
+            await logInteraction(supabase, session.member_name, 'bulk_import_repayments', `Bulk imported ${rows.length} schedule installments via Excel for liability "${loanName}"`);
+
             return NextResponse.json({ success: true });
         }
 
         // 10. Log Payment
         if (action === 'log_payment') {
             const { loan_id, repayment_id, member_id, payment_date, amount, principal_portion, interest_portion, source_of_income, notes } = body;
+
+            // Fetch info for logging
+            const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loan_id).maybeSingle();
+            const loanName = loan ? loan.name : 'Unknown';
+            const { data: member } = await supabase.from('newera_members').select('name').eq('id', member_id).maybeSingle();
+            const memberName = member ? member.name : 'Unknown';
 
             // Insert payment log
             const { data: payment, error: payError } = await supabase
@@ -375,19 +439,30 @@ export async function POST(request) {
                 }
             }
 
+            await logInteraction(supabase, session.member_name, 'log_payment', `Logged payment of ₹${parseFloat(amount).toLocaleString('en-IN')} by ${memberName} for "${loanName}" (Income Source: ${source_of_income})`);
+
             return NextResponse.json({ success: true, payment });
         }
 
         // 11. Delete Payment Log
         if (action === 'delete_payment') {
             const { paymentId } = body;
-            
+
             // Get payment first to check if we need to update any linked repayment status
             const { data: payment } = await supabase
                 .from('newera_payments')
-                .select('repayment_id')
+                .select('loan_id, member_id, amount, repayment_id')
                 .eq('id', paymentId)
-                .single();
+                .maybeSingle();
+
+            let loanName = 'Unknown';
+            let memberName = 'Unknown';
+            if (payment) {
+                const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', payment.loan_id).maybeSingle();
+                loanName = loan ? loan.name : 'Unknown';
+                const { data: member } = await supabase.from('newera_members').select('name').eq('id', payment.member_id).maybeSingle();
+                memberName = member ? member.name : 'Unknown';
+            }
 
             const { error } = await supabase.from('newera_payments').delete().eq('id', paymentId);
             if (error) throw error;
@@ -419,6 +494,10 @@ export async function POST(request) {
                         .update({ status: newStatus })
                         .eq('id', payment.repayment_id);
                 }
+            }
+
+            if (payment) {
+                await logInteraction(supabase, session.member_name, 'delete_payment', `Deleted payment entry of ₹${parseFloat(payment.amount).toLocaleString('en-IN')} made by ${memberName} for "${loanName}"`);
             }
 
             return NextResponse.json({ success: true });
