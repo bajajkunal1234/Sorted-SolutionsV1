@@ -3245,7 +3245,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             })()}
 
                             {/* 3. Advance Payment Collected card */}
-                            {(hasAdvancePaymentLocal || advancePaymentInt) && (
+                            {!savedInvoice && (hasAdvancePaymentLocal || advancePaymentInt) && (
                                 <div className="card" style={{ 
                                     padding: '14px', 
                                     background: 'rgba(239, 68, 68, 0.08)', 
