@@ -3032,9 +3032,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             )}
 
                             {/* 4. Parts Note / Parts Collected confirmation cards */}
-                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added')).map((int, index) => {
-                                const actionType = int.metadata?.parts_action || 'Order Part';
+                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added' && i.metadata?.parts_action)).map((int, index) => {
+                                const actionType = int.metadata.parts_action;
                                 const isCollected = actionType === 'Collect Part';
+                                const attachments = int.metadata.attachments || [];
                                 return (
                                     <div key={int.id || index} className="card" style={{ 
                                         padding: '14px', 
@@ -3046,7 +3047,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         fontWeight: 700, 
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: '6px'
+                                        gap: '8px'
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span>📦</span>
@@ -3060,6 +3061,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         {int.metadata?.min_price && (
                                             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'left' }}>
                                                 Est. Price: ₹{int.metadata.min_price}-{int.metadata.max_price} · Est. Time: {int.metadata.min_days}-{int.metadata.max_days} days
+                                            </div>
+                                        )}
+                                        {attachments.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                {attachments.map((url, i) => (
+                                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
+                                                        <img 
+                                                            src={url} 
+                                                            alt={`Part photo ${i+1}`} 
+                                                            style={{ width: '48px', height: '48px', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                                                        />
+                                                    </a>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
