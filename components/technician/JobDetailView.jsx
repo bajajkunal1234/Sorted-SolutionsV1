@@ -333,7 +333,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             const hasPay = editedJob.interactions.some(i => i.type === 'payment-received' && !String(i.description).toLowerCase().includes('advance') && !String(i.description).toLowerCase().includes('part 1'));
             const payAmt = editedJob.interactions
                 .filter(i => i.type === 'payment-received' && !String(i.description).toLowerCase().includes('advance') && !String(i.description).toLowerCase().includes('part 1'))
-                .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0);
+                .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
             
             if (hasPhotos) setHasUploadedPhotosLocal(true);
             if (hasPay) {
@@ -346,7 +346,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 (
                     String(i.description).toLowerCase().includes('advance') || 
                     String(i.description).toLowerCase().includes('part 1') || 
-                    (!savedInvoice && i.metadata?.amount)
+                    (!savedInvoice && (i.metadata?.amount || i.amount))
                 )
             );
             if (advInt) {
@@ -824,7 +824,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         (
             String(i.description).toLowerCase().includes('advance') || 
             String(i.description).toLowerCase().includes('part 1') || 
-            (!savedInvoice && i.metadata?.amount)
+            (!savedInvoice && (i.metadata?.amount || i.amount))
         )
     );
 
@@ -3515,7 +3515,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received');
                                                     const collectedAmount = editedJob.interactions
                                                         ?.filter(i => i.type === 'payment-received')
-                                                        .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0;
+                                                        .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0) || 0;
                                                     const quotationAmount = savedQuotation?.total_amount || 0;
                                                     const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
 
