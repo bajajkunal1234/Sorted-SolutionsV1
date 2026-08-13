@@ -64,6 +64,69 @@ const renderDescription = (desc, type = '') => {
         );
     }
 
+    if (type === 'payment-received') {
+        const isAdvance = desc.includes('Advance Payment') || desc.includes('advance') || desc.includes('part 1');
+        const isVisiting = desc.toLowerCase().includes('visit') || desc.toLowerCase().includes('diagnos');
+        
+        let paymentTypeBadge = null;
+        if (isAdvance) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Advance Payment
+                </span>
+            );
+        } else if (isVisiting) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Visiting Fee
+                </span>
+            );
+        } else {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Final Payment
+                </span>
+            );
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <div>{paymentTypeBadge}</div>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{desc}</p>
+            </div>
+        );
+    }
+
     if (type === 'note-added' || type === 'note-edited' || type === 'repair-note-added') {
         return (
             <div style={{ 

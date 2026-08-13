@@ -160,6 +160,69 @@ const renderActivityDescription = (activity, onViewDocument) => {
         return <span style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>"{desc}"</span>;
     }
 
+    if (type === 'payment-received' || type.includes('payment')) {
+        const isAdvance = desc.includes('Advance Payment') || desc.includes('advance') || desc.includes('part 1');
+        const isVisiting = desc.toLowerCase().includes('visit') || desc.toLowerCase().includes('diagnos');
+        
+        let paymentTypeBadge = null;
+        if (isAdvance) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Advance Payment
+                </span>
+            );
+        } else if (isVisiting) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Visiting Fee
+                </span>
+            );
+        } else {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Final Payment
+                </span>
+            );
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <div>{paymentTypeBadge}</div>
+                <span>{desc}</span>
+            </div>
+        );
+    }
+
     return <span>{desc}</span>;
 };
 
@@ -5114,6 +5177,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 context="technician"
                 currentUserName={techName}
                 currentUserId={techId}
+                isVisitingFee={true}
                 prefilledCustomer={{
                     id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
                     name: editedJob.customerName || editedJob.customer?.name || 'Customer',
