@@ -46,8 +46,12 @@ const deduplicateInteractions = (list) => {
                 const rAmt = parseFloat(r.metadata?.amount || r.amount || 0);
                 if (Math.abs(rAmt - amt) > 0.01) return false;
                 
+                const rReceipt = r.metadata?.receipt_id;
+                const itemReceipt = item.metadata?.receipt_id;
+                if (rReceipt && itemReceipt && rReceipt === itemReceipt) return true;
+                
                 const rTime = new Date(r.timestamp || r.created_at || 0).getTime();
-                return Math.abs(rTime - time) < 43200000; // 12 hours
+                return Math.abs(rTime - time) < 1800000; // 30 minutes
             });
             if (isDuplicate) {
                 continue;
