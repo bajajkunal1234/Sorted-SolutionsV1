@@ -3731,11 +3731,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                     </button>
                                                                 ) : (() => {
                                                                       const hasAfterPhotos = hasUploadedPhotosLocal || editedJob.interactions?.some(i => i.type === 'after-photos-uploaded');
-                                                                      const hasPayment = hasPaymentLocal || editedJob.interactions?.some(i => i.type === 'payment-received');
-                                                                      const collectedAmount = collectedAmountLocal || (editedJob.interactions
-                                                                          ?.filter(i => i.type === 'payment-received')
-                                                                          .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0) || 0);
+                                                                      const dbPaymentsSum = (editedJob.interactions || [])
+                                                                          .filter(i => i.type === 'payment-received')
+                                                                          .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
                                                                       const quotationAmount = savedQuotation?.total_amount || 0;
+                                                                      const hasPayment = hasPaymentLocal || (dbPaymentsSum >= quotationAmount - 0.01 && dbPaymentsSum > 0);
+                                                                      const collectedAmount = hasPaymentLocal ? (dbPaymentsSum + collectedAmountLocal) : dbPaymentsSum;
                                                                       const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
  
                                                                       if (!hasAfterPhotos) {
