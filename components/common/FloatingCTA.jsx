@@ -14,7 +14,7 @@ const WA_MSG = encodeURIComponent('Hi! I want to book a repair service. Can you 
 const WA_URL = `https://wa.me/${PHONE.replace('+', '')}?text=${WA_MSG}`
 
 // Routes (prefix-matched) where the buttons should NOT appear
-const HIDDEN_PREFIXES = ['/admin', '/technician', '/customer', '/login', '/sitemap-page']
+const HIDDEN_PREFIXES = ['/admin', '/technician', '/customer', '/login', '/sitemap-page', '/newera']
 
 /* ── Inline SVGs ─────────────────────────────────────────────────────────── */
 

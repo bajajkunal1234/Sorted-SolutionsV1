@@ -102,7 +102,7 @@ export async function POST(request) {
                 httpOnly: true,
                 secure: true,
                 sameSite: 'strict',
-                path: '/newera',
+                path: '/',
                 maxAge: 30 * 24 * 60 * 60 // 30 days
             });
 
@@ -132,7 +132,7 @@ export async function POST(request) {
             response.cookies.set('newera_member', name, {
                 secure: true,
                 sameSite: 'strict',
-                path: '/newera',
+                path: '/',
                 maxAge: 30 * 24 * 60 * 60
             });
             return response;
@@ -142,8 +142,8 @@ export async function POST(request) {
         if (action === 'logout') {
             await supabase.from('newera_sessions').delete().eq('id', session.id);
             const response = NextResponse.json({ success: true });
-            response.cookies.delete('newera_session');
-            response.cookies.delete('newera_member');
+            response.cookies.delete('newera_session', { path: '/' });
+            response.cookies.delete('newera_member', { path: '/' });
             return response;
         }
 
