@@ -180,7 +180,7 @@ export async function POST(request) {
 
         // 4. Create Loan
         if (action === 'create_loan') {
-            const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, allocations } = body;
+            const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, allocations, repayment_day } = body;
 
             // Insert loan
             const { data: loan, error: loanError } = await supabase
@@ -194,7 +194,8 @@ export async function POST(request) {
                     interest_rate_annual: parseFloat(interest_rate_annual),
                     start_date,
                     tenure_months: tenure_months ? parseInt(tenure_months) : null,
-                    emi_amount: emi_amount ? parseFloat(emi_amount) : null
+                    emi_amount: emi_amount ? parseFloat(emi_amount) : null,
+                    repayment_day: repayment_day ? parseInt(repayment_day) : 5
                 })
                 .select()
                 .single();
@@ -232,6 +233,10 @@ export async function POST(request) {
 
                     const dueDate = new Date(startDateObj);
                     dueDate.setMonth(dueDate.getMonth() + i);
+                    
+                    // Set preferred day of month for repayment due
+                    const rDay = repayment_day ? parseInt(repayment_day) : 5;
+                    dueDate.setDate(rDay);
 
                     repayments.push({
                         loan_id: loan.id,
@@ -501,6 +506,72 @@ export async function POST(request) {
             }
 
             return NextResponse.json({ success: true });
+        }
+
+        // 12. Import Parsed Schedule (PDF/Excel)
+        if (action === 'import_parsed_schedule') {
+            const { loanId, loanForm: newLoanForm, installments } = body;
+            if (!installments || !installments.length) {
+                return NextResponse.json({ success: false, error: 'No installments provided' }, { status: 400 });
+            }
+
+            let finalLoanId = loanId;
+            let loanName = 'Unknown';
+
+            if (loanId === 'new') {
+                if (!newLoanForm) {
+                    return NextResponse.json({ success: false, error: 'Loan details required for new liability' }, { status: 400 });
+                }
+
+                const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day } = newLoanForm;
+
+                const { data: loan, error: loanError } = await supabase
+                    .from('newera_loans')
+                    .insert({
+                        name,
+                        lender,
+                        account_number: account_number || null,
+                        loan_type,
+                        principal_amount: parseFloat(principal_amount),
+                        interest_rate_annual: parseFloat(interest_rate_annual),
+                        start_date,
+                        tenure_months: tenure_months ? parseInt(tenure_months) : null,
+                        emi_amount: emi_amount ? parseFloat(emi_amount) : null,
+                        repayment_day: repayment_day ? parseInt(repayment_day) : 5
+                    })
+                    .select()
+                    .single();
+
+                if (loanError) throw loanError;
+                finalLoanId = loan.id;
+                loanName = loan.name;
+
+                await logInteraction(supabase, session.member_name, 'create_loan', `Created new liability "${name}" via schedule parser with principal ₹${parseFloat(principal_amount).toLocaleString('en-IN')}`);
+            } else {
+                const { data: loan } = await supabase.from('newera_loans').select('name').eq('id', loanId).maybeSingle();
+                loanName = loan ? loan.name : 'Unknown';
+
+                // Delete existing unpaid schedule items for this loan to avoid duplicates
+                await supabase.from('newera_repayments').delete().eq('loan_id', loanId).eq('status', 'unpaid');
+            }
+
+            // Insert installments
+            const repaymentsToInsert = installments.map(inst => ({
+                loan_id: finalLoanId,
+                due_date: inst.due_date,
+                installment_number: inst.installment_number,
+                expected_amount: parseFloat(inst.expected_amount),
+                expected_principal: parseFloat(inst.expected_principal),
+                expected_interest: parseFloat(inst.expected_interest),
+                status: 'unpaid'
+            }));
+
+            const { error: repError } = await supabase.from('newera_repayments').insert(repaymentsToInsert);
+            if (repError) throw repError;
+
+            await logInteraction(supabase, session.member_name, 'bulk_import_repayments', `Imported ${installments.length} installments via document parser for "${loanName}"`);
+
+            return NextResponse.json({ success: true, loanId: finalLoanId });
         }
 
         return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
