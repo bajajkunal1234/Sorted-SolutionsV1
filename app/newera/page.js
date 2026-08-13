@@ -113,13 +113,16 @@ export default function NewEraDashboard() {
                     setPaymentForm(prev => ({ ...prev, member_id: defaultMember.id }));
                 }
 
-                // Set default loan selection to first loan if available
-                if (result.loans && result.loans.length > 0) {
+                // Set default allocations unconditionally when members are loaded
+                if (result.members && result.members.length > 0) {
                     setLoanForm(prev => {
-                        const defaultAllocations = result.members.map(m => ({
-                            member_id: m.id,
-                            share_percentage: (100 / result.members.length).toFixed(1)
-                        }));
+                        const defaultAllocations = result.members.map(m => {
+                            const isAsha = m.name === 'Asha';
+                            return {
+                                member_id: m.id,
+                                share_percentage: isAsha ? '0.0' : '25.0'
+                            };
+                        });
                         return { ...prev, allocations: defaultAllocations };
                     });
                 }
@@ -260,7 +263,13 @@ export default function NewEraDashboard() {
                     start_date: new Date().toISOString().split('T')[0],
                     tenure_months: '',
                     emi_amount: '',
-                    allocations: data.members.map(m => ({ member_id: m.id, share_percentage: (100 / data.members.length).toFixed(1) }))
+                    allocations: data.members.map(m => {
+                        const isAsha = m.name === 'Asha';
+                        return {
+                            member_id: m.id,
+                            share_percentage: isAsha ? '0.0' : '25.0'
+                        };
+                    })
                 });
                 fetchDashboardData();
             } else {
@@ -638,13 +647,28 @@ export default function NewEraDashboard() {
                                         <div style={styles.memberRowInfo}>
                                             <div style={styles.memberRowAvatar}>{member.name[0]}</div>
                                             <div>
-                                                <div style={styles.memberRowName}>{member.name}</div>
-                                                <div style={styles.memberRowSub}>Monthly obligation: ₹{Math.round(member.expectedMonthlyObligation).toLocaleString('en-IN')}</div>
+                                                <div style={styles.memberRowName}>
+                                                    {member.name}
+                                                    {member.name === 'Asha' && (
+                                                        <span style={{ fontSize: '0.65rem', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.15)', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', marginLeft: '0.4rem', fontWeight: '800' }}>
+                                                            MONITOR ONLY
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={styles.memberRowSub}>
+                                                    {member.name === 'Asha' ? 'No monthly payment obligation' : `Monthly obligation: ₹${Math.round(member.expectedMonthlyObligation).toLocaleString('en-IN')}`}
+                                                </div>
                                             </div>
                                         </div>
                                         <div style={styles.memberRowMetrics}>
-                                            <div style={styles.memberRowOut}>₹{Math.round(member.outstandingPrincipalShare).toLocaleString('en-IN')} due</div>
-                                            <div style={styles.memberRowPaid}>₹{Math.round(member.totalPaid).toLocaleString('en-IN')} paid</div>
+                                            {member.name === 'Asha' ? (
+                                                <div style={{ ...styles.memberRowOut, color: '#64748b', fontSize: '0.8rem', fontWeight: '500' }}>—</div>
+                                            ) : (
+                                                <>
+                                                    <div style={styles.memberRowOut}>₹{Math.round(member.outstandingPrincipalShare).toLocaleString('en-IN')} due</div>
+                                                    <div style={styles.memberRowPaid}>₹{Math.round(member.totalPaid).toLocaleString('en-IN')} paid</div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
