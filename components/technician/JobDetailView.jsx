@@ -3003,87 +3003,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </span>
                             </div>
 
-                            {/* 3. Advance Payment Collected card (always third if any) */}
-                            {(hasAdvancePaymentLocal || advancePaymentInt) && (
-                                <div className="card" style={{ 
-                                    padding: '14px', 
-                                    background: 'rgba(239, 68, 68, 0.08)', 
-                                    border: '1.5px solid rgba(239, 68, 68, 0.35)', 
-                                    borderRadius: '12px', 
-                                    color: '#f87171', 
-                                    fontSize: '14px', 
-                                    fontWeight: 700, 
-                                    textAlign: 'center',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '6px',
-                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '18px' }}>💳</span>
-                                        <span>Advance Payment Collected: ₹{(advanceAmountLocal || (advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0)).toLocaleString('en-IN')}</span>
-                                    </div>
-                                    {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method) && (
-                                        <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                            Payment Mode: {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method || '').toUpperCase()}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* 4. Parts Note / Parts Collected confirmation cards */}
-                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added' && i.metadata?.parts_action)).map((int, index) => {
-                                const actionType = int.metadata.parts_action;
-                                const isCollected = actionType === 'Collect Part';
-                                const attachments = int.metadata.attachments || [];
-                                return (
-                                    <div key={int.id || index} className="card" style={{ 
-                                        padding: '14px', 
-                                        background: isCollected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)', 
-                                        border: isCollected ? '1.5px solid rgba(16, 185, 129, 0.35)' : '1.5px solid rgba(245, 158, 11, 0.35)', 
-                                        borderRadius: '12px', 
-                                        color: isCollected ? '#34d399' : '#f59e0b', 
-                                        fontSize: '14px', 
-                                        fontWeight: 700, 
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '8px'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span>📦</span>
-                                            <span>Part {isCollected ? 'Collected' : 'Ordered'}</span>
-                                        </div>
-                                        {int.metadata?.note_text && (
-                                            <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)', wordBreak: 'break-word', textAlign: 'left' }}>
-                                                {int.metadata.note_text}
-                                            </div>
-                                        )}
-                                        {int.metadata?.min_price && (
-                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'left' }}>
-                                                Est. Price: ₹{int.metadata.min_price}-{int.metadata.max_price} · Est. Time: {int.metadata.min_days}-{int.metadata.max_days} days
-                                            </div>
-                                        )}
-                                        {attachments.length > 0 && (
-                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                                                {attachments.map((url, i) => (
-                                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
-                                                        <img 
-                                                            src={url} 
-                                                            alt={`Part photo ${i+1}`} 
-                                                            style={{ width: '48px', height: '48px', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
-                                                        />
-                                                    </a>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-
                             {/* Start Job / Mark as Arrived / On Way Banner Section */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
-                                const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+                                const dbVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+                                const nextVisitNum = ['parts_ordered', 'work_in_progress'].includes(editedJob.status) ? Math.max(2, dbVisitNum) : dbVisitNum;
                                 
                                 const showHeadOutSection = editedJob.status !== 'closed' && 
                                                            editedJob.status !== 'cancelled' && 
@@ -3181,7 +3105,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         )}
 
                                         {/* Pre-Arrived Close Call No Service option */}
-                                        {!hasAdvancePaymentLocal && !advancePaymentInt && showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
+                                        {(!hasAdvancePaymentLocal && !advancePaymentInt) && showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
                                             <button
                                                 className="btn"
                                                 onClick={() => {
@@ -3215,6 +3139,83 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     </>
                                 );
                             })()}
+
+                            {/* 3. Advance Payment Collected card */}
+                            {(hasAdvancePaymentLocal || advancePaymentInt) && (
+                                <div className="card" style={{ 
+                                    padding: '14px', 
+                                    background: 'rgba(239, 68, 68, 0.08)', 
+                                    border: '1.5px solid rgba(239, 68, 68, 0.35)', 
+                                    borderRadius: '12px', 
+                                    color: '#f87171', 
+                                    fontSize: '14px', 
+                                    fontWeight: 700, 
+                                    textAlign: 'center',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '18px' }}>💳</span>
+                                        <span>Advance Payment Collected: ₹{(advanceAmountLocal || (advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0)).toLocaleString('en-IN')}</span>
+                                    </div>
+                                    {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method) && (
+                                        <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                            Payment Mode: {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method || '').toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 4. Parts Note / Parts Collected confirmation cards */}
+                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added' && i.metadata?.parts_action)).map((int, index) => {
+                                const actionType = int.metadata.parts_action;
+                                const isCollected = actionType === 'Collect Part';
+                                const attachments = int.metadata.attachments || [];
+                                return (
+                                    <div key={int.id || index} className="card" style={{ 
+                                        padding: '14px', 
+                                        background: isCollected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)', 
+                                        border: isCollected ? '1.5px solid rgba(16, 185, 129, 0.35)' : '1.5px solid rgba(245, 158, 11, 0.35)', 
+                                        borderRadius: '12px', 
+                                        color: isCollected ? '#34d399' : '#f59e0b', 
+                                        fontSize: '14px', 
+                                        fontWeight: 700, 
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>📦</span>
+                                            <span>Part {isCollected ? 'Collected' : 'Ordered'}</span>
+                                        </div>
+                                        {int.metadata?.note_text && (
+                                            <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)', wordBreak: 'break-word', textAlign: 'left' }}>
+                                                {int.metadata.note_text}
+                                            </div>
+                                        )}
+                                        {int.metadata?.min_price && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'left' }}>
+                                                Est. Price: ₹{int.metadata.min_price}-{int.metadata.max_price} · Est. Time: {int.metadata.min_days}-{int.metadata.max_days} days
+                                            </div>
+                                        )}
+                                        {attachments.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                                {attachments.map((url, i) => (
+                                                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
+                                                        <img 
+                                                            src={url} 
+                                                            alt={`Part photo ${i+1}`} 
+                                                            style={{ width: '48px', height: '48px', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                                                        />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
 
                             {partsOption === 'select' ? (
                                 <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
@@ -4643,25 +4644,39 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
 
                                                     // 3. Log interaction with attachments
-                                                    await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            type: 'repair-note-added',
-                                                            category: 'job',
-                                                            description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
-                                                            user_name: techName,
-                                                            metadata: {
-                                                                attachments: uploadedUrls,
-                                                                parts_action: partsActionType,
-                                                                note_text: partsNoteText.trim(),
-                                                                min_price: partsMinPrice,
-                                                                max_price: partsMaxPrice,
-                                                                min_days: partsMinDays,
-                                                                max_days: partsMaxDays
-                                                            }
-                                                        })
-                                                    }).catch(() => {});
+                                                    const newInteraction = {
+                                                         type: 'repair-note-added',
+                                                         category: 'job',
+                                                         description: `Technician added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
+                                                         performed_by_name: techName,
+                                                         timestamp: new Date().toISOString(),
+                                                         metadata: {
+                                                             attachments: uploadedUrls,
+                                                             parts_action: partsActionType,
+                                                             note_text: partsNoteText.trim(),
+                                                             min_price: partsMinPrice,
+                                                             max_price: partsMaxPrice,
+                                                             min_days: partsMinDays,
+                                                             max_days: partsMaxDays
+                                                         }
+                                                     };
+
+                                                     await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
+                                                         method: 'POST',
+                                                         headers: { 'Content-Type': 'application/json' },
+                                                         body: JSON.stringify({
+                                                             type: 'repair-note-added',
+                                                             category: 'job',
+                                                             description: newInteraction.description,
+                                                             user_name: techName,
+                                                             metadata: newInteraction.metadata
+                                                         })
+                                                     }).catch(() => {});
+
+                                                     setEditedJob(prev => ({
+                                                         ...prev,
+                                                         interactions: deduplicateInteractions([newInteraction, ...(prev.interactions || [])])
+                                                     }));
 
                                                     // 4. Set status to parts_ordered
                                                     await handleSaveStatus('parts_ordered');
