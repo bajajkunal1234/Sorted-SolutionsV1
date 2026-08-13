@@ -638,40 +638,39 @@ export default function NewEraDashboard() {
                 {/* OVERVIEW TAB */}
                 {activeTab === 'overview' && (
                     <div style={styles.tabContentGrid}>
-                        {/* Member Share Allocations */}
+                        {/* Liability Breakdowns */}
                         <div style={styles.panelCard}>
-                            <h2 style={styles.panelTitle}>Member Liability Allocations</h2>
-                            <div style={styles.memberListGrid}>
-                                {memberStats.map(member => (
-                                    <div key={member.id} style={styles.memberRow}>
-                                        <div style={styles.memberRowInfo}>
-                                            <div style={styles.memberRowAvatar}>{member.name[0]}</div>
-                                            <div>
-                                                <div style={styles.memberRowName}>
-                                                    {member.name}
-                                                    {member.name === 'Asha' && (
-                                                        <span style={{ fontSize: '0.65rem', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.15)', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', marginLeft: '0.4rem', fontWeight: '800' }}>
-                                                            MONITOR ONLY
-                                                        </span>
-                                                    )}
+                            <h2 style={styles.panelTitle}>Liability Breakdowns</h2>
+                            <div style={{ ...styles.breakdownGrid, gridTemplateColumns: '1fr' }}>
+                                {data.loans.filter(l => l.status === 'active').map(loan => {
+                                    // Total payments for this loan
+                                    const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                    const paidVal = loanPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                                    const totalExpected = parseFloat(loan.principal_amount);
+                                    const progressPercent = Math.min(100, (paidVal / totalExpected) * 100);
+
+                                    return (
+                                        <div key={loan.id} style={styles.breakdownItem}>
+                                            <div style={styles.breakdownHeader}>
+                                                <div>
+                                                    <span style={styles.breakdownName}>{loan.name}</span>
+                                                    <span style={styles.breakdownLender}> ({loan.lender})</span>
                                                 </div>
-                                                <div style={styles.memberRowSub}>
-                                                    {member.name === 'Asha' ? 'No monthly payment obligation' : `Monthly obligation: ₹${Math.round(member.expectedMonthlyObligation).toLocaleString('en-IN')}`}
-                                                </div>
+                                                <span style={styles.breakdownPercent}>{progressPercent.toFixed(1)}% Paid</span>
+                                            </div>
+                                            <div style={styles.progressBarBg}>
+                                                <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
+                                            </div>
+                                            <div style={styles.breakdownDetails}>
+                                                <span>Paid: ₹{paidVal.toLocaleString('en-IN')}</span>
+                                                <span>Total: ₹{totalExpected.toLocaleString('en-IN')}</span>
                                             </div>
                                         </div>
-                                        <div style={styles.memberRowMetrics}>
-                                            {member.name === 'Asha' ? (
-                                                <div style={{ ...styles.memberRowOut, color: '#64748b', fontSize: '0.8rem', fontWeight: '500' }}>—</div>
-                                            ) : (
-                                                <>
-                                                    <div style={styles.memberRowOut}>₹{Math.round(member.outstandingPrincipalShare).toLocaleString('en-IN')} due</div>
-                                                    <div style={styles.memberRowPaid}>₹{Math.round(member.totalPaid).toLocaleString('en-IN')} paid</div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
+                                {data.loans.filter(l => l.status === 'active').length === 0 && (
+                                    <div style={{ ...styles.emptyState, width: '100%' }}>No active liabilities added yet.</div>
+                                )}
                             </div>
                         </div>
 
@@ -704,42 +703,6 @@ export default function NewEraDashboard() {
                                             </div>
                                         );
                                     })
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Distribution curve */}
-                        <div style={{ ...styles.panelCard, gridColumn: 'span 2' }}>
-                            <h2 style={styles.panelTitle}>Liability Breakdowns</h2>
-                            <div style={styles.breakdownGrid}>
-                                {data.loans.filter(l => l.status === 'active').map(loan => {
-                                    // Total payments for this loan
-                                    const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-                                    const paidVal = loanPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-                                    const totalExpected = parseFloat(loan.principal_amount);
-                                    const progressPercent = Math.min(100, (paidVal / totalExpected) * 100);
-
-                                    return (
-                                        <div key={loan.id} style={styles.breakdownItem}>
-                                            <div style={styles.breakdownHeader}>
-                                                <div>
-                                                    <span style={styles.breakdownName}>{loan.name}</span>
-                                                    <span style={styles.breakdownLender}> ({loan.lender})</span>
-                                                </div>
-                                                <span style={styles.breakdownPercent}>{progressPercent.toFixed(1)}% Paid</span>
-                                            </div>
-                                            <div style={styles.progressBarBg}>
-                                                <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
-                                            </div>
-                                            <div style={styles.breakdownDetails}>
-                                                <span>Paid: ₹{paidVal.toLocaleString('en-IN')}</span>
-                                                <span>Total: ₹{totalExpected.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {data.loans.filter(l => l.status === 'active').length === 0 && (
-                                    <div style={{ ...styles.emptyState, width: '100%' }}>No active liabilities added yet.</div>
                                 )}
                             </div>
                         </div>
