@@ -112,7 +112,13 @@ export async function POST(request) {
         // Check session for all other actions
         const session = await getSession(request, supabase);
         if (!session) {
-            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+            const response = NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+            // Clear any old path-restricted cookies to prevent loops
+            response.cookies.delete('newera_session', { path: '/newera' });
+            response.cookies.delete('newera_session', { path: '/' });
+            response.cookies.delete('newera_member', { path: '/newera' });
+            response.cookies.delete('newera_member', { path: '/' });
+            return response;
         }
 
         // 2. Select member action (authenticated but needs member selection)

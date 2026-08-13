@@ -27,6 +27,12 @@ export default function MemberSelector({ members }) {
                 body: JSON.stringify({ action: 'select_member', name: selected })
             });
 
+            if (res.status === 401) {
+                // Session expired or path scope issue - reload to force password entry
+                window.location.reload();
+                return;
+            }
+
             const data = await res.json();
             if (data.success) {
                 window.location.reload();
