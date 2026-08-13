@@ -4944,7 +4944,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 prefilledAmount={(() => {
                     const baseAmt = savedInvoice?.total_amount || savedQuotation?.total_amount || 0;
                     if (!baseAmt) return '';
-                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const advanceAmt = advanceAmountLocal || advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
                     const pending = Math.max(0, baseAmt - parseFloat(advanceAmt));
                     return String(pending);
                 })()}
@@ -4957,7 +4957,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 onSuccess={async () => {
                     setShowCollectPayment(false);
                     const baseAmt = savedInvoice?.total_amount || savedQuotation?.total_amount || 0;
-                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const advanceAmt = advanceAmountLocal || advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
                     const pending = Math.max(0, baseAmt - parseFloat(advanceAmt));
 
                     setHasPaymentLocal(true);
@@ -5168,7 +5168,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 }}
                 prefilledAmount={(() => {
                     if (!savedInvoice?.total_amount) return '';
-                    const advanceAmt = advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                    const advanceAmt = advanceAmountLocal || advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
                     const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
                     return String(pending);
                 })()}
