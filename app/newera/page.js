@@ -232,21 +232,17 @@ export default function NewEraDashboard() {
     // Form handlers
     const submitCreateLoan = async (e) => {
         e.preventDefault();
-        
-        // Validate allocations sum to 100%
-        const totalShare = loanForm.allocations.reduce((sum, a) => sum + parseFloat(a.share_percentage || 0), 0);
-        if (Math.abs(totalShare - 100) > 0.1) {
-            alert(`Total allocation share must equal 100%. Currently it is ${totalShare}%`);
-            return;
-        }
 
         try {
+            // Strip allocations from the form data
+            const { allocations, ...loanPayload } = loanForm;
+
             const res = await fetch('/api/newera', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'create_loan',
-                    ...loanForm
+                    ...loanPayload
                 })
             });
             const result = await res.json();
@@ -1170,38 +1166,7 @@ export default function NewEraDashboard() {
                                 </div>
                             </div>
 
-                            {/* Member allocations */}
-                            <div style={styles.modalSection}>
-                                <h4 style={styles.modalSectionTitle}>Manage Who Pays How Much (Share %)</h4>
-                                <div style={styles.allocationRowGrid}>
-                                    {loanForm.allocations.map((alloc, index) => {
-                                        const memberName = data.members.find(m => m.id === alloc.member_id)?.name || 'Unknown';
-                                        return (
-                                            <div key={alloc.member_id} style={styles.allocRow}>
-                                                <span style={styles.allocName}>{memberName}</span>
-                                                <input 
-                                                    type="number" 
-                                                    value={alloc.share_percentage}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        setLoanForm(prev => {
-                                                            const newAllocs = [...prev.allocations];
-                                                            newAllocs[index].share_percentage = val;
-                                                            return { ...prev, allocations: newAllocs };
-                                                        });
-                                                    }}
-                                                    placeholder="%"
-                                                    style={styles.allocInput}
-                                                    required
-                                                />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div style={styles.allocationHelp}>
-                                    Allocations must equal exactly 100%. Equal split is pre-filled.
-                                </div>
-                            </div>
+                            {/* Member allocations removed */}
 
                             <button type="submit" style={styles.modalSubmitBtn}>Save Liability Account</button>
                         </form>
