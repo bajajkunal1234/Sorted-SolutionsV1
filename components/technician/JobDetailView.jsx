@@ -37,6 +37,21 @@ const deduplicateInteractions = (list) => {
         const timeKey = timestamp ? new Date(timestamp).toISOString().slice(0, 16) : '';
         const descNormalized = (item.description || item.message || '').toLowerCase().trim();
         const typeNormalized = (item.type || '').toLowerCase().trim();
+        
+        if (typeNormalized === 'payment-received') {
+            const amt = parseFloat(item.metadata?.amount || item.amount || 0);
+            const time = new Date(timestamp || 0).getTime();
+            const isDuplicate = result.some(r => {
+                if ((r.type || '').toLowerCase().trim() !== 'payment-received') return false;
+                const rAmt = parseFloat(r.metadata?.amount || r.amount || 0);
+                const rTime = new Date(r.timestamp || r.created_at || 0).getTime();
+                return Math.abs(rAmt - amt) < 0.01 && Math.abs(rTime - time) < 300000;
+            });
+            if (isDuplicate) {
+                continue;
+            }
+        }
+
         const key = `${typeNormalized}_${timeKey}_${descNormalized.substring(0, 50)}`;
         if (!seen.has(key)) {
             seen.add(key);
