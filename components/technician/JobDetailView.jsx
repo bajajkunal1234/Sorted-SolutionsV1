@@ -323,13 +323,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [hasUploadedPhotosLocal, setHasUploadedPhotosLocal] = useState(false);
     const [hasPaymentLocal, setHasPaymentLocal] = useState(false);
     const [collectedAmountLocal, setCollectedAmountLocal] = useState(0);
+    const [hasAdvancePaymentLocal, setHasAdvancePaymentLocal] = useState(false);
+    const [advanceAmountLocal, setAdvanceAmountLocal] = useState(0);
+    const [advancePaymentMethodLocal, setAdvancePaymentMethodLocal] = useState('');
 
     useEffect(() => {
         if (editedJob?.interactions) {
             const hasPhotos = editedJob.interactions.some(i => i.type === 'after-photos-uploaded');
-            const hasPay = editedJob.interactions.some(i => i.type === 'payment-received');
+            const hasPay = editedJob.interactions.some(i => i.type === 'payment-received' && !String(i.description).toLowerCase().includes('advance') && !String(i.description).toLowerCase().includes('part 1'));
             const payAmt = editedJob.interactions
-                .filter(i => i.type === 'payment-received')
+                .filter(i => i.type === 'payment-received' && !String(i.description).toLowerCase().includes('advance') && !String(i.description).toLowerCase().includes('part 1'))
                 .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount) || 0), 0);
             
             if (hasPhotos) setHasUploadedPhotosLocal(true);
@@ -337,8 +340,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 setHasPaymentLocal(true);
                 setCollectedAmountLocal(payAmt);
             }
+
+            const advInt = editedJob.interactions.find(i => 
+                i.type === 'payment-received' && 
+                (
+                    String(i.description).toLowerCase().includes('advance') || 
+                    String(i.description).toLowerCase().includes('part 1') || 
+                    (!savedInvoice && i.metadata?.amount)
+                )
+            );
+            if (advInt) {
+                setHasAdvancePaymentLocal(true);
+                setAdvanceAmountLocal(parseFloat(advInt.metadata?.amount || advInt.amount || 0));
+                setAdvancePaymentMethodLocal(advInt.metadata?.method || '');
+            }
         }
-    }, [editedJob?.interactions]);
+    }, [editedJob?.interactions, savedInvoice]);
 
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
@@ -2986,8 +3003,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 </span>
                             </div>
 
-                            {/* 3. Advance Payment Collected red card (always third if any) */}
-                            {advancePaymentInt && (
+                            {/* 3. Advance Payment Collected card (always third if any) */}
+                            {(hasAdvancePaymentLocal || advancePaymentInt) && (
                                 <div className="card" style={{ 
                                     padding: '14px', 
                                     background: 'rgba(239, 68, 68, 0.08)', 
@@ -3004,62 +3021,50 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                         <span style={{ fontSize: '18px' }}>💳</span>
-                                        <span>Advance Payment Collected: ₹{(advancePaymentInt.metadata?.amount || advancePaymentInt.amount || 0).toLocaleString('en-IN')}</span>
+                                        <span>Advance Payment Collected: ₹{(advanceAmountLocal || (advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0)).toLocaleString('en-IN')}</span>
                                     </div>
-                                    {advancePaymentInt.metadata?.method && (
+                                    {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method) && (
                                         <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
-                                            Payment Mode: {advancePaymentInt.metadata.method.toUpperCase()}
+                                            Payment Mode: {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method || '').toUpperCase()}
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {latestEndedVisit && (
-                                <div className="card" style={{ 
-                                    padding: '14px', 
-                                    backgroundColor: 'rgba(56, 189, 248, 0.05)', 
-                                    border: '1.5px solid rgba(56, 189, 248, 0.25)', 
-                                    borderRadius: '12px', 
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '10px'
-                                }}>
-                                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#38bdf8', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span>📋</span>
-                                        <span>Visit #{latestEndedVisit.visitNumber} Summary</span>
-                                    </h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 14px', fontSize: '13px' }}>
-                                        <div>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Status: </span>
-                                            <strong style={{ color: latestEndedVisit.outStatus.includes('Parts Ordered') ? '#f59e0b' : '#10b981' }}>{latestEndedVisit.outStatus}</strong>
+                            {/* 4. Parts Note / Parts Collected confirmation cards */}
+                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added')).map((int, index) => {
+                                const actionType = int.metadata?.parts_action || 'Order Part';
+                                const isCollected = actionType === 'Collect Part';
+                                return (
+                                    <div key={int.id || index} className="card" style={{ 
+                                        padding: '14px', 
+                                        background: isCollected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)', 
+                                        border: isCollected ? '1.5px solid rgba(16, 185, 129, 0.35)' : '1.5px solid rgba(245, 158, 11, 0.35)', 
+                                        borderRadius: '12px', 
+                                        color: isCollected ? '#34d399' : '#f59e0b', 
+                                        fontSize: '14px', 
+                                        fontWeight: 700, 
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '6px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>📦</span>
+                                            <span>Part {isCollected ? 'Collected' : 'Ordered'}</span>
                                         </div>
-                                        <div>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Duration: </span>
-                                            <strong style={{ color: 'var(--text-primary)' }}>{latestEndedVisit.durationStr}</strong>
-                                        </div>
-                                        <div>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Started: </span>
-                                            <strong style={{ color: 'var(--text-primary)' }}>{new Date(latestEndedVisit.startJobTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong>
-                                        </div>
-                                        {latestEndedVisit.arrivalTime && (
-                                            <div>
-                                                <span style={{ color: 'var(--text-secondary)' }}>Arrived: </span>
-                                                <strong style={{ color: 'var(--text-primary)' }}>{new Date(latestEndedVisit.arrivalTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</strong>
+                                        {int.metadata?.note_text && (
+                                            <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)', wordBreak: 'break-word', textAlign: 'left' }}>
+                                                {int.metadata.note_text}
+                                            </div>
+                                        )}
+                                        {int.metadata?.min_price && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textAlign: 'left' }}>
+                                                Est. Price: ₹{int.metadata.min_price}-{int.metadata.max_price} · Est. Time: {int.metadata.min_days}-{int.metadata.max_days} days
                                             </div>
                                         )}
                                     </div>
-                                    {latestEndedVisit.advPayment && (
-                                        <div style={{ fontSize: '12px', padding: '6px 10px', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: '6px', color: '#10b981', fontWeight: 600 }}>
-                                            💰 Advance Collected: ₹{(latestEndedVisit.advPayment.metadata?.amount || latestEndedVisit.advPayment.amount || 0).toLocaleString('en-IN')}
-                                        </div>
-                                    )}
-                                    {latestEndedVisit.beforeNote && (
-                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
-                                            Note: "{latestEndedVisit.beforeNote}"
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                );
+                            })}
 
                             {/* Start Job / Mark as Arrived / On Way Banner Section */}
                             {(() => {
@@ -3162,7 +3167,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         )}
 
                                         {/* Pre-Arrived Close Call No Service option */}
-                                        {!advancePaymentInt && showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
+                                        {!hasAdvancePaymentLocal && !advancePaymentInt && showHeadOutSection && (calledCustomer || (editedJob.interactions || []).some(i => i.type === 'customer-called')) && (
                                             <button
                                                 className="btn"
                                                 onClick={() => {
@@ -3264,7 +3269,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             </button>
  
                                             {/* 3. Close Call Without Service */}
-                                            {!advancePaymentInt && (
+                                            {!hasAdvancePaymentLocal && !advancePaymentInt && (
                                                 <button
                                                     className="btn"
                                                     style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
@@ -3279,7 +3284,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {/* Order/Collect Parts Button & Collect Advance Button (shown after quotation is created, status is quotation_sent or work_in_progress) */}
                                     {['quotation_sent', 'work_in_progress'].includes(editedJob.status) && (
                                         <div style={{ padding: '0 4px' }}>
-                                            {!advancePaymentInt ? (
+                                            {(!hasAdvancePaymentLocal && !advancePaymentInt) ? (
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                                     <button
                                                         className="btn"
@@ -3311,7 +3316,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {/* Collect Advance Payment Button (shown when status is parts_ordered and quotation exists) */}
                                     {editedJob.status === 'parts_ordered' && savedQuotation && (
                                         <div style={{ padding: '0 4px' }}>
-                                            {!advancePaymentInt && (
+                                            {!hasAdvancePaymentLocal && !advancePaymentInt && (
                                                 <button
                                                     className="btn"
                                                     style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(139,92,246,0.15)' }}
@@ -4558,7 +4563,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             if (!savedQuotation) {
                                                 setIsPartsFlowQuotationPending(true);
                                                 setActiveForm('calculator');
-                                            } else if (!advancePaymentInt) {
+                                            } else if (!hasAdvancePaymentLocal && !advancePaymentInt) {
                                                 setShowAdvanceConfirmModal(true);
                                             } else {
                                                 // Reload job to show updated status after saving
