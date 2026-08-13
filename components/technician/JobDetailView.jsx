@@ -352,17 +352,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     useEffect(() => {
         if (editedJob?.interactions) {
             const hasPhotos = editedJob.interactions.some(i => i.type === 'after-photos-uploaded');
+            const advInt = editedJob.interactions.find(i => 
+                i.type === 'payment-received' && 
+                (
+                    String(i.description).toLowerCase().includes('advance') || 
+                    String(i.description).toLowerCase().includes('part 1') || 
+                    (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
+                )
+            );
+
             const hasPay = editedJob.interactions.some(i => 
                 i.type === 'payment-received' && 
-                !String(i.description).toLowerCase().includes('advance') && 
-                !String(i.description).toLowerCase().includes('part 1') &&
+                i !== advInt &&
                 !isVisitingFeeInt(i)
             );
             const payAmt = editedJob.interactions
                 .filter(i => 
                     i.type === 'payment-received' && 
-                    !String(i.description).toLowerCase().includes('advance') && 
-                    !String(i.description).toLowerCase().includes('part 1') &&
+                    i !== advInt &&
                     !isVisitingFeeInt(i)
                 )
                 .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
@@ -373,14 +380,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 setCollectedAmountLocal(payAmt);
             }
 
-            const advInt = editedJob.interactions.find(i => 
-                i.type === 'payment-received' && 
-                (
-                    String(i.description).toLowerCase().includes('advance') || 
-                    String(i.description).toLowerCase().includes('part 1') || 
-                    (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
-                )
-            );
             if (advInt) {
                 setHasAdvancePaymentLocal(true);
                 setAdvanceAmountLocal(parseFloat(advInt.metadata?.amount || advInt.amount || 0));
@@ -856,8 +855,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         (
             String(i.description).toLowerCase().includes('advance') || 
             String(i.description).toLowerCase().includes('part 1') || 
-            (!savedInvoice && (i.metadata?.amount || i.amount))
+            (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
         )
+    );
+
+    const hasFinalPaymentInDB = (editedJob.interactions || []).some(i => 
+        i.type === 'payment-received' && 
+        i !== advancePaymentInt &&
+        !isVisitingFeeInt(i)
     );
 
     const lastEditInt = (editedJob.interactions || []).find(i => i.type === 'quotation-created' || i.type === 'quotation-edited');
@@ -3425,7 +3430,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                         >
                                                             <CheckCircle size={14} /> Closed & Paid
                                                         </div>
-                                                    ) : (hasPaymentLocal || editedJob.interactions?.some(i => i.type === 'payment-received' && !String(i.description).toLowerCase().includes('advance') && !String(i.description).toLowerCase().includes('part 1') && !isVisitingFeeInt(i))) ? (
+                                                    ) : (hasPaymentLocal || hasFinalPaymentInDB) ? (
                                                         <button
                                                             className="btn"
                                                             style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'normal' }}
@@ -3544,11 +3549,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 </div>
                                                 {/* Edit goes away if approved, except when payment amount does not match approved quotation */}
                                                 {(() => {
-                                                    const hasPayment = editedJob.interactions?.some(i => i.type === 'payment-received' && !isVisitingFeeInt(i));
-                                                    const collectedAmount = editedJob.interactions
-                                                        ?.filter(i => i.type === 'payment-received' && !isVisitingFeeInt(i))
-                                                        .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0) || 0;
+                                                    const dbPaymentsSum = (editedJob.interactions || [])
+                                                        .filter(i => i.type === 'payment-received' && !isVisitingFeeInt(i))
+                                                        .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
                                                     const quotationAmount = savedQuotation?.total_amount || 0;
+                                                    const hasPayment = hasPaymentLocal || (dbPaymentsSum >= quotationAmount - 0.01 && dbPaymentsSum > 0);
+                                                    const collectedAmount = (hasPaymentLocal && !hasFinalPaymentInDB) ? (dbPaymentsSum + collectedAmountLocal) : dbPaymentsSum;
                                                     const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
 
                                                     const showEditButton = !['work_in_progress', 'completed', 'closed'].includes(editedJob.status) || 
@@ -3769,7 +3775,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                           .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
                                                                       const quotationAmount = savedQuotation?.total_amount || 0;
                                                                       const hasPayment = hasPaymentLocal || (dbPaymentsSum >= quotationAmount - 0.01 && dbPaymentsSum > 0);
-                                                                      const collectedAmount = hasPaymentLocal ? (dbPaymentsSum + collectedAmountLocal) : dbPaymentsSum;
+                                                                      const collectedAmount = (hasPaymentLocal && !hasFinalPaymentInDB) ? (dbPaymentsSum + collectedAmountLocal) : dbPaymentsSum;
                                                                       const isPaymentMatchingQuote = Math.abs(collectedAmount - quotationAmount) < 0.01;
  
                                                                       if (!hasAfterPhotos) {
@@ -4932,6 +4938,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 context="technician"
                 currentUserName={techName}
                 currentUserId={techId}
+                isAdvance={true}
                 prefilledCustomer={{
                     id: editedJob.customer_id || editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
                     name: editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer',

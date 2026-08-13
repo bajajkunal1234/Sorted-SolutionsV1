@@ -19,7 +19,10 @@ import {
     TrendingDown, 
     HelpCircle,
     UserCheck,
-    Briefcase
+    Briefcase,
+    List,
+    FileText,
+    Upload
 } from 'lucide-react';
 
 export default function NewEraDashboard() {
@@ -55,8 +58,32 @@ export default function NewEraDashboard() {
         start_date: new Date().toISOString().split('T')[0],
         tenure_months: '',
         emi_amount: '',
+        repayment_day: '5',
         allocations: [] // array of { member_id: X, share_percentage: Y }
     });
+
+    // Parsing document state
+    const [documentFile, setDocumentFile] = useState(null);
+    const [isParsing, setIsParsing] = useState(false);
+    const [parsedData, setParsedData] = useState(null); 
+    const [importTarget, setImportTarget] = useState('existing'); 
+    const [importLoanId, setImportLoanId] = useState('');
+    const [newLoanForm, setNewLoanForm] = useState({
+        name: '',
+        lender: '',
+        account_number: '',
+        loan_type: 'Home Loan',
+        principal_amount: '',
+        interest_rate_annual: '12.0',
+        start_date: new Date().toISOString().split('T')[0],
+        tenure_months: '',
+        emi_amount: '',
+        repayment_day: '5'
+    });
+
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().toISOString().split('T')[0]);
+    const [scheduleView, setScheduleView] = useState('calendar'); // 'calendar' or 'list'
 
     // Add Repayment Form State
     const [repaymentForm, setRepaymentForm] = useState({
@@ -128,10 +155,116 @@ export default function NewEraDashboard() {
                 }
             }
         } catch (e) {
-            console.error('Error fetching dashboard data:', e);
+            console.error('Error fetching data:', e);
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setDocumentFile(file);
+            setParsedData(null);
+        }
+    };
+
+    const handleParseDocument = async () => {
+        if (!documentFile) return;
+        setIsParsing(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', documentFile);
+
+            const res = await fetch('/api/newera/parse-schedule', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                setParsedData(result);
+                setNewLoanForm(prev => ({
+                    ...prev,
+                    name: `${result.guessedLender} Loan`,
+                    lender: result.guessedLender,
+                    principal_amount: String(result.principal),
+                    tenure_months: String(result.tenure_months),
+                    emi_amount: String(result.emi_amount),
+                    interest_rate_annual: String(result.interestRateGuess)
+                }));
+            } else {
+                alert('Analysis failed: ' + result.error);
+            }
+        } catch (e) {
+            console.error('Error parsing document:', e);
+            alert('An error occurred while analyzing the document.');
+        } finally {
+            setIsParsing(false);
+        }
+    };
+
+    const handleSaveParsedImport = async (e) => {
+        e.preventDefault();
+        if (!parsedData) return;
+
+        if (importTarget === 'existing' && !importLoanId) {
+            alert('Please select an existing liability account.');
+            return;
+        }
+
+        try {
+            const payload = {
+                action: 'import_parsed_schedule',
+                loanId: importTarget === 'new' ? 'new' : importLoanId,
+                loanForm: importTarget === 'new' ? newLoanForm : null,
+                installments: parsedData.installments
+            };
+
+            const res = await fetch('/api/newera', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                setShowImportRepayments(false);
+                setDocumentFile(null);
+                setParsedData(null);
+                fetchDashboardData();
+                alert('Schedule imported successfully!');
+            } else {
+                alert('Import failed: ' + result.error);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred during import.');
+        }
+    };
+
+    const getCalendarDays = () => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const startDayOfWeek = firstDay.getDay(); 
+        const totalDays = lastDay.getDate();
+        
+        const days = [];
+        
+        for (let i = 0; i < startDayOfWeek; i++) {
+            days.push(null);
+        }
+        
+        for (let d = 1; d <= totalDays; d++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            days.push({ dayNum: d, dateStr });
+        }
+        
+        return days;
     };
 
     useEffect(() => {
@@ -808,7 +941,7 @@ export default function NewEraDashboard() {
 
                             <div style={styles.tabActions}>
                                 <button onClick={() => setShowImportRepayments(true)} style={styles.secondaryActionButton}>
-                                    <FileSpreadsheet size={16} /> Import Excel
+                                    <FileText size={16} /> Parse PDF / Excel
                                 </button>
                                 <button onClick={() => {
                                     if (data.loans.length === 0) {
@@ -823,8 +956,188 @@ export default function NewEraDashboard() {
                             </div>
                         </div>
 
-                        {/* Repayments Schedule List */}
-                        <div style={styles.scheduleTableWrapper}>
+                        {/* Toggle View Type */}
+                        <div style={styles.viewToggleRow}>
+                            <button 
+                                onClick={() => setScheduleView('calendar')} 
+                                style={{
+                                    ...styles.viewToggleBtn,
+                                    backgroundColor: scheduleView === 'calendar' ? '#6366f1' : 'transparent',
+                                    color: scheduleView === 'calendar' ? '#ffffff' : '#94a3b8',
+                                    borderColor: scheduleView === 'calendar' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                }}
+                            >
+                                <Calendar size={14} /> Calendar View
+                            </button>
+                            <button 
+                                onClick={() => setScheduleView('list')} 
+                                style={{
+                                    ...styles.viewToggleBtn,
+                                    backgroundColor: scheduleView === 'list' ? '#6366f1' : 'transparent',
+                                    color: scheduleView === 'list' ? '#ffffff' : '#94a3b8',
+                                    borderColor: scheduleView === 'list' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                }}
+                            >
+                                <List size={14} /> List View
+                            </button>
+                        </div>
+
+                        {/* Calendar View */}
+                        {scheduleView === 'calendar' && (
+                            <div style={styles.calendarContainer}>
+                                <div style={styles.calendarNav}>
+                                    <button 
+                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
+                                        style={styles.calendarNavBtn}
+                                    >
+                                        &larr; Prev
+                                    </button>
+                                    <h3 style={styles.calendarNavTitle}>
+                                        {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
+                                    </h3>
+                                    <button 
+                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
+                                        style={styles.calendarNavBtn}
+                                    >
+                                        Next &rarr;
+                                    </button>
+                                </div>
+
+                                <div style={styles.calendarGrid}>
+                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(w => (
+                                        <div key={w} style={styles.weekdayCell}>{w}</div>
+                                    ))}
+
+                                    {getCalendarDays().map((day, idx) => {
+                                        if (!day) return <div key={`empty-${idx}`} style={styles.emptyDayCell}></div>;
+
+                                        const repaymentsDue = data.repayments.filter(r => 
+                                            r.due_date === day.dateStr && 
+                                            (selectedLoanId === 'all' || r.loan_id === selectedLoanId)
+                                        );
+
+                                        const isSelected = selectedCalendarDay === day.dateStr;
+
+                                        return (
+                                            <div 
+                                                key={day.dateStr} 
+                                                onClick={() => setSelectedCalendarDay(day.dateStr)}
+                                                style={{
+                                                    ...styles.dayCell,
+                                                    borderColor: isSelected ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                                                    background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'rgba(15, 23, 42, 0.25)'
+                                                }}
+                                            >
+                                                <div style={styles.dayNumLabel}>{day.dayNum}</div>
+                                                <div style={styles.dayContent}>
+                                                    {repaymentsDue.map(rep => {
+                                                        const loan = data.loans.find(l => l.id === rep.loan_id);
+                                                        return (
+                                                            <div 
+                                                                key={rep.id} 
+                                                                style={{
+                                                                    ...styles.miniRepaymentCard,
+                                                                    borderColor: rep.status === 'paid' ? '#10b981' : rep.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
+                                                                    backgroundColor: rep.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : rep.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)'
+                                                                }}
+                                                            >
+                                                                <div style={styles.miniRepName}>{loan ? loan.name : 'Vendor'}</div>
+                                                                <div style={styles.miniRepAmt}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {repaymentsDue.length > 0 && (
+                                                    <div style={styles.mobileDotContainer}>
+                                                        {repaymentsDue.map((r, i) => (
+                                                            <span 
+                                                                key={r.id} 
+                                                                style={{
+                                                                    ...styles.mobileDot,
+                                                                    backgroundColor: r.status === 'paid' ? '#10b981' : r.status === 'partially_paid' ? '#f59e0b' : '#ef4444'
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div style={styles.dayDetailPanel}>
+                                    <h4 style={styles.dayDetailTitle}>
+                                        Due on {new Date(selectedCalendarDay).toLocaleDateString('en-IN', { dateStyle: 'long' })}
+                                    </h4>
+                                    {data.repayments.filter(r => 
+                                        r.due_date === selectedCalendarDay && 
+                                        (selectedLoanId === 'all' || r.loan_id === selectedLoanId)
+                                    ).length === 0 ? (
+                                        <div style={styles.emptyDayDetails}>No scheduled repayments due on this day.</div>
+                                    ) : (
+                                        <div style={styles.dayDetailList}>
+                                            {data.repayments
+                                                .filter(r => r.due_date === selectedCalendarDay && (selectedLoanId === 'all' || r.loan_id === selectedLoanId))
+                                                .map(repayment => {
+                                                    const loan = data.loans.find(l => l.id === repayment.loan_id);
+                                                    return (
+                                                        <div key={repayment.id} style={styles.dayDetailItem}>
+                                                            <div style={styles.dayDetailItemMain}>
+                                                                <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
+                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                                    Installment #{repayment.installment_number || 'Custom'} • Principal: ₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')} • Interest: ₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}
+                                                                </span>
+                                                                {repayment.notes && <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontStyle: 'italic', marginTop: '0.15rem' }}>Notes: {repayment.notes}</span>}
+                                                            </div>
+                                                            <div style={styles.dayDetailItemSide}>
+                                                                <strong style={{ fontSize: '1.1rem', color: '#f59e0b' }}>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</strong>
+                                                                <div style={styles.dayDetailBtnRow}>
+                                                                    <span style={{
+                                                                        ...styles.statusBadge,
+                                                                        backgroundColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                                        color: repayment.status === 'paid' ? '#10b981' : repayment.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
+                                                                        borderColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+                                                                        padding: '0.1rem 0.35rem',
+                                                                        fontSize: '0.65rem'
+                                                                    }}>
+                                                                        {repayment.status.toUpperCase()}
+                                                                    </span>
+                                                                    {repayment.status !== 'paid' && (
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                const activeM = data.members.find(m => m.name === activeMember);
+                                                                                setPaymentForm({
+                                                                                    loan_id: repayment.loan_id,
+                                                                                    repayment_id: repayment.id,
+                                                                                    member_id: activeM ? activeM.id : '',
+                                                                                    payment_date: new Date().toISOString().split('T')[0],
+                                                                                    amount: repayment.expected_amount,
+                                                                                    principal_portion: repayment.expected_principal,
+                                                                                    interest_portion: repayment.expected_interest,
+                                                                                    source_of_income: 'Business',
+                                                                                    notes: `Repayment of installment #${repayment.installment_number}`
+                                                                                });
+                                                                                setShowAddPayment(true);
+                                                                            }} 
+                                                                            style={styles.payDayBtn}
+                                                                        >
+                                                                            Log Pay
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Repayments Schedule List (Rendered when scheduleView is 'list') */}
+                        {scheduleView === 'list' && (
+                            <div style={styles.scheduleTableWrapper}>
                             {data.repayments.filter(r => selectedLoanId === 'all' || r.loan_id === selectedLoanId).length === 0 ? (
                                 <div style={styles.bigEmptyState}>
                                     <Calendar size={48} color="#475569" style={{ marginBottom: '1rem' }} />
@@ -905,8 +1218,9 @@ export default function NewEraDashboard() {
                                 </table>
                             )}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
+            )}
 
                 {/* PAYMENTS LOG TAB */}
                 {activeTab === 'payments' && (
@@ -1162,6 +1476,19 @@ export default function NewEraDashboard() {
                                         onChange={e => setLoanForm(prev => ({ ...prev, emi_amount: e.target.value }))}
                                         placeholder="₹"
                                         style={styles.formInput} 
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Preferred Repayment Day of Month (1-31)</label>
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        max="31"
+                                        value={loanForm.repayment_day || 5} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
+                                        placeholder="e.g. 5"
+                                        style={styles.formInput} 
+                                        required
                                     />
                                 </div>
                             </div>
@@ -1421,96 +1748,260 @@ export default function NewEraDashboard() {
                     </div>
                 </div>
             )}
-
-            {/* 4. Import Repayments Modal */}
+                      {/* 4. Import & Analyze Amortization Modal */}
             {showImportRepayments && (
                 <div style={styles.modalOverlay}>
-                    <div style={styles.modalContent} style={{ ...styles.modalContent, maxWidth: '550px' }}>
+                    <div style={{ ...styles.modalContent, maxWidth: '650px' }}>
                         <div style={styles.modalHeader}>
-                            <h3 style={styles.modalTitle}>Import Repayments Schedule</h3>
-                            <button onClick={() => setShowImportRepayments(false)} style={styles.closeModalBtn}>×</button>
+                            <h3 style={styles.modalTitle}>Parse Amortization Schedule (PDF / Excel)</h3>
+                            <button onClick={() => {
+                                setShowImportRepayments(false);
+                                setDocumentFile(null);
+                                setParsedData(null);
+                            }} style={styles.closeModalBtn}>×</button>
                         </div>
                         <div style={styles.modalForm}>
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Select Liability Account</label>
-                                <select 
-                                    value={excelImport.loan_id} 
-                                    onChange={e => setExcelImport(prev => ({ ...prev, loan_id: e.target.value }))}
-                                    style={styles.formSelect}
-                                    required
-                                >
-                                    <option value="">-- Choose Target Account --</option>
-                                    {data.loans.map(l => (
-                                        <option key={l.id} value={l.id}>{l.name} ({l.lender})</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div style={styles.formGroup}>
-                                <label style={styles.formLabel}>Upload Excel / CSV File</label>
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef}
-                                    accept=".xlsx, .xls, .csv" 
-                                    onChange={handleExcelImportChange}
-                                    style={styles.fileInput} 
-                                />
-                            </div>
-
-                            {excelImport.rows.length > 0 && (
-                                <div style={styles.importPreview}>
-                                    <div style={styles.importPreviewHeader}>
-                                        Mapped <strong>{excelImport.rows.length}</strong> rows from Excel.
+                            {!parsedData ? (
+                                <>
+                                    <div style={styles.formGroup}>
+                                        <label style={styles.formLabel}>Upload Amortization Document (.pdf, .xlsx, .xls, .csv)</label>
+                                        <div style={{
+                                            border: '2px dashed rgba(255,255,255,0.08)',
+                                            borderRadius: '0.75rem',
+                                            padding: '2rem',
+                                            textAlign: 'center',
+                                            background: 'rgba(15, 23, 42, 0.25)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '0.75rem'
+                                        }} onClick={() => fileInputRef.current?.click()}>
+                                            <Upload size={32} color="#6366f1" />
+                                            <span style={{ fontSize: '0.9rem', color: '#f8fafc', fontWeight: '600' }}>
+                                                {documentFile ? documentFile.name : 'Select or Drop Amortization Sheet'}
+                                            </span>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                Supports bank output PDFs, Excel grids, or CSV lists
+                                            </span>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef}
+                                                accept=".pdf, .xlsx, .xls, .csv" 
+                                                onChange={handleFileChange}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </div>
                                     </div>
-                                    <div style={styles.importPreviewTableWrapper}>
-                                        <table style={styles.miniTable}>
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Amount</th>
-                                                    <th>Principal</th>
-                                                    <th>Interest</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {excelImport.rows.slice(0, 5).map((r, i) => (
-                                                    <tr key={i}>
-                                                        <td>{r.due_date}</td>
-                                                        <td>₹{r.expected_amount}</td>
-                                                        <td>₹{r.expected_principal}</td>
-                                                        <td>₹{r.expected_interest}</td>
-                                                    </tr>
+                                    <button 
+                                        onClick={handleParseDocument} 
+                                        disabled={!documentFile || isParsing}
+                                        style={{
+                                            ...styles.modalSubmitBtn,
+                                            opacity: (!documentFile || isParsing) ? 0.6 : 1,
+                                            cursor: (!documentFile || isParsing) ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {isParsing ? 'ANALYZING DOCUMENT...' : 'UPLOAD & ANALYZE'}
+                                    </button>
+                                </>
+                            ) : (
+                                <form onSubmit={handleSaveParsedImport}>
+                                    {/* Guessed Details */}
+                                    <div style={{
+                                        background: 'rgba(99, 102, 241, 0.05)',
+                                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                                        borderRadius: '0.75rem',
+                                        padding: '1rem',
+                                        marginBottom: '1.25rem'
+                                    }}>
+                                        <h4 style={{ margin: '0 0 0.5rem 0', color: '#a5b4fc', fontSize: '0.9rem' }}>ANALYSIS SUMMARY</h4>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.8rem' }}>
+                                            <div>Guessed Lender: <strong>{parsedData.guessedLender}</strong></div>
+                                            <div>Principal parsed: <strong>₹{parsedData.principal.toLocaleString('en-IN')}</strong></div>
+                                            <div>Installments found: <strong>{parsedData.tenure_months} months</strong></div>
+                                            <div>Avg monthly EMI: <strong>₹{parsedData.emi_amount.toLocaleString('en-IN')}</strong></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Import Target */}
+                                    <div style={{ ...styles.formGroup, marginBottom: '1.25rem' }}>
+                                        <label style={styles.formLabel}>Target Liability Account</label>
+                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                <input 
+                                                    type="radio" 
+                                                    name="importTarget" 
+                                                    value="existing"
+                                                    checked={importTarget === 'existing'}
+                                                    onChange={() => setImportTarget('existing')}
+                                                />
+                                                Apply to Existing Account
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                <input 
+                                                    type="radio" 
+                                                    name="importTarget" 
+                                                    value="new"
+                                                    checked={importTarget === 'new'}
+                                                    onChange={() => setImportTarget('new')}
+                                                />
+                                                Create as New Liability
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {importTarget === 'existing' ? (
+                                        <div style={styles.formGroup}>
+                                            <label style={styles.formLabel}>Select Target Account</label>
+                                            <select 
+                                                value={importLoanId} 
+                                                onChange={e => setImportLoanId(e.target.value)}
+                                                style={styles.formSelect}
+                                                required
+                                            >
+                                                <option value="">-- Choose Target Account --</option>
+                                                {data.loans.map(l => (
+                                                    <option key={l.id} value={l.id}>{l.name} ({l.lender})</option>
                                                 ))}
-                                            </tbody>
-                                        </table>
-                                        {excelImport.rows.length > 5 && (
-                                            <div style={styles.miniTableMore}>
-                                                ... and {excelImport.rows.length - 5} more rows
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Liability Account Name</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={newLoanForm.name} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, name: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Supplier / Lender</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={newLoanForm.lender} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, lender: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
                                             </div>
-                                        )}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Category</label>
+                                                    <select 
+                                                        value={newLoanForm.loan_type} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, loan_type: e.target.value }))}
+                                                        style={styles.formSelect}
+                                                        required
+                                                    >
+                                                        <option value="Home Loan">Home Loan</option>
+                                                        <option value="Bank OD">Bank OD</option>
+                                                        <option value="Business Loan (Bank)">Business Loan (Bank)</option>
+                                                        <option value="Business Loan (Market Vendor)">Business Loan (Market Vendor)</option>
+                                                        <option value="Goods Payable (Supplier)">Goods Payable (Supplier)</option>
+                                                    </select>
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Annual Interest (%)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.01"
+                                                        value={newLoanForm.interest_rate_annual} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, interest_rate_annual: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Repayment Day (1-31)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        min="1"
+                                                        max="31"
+                                                        value={newLoanForm.repayment_day} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Principal Amount</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={newLoanForm.principal_amount} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, principal_amount: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Tenure (Months)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={newLoanForm.tenure_months} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, tenure_months: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>EMI Amount</label>
+                                                    <input 
+                                                        type="number" 
+                                                        value={newLoanForm.emi_amount} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, emi_amount: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Installment Preview Table */}
+                                    <div style={styles.importPreview}>
+                                        <div style={styles.importPreviewHeader}>
+                                            First 5 Installment Preview:
+                                        </div>
+                                        <div style={styles.importPreviewTableWrapper}>
+                                            <table style={styles.miniTable}>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Installment</th>
+                                                        <th>Principal</th>
+                                                        <th>Interest</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {parsedData.installments.slice(0, 5).map((r, i) => (
+                                                        <tr key={i}>
+                                                            <td>{r.due_date}</td>
+                                                            <td>₹{Math.round(r.expected_amount).toLocaleString('en-IN')}</td>
+                                                            <td>₹{Math.round(r.expected_principal).toLocaleString('en-IN')}</td>
+                                                            <td>₹{Math.round(r.expected_interest).toLocaleString('en-IN')}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
+
+                                    <button 
+                                        type="submit"
+                                        style={styles.modalSubmitBtn}
+                                    >
+                                        Import Schedule into Database
+                                    </button>
+                                </form>
                             )}
-
-                            <div style={styles.importGuidelines}>
-                                <strong>Excel Format Guidelines:</strong>
-                                <ul>
-                                    <li>Columns matched automatically: <em>Due Date (or Date), Expected Amount (or EMI), Principal, Interest, Notes</em></li>
-                                    <li>Excel dates and plain numbers are fully supported.</li>
-                                </ul>
-                            </div>
-
-                            <button 
-                                onClick={submitBulkImport} 
-                                disabled={!excelImport.loan_id || excelImport.rows.length === 0}
-                                style={{
-                                    ...styles.modalSubmitBtn,
-                                    opacity: (!excelImport.loan_id || excelImport.rows.length === 0) ? 0.6 : 1,
-                                    cursor: (!excelImport.loan_id || excelImport.rows.length === 0) ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                Import Schedule into Database
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -2364,6 +2855,190 @@ const styles = {
         borderRadius: '0.25rem',
         fontWeight: '700',
         display: 'inline-block'
+    },
+    viewToggleRow: {
+        display: 'flex',
+        gap: '0.5rem',
+        marginTop: '-0.5rem',
+        marginBottom: '1rem'
+    },
+    viewToggleBtn: {
+        padding: '0.4rem 0.75rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.8rem',
+        fontWeight: '600',
+        border: '1px solid',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.35rem',
+        transition: 'all 0.2s'
+    },
+    calendarContainer: {
+        background: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: '1rem',
+        padding: '1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem'
+    },
+    calendarNav: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.5rem'
+    },
+    calendarNavBtn: {
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        color: '#ffffff',
+        padding: '0.35rem 0.75rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.85rem',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+    },
+    calendarNavTitle: {
+        fontSize: '1.1rem',
+        fontWeight: '700',
+        color: '#ffffff',
+        margin: 0
+    },
+    calendarGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '0.5rem',
+        width: '100%'
+    },
+    weekdayCell: {
+        textAlign: 'center',
+        fontWeight: '700',
+        fontSize: '0.8rem',
+        color: '#94a3b8',
+        padding: '0.5rem 0',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+    },
+    emptyDayCell: {
+        background: 'transparent',
+        aspectRatio: '1',
+        borderRadius: '0.5rem'
+    },
+    dayCell: {
+        aspectRatio: '1',
+        minHeight: '80px',
+        padding: '0.4rem',
+        borderRadius: '0.5rem',
+        border: '1px solid',
+        cursor: 'pointer',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        transition: 'all 0.2s'
+    },
+    dayNumLabel: {
+        fontSize: '0.85rem',
+        fontWeight: '700',
+        color: '#f8fafc'
+    },
+    dayContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.2rem',
+        overflow: 'hidden',
+        marginTop: '0.25rem',
+        flex: 1
+    },
+    miniRepaymentCard: {
+        padding: '0.15rem 0.3rem',
+        borderRadius: '0.25rem',
+        fontSize: '0.65rem',
+        fontWeight: '700',
+        border: '1px solid',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+    },
+    miniRepName: {
+        color: '#ffffff',
+        opacity: 0.9,
+        fontWeight: '800'
+    },
+    miniRepAmt: {
+        fontSize: '0.6rem',
+        opacity: 0.8
+    },
+    mobileDotContainer: {
+        display: 'none',
+        justifyContent: 'center',
+        gap: '0.15rem',
+        width: '100%',
+        marginTop: '0.2rem'
+    },
+    mobileDot: {
+        width: '5px',
+        height: '5px',
+        borderRadius: '50%'
+    },
+    dayDetailPanel: {
+        marginTop: '1rem',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        paddingTop: '1.25rem'
+    },
+    dayDetailTitle: {
+        fontSize: '1rem',
+        fontWeight: '700',
+        color: '#ffffff',
+        marginBottom: '0.75rem'
+    },
+    emptyDayDetails: {
+        color: '#64748b',
+        fontSize: '0.85rem',
+        fontStyle: 'italic'
+    },
+    dayDetailList: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+    },
+    dayDetailItem: {
+        background: 'rgba(255,255,255,0.02)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        borderRadius: '0.75rem',
+        padding: '0.75rem 1rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '1rem'
+    },
+    dayDetailItemMain: {
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1
+    },
+    dayDetailItemSide: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '0.4rem'
+    },
+    dayDetailBtnRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem'
+    },
+    payDayBtn: {
+        backgroundColor: '#6366f1',
+        border: 'none',
+        color: '#ffffff',
+        padding: '0.25rem 0.5rem',
+        borderRadius: '0.25rem',
+        fontSize: '0.7rem',
+        fontWeight: '700',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
     }
 };
 
@@ -2389,6 +3064,21 @@ if (typeof window !== 'undefined') {
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+        @media (max-width: 600px) {
+            /* Compact day cells on mobile */
+            div[style*="min-height: 80px"] {
+                min-height: 48px !important;
+                aspect-ratio: 1 !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            div[style*="overflow: hidden"] {
+                display: none !important;
+            }
+            div[style*="display: none"] {
+                display: flex !important;
+            }
         }
     `;
     document.head.appendChild(styleEl);

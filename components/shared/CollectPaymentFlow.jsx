@@ -17,7 +17,8 @@ export default function CollectPaymentFlow({
     prefilledAmount = '',
     onSuccess,
     isAmountReadOnly = false,
-    onEditQuotation = null
+    onEditQuotation = null,
+    isAdvance = false
 }) {
     const [step, setStep] = useState(1);
     const [mounted, setMounted] = useState(false);
@@ -284,7 +285,7 @@ export default function CollectPaymentFlow({
                     amount: currentAmount,
                     payment_mode: paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'qr' ? 'UPI' : 'Payment Link'),
                     reference_number: selectedJob?.job_number || selectedJob?.id || '',
-                    narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${isSplit ? `[Part ${currentPaymentIndex}/2]` : ''} ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
+                    narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${isAdvance ? '[Advance Payment]' : (isSplit ? `[Part ${currentPaymentIndex}/2]` : '')} ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
                     status: 'pending_verification',
                     source: context === 'admin' ? 'Admin Panel' : 'Technician App',
                     created_by: currentUserName || 'Technician',
@@ -310,7 +311,7 @@ export default function CollectPaymentFlow({
                         jobId: selectedJob.id,
                         performedBy: currentUserId,
                         performedByName: currentUserName,
-                        description: `Payment of ₹${currentAmount} collected via ${paymentMethod.toUpperCase()} ${isSplit ? `(Part ${currentPaymentIndex}/2)` : ''} marking for Admin Verification.`,
+                        description: `Payment of ₹${currentAmount} collected via ${paymentMethod.toUpperCase()} ${isAdvance ? '(Advance Payment)' : (isSplit ? `(Part ${currentPaymentIndex}/2)` : '')} marking for Admin Verification.`,
                         metadata: {
                             amount: currentAmount,
                             method: paymentMethod,
