@@ -3276,16 +3276,35 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         </div>
                                     )}
 
-                                    {/* Order/Collect Parts Button (shown after quotation is created, status is quotation_sent or work_in_progress) */}
+                                    {/* Order/Collect Parts Button & Collect Advance Button (shown after quotation is created, status is quotation_sent or work_in_progress) */}
                                     {['quotation_sent', 'work_in_progress'].includes(editedJob.status) && (
                                         <div style={{ padding: '0 4px' }}>
-                                            <button
-                                                className="btn"
-                                                style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
-                                                onClick={() => setPartsOption('select')}
-                                            >
-                                                📦 Order/Collect Parts for Repair
-                                            </button>
+                                            {!advancePaymentInt ? (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ width: '100%', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '12px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                        onClick={() => setPartsOption('select')}
+                                                    >
+                                                        📦 Order/Collect Parts
+                                                    </button>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ width: '100%', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '12px', borderRadius: '8px', whiteSpace: 'normal', lineHeight: '1.2', textAlign: 'center' }}
+                                                        onClick={() => setShowAdvanceCollectPayment(true)}
+                                                    >
+                                                        💳 Collect Advance
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className="btn"
+                                                    style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px' }}
+                                                    onClick={() => setPartsOption('select')}
+                                                >
+                                                    📦 Order/Collect Parts for Repair
+                                                </button>
+                                            )}
                                         </div>
                                     )}
 
