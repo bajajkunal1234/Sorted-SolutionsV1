@@ -40,12 +40,18 @@ const deduplicateInteractions = (list) => {
         
         if (typeNormalized === 'payment-received') {
             const amt = parseFloat(item.metadata?.amount || item.amount || 0);
-            const time = new Date(timestamp || 0).getTime();
+            const descLower = (item.description || item.message || '').toLowerCase();
+            const isItemAdvance = descLower.includes('advance') || descLower.includes('part 1');
+            
             const isDuplicate = result.some(r => {
                 if ((r.type || '').toLowerCase().trim() !== 'payment-received') return false;
                 const rAmt = parseFloat(r.metadata?.amount || r.amount || 0);
-                const rTime = new Date(r.timestamp || r.created_at || 0).getTime();
-                return Math.abs(rAmt - amt) < 0.01 && Math.abs(rTime - time) < 300000;
+                if (Math.abs(rAmt - amt) > 0.01) return false;
+                
+                const rDescLower = (r.description || r.message || '').toLowerCase();
+                const isRAdvance = rDescLower.includes('advance') || rDescLower.includes('part 1');
+                
+                return isItemAdvance === isRAdvance;
             });
             if (isDuplicate) {
                 continue;
