@@ -216,9 +216,9 @@ function JobCard({ job, onClick, onCalculate }) {
             )}
 
             {/* Job Name (description as primary title) */}
-            <h4 className="job-card-title" style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px' }}>
+            <h4 className="job-card-title" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>
                 {jobName}
-                {jobType && jobType !== jobName ? <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--text-secondary)' }}> &mdash; {jobType}</span> : null}
+                {jobType && jobType !== jobName ? <span style={{ fontWeight: 400, fontSize: '11px', color: 'var(--text-secondary)' }}> &mdash; {jobType}</span> : null}
             </h4>
 
             {/* Customer Name */}
@@ -291,12 +291,6 @@ function JobCard({ job, onClick, onCalculate }) {
 
             {/* Quick Action Buttons */}
             <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }} onClick={e => e.stopPropagation()}>
-                <button
-                    onClick={() => onCalculate && onCalculate(job)}
-                    style={{ flex: 1, padding: '5px 4px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}
-                >
-                    <Calculator size={11} /> Estimate
-                </button>
                 {customerPhone && (
                     <a
                         href={`tel:${customerPhone}`}
