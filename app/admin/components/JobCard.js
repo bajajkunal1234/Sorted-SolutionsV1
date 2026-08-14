@@ -69,6 +69,8 @@ function JobCard({ job, onClick, onCalculate }) {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.5 : 1,
+        position: 'relative',
+        overflow: 'hidden',
         ...(job.priority === 'urgent' ? {
             border: '2px solid #ef4444',
             boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.15)'
@@ -170,6 +172,16 @@ function JobCard({ job, onClick, onCalculate }) {
         );
     }
 
+    const assignedDate = new Date(job.assignedAt || job.createdAt || job.created_at);
+    const diffMs = Date.now() - assignedDate.getTime();
+    const hoursCrossed = Math.max(0, Math.floor(diffMs / (3600 * 1000)));
+    let ribbonColor = '#3b82f6';
+    if (hoursCrossed >= 25 && hoursCrossed <= 48) {
+        ribbonColor = '#f97316';
+    } else if (hoursCrossed > 48) {
+        ribbonColor = '#ef4444';
+    }
+
     return (
         <div
             ref={setNodeRef}
@@ -179,6 +191,21 @@ function JobCard({ job, onClick, onCalculate }) {
             className="job-card"
             onClick={onClick}
         >
+            {/* Hours Crossed Ribbon */}
+            <div style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                backgroundColor: ribbonColor,
+                color: '#ffffff',
+                padding: '3px 8px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                borderRadius: '0 0 0 8px',
+                zIndex: 2
+            }}>
+                {hoursCrossed} hrs
+            </div>
             {/* Thumbnail - (Only if available in schema/data) */}
             {job.thumbnail && (
                 <img
