@@ -26,6 +26,27 @@ const deduplicateInteractions = (list) => {
         const timeKey = timestamp ? new Date(timestamp).toISOString().slice(0, 16) : '';
         const descNormalized = (item.description || item.message || '').toLowerCase().trim();
         const typeNormalized = (item.type || '').toLowerCase().trim();
+        
+        if (typeNormalized === 'payment-received') {
+            const amt = parseFloat(item.metadata?.amount || item.amount || 0);
+            const time = new Date(timestamp || 0).getTime();
+            const isDuplicate = result.some(r => {
+                if ((r.type || '').toLowerCase().trim() !== 'payment-received') return false;
+                const rAmt = parseFloat(r.metadata?.amount || r.amount || 0);
+                if (Math.abs(rAmt - amt) > 0.01) return false;
+                
+                const rReceipt = r.metadata?.receipt_id;
+                const itemReceipt = item.metadata?.receipt_id;
+                if (rReceipt && itemReceipt && rReceipt === itemReceipt) return true;
+                
+                const rTime = new Date(r.timestamp || r.created_at || 0).getTime();
+                return Math.abs(rTime - time) < 1800000; // 30 minutes
+            });
+            if (isDuplicate) {
+                continue;
+            }
+        }
+
         const key = `${typeNormalized}_${timeKey}_${descNormalized.substring(0, 50)}`;
         if (!seen.has(key)) {
             seen.add(key);
@@ -337,6 +358,69 @@ const renderActivityDescription = (activity, onViewDocument) => {
         return <span style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>"{desc}"</span>;
     }
 
+    if (type === 'payment-received' || type.includes('payment')) {
+        const isAdvance = desc.includes('Advance Payment') || desc.includes('advance') || desc.includes('part 1');
+        const isVisiting = desc.toLowerCase().includes('visit') || desc.toLowerCase().includes('diagnos');
+        
+        let paymentTypeBadge = null;
+        if (isAdvance) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Advance Payment
+                </span>
+            );
+        } else if (isVisiting) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Visiting Fee
+                </span>
+            );
+        } else {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Final Payment
+                </span>
+            );
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <div>{paymentTypeBadge}</div>
+                <span>{desc}</span>
+            </div>
+        );
+    }
+
     return <span>{desc}</span>;
 };
 
@@ -614,6 +698,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
     // Initialize with passed job, but allowed to be updated by fetch
     const [editedJob, setEditedJob] = useState({ ...job });
+    const [hasUploadedPhotosLocal, setHasUploadedPhotosLocal] = useState(false);
+    const [hasPaymentLocal, setHasPaymentLocal] = useState(false);
+    const [collectedAmountLocal, setCollectedAmountLocal] = useState(0);
+    const [hasAdvancePaymentLocal, setHasAdvancePaymentLocal] = useState(false);
+    const [advanceAmountLocal, setAdvanceAmountLocal] = useState(0);
+    const [advancePaymentMethodLocal, setAdvancePaymentMethodLocal] = useState('');
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
@@ -733,6 +823,50 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         fetchData();
     }, [job?.id]);
 
+    useEffect(() => {
+        if (editedJob?.interactions) {
+            const hasPhotos = editedJob.interactions.some(i => i.type === 'after-photos-uploaded');
+            const advInt = editedJob.interactions.find(i => 
+                i.type === 'payment-received' && 
+                (
+                    String(i.description).toLowerCase().includes('advance') || 
+                    String(i.description).toLowerCase().includes('part 1') || 
+                    (!savedInvoice && (i.metadata?.amount || i.amount))
+                )
+            );
+
+            const hasPay = editedJob.interactions.some(i => 
+                i.type === 'payment-received' && 
+                i !== advInt
+            );
+            const payAmt = editedJob.interactions
+                .filter(i => 
+                    i.type === 'payment-received' && 
+                    i !== advInt
+                )
+                .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
+            
+            if (hasPhotos) setHasUploadedPhotosLocal(true);
+            if (hasPay) {
+                setHasPaymentLocal(true);
+                setCollectedAmountLocal(payAmt);
+            } else {
+                setHasPaymentLocal(false);
+                setCollectedAmountLocal(0);
+            }
+
+            if (advInt) {
+                setHasAdvancePaymentLocal(true);
+                setAdvanceAmountLocal(parseFloat(advInt.metadata?.amount || advInt.amount || 0));
+                setAdvancePaymentMethodLocal(advInt.metadata?.method || '');
+            } else {
+                setHasAdvancePaymentLocal(false);
+                setAdvanceAmountLocal(0);
+                setAdvancePaymentMethodLocal('');
+            }
+        }
+    }, [editedJob?.interactions, savedInvoice]);
+
     // Helper to get nested or direct values safely
     const customer = editedJob.customer || {};
     const property = editedJob.property || {};
@@ -816,6 +950,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             }
         }
     };
+
+    const advancePaymentInt = (editedJob.interactions || []).find(i => 
+        i.type === 'payment-received' && 
+        (
+            String(i.description).toLowerCase().includes('advance') || 
+            String(i.description).toLowerCase().includes('part 1') || 
+            (!savedInvoice && (i.metadata?.amount || i.amount))
+        )
+    );
+
+    const hasFinalPaymentInDB = (editedJob.interactions || []).some(i => 
+        i.type === 'payment-received' && 
+        i !== advancePaymentInt
+    );
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -1714,10 +1862,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                            {/* Start Job & Share Location / Mark as Arrived buttons flow */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
-                                const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+                                const dbVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+                                const nextVisitNum = ['parts_ordered', 'work_in_progress'].includes(editedJob.status) ? Math.max(2, dbVisitNum) : dbVisitNum;
+                                
+                                const showHeadOutSection = editedJob.status !== 'closed' && 
+                                                           editedJob.status !== 'cancelled' && 
+                                                           (editedJob.status === 'scheduled' || editedJob.status === 'parts_ordered');
 
                                 return (
                                     <>
@@ -1725,11 +1877,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                         {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && isCurrentlyOnWay && (
                                             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, marginBottom: '12px' }}>
                                                  On the way — customer notified. Location sharing active.
-                                            </div>
+                                             </div>
                                         )}
 
                                         {/* Start Job Button */}
-                                        {editedJob.status !== 'closed' && editedJob.status !== 'cancelled' && !isCurrentlyOnWay && (
+                                        {showHeadOutSection && !isCurrentlyOnWay && (
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                      Ready to Head Out? (Visit {nextVisitNum})
@@ -1795,6 +1947,80 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     </>
                                 );
                             })()}
+
+                            {/* 3. Advance Payment Collected card */}
+                            {!savedInvoice && (hasAdvancePaymentLocal || advancePaymentInt) && (
+                                <div className="card" style={{ 
+                                    padding: '14px', 
+                                    background: 'rgba(239, 68, 68, 0.08)', 
+                                    border: '1.5px solid rgba(239, 68, 68, 0.35)', 
+                                    borderRadius: '12px', 
+                                    color: '#f87171', 
+                                    fontSize: '14px', 
+                                    fontWeight: 700, 
+                                    textAlign: 'center',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.15)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '18px' }}>💳</span>
+                                        <span>Advance Payment Collected: ₹{(advanceAmountLocal || (advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0)).toLocaleString('en-IN')}</span>
+                                    </div>
+                                    {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method) && (
+                                        <div style={{ fontSize: '12px', opacity: 0.9, fontWeight: 500, color: 'var(--text-secondary)' }}>
+                                            Payment Mode: {(advancePaymentMethodLocal || advancePaymentInt?.metadata?.method || '').toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 4. Parts Note / Parts Collected confirmation cards */}
+                            {((editedJob.interactions || []).filter(i => i.type === 'repair-note-added' && i.metadata?.parts_action)).map((int, index) => {
+                                const actionType = int.metadata.parts_action;
+                                const isCollected = actionType === 'Collect Part';
+                                const attachments = int.metadata.attachments || [];
+                                return (
+                                    <div 
+                                        key={int.id || index}
+                                        className="card" 
+                                        style={{ 
+                                            padding: '14px', 
+                                            background: isCollected ? 'rgba(16, 185, 129, 0.06)' : 'rgba(245, 158, 11, 0.06)', 
+                                            border: `1px solid ${isCollected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`, 
+                                            borderRadius: '12px', 
+                                            fontSize: '13px', 
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: isCollected ? '#34d399' : '#f59e0b' }}>
+                                            <span>{isCollected ? '📦' : '⚙️'}</span>
+                                            <span>Part {isCollected ? 'Collected / Replaced' : 'Ordered'}</span>
+                                        </div>
+                                        {int.description && (
+                                            <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+                                                {int.description}
+                                            </p>
+                                        )}
+                                        {attachments.length > 0 && (
+                                            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+                                                {attachments.map((url, idx) => (
+                                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                                                        <img 
+                                                            src={url} 
+                                                            alt={`Part attachment ${idx + 1}`} 
+                                                            style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                                        />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
 
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2504,7 +2730,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || editedJob.category || 'Repair',
                         technician_id: editedJob.technician_id,
                     }}
-                    prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                    prefilledAmount={(() => {
+                        if (!savedInvoice?.total_amount) return '';
+                        const advanceAmt = advanceAmountLocal || advancePaymentInt?.metadata?.amount || advancePaymentInt?.amount || 0;
+                        const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
+                        return String(pending);
+                    })()}
                     onSuccess={() => {
                         setShowCollectPayment(false);
                         setShowFeedbackCloseFlow(true);
