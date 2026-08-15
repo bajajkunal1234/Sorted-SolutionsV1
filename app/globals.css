@@ -573,6 +573,7 @@ select option {
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
+  flex-shrink: 0;
 }
 
 .job-card:hover {
