@@ -162,6 +162,8 @@ function JobCard({ job, onClick, onCalculate }) {
         } : {})
     };
 
+    console.log('[JobCard]', job.job_number, { status: job.status, technicianName, resolvedCustomerPhone, mapQuery, displayDueDate, resolvedOverdue });
+
     return (
         <div
             ref={setNodeRef}
