@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench, MessageCircle, Camera, Trash2 } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress, formatRelativeTime } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
