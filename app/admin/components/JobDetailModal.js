@@ -262,166 +262,11 @@ const generateActivitySummary = (interactions = [], job = {}) => {
             if (parts.length === 1) merged = parts[0];
             else if (parts.length === 2) merged = parts.join(' and ');
             else merged = parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1];
-            
             return `${mainTech} ${merged}.`;
         }
     }
 
     return sentences.join(' ');
-};
-
-const renderActivityDescription = (activity, onViewDocument) => {
-    const desc = activity.description || activity.message || '';
-    const type = activity.type || '';
-    
-    if (desc.includes('Quotation QUO-') || type.includes('quotation')) {
-        const quoMatch = desc.match(/QUO-\d{4}-\d+/);
-        const amountMatch = desc.match(/Total Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
-        if (quoMatch) {
-            const quoNum = quoMatch[0];
-            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
-            return (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                    <span>📄 Quotation</span>
-                    <button
-                        onClick={() => onViewDocument && onViewDocument('quotation', quoNum)}
-                        style={{
-                            color: '#38bdf8',
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            fontWeight: 700
-                        }}
-                    >
-                        {quoNum}
-                    </button>
-                    <span>created {amount && `for ${amount}`}</span>
-                </div>
-            );
-        }
-    }
-
-    if (desc.includes('Invoice INV-') || desc.includes('Sales Invoice INV-') || type.includes('invoice') || type.includes('sales-invoice')) {
-        const invMatch = desc.match(/INV-\d{4}-\d+/);
-        const amountMatch = desc.match(/Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
-        if (invMatch) {
-            const invNum = invMatch[0];
-            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
-            return (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                    <span>🧾 Sales Invoice</span>
-                    <button
-                        onClick={() => onViewDocument && onViewDocument('invoice', invNum)}
-                        style={{
-                            color: '#10b981',
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            font: 'inherit',
-                            cursor: 'pointer',
-                            textDecoration: 'underline',
-                            fontWeight: 700
-                        }}
-                    >
-                        {invNum}
-                    </button>
-                    <span>created {amount && `for ${amount}`}</span>
-                </div>
-            );
-        }
-    }
-
-    if (desc.includes(' → ') || desc.includes(' -> ')) {
-        const arrow = desc.includes(' → ') ? ' → ' : ' -> ';
-        const parts = desc.split(arrow);
-        let fromStatus = parts[0].split(':').pop().trim().split(' ').pop();
-        let toStatus = parts[1].split(' by ').shift().trim().split(' ').shift();
-        
-        const formatStatusLabel = (status) => {
-            return status.replace(/_/g, ' ').replace(/-/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        };
-
-        return (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Status changed:</span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{formatStatusLabel(fromStatus)}</span>
-                <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>➔</span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>{formatStatusLabel(toStatus)}</span>
-            </div>
-        );
-    }
-
-    if (type.includes('note')) {
-        return <span style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>"{desc}"</span>;
-    }
-
-    if (type === 'payment-received' || type.includes('payment')) {
-        const isAdvance = desc.includes('Advance Payment') || desc.includes('advance') || desc.includes('part 1');
-        const isVisiting = desc.toLowerCase().includes('visit') || desc.toLowerCase().includes('diagnos');
-        
-        let paymentTypeBadge = null;
-        if (isAdvance) {
-            paymentTypeBadge = (
-                <span style={{ 
-                    padding: '2px 6px', 
-                    borderRadius: '4px', 
-                    fontSize: '10px', 
-                    fontWeight: 700, 
-                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
-                    color: '#60a5fa',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    marginRight: '6px',
-                    display: 'inline-block'
-                }}>
-                    Advance Payment
-                </span>
-            );
-        } else if (isVisiting) {
-            paymentTypeBadge = (
-                <span style={{ 
-                    padding: '2px 6px', 
-                    borderRadius: '4px', 
-                    fontSize: '10px', 
-                    fontWeight: 700, 
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
-                    color: '#fbbf24',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    marginRight: '6px',
-                    display: 'inline-block'
-                }}>
-                    Visiting Fee
-                </span>
-            );
-        } else {
-            paymentTypeBadge = (
-                <span style={{ 
-                    padding: '2px 6px', 
-                    borderRadius: '4px', 
-                    fontSize: '10px', 
-                    fontWeight: 700, 
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
-                    color: '#34d399',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    marginRight: '6px',
-                    display: 'inline-block'
-                }}>
-                    Final Payment
-                </span>
-            );
-        }
-
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                <div>{paymentTypeBadge}</div>
-                <span>{desc}</span>
-            </div>
-        );
-    }
-
-    return <span>{desc}</span>;
 };
 
 const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDeleteInteraction, onDeleteVisit }) => {
@@ -717,6 +562,26 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [showCollectPayment, setShowCollectPayment] = useState(false);
     const [showFeedbackCloseFlow, setShowFeedbackCloseFlow] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
+    
+    // Ported states from tech app for Close without service & Parts flow & Advance payment
+    const [showNoServiceModal, setShowNoServiceModal] = useState(false);
+    const [noServicePOC, setNoServicePOC] = useState('');
+    const [noServiceReason, setNoServiceReason] = useState('');
+    const [noChargeChecked, setNoChargeChecked] = useState(false);
+    const [noServiceLoading, setNoServiceLoading] = useState(false);
+
+    const [partsOption, setPartsOption] = useState(null); // null | 'select'
+    const [partsActionType, setPartsActionType] = useState('Order Part'); // 'Order Part' | 'Collect Part'
+    const [partsPhotos, setPartsPhotos] = useState([]); // Array of { id, url, file }
+    const [partsMinPrice, setPartsMinPrice] = useState('');
+    const [partsMaxPrice, setPartsMaxPrice] = useState('');
+    const [partsMinDays, setPartsMinDays] = useState('');
+    const [partsMaxDays, setPartsMaxDays] = useState('');
+    const [showAdvanceCollectPayment, setShowAdvanceCollectPayment] = useState(false);
+    const [isCloseWithServiceCharge, setIsCloseWithServiceCharge] = useState(false);
+
+    const partsPhotosInputRef = useRef(null);
+
     const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
     const [partsNoteText, setPartsNoteText] = useState('');
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
@@ -728,6 +593,71 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const [availableSlots, setAvailableSlots] = useState([]);
     const [fetchingSlots, setFetchingSlots] = useState(false);
+
+    const fetchData = useCallback(async () => {
+        if (!job?.id) return;
+        try {
+            setLoading(true);
+            const [freshJob, techRes, intRes, jobIntRes, quotaRes, invRes] = await Promise.all([
+                jobsAPI.getById(job.id),
+                fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`/api/admin/interactions?job_id=${job.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`/api/technician/jobs/${job.id}/invoice`).then(r => r.json()).catch(() => ({ success: false }))
+            ]);
+            if (invRes?.success && invRes.data?.length > 0) setSavedInvoice(invRes.data[0]);
+            else if (invRes?.success && invRes.invoice) setSavedInvoice(invRes.invoice);
+            else setSavedInvoice(null);
+            
+            if (quotaRes?.success && quotaRes.data?.length > 0) {
+                setSavedQuotations(quotaRes.data);
+                setSavedQuotation(quotaRes.data[0]);
+            } else {
+                setSavedQuotations([]);
+                setSavedQuotation(null);
+            }
+            
+            if (freshJob) {
+                // Fetch related rentals and AMCs for this customer
+                if (freshJob.customer_id) {
+                    const ninetyDaysAgo = new Date();
+                    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                    const startDateStr = ninetyDaysAgo.toISOString().split('T')[0];
+
+                    const [rentalsRes, amcsRes, invoicesRes] = await Promise.all([
+                        fetch(`/api/admin/rentals?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                        fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                        fetch(`/api/admin/transactions?type=sales&customer_id=${freshJob.customer_id}&start_date=${startDateStr}`).then(r => r.json()).catch(() => ({ data: [] }))
+                    ]);
+                    if (rentalsRes?.success) setRentals(rentalsRes.data || []);
+                    if (amcsRes?.success) setAmcs(amcsRes.data || []);
+                    if (invoicesRes?.success) setInvoices(invoicesRes.data || []);
+                }
+                const allInt = deduplicateInteractions([
+                    ...(intRes?.data || []),
+                    ...(jobIntRes?.data || []).map(ji => ({
+                        ...ji,
+                        performed_by_name: ji.user_name || ji.performed_by_name || 'System',
+                        description: ji.message || ji.description || '',
+                        timestamp: ji.created_at || ji.timestamp,
+                    }))
+                ]);
+
+                setEditedJob({
+                    ...freshJob,
+                    interactions: allInt
+                });
+            }
+            if (techRes?.success && Array.isArray(techRes.data)) {
+                setTechnicians(techRes.data);
+            }
+        } catch (err) {
+            console.error('Error fetching data:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [job?.id]);
 
     useEffect(() => {
         if (!editedJob.scheduled_date) {
@@ -755,73 +685,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     // Fetch fresh job data and technicians on mount
     useEffect(() => {
-        const fetchData = async () => {
-            if (!job?.id) return;
-            try {
-                setLoading(true);
-                const [freshJob, techRes, intRes, jobIntRes, quotaRes, invRes] = await Promise.all([
-                    jobsAPI.getById(job.id),
-                    fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
-                    fetch(`/api/admin/interactions?job_id=${job.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ data: [] })),
-                    fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] })),
-                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] })),
-                    fetch(`/api/technician/jobs/${job.id}/invoice`).then(r => r.json()).catch(() => ({ success: false }))
-                ]);
-                if (invRes?.success && invRes.data?.length > 0) setSavedInvoice(invRes.data[0]);
-                else if (invRes?.success && invRes.invoice) setSavedInvoice(invRes.invoice);
-                
-                if (quotaRes?.success && quotaRes.data?.length > 0) {
-                    setSavedQuotations(quotaRes.data);
-                    setSavedQuotation(quotaRes.data[0]);
-                } else {
-                    setSavedQuotations([]);
-                    setSavedQuotation(null);
-                }
-                
-                if (freshJob) {
-                    // Fetch related rentals and AMCs for this customer
-                    if (freshJob.customer_id) {
-                        const ninetyDaysAgo = new Date();
-                        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-                        const startDateStr = ninetyDaysAgo.toISOString().split('T')[0];
-
-                        const [rentalsRes, amcsRes, invoicesRes] = await Promise.all([
-                            fetch(`/api/admin/rentals?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
-                            fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
-                            fetch(`/api/admin/transactions?type=sales&customer_id=${freshJob.customer_id}&start_date=${startDateStr}`).then(r => r.json()).catch(() => ({ data: [] }))
-                        ]);
-                        if (rentalsRes?.success) setRentals(rentalsRes.data || []);
-                        if (amcsRes?.success) setAmcs(amcsRes.data || []);
-                        if (invoicesRes?.success) setInvoices(invoicesRes.data || []);
-                    }
-                    const allInt = deduplicateInteractions([
-                        ...(intRes?.data || []),
-                        ...(jobIntRes?.data || []).map(ji => ({
-                            ...ji,
-                            // Normalise job_interactions fields to global interactions format
-                            performed_by_name: ji.user_name || ji.performed_by_name || 'System',
-                            description: ji.message || ji.description || '',
-                            timestamp: ji.created_at || ji.timestamp,
-                        }))
-                    ]);
-
-                    setEditedJob({
-                        ...freshJob,
-                        interactions: allInt
-                    });
-                }
-                if (techRes?.success && Array.isArray(techRes.data)) {
-                    setTechnicians(techRes.data);
-                }
-            } catch (err) {
-                console.error('Error fetching data:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchData();
-    }, [job?.id]);
+    }, [fetchData]);
 
     useEffect(() => {
         if (editedJob?.interactions) {
@@ -964,6 +829,243 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         i.type === 'payment-received' && 
         i !== advancePaymentInt
     );
+
+    const handleRestartProcess = async () => {
+        if (!savedInvoice) return;
+        
+        if (!window.confirm("Are you sure you want to restart the quotation and invoice process? This will permanently delete the current invoice, set the status to Diagnosing & Quoting, and reopen the Repair Calculator.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/admin/transactions?type=sales&id=${savedInvoice.id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete invoice');
+
+            const actorName = 'Admin';
+            const itemLines = (savedInvoice.items || []).map(item => 
+                `- ${item.description || 'Item'} (Qty: ${item.qty || 1}, Rate: ₹${item.rate || 0}, Total: ₹${item.total || 0})`
+            ).join('\n');
+
+            const description = `Invoice ${savedInvoice.invoice_number} deleted by Admin. Process restarted back to Diagnosing & Quoting.\nInvoice details:\nTotal Amount: ₹${savedInvoice.total_amount || 0}\nSubtotal: ₹${savedInvoice.subtotal || 0}\nCGST: ₹${savedInvoice.cgst || 0}\nSGST: ₹${savedInvoice.sgst || 0}\nIGST: ₹${savedInvoice.igst || 0}\nTotal Tax: ₹${savedInvoice.total_tax || 0}\nItems:\n${itemLines || 'No items listed'}`;
+
+            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'invoice-deleted',
+                    category: 'billing',
+                    description: description,
+                    user_name: actorName,
+                    performedBy: 'admin',
+                    customer_id: editedJob.customer_id || null,
+                    metadata: {
+                        deleted_invoice_number: savedInvoice.invoice_number,
+                        deleted_invoice_id: savedInvoice.id,
+                        deleted_invoice_total: savedInvoice.total_amount,
+                        deleted_invoice_subtotal: savedInvoice.subtotal,
+                        deleted_invoice_tax: savedInvoice.total_tax,
+                        deleted_invoice_items: savedInvoice.items
+                    }
+                })
+            }).catch(e => console.error("Job interaction logging failed", e));
+
+            const updateRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'diagnosing_quoting',
+                    updated_by_name: actorName,
+                    source: 'Admin Panel',
+                    _changeLog: [`Invoice ${savedInvoice.invoice_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
+                })
+            });
+            const updateJson = await updateRes.json();
+            if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+
+            setSavedInvoice(null);
+            await fetchData();
+            setActiveForm('calculator');
+            alert('Invoice deleted and process restarted successfully!');
+
+        } catch (err) {
+            alert('Failed to restart process: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRestartQuotationOnly = async () => {
+        if (!savedQuotation) return;
+        
+        if (!window.confirm("Are you sure you want to restart the quotation process? This will permanently delete the current quotation, set the status back to Diagnosing & Quoting, and reopen the Repair Calculator.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/admin/transactions?type=quotation&id=${savedQuotation.id}&job_id=${job.id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete quotation');
+
+            const actorName = 'Admin';
+            const itemLines = (savedQuotation.items || []).map(item => 
+                `- ${item.description || 'Item'} (Qty: ${item.qty || 1}, Rate: ₹${item.rate || 0}, Total: ₹${item.total || 0})`
+            ).join('\n');
+
+            const description = `Quotation ${savedQuotation.quote_number} deleted by Admin. Process restarted back to Diagnosing & Quoting.\nQuotation details:\nTotal Amount: ₹${savedQuotation.total_amount || 0}\nSubtotal: ₹${savedQuotation.subtotal || 0}\nCGST: ₹${savedQuotation.cgst || 0}\nSGST: ₹${savedQuotation.sgst || 0}\nIGST: ₹${savedQuotation.igst || 0}\nTotal Tax: ₹${savedQuotation.total_tax || 0}\nItems:\n${itemLines || 'No items listed'}`;
+
+            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'quotation-deleted',
+                    category: 'billing',
+                    description: description,
+                    user_name: actorName,
+                    performedBy: 'admin',
+                    customer_id: editedJob.customer_id || null,
+                    metadata: {
+                        deleted_quote_number: savedQuotation.quote_number,
+                        deleted_quote_id: savedQuotation.id,
+                        deleted_quote_total: savedQuotation.total_amount,
+                        deleted_quote_subtotal: savedQuotation.subtotal,
+                        deleted_quote_tax: savedQuotation.total_tax,
+                        deleted_quote_items: savedQuotation.items
+                    }
+                })
+            }).catch(e => console.error("Job interaction logging failed", e));
+
+            const updateRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'diagnosing_quoting',
+                    updated_by_name: actorName,
+                    source: 'Admin Panel',
+                    _changeLog: [`Quotation ${savedQuotation.quote_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
+                })
+            });
+            const updateJson = await updateRes.json();
+            if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+
+            setSavedQuotation(null);
+            await fetchData();
+            setActiveForm('calculator');
+            alert('Quotation deleted and process restarted successfully!');
+
+        } catch (err) {
+            alert('Failed to restart quotation process: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAutoCreateInvoiceFromCalculator = async (items) => {
+        setLoading(true);
+        try {
+            const accountState = editedJob.customer?.address?.state || 'Maharashtra';
+            const isInterState = accountState !== 'Maharashtra';
+            
+            const formattedItems = items.map((it, idx) => {
+                const isService = it.type === 'service';
+                const rate = Number(it.rate) || 0;
+                const qty = Number(it.qty) || 1;
+                const taxRate = Number(it.taxRate) || 18;
+                const subtotal = qty * rate;
+                const total = subtotal * (1 + taxRate / 100);
+
+                return {
+                    id: isService ? Date.now() + idx : idx + 1,
+                    productId: it.productId || null,
+                    description: it.description,
+                    hsn: '',
+                    qty: qty,
+                    rate: rate,
+                    discount: 0,
+                    taxRate: taxRate,
+                    unit: it.unit || 'Nos',
+                    total: total,
+                    isCharge: isService
+                };
+            });
+
+            const itemsSubtotal = formattedItems.filter(i => !i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const chargesTotal = formattedItems.filter(i => i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const combinedTaxable = itemsSubtotal + chargesTotal;
+
+            let cgst = 0, sgst = 0, igst = 0;
+            formattedItems.forEach(item => {
+                const taxAmount = (item.qty * item.rate * item.taxRate) / 100;
+                if (isInterState) {
+                    igst += taxAmount;
+                } else {
+                    cgst += taxAmount / 2;
+                    sgst += taxAmount / 2;
+                }
+            });
+
+            const totalTax = cgst + sgst + igst;
+            const totalAmount = combinedTaxable + totalTax;
+
+            const res = await fetch(`/api/admin/transactions?type=sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    account_id: editedJob.customer_id || editedJob.customerId || null,
+                    account_name: editedJob.customer_name || editedJob.customerName || 'Customer',
+                    accountGSTIN: editedJob.customer?.gstin || '',
+                    accountState: accountState,
+                    billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    job_id: editedJob.id,
+                    date: new Date().toISOString().split('T')[0],
+                    due_date: new Date().toISOString().split('T')[0],
+                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    reference: editedJob.job_number,
+                    status: 'unpaid',
+                    items: formattedItems,
+                    subtotal: combinedTaxable,
+                    cgst,
+                    sgst,
+                    igst,
+                    total_tax: totalTax,
+                    total_amount: totalAmount,
+                    notes: 'Auto-generated invoice from Close Call with Service',
+                    technician_id: editedJob.technician_id || null,
+                    technician_name: editedJob.technician_name || ''
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setSavedInvoice(data.data);
+                
+                await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        type: 'invoice-created', 
+                        category: 'billing', 
+                        description: `Final invoice ${data.data.invoice_number} created via Close Call with Service charge of ₹${totalAmount.toLocaleString('en-IN')}`, 
+                        user_name: 'Admin' 
+                    })
+                }).catch(() => {});
+
+                await fetchData();
+                setActiveForm(null);
+                setIsCloseWithServiceCharge(false);
+                setShowCollectPayment(true);
+            } else throw new Error(data.error);
+        } catch (e) {
+            alert('Failed to auto-create invoice: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -2219,42 +2321,58 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     {savedInvoice ? (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                                            <div>
-                                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button
+                                                        className="btn"
+                                                        type="button"
+                                                        style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                    >
+                                                        View / Send
+                                                    </button>
+                                                    {editedJob.status === 'closed' ? (
+                                                        <div
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                        >
+                                                            <CheckCircle size={14} /> Closed & Paid
+                                                        </div>
+                                                    ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
+                                                        <button
+                                                            className="btn"
+                                                            type="button"
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                            onClick={() => setShowFeedbackCloseFlow(true)}
+                                                        >
+                                                            <CheckCircle size={14} /> Close Call
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            className="btn"
+                                                            type="button"
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                            onClick={() => setShowCollectPayment(true)}
+                                                        >
+                                                            <CheckCircle size={14} /> Collect Payment
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: 8 }}>
+                                            {editedJob.status !== 'closed' && (
                                                 <button
                                                     className="btn"
-                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                    onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                    type="button"
+                                                    style={{ width: '100%', padding: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', fontWeight: 600, fontSize: '12px', borderRadius: 'var(--radius-md)' }}
+                                                    onClick={handleRestartProcess}
                                                 >
-                                                    View / Send
+                                                    🔄 Restart Process (Delete Invoice & Reset)
                                                 </button>
-                                                {editedJob.status === 'closed' ? (
-                                                    <div
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
-                                                    >
-                                                        <CheckCircle size={14} /> Closed & Paid
-                                                    </div>
-                                                ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
-                                                    <button
-                                                        className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                        onClick={() => setShowFeedbackCloseFlow(true)}
-                                                    >
-                                                        <CheckCircle size={14} /> Close Call
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        className="btn"
-                                                onClick={() => setShowCollectPayment(true)}
-                                                    >
-                                                        <CheckCircle size={14} /> Collect Payment
-                                                    </button>
-                                                )}
-                                            </div>
+                                            )}
                                         </div>
                                     ) : savedQuotation ? (
                                         <>
@@ -2328,13 +2446,24 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
-                                                    <button
-                                                        className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                        onClick={() => setActiveForm('quotation')}
-                                                    >
-                                                        Edit / Send
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                        <button
+                                                            className="btn"
+                                                            type="button"
+                                                            style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                            onClick={() => setActiveForm('quotation')}
+                                                        >
+                                                            Edit / Send
+                                                        </button>
+                                                        <button
+                                                            className="btn"
+                                                            type="button"
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                            onClick={handleRestartQuotationOnly}
+                                                        >
+                                                            🗑 Delete & Restart
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
 
@@ -2347,8 +2476,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     return (
                                                         <button
                                                             className="btn"
+                                                            type="button"
                                                             disabled={loading}
-                                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', marginTop: '10px' }}
                                                             onClick={async () => {
                                                                 setLoading(true);
                                                                 try {
@@ -2396,6 +2526,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                             body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Customer proceeded with Service Charge Option 2.`, user_name: 'Admin' })
                                                                         }).catch(() => {});
                                                                         
+                                                                        await fetchData();
                                                                         setShowCollectPayment(true);
                                                                     } else throw new Error(data.error);
                                                                 } catch (e) {
@@ -2411,7 +2542,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                 } else {
                                                     if (['work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
                                                         return (
-                                                            <>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
                                                                 <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
                                                                     <CheckCircle size={16} /> 
                                                                     {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
@@ -2420,6 +2551,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                 </div>
                                                                 <button
                                                                     className="btn"
+                                                                    type="button"
                                                                     style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
                                                                     disabled={loading}
                                                                     onClick={async () => {
@@ -2456,10 +2588,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                             const data = await res.json();
                                                                             if (data.success) {
                                                                                 setSavedInvoice(data.data);
-                                                                                fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                                                                                     body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
                                                                                 }).catch(() => {});
+                                                                                await fetchData();
                                                                                 setShowWhatsappPopup({ type: 'invoice', doc: data.data });
                                                                             } else throw new Error(data.error);
                                                                         } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
@@ -2468,20 +2601,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                 >
                                                                     {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
                                                                 </button>
-                                                            </>
+                                                            </div>
                                                         );
                                                     } else {
                                                         return (
                                                             <button
                                                                 className="btn"
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
+                                                                type="button"
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', marginTop: '10px' }}
                                                                 onClick={async () => {
                                                                     await handleSaveStatus('work_in_progress');
-                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                    await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                                                                         body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
                                                                     }).catch(() => {});
-                                                                    setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                                    await fetchData();
                                                                 }}
                                                             >
                                                                 ✓ Mark as Customer Approved
@@ -2490,15 +2624,129 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     }
                                                 }
                                             })()}
+
+                                            {/* Order/Collect Parts Button & Collect Advance Button inside savedQuotation */}
+                                            {['quotation_sent', 'work_in_progress', 'parts_ordered'].includes(editedJob.status) && (
+                                                <div style={{ marginTop: '14px', borderTop: '1px solid var(--border-primary)', paddingTop: '14px' }}>
+                                                    {partsOption === 'select' ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--border-primary)' }}>
+                                                            <div style={{ fontSize: '13px', fontWeight: 600, textAlign: 'center', color: 'var(--text-secondary)' }}>Select Parts Action</div>
+                                                            <div style={{ display: 'flex', gap: '10px' }}>
+                                                                <button
+                                                                    className="btn"
+                                                                    type="button"
+                                                                    style={{ flex: 1, padding: '10px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                                    onClick={() => {
+                                                                        setPartsActionType('Order Part');
+                                                                        setPartsOption(null);
+                                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                                    }}
+                                                                >
+                                                                    📦 Order Part
+                                                                </button>
+                                                                <button
+                                                                    className="btn"
+                                                                    type="button"
+                                                                    style={{ flex: 1, padding: '10px', backgroundColor: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                                    onClick={() => {
+                                                                        setPartsActionType('Collect Part');
+                                                                        setPartsOption(null);
+                                                                        setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                                    }}
+                                                                >
+                                                                    🛒 Collect Part
+                                                                </button>
+                                                            </div>
+                                                            <button
+                                                                className="btn"
+                                                                type="button"
+                                                                style={{ padding: '8px', backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', fontWeight: 600, fontSize: '12px', borderRadius: '6px', cursor: 'pointer' }}
+                                                                onClick={() => setPartsOption(null)}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                            {(!hasAdvancePaymentLocal && !advancePaymentInt) ? (
+                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                                    <button
+                                                                        className="btn"
+                                                                        type="button"
+                                                                        style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                                        onClick={() => setPartsOption('select')}
+                                                                    >
+                                                                        📦 Order/Collect Parts
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn"
+                                                                        type="button"
+                                                                        style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                                        onClick={() => setShowAdvanceCollectPayment(true)}
+                                                                    >
+                                                                        💳 Collect Advance
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    className="btn"
+                                                                    type="button"
+                                                                    style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                                    onClick={() => setPartsOption('select')}
+                                                                >
+                                                                    📦 Order/Collect Parts for Repair
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </>
                                     ) : (
-                                        <button
-                                            className="btn"
-                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
-                                            onClick={() => setActiveForm('calculator')}
-                                        >
-                                             Calculate Repair Estimate
-                                        </button>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                            {/* 3-Button Section (if status is diagnosing_quoting or any active status without a quotation) */}
+                                            {(editedJob.status === 'diagnosing_quoting' || (!['scheduled', 'closed', 'cancelled'].includes(editedJob.status) && !savedQuotation)) && (
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                                    {/* 1. Calculate Repair Estimate */}
+                                                    <button
+                                                        className="btn"
+                                                        type="button"
+                                                        style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(139,92,246,0.12)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                        onClick={() => {
+                                                            setIsCloseWithServiceCharge(false);
+                                                            setActiveForm('calculator');
+                                                        }}
+                                                    >
+                                                        ⚡ Repair Estimate
+                                                    </button>
+ 
+                                                    {/* 2. Close with Service Charge */}
+                                                    <button
+                                                        className="btn"
+                                                        type="button"
+                                                        style={{ padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                        onClick={() => {
+                                                            setIsCloseWithServiceCharge(true);
+                                                            setActiveForm('calculator');
+                                                        }}
+                                                    >
+                                                        🛠️ Close with Service
+                                                    </button>
+ 
+                                                    {/* 3. Close Call Without Service */}
+                                                    {!hasAdvancePaymentLocal && !advancePaymentInt && (
+                                                        <button
+                                                            className="btn"
+                                                            type="button"
+                                                            style={{ gridColumn: 'span 2', padding: '12px 10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239,68,68,0.08)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 600, fontSize: '13px', borderRadius: '8px', cursor: 'pointer' }}
+                                                            onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
+                                                        >
+                                                            ❌ Close Without Service
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -2526,83 +2774,337 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 </div>
             </div>
 
-            {/* ── Parts Ordered Gate Modal ── */}
+            {/* ── Parts Ordered/Collected Modal ── */}
             {showPartsNoteModal && (
                 <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '28px 24px' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '28px 24px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            Parts Ordered — Repair Note Required
+                            {partsActionType} — Repair Note Required
                         </h3>
                         <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 18, lineHeight: 1.5 }}>
-                            Describe the part(s) you have ordered. This note is sent to the customer and logged for admin visibility.
+                            Capture product/part photos and describe the part(s) needed or collected.
                         </p>
+
+                        {/* Parts Photos List */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Captured Part Photos * ({partsPhotos.length} attached)
+                            </label>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                                {partsPhotos.map(photo => (
+                                    <div key={photo.id} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', width: 70, height: 70 }}>
+                                        <img src={photo.url} alt="part" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <button
+                                            type="button"
+                                            onClick={() => setPartsPhotos(prev => prev.filter(p => p.id !== photo.id))}
+                                            style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => partsPhotosInputRef.current?.click()}
+                                    style={{ width: 70, height: 70, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', color: '#cbd5e1' }}
+                                >
+                                    <Camera size={18} />
+                                    <span style={{ fontSize: 9, fontWeight: 600 }}>Add More</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Price Range Inputs */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Price Range Given to Customer (₹) *
+                            </label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    placeholder="Min Price"
+                                    value={partsMinPrice}
+                                    onChange={e => setPartsMinPrice(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 13 }}>to</span>
+                                <input
+                                    type="number"
+                                    placeholder="Max Price"
+                                    value={partsMaxPrice}
+                                    onChange={e => setPartsMaxPrice(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                {[
+                                    { min: 500, max: 1500, label: '500-1.5k' },
+                                    { min: 1000, max: 2000, label: '1k-2k' },
+                                    { min: 2000, max: 3000, label: '2k-3k' },
+                                    { min: 3000, max: 5000, label: '3k-5k' },
+                                    { min: 5000, max: 8000, label: '5k-8k' }
+                                ].map((p, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                            setPartsMinPrice(p.min.toString());
+                                            setPartsMaxPrice(p.max.toString());
+                                        }}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            background: (partsMinPrice === p.min.toString() && partsMaxPrice === p.max.toString()) ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255,255,255,0.03)',
+                                            color: (partsMinPrice === p.min.toString() && partsMaxPrice === p.max.toString()) ? '#60a5fa' : '#cbd5e1',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Time Range Inputs */}
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
+                                Time Range to Source/Repair (Days) *
+                            </label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    placeholder="Min Days"
+                                    value={partsMinDays}
+                                    onChange={e => setPartsMinDays(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                                <span style={{ color: '#94a3b8', fontSize: 13 }}>to</span>
+                                <input
+                                    type="number"
+                                    placeholder="Max Days"
+                                    value={partsMaxDays}
+                                    onChange={e => setPartsMaxDays(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: 12, borderRadius: 10, fontSize: 13,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                        color: '#f8fafc', boxSizing: 'border-box'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                {[
+                                    { min: 1, max: 2, label: '1-2 Days' },
+                                    { min: 2, max: 4, label: '2-4 Days' },
+                                    { min: 3, max: 5, label: '3-5 Days' },
+                                    { min: 5, max: 7, label: '5-7 Days' },
+                                    { min: 7, max: 10, label: '7-10 Days' }
+                                ].map((t, idx) => (
+                                    <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                            setPartsMinDays(t.min.toString());
+                                            setPartsMaxDays(t.max.toString());
+                                        }}
+                                        style={{
+                                            padding: '6px 10px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            borderRadius: '6px',
+                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            background: (partsMinDays === t.min.toString() && partsMaxDays === t.max.toString()) ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.03)',
+                                            color: (partsMinDays === t.min.toString() && partsMaxDays === t.max.toString()) ? '#fbbf24' : '#cbd5e1',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         <textarea
                             value={partsNoteText}
                             onChange={e => setPartsNoteText(e.target.value)}
-                            placeholder="e.g. Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received."
+                            placeholder={`Describe details for ${partsActionType}...`}
                             style={{
-                                width: '100%', minHeight: 100, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
+                                width: '100%', minHeight: 80, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
                                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                                color: '#f8fafc', resize: 'vertical', boxSizing: 'border-box'
+                                color: '#f8fafc', resize: 'vertical', boxSizing: 'border-box', marginBottom: 16
                             }}
                         />
-                        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+
+                        <div style={{ display: 'flex', gap: 12 }}>
                             <button
-                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); }}
+                                onClick={() => { 
+                                    setShowPartsNoteModal(false); 
+                                    setPartsNoteText(''); 
+                                    setPartsPhotos([]); 
+                                    setPartsMinPrice('');
+                                    setPartsMaxPrice('');
+                                    setPartsMinDays('');
+                                    setPartsMaxDays('');
+                                }}
                                 style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
                             >
                                 Cancel
                             </button>
                             <button
-                                disabled={!partsNoteText.trim() || partsNoteLoading}
+                                disabled={
+                                    !partsNoteText.trim() || 
+                                    partsPhotos.length === 0 || 
+                                    partsMinPrice === '' || 
+                                    partsMaxPrice === '' || 
+                                    parseFloat(partsMaxPrice) < parseFloat(partsMinPrice) || 
+                                    parseFloat(partsMinPrice) <= 0 || 
+                                    partsMinDays === '' || 
+                                    partsMaxDays === '' || 
+                                    parseInt(partsMaxDays) < parseInt(partsMinDays) || 
+                                    parseInt(partsMinDays) <= 0 || 
+                                    partsNoteLoading
+                                }
                                 onClick={async () => {
-                                    if (!partsNoteText.trim()) return;
                                     setPartsNoteLoading(true);
                                     try {
+                                        // 1. Upload photos sequentially
+                                        const uploadedUrls = [];
+                                        for (const photo of partsPhotos) {
+                                            if (photo.file) {
+                                                const formData = new FormData();
+                                                const safeFileName = photo.file.name ? photo.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+                                                formData.append('file', photo.file, safeFileName);
+                                                const uploadRes = await fetch('/api/upload', {
+                                                    method: 'POST',
+                                                    body: formData
+                                                });
+                                                if (uploadRes.ok) {
+                                                    const uploadData = await uploadRes.json();
+                                                    if (uploadData.success) {
+                                                        uploadedUrls.push(uploadData.url);
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        // 2. Add repair note in DB
+                                        const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()} | Est. Price Range: ₹${partsMinPrice} to ₹${partsMaxPrice} | Est. Time Range: ${partsMinDays} to ${partsMaxDays} days`;
                                         const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
                                             method: 'PUT',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'add_repair_note', repair_note: partsNoteText.trim(), updated_by_name: 'Admin' })
+                                            body: JSON.stringify({ 
+                                                action: 'add_repair_note', 
+                                                repair_note: detailedNote, 
+                                                note_text: detailedNote,
+                                                updated_by_name: 'Admin'
+                                            })
                                         });
-                                        const noteData = await noteRes.json();
-                                        if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
-                                        await handleSaveStatus('parts_ordered');
-                                        setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
+                                        if (!noteRes.ok) throw new Error('Failed to save repair note');
+
+                                        // 3. Log interaction
+                                        await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                type: 'repair-note-added',
+                                                category: 'job',
+                                                description: `Admin added note and captured part photos (${partsActionType}): ${partsNoteText.trim()} (Est. Price: ₹${partsMinPrice}-${partsMaxPrice}, Est. Time: ${partsMinDays}-${partsMaxDays} days)`,
+                                                user_name: 'Admin',
+                                                metadata: {
+                                                    attachments: uploadedUrls,
+                                                    parts_action: partsActionType,
+                                                    note_text: partsNoteText.trim(),
+                                                    min_price: partsMinPrice,
+                                                    max_price: partsMaxPrice,
+                                                    min_days: partsMinDays,
+                                                    max_days: partsMaxDays
+                                                }
+                                            })
+                                        }).catch(() => {});
+
+                                        // 4. Save Status
+                                        const targetStatus = partsActionType === 'Order Part' ? 'parts_ordered' : 'work_in_progress';
+                                        await handleSaveStatus(targetStatus);
+
+                                        // 5. Refetch and Close
+                                        await fetchData();
                                         setShowPartsNoteModal(false);
                                         setPartsNoteText('');
+                                        setPartsPhotos([]);
+                                        setPartsMinPrice('');
+                                        setPartsMaxPrice('');
+                                        setPartsMinDays('');
+                                        setPartsMaxDays('');
                                     } catch (err) {
-                                        alert('Could not save repair note: ' + err.message);
+                                        alert('Could not save parts ordered details: ' + err.message);
                                     } finally {
                                         setPartsNoteLoading(false);
                                     }
                                 }}
                                 style={{
                                     flex: 2, padding: '14px', borderRadius: 12,
-                                    background: partsNoteText.trim() ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
-                                    border: 'none', color: '#fff', fontWeight: 700, cursor: partsNoteText.trim() ? 'pointer' : 'not-allowed', fontSize: 14
+                                    background: (partsNoteText.trim() && partsPhotos.length > 0 && partsMinPrice !== '' && partsMaxPrice !== '' && partsMinDays !== '' && partsMaxDays !== '') ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
+                                    border: 'none', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14
                                 }}
                             >
-                                {partsNoteLoading ? 'Saving...' : 'Confirm Parts Ordered'}
+                                {partsNoteLoading ? 'Saving...' : 'Confirm'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
+            <input 
+                ref={partsPhotosInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                    const files = Array.from(e.target.files);
+                    const newPhotos = files.map(file => ({
+                        id: Date.now() + Math.random(),
+                        name: file.name,
+                        url: URL.createObjectURL(file),
+                        file
+                    }));
+                    setPartsPhotos(prev => [...prev, ...newPhotos]);
+                    setShowPartsNoteModal(true);
+                }}
+                style={{ display: 'none' }}
+            />
+
             {/* Document Generation Forms overlaid over the modal */}
             {activeForm === 'calculator' && (
                 <RepairCalculator
                     job={editedJob}
-                    onClose={() => setActiveForm(null)}
-                    onCreateQuotation={(items) => {
+                    onClose={() => {
+                        setActiveForm(null);
+                        setIsCloseWithServiceCharge(false);
+                    }}
+                    onCreateQuotation={isCloseWithServiceCharge ? null : (items) => {
                         setCalculatorItems(items);
                         setActiveForm('quotation');
                     }}
-                    onCreateInvoice={(items) => {
+                    onCreateInvoice={isCloseWithServiceCharge ? (items) => handleAutoCreateInvoiceFromCalculator(items) : (items) => {
                         setCalculatorItems(items);
                         setActiveForm('sales-invoice');
                     }}
                     hideParts={
+                        isCloseWithServiceCharge ||
                         isNewQuotationOption ||
                         (savedQuotations.length === 2 && savedQuotation?.id === [...savedQuotations].sort((a,b) => new Date(a.created_at) - new Date(b.created_at))[1]?.id)
                     }
@@ -2736,7 +3238,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         const pending = Math.max(0, savedInvoice.total_amount - parseFloat(advanceAmt));
                         return String(pending);
                     })()}
-                    onSuccess={() => {
+                    onSuccess={async () => {
+                        await fetchData();
                         setShowCollectPayment(false);
                         setShowFeedbackCloseFlow(true);
                     }}
@@ -2767,6 +3270,126 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         }
                     }}
                 />
+            )}
+
+            {showNoServiceModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 1600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1e1a2e,#0f0f1a)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '24px', padding: '28px 20px' }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <X size={20} color="#f87171" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Close Call — No Service</h3>
+                                <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Job will be closed without a service charge</p>
+                            </div>
+                        </div>
+
+                        {/* Point of Contact */}
+                        <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                                Point of Contact *
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                                {['Customer', 'Security Guard', 'Family Member', 'Neighbor', 'No One Available'].map(opt => (
+                                    <button
+                                        key={opt}
+                                        type="button"
+                                        onClick={() => setNoServicePOC(opt)}
+                                        style={{ padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: `1px solid ${noServicePOC === opt ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, background: noServicePOC === opt ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)', color: noServicePOC === opt ? '#f87171' : '#94a3b8', transition: 'all 0.15s' }}
+                                    >
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            <input
+                                value={noServicePOC}
+                                onChange={e => setNoServicePOC(e.target.value)}
+                                placeholder="Or type a custom name..."
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                            />
+                        </div>
+
+                        {/* Reason */}
+                        <div style={{ marginBottom: 20 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                                Reason for Closing *
+                            </div>
+                            <textarea
+                                value={noServiceReason}
+                                onChange={e => setNoServiceReason(e.target.value)}
+                                placeholder="e.g. Customer denied entry. Said they will call back to reschedule. No service charge applied."
+                                rows={3}
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc', fontSize: 13, outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' }}
+                            />
+                        </div>
+
+                        {/* Mandatory No Service Charge Checkbox */}
+                        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <input
+                                type="checkbox"
+                                id="noChargeChecked"
+                                checked={noChargeChecked}
+                                onChange={e => setNoChargeChecked(e.target.checked)}
+                                style={{ width: 18, height: 18, borderRadius: 4, accentColor: '#ef4444', cursor: 'pointer', marginTop: 1 }}
+                            />
+                            <label htmlFor="noChargeChecked" style={{ fontSize: 13, color: '#cbd5e1', cursor: 'pointer', userSelect: 'none', lineHeight: 1.4 }}>
+                                I confirm no service charge was taken <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowNoServiceModal(false)}
+                                style={{ flex: 1, padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!noServicePOC.trim() || !noServiceReason.trim() || !noChargeChecked || noServiceLoading}
+                                onClick={async () => {
+                                    if (!noServicePOC.trim() || !noServiceReason.trim() || !noChargeChecked) return;
+                                    setNoServiceLoading(true);
+                                    try {
+                                        const description = `Close Call — No Service. POC: ${noServicePOC.trim()}. Reason: ${noServiceReason.trim()}`;
+                                        
+                                        const interactionPromise = fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ type: 'close-call-no-service', category: 'job', description, user_name: 'Admin' })
+                                        });
+                                        
+                                        const closeJobPromise = fetch(`/api/technician/jobs/${job.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'close_job', notes: description, updated_by_name: 'Admin' })
+                                        });
+
+                                        const [resInter, resClose] = await Promise.all([interactionPromise, closeJobPromise]);
+                                        if (!resClose.ok) throw new Error('Failed to close job');
+                                        const data = await resClose.json();
+                                        
+                                        setEditedJob(prev => ({ ...prev, status: 'closed' }));
+                                        if (onUpdate) onUpdate(data.job || { ...editedJob, status: 'closed' });
+                                        
+                                        setShowNoServiceModal(false);
+                                        await fetchData();
+                                    } catch (err) {
+                                        alert('Could not close job: ' + (err.message || 'Unknown error'));
+                                    } finally {
+                                        setNoServiceLoading(false);
+                                    }
+                                }}
+                                style={{ flex: 2, padding: '14px', borderRadius: 14, background: noServicePOC.trim() && noServiceReason.trim() && noChargeChecked ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'rgba(239,68,68,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: noServicePOC.trim() && noServiceReason.trim() && noChargeChecked && !noServiceLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                                {noServiceLoading ? 'Closing...' : 'Confirm Close Call'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -121,57 +121,6 @@ function JobCard({ job, onClick, onCalculate }) {
     const mapQuery = locality || customerName;
     const hasCoords = property.latitude && property.longitude;
 
-    const overdue = isOverdue(dueDate);
-
-    if (job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') {
-        const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry' || job.source === 'Website Organic';
-        const isCustomerApp = job.source === 'customer_app';
-        const isWebsiteBooking = job.source === 'website_booking' || job.source === 'website';
-        let bd = {};
-        try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
-        const slot = bd.schedule?.slot || job.scheduled_time || '';
-        const day = bd.schedule?.date || (job.scheduled_date ? formatDate(job.scheduled_date) : '');
-
-        const primaryColor = isEnquiry ? '#ef4444' : isCustomerApp ? '#3b82f6' : '#f59e0b';
-        const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : isCustomerApp ? 'rgba(59,130,246,0.05)' : 'rgba(245,158,11,0.05)';
-        const titleText = isEnquiry ? '🔴 WEBSITE ENQUIRY' : isCustomerApp ? '🔵 CUSTOMER APP BOOKING' : '🟢 WEBSITE BOOKING';
-
-        return (
-            <div
-                ref={setNodeRef}
-                style={{ ...style, border: `2px solid ${primaryColor}`, backgroundColor: bgColor }}
-                {...attributes}
-                {...listeners}
-                className="job-card"
-                onClick={onClick}
-            >
-                <div style={{ backgroundColor: primaryColor, color: 'white', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '4px 4px 0 0', margin: '-12px -12px 10px -12px', textAlign: 'center' }}>
-                    {titleText}
-                </div>
-                <h4 className="job-card-title">{bd.categoryName || jobType}</h4>
-                {customerName && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{customerName}</div>}
-                <div className="job-card-info">
-                    <div className="job-card-info-item" style={{ color: getLocalityColor(bd.customer?.address?.locality || locality) }}>
-                        <MapPin size={14} />
-                        <span>{bd.customer?.address?.locality || locality || 'No location'}</span>
-                    </div>
-                    {(day || slot) && (
-                        <div className="job-card-info-item">
-                            <Calendar size={14} />
-                            <span>{day} {slot ? `(${slot})` : ''}</span>
-                        </div>
-                    )}
-                </div>
-                <button
-                    className="btn btn-primary"
-                    style={{ width: '100%', marginTop: '12px', padding: '6px', fontSize: '12px', backgroundColor: primaryColor, border: 'none' }}
-                >
-                    {isCustomerApp ? 'Assign Technician' : 'Create & Assign'}
-                </button>
-            </div>
-        );
-    }
-
     const assignedDate = new Date(job.assignedAt || job.createdAt || job.created_at);
     const diffMs = Date.now() - assignedDate.getTime();
     const hoursCrossed = Math.max(0, Math.floor(diffMs / (3600 * 1000)));
@@ -182,15 +131,53 @@ function JobCard({ job, onClick, onCalculate }) {
         ribbonColor = '#ef4444';
     }
 
+    const isRequest = job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry';
+    const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry' || job.source === 'Website Organic';
+    const isCustomerApp = job.source === 'customer_app';
+    const isWebsiteBooking = job.source === 'website_booking' || job.source === 'website';
+    let bd = {};
+    try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
+    const slot = bd.schedule?.slot || job.scheduled_time || '';
+    const day = bd.schedule?.date || (job.scheduled_date ? formatDate(job.scheduled_date) : '');
+
+    const primaryColor = isEnquiry ? '#ef4444' : isCustomerApp ? '#3b82f6' : '#f59e0b';
+    const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : isCustomerApp ? 'rgba(59,130,246,0.05)' : 'rgba(245,158,11,0.05)';
+    const titleText = isEnquiry ? '🔴 WEBSITE ENQUIRY' : isCustomerApp ? '🔵 CUSTOMER APP BOOKING' : '🟢 WEBSITE BOOKING';
+
+    const resolvedLocality = (isRequest && bd.customer?.address?.locality) || locality || '';
+    const resolvedJobName = (isRequest && bd.categoryName) || jobName;
+    const resolvedCustomerName = customerName || bd.customer?.name || '';
+    const resolvedCustomerPhone = customerPhone || bd.customer?.phone || bd.customer?.mobile || '';
+    const displayDueDate = dueDate ? formatDate(dueDate) : (day || '');
+    const resolvedOverdue = dueDate ? isOverdue(dueDate) : false;
+
+    const cardStyle = {
+        ...style,
+        position: 'relative',
+        overflow: 'hidden',
+        ...(isRequest ? { border: `2px solid ${primaryColor}`, backgroundColor: bgColor } : {}),
+        ...(job.priority === 'urgent' ? {
+            border: '2px solid #ef4444',
+            boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.15)'
+        } : {})
+    };
+
     return (
         <div
             ref={setNodeRef}
-            style={style}
+            style={cardStyle}
             {...attributes}
             {...listeners}
             className="job-card"
             onClick={onClick}
         >
+            {/* Top banner if request */}
+            {isRequest && (
+                <div style={{ backgroundColor: primaryColor, color: 'white', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '4px 4px 0 0', margin: '-12px -12px 10px -12px', textAlign: 'center', marginBottom: '8px' }}>
+                    {titleText}
+                </div>
+            )}
+
             {/* Hours Crossed Ribbon */}
             <div style={{
                 position: 'absolute',
@@ -206,7 +193,8 @@ function JobCard({ job, onClick, onCalculate }) {
             }}>
                 {hoursCrossed} hrs
             </div>
-            {/* Thumbnail - (Only if available in schema/data) */}
+
+            {/* Thumbnail */}
             {job.thumbnail && (
                 <img
                     src={job.thumbnail}
@@ -215,26 +203,36 @@ function JobCard({ job, onClick, onCalculate }) {
                 />
             )}
 
-            {/* Job Name (description as primary title) */}
+            {/* Job Title */}
             <h4 className="job-card-title" style={{ fontSize: '13px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>
-                {jobName}
-                {jobType && jobType !== jobName ? <span style={{ fontWeight: 400, fontSize: '11px', color: 'var(--text-secondary)' }}> &mdash; {jobType}</span> : null}
+                {resolvedJobName}
+                {jobType && jobType !== resolvedJobName ? <span style={{ fontWeight: 400, fontSize: '11px', color: 'var(--text-secondary)' }}> &mdash; {jobType}</span> : null}
             </h4>
 
             {/* Customer Name */}
-            {customerName && (
+            {resolvedCustomerName && (
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '6px' }}>
-                    {customerName}
+                    {resolvedCustomerName}
                 </div>
             )}
 
-            {/* Info */}
+            {/* Locality */}
             <div className="job-card-info">
-                <div className="job-card-info-item" style={{ color: getLocalityColor(locality) }}>
+                <div className="job-card-info-item" style={{ fontSize: '13px', fontWeight: 'bold', color: getLocalityColor(resolvedLocality) }}>
                     <MapPin size={14} style={{ flexShrink: 0 }} />
-                    <span>{locality || 'No location'}</span>
+                    <span>{resolvedLocality || 'No location'}</span>
                 </div>
             </div>
+
+            {/* Request CTA Button */}
+            {isRequest && (
+                <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', marginTop: '12px', padding: '6px', fontSize: '12px', backgroundColor: primaryColor, border: 'none', marginBottom: '8px' }}
+                >
+                    {isCustomerApp ? 'Assign Technician' : 'Create & Assign'}
+                </button>
+            )}
 
             {/* Footer */}
             <div className="job-card-footer">
@@ -267,17 +265,17 @@ function JobCard({ job, onClick, onCalculate }) {
                     )}
                 </div>
 
-                {overdue ? (
+                {resolvedOverdue ? (
                     <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <AlertCircle size={12} />
-                        <span>{formatDate(dueDate)} - Overdue</span>
+                        <span>{displayDueDate} - Overdue</span>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        {dueDate && (
+                        {displayDueDate && (
                             <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                                 <Calendar size={12} />
-                                <span>{formatDate(dueDate)}</span>
+                                <span>{displayDueDate} {isRequest && slot ? `(${slot})` : ''}</span>
                             </div>
                         )}
                         {job.priority && (
@@ -291,9 +289,9 @@ function JobCard({ job, onClick, onCalculate }) {
 
             {/* Quick Action Buttons */}
             <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }} onClick={e => e.stopPropagation()}>
-                {customerPhone && (
+                {resolvedCustomerPhone && (
                     <a
-                        href={`tel:${customerPhone}`}
+                        href={`tel:${resolvedCustomerPhone}`}
                         style={{ flex: 1, padding: '5px 4px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '6px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}
                     >
                         <Phone size={11} /> Call
