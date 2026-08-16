@@ -281,6 +281,24 @@ function JobCard({ job, onClick, onCalculate }) {
                     >
                         {getInitials(technicianName)}
                     </div>
+                    {isRepeat && (
+                        <div style={{
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            borderRadius: '4px',
+                            width: '18px',
+                            height: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 900,
+                            flexShrink: 0,
+                            lineHeight: 1
+                        }} title="Repeat Job">
+                            R
+                        </div>
+                    )}
                     {job.priority_note && (
                         <div style={{
                             backgroundColor: '#ffffff',
@@ -303,16 +321,9 @@ function JobCard({ job, onClick, onCalculate }) {
                 </div>
 
                 {resolvedOverdue ? (
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <AlertCircle size={12} />
-                            <span>{displayDueDate} - Overdue</span>
-                        </div>
-                        {isRepeat && (
-                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.3)', textTransform: 'capitalize' }}>
-                                🔁 Repeat
-                            </div>
-                        )}
+                    <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertCircle size={12} />
+                        <span>{displayDueDate} - Overdue</span>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -325,11 +336,6 @@ function JobCard({ job, onClick, onCalculate }) {
                         {job.priority && (
                             <div className={`job-card-badge ${job.priority === 'high' ? 'tag-vip' : 'tag-aged'}`} style={{ textTransform: 'capitalize' }}>
                                 {job.priority}
-                            </div>
-                        )}
-                        {isRepeat && (
-                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.3)', textTransform: 'capitalize' }}>
-                                🔁 Repeat
                             </div>
                         )}
                     </div>
