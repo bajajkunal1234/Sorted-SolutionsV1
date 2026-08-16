@@ -73,14 +73,12 @@ export const getRequiredFields = (underGroup) => {
         'sundry-debtors': [
             'accountImage', 'contactPerson', 'mobile', 'email', 'mailingName',
             'gstRegistration', 'gstin', 'pan', 'stateName', 'country',
-            'mailingAddress', 'billingAddress', 'shippingAddress',
-            'creditLimit', 'creditPeriod', 'priceLevel'
+            'mailingAddress', 'billingAddress', 'shippingAddress'
         ],
         'customer-accounts': [
             'accountImage', 'contactPerson', 'mobile', 'email', 'mailingName',
             'gstRegistration', 'gstin', 'pan', 'stateName', 'country',
-            'mailingAddress', 'billingAddress', 'shippingAddress',
-            'creditLimit', 'creditPeriod', 'priceLevel'
+            'mailingAddress', 'billingAddress', 'shippingAddress'
         ],
         'sundry-creditors': [
             'accountImage', 'contactPerson', 'mobile', 'email', 'mailingName',

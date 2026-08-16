@@ -312,7 +312,7 @@ export const companyDetails = {
 // Chart of Accounts Field Mappings
 export const coaFieldMappings = {
     'sundry-debtors': {
-        fields: ['accountImage', 'contactPerson', 'mobile', 'email', 'mailingName', 'gstRegistration', 'gstin', 'pan', 'mailingAddress', 'billingAddress', 'shippingAddress', 'creditLimit', 'creditPeriod', 'priceLevel', 'stateName', 'country'],
+        fields: ['accountImage', 'contactPerson', 'mobile', 'email', 'mailingName', 'gstRegistration', 'gstin', 'pan', 'mailingAddress', 'billingAddress', 'shippingAddress', 'stateName', 'country'],
         canHaveLedgers: true,
         defaultNature: 'asset'
     },
