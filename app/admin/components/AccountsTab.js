@@ -29,6 +29,7 @@ import RentReceiptsModal from './reports/RentReceiptsModal';
 import WhatsAppShareModal from './accounts/WhatsAppShareModal';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import PrintAgreementModal from './reports/PrintAgreementModal';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSubTab, onClearInitial }) {
     const [activeTab, setActiveTab] = useState('accounts');
@@ -1410,7 +1411,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                         </td>
                                     );
                                 }
-                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
+                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile ? formatMobileNumber(ledger.mobile) : '—'}</td>;
                                 case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
                                 case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
                                 case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : '—'}</td>;

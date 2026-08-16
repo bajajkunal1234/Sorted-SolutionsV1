@@ -5,7 +5,7 @@ import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, 
 import { accountsAPI } from '@/lib/adminAPI';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import { getRequiredFields, generateInitialsAvatar } from '@/lib/utils/accountHelpers';
-import { validateMobileNumber } from '@/lib/utils/validation';
+import { validateMobileNumber, formatMobileNumber } from '@/lib/utils/validation';
 import CustomerPropertiesTab from './accounts/CustomerPropertiesTab';
 import RemindersTab from './accounts/RemindersTab';
 import InteractionsTab from './accounts/InteractionsTab';
@@ -23,7 +23,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         ...account,
         // Ensure all fields exist with defaults
         contactPerson: account.contactPerson || account.contact_person || '',
-        mobile: account.mobile || '',
+        mobile: formatMobileNumber(account.mobile || ''),
         email: account.email || '',
         mailingName: account.mailingName || account.mailing_name || '',
         customerDescription: account.customerDescription || account.mailingAddress || account.mailing_address || '',
@@ -187,10 +187,11 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
     // Mobile number validation
     const handleMobileChange = (value) => {
-        setEditedAccount({ ...editedAccount, mobile: value });
+        const formatted = formatMobileNumber(value);
+        setEditedAccount({ ...editedAccount, mobile: formatted });
 
-        if (value.trim()) {
-            const validation = validateMobileNumber(value);
+        if (formatted.trim()) {
+            const validation = validateMobileNumber(formatted);
             if (!validation.isValid) {
                 setErrors(prev => ({ ...prev, mobile: validation.error }));
             } else {

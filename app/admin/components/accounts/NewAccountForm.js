@@ -16,7 +16,7 @@ import {
     generateInitialsAvatar,
     getGroupPath
 } from '@/lib/utils/accountHelpers';
-import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
+import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC, formatMobileNumber } from '@/lib/utils/validation';
 import dynamic from 'next/dynamic';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 
@@ -170,7 +170,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         // Dynamic fields will be added based on 'under' selection
         accountImage: initialData?.image_url || null,
         contactPerson: initialData?.contact_person || '',
-        mobile: initialData?.mobile || '',
+        mobile: formatMobileNumber(initialData?.mobile || ''),
         email: initialData?.email || '',
         mailingName: initialData?.mailing_name || '',
 
@@ -437,8 +437,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
     };
 
     const handleMobileChange = (value) => {
-        // While typing — allow free input, just store raw
-        setFormData(prev => ({ ...prev, mobile: value }));
+        // While typing — format in real-time
+        const formatted = formatMobileNumber(value);
+        setFormData(prev => ({ ...prev, mobile: formatted }));
         // Clear error while typing so it's not distracting
         setErrors(prev => { const { mobile, ...rest } = prev; return rest; });
     };
@@ -465,7 +466,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         }
 
         // Duplicate check against existing accounts
-        const formatted = `+91-${digits.slice(0, 5)} ${digits.slice(5)}`;
+        const formatted = formatMobileNumber(raw);
         const allAccounts = localLedgers.length > 0 ? localLedgers : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
         const duplicate = allAccounts.find(acc =>
             acc.id !== initialData?.id &&

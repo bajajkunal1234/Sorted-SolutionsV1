@@ -4,6 +4,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MapPin, User, Calendar, AlertCircle, Calculator, Phone } from 'lucide-react';
 import { getLocalityFromAddress, formatDate, getInitials, isOverdue } from '@/lib/utils/helpers';
+import { formatMobileNumber } from '@/lib/utils/validation';
 const getTechnicianColor = (name) => {
     if (!name || name === 'Unassigned') {
         return 'linear-gradient(135deg, #64748b, #475569)';
@@ -229,7 +230,7 @@ function JobCard({ job, onClick, onCalculate }) {
                     {resolvedCustomerPhone && (
                         <a
                             href={`tel:${resolvedCustomerPhone}`}
-                            title={`Call ${resolvedCustomerName}`}
+                            title={`Call ${resolvedCustomerName} (${formatMobileNumber(resolvedCustomerPhone)})`}
                             onClick={e => e.stopPropagation()}
                             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', transition: 'all 0.15s', cursor: 'pointer', flexShrink: 0 }}
                         >

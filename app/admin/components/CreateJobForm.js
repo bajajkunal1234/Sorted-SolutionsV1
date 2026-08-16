@@ -1014,7 +1014,7 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                                     }}
                                     suggestions={customers.map(c => ({
                                         ...c,
-                                        displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                        displayText: `${c.name} ${c.phone || c.mobile ? `- ${formatMobileNumber(c.phone || c.mobile)}` : ''}`
                                     }))}
                                     searchKey="displayText"
                                     onSelect={(selected) => {

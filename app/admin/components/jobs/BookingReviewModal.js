@@ -5,6 +5,7 @@ import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog, UserX, MessageC
 import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import NewAccountForm from '../accounts/NewAccountForm';
+import { formatMobileNumber } from '@/lib/utils/validation';
 import CreateJobForm from '../CreateJobForm';
 
 function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
@@ -403,8 +404,10 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                                             </span>
                                         )}
                                     </div>
-                                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                                        {cust.email || cust.phone || ''}
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                                        {cust.email && <span>{cust.email}</span>}
+                                        {cust.email && cust.phone && <span style={{ color: 'var(--text-tertiary)' }}>·</span>}
+                                        {cust.phone && <span>{formatMobileNumber(cust.phone)}</span>}
                                     </div>
                                     {accountAlreadyExists && createdCustomer?.sku && (
                                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
