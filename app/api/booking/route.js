@@ -141,6 +141,26 @@ export async function POST(request) {
                         opening_balance: 0,
                         balance_type: 'debit',
                         status: 'active',
+                        mailing_address: [
+                            customer?.address?.flat_number,
+                            customer?.address?.building_name,
+                            customer?.address?.street,
+                            customer?.address?.locality || customer?.address?.area,
+                            customer?.address?.pincode || pincode
+                        ].filter(Boolean).join(', '),
+                        properties: [
+                            {
+                                id: Date.now(),
+                                name: 'Home',
+                                flat_number: customer?.address?.flat_number || '',
+                                building_name: customer?.address?.building_name || '',
+                                address: customer?.address?.street || '',
+                                locality: customer?.address?.locality || customer?.address?.area || '',
+                                pincode: customer?.address?.pincode || pincode || '',
+                                contactPhone: rawPhone10,
+                                contactPerson: customerName
+                            }
+                        ]
                     };
                     if (newSKU) accountPayload.sku = newSKU;
 
@@ -179,6 +199,20 @@ export async function POST(request) {
                         customer_type: 'one_time',
                         profile_complete: false,
                         ledger_id: ledgerId,
+                        address: customer.address || {},
+                        properties: [
+                            {
+                                id: Date.now(),
+                                name: 'Home',
+                                flat_number: customer?.address?.flat_number || '',
+                                building_name: customer?.address?.building_name || '',
+                                address: customer?.address?.street || '',
+                                locality: customer?.address?.locality || customer?.address?.area || '',
+                                pincode: customer?.address?.pincode || pincode || '',
+                                contactPhone: rawPhone10,
+                                contactPerson: customerName
+                            }
+                        ]
                     }, { onConflict: 'username', ignoreDuplicates: false })
                     .select('id')
                     .single();
@@ -239,6 +273,17 @@ export async function POST(request) {
             scheduled_date: schedule?.date || null,
             scheduled_time: schedule?.slot || null,
             source: 'website',
+            property: {
+                id: `inline:${customer?.address?.flat_number || ''}|${customer?.address?.building_name || ''}|${customer?.address?.street || ''}|${customer?.address?.locality || ''}|${customer?.address?.pincode || pincode || ''}`,
+                flat_number: customer?.address?.flat_number || '',
+                building_name: customer?.address?.building_name || '',
+                address: customer?.address?.street || '',
+                locality: customer?.address?.locality || customer?.address?.area || pincode || '',
+                city: customer?.address?.city || 'Mumbai',
+                pincode: customer?.address?.pincode || pincode || '',
+                property_type: 'residential',
+                _source: 'inline'
+            },
 
             // Store full raw booking data for admin reference
             notes: JSON.stringify({

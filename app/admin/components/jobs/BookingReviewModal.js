@@ -18,12 +18,15 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const isEnquiry = booking.status === 'enquiry';
     const cust = bd.customer || {
         name: booking.customer_name || (isEnquiry ? 'Website Lead' : ''),
-        phone: booking.customer_phone || '',
-        email: booking.customer_email || '',
-        address: {},
+        phone: booking.customer?.mobile || booking.customer?.phone || booking.customer_phone || '',
+        email: booking.customer?.email || booking.customer_email || '',
+        address: booking.property || {},
     };
     const addr = cust.address || {};
-    const schedule = bd.schedule || {};
+    const schedule = bd.schedule || {
+        date: booking.scheduled_date,
+        slot: booking.scheduled_time
+    };
 
     // ── State ───────────────────────────────────────────────────────────────────
     const [showAccountForm, setShowAccountForm] = useState(false);
@@ -40,30 +43,57 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const [denyReason, setDenyReason] = useState('');
     const [submittingDenial, setSubmittingDenial] = useState(false);
 
-    // ── Auto-detect existing account on open (by phone number) ─────────────────
+    // ── Auto-detect existing account on open (by phone number or customer_id) ──
     useEffect(() => {
-        const phone = cust.phone;
-        if (!phone) { setCheckingAccount(false); return; }
-        const digits = phone.replace(/\D/g, '').slice(-10);
-        if (!digits || digits.length < 7) { setCheckingAccount(false); return; }
+        if (booking.customer_id) {
+            setCheckingAccount(true);
+            fetch(`/api/admin/accounts?id=${booking.customer_id}`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.data) {
+                        const match = d.data;
+                        if (match) {
+                            setCreatedCustomer(match);
+                            setAccountAlreadyExists(true);
+                            return;
+                        }
+                    }
+                    searchByPhone();
+                })
+                .catch(() => {
+                    searchByPhone();
+                })
+                .finally(() => setCheckingAccount(false));
+            return;
+        }
 
-        fetch('/api/admin/accounts?type=customer')
-            .then(r => r.json())
-            .then(d => {
-                if (!d.success) return;
-                const match = (d.data || []).find(acc => {
-                    const m = (acc.mobile || acc.phone || '').replace(/\D/g, '').slice(-10);
-                    return m === digits;
-                });
-                if (match) {
-                    setCreatedCustomer(match);
-                    setAccountAlreadyExists(true);
-                }
-            })
-            .catch(() => { /* silent — don't block UI */ })
-            .finally(() => setCheckingAccount(false));
+        searchByPhone();
+
+        function searchByPhone() {
+            const phone = cust.phone;
+            if (!phone) { setCheckingAccount(false); return; }
+            const digits = phone.replace(/\D/g, '').slice(-10);
+            if (!digits || digits.length < 7) { setCheckingAccount(false); return; }
+
+            setCheckingAccount(true);
+            fetch('/api/admin/accounts?type=customer')
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.success) return;
+                    const match = (d.data || []).find(acc => {
+                        const m = (acc.mobile || acc.phone || '').replace(/\D/g, '').slice(-10);
+                        return m === digits;
+                    });
+                    if (match) {
+                        setCreatedCustomer(match);
+                        setAccountAlreadyExists(true);
+                    }
+                })
+                .catch(() => { /* silent — don't block UI */ })
+                .finally(() => setCheckingAccount(false));
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [booking.id]);
+    }, [booking.id, booking.customer_id]);
 
     // ── Address helpers ─────────────────────────────────────────────────────────
     const fullAddress = [
