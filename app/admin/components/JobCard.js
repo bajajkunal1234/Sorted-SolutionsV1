@@ -213,17 +213,41 @@ function JobCard({ job, onClick, onCalculate }) {
 
             {/* Customer Name */}
             {resolvedCustomerName && (
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '6px' }}>
-                    {resolvedCustomerName}
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', minWidth: 0 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>{resolvedCustomerName}</span>
+                    {resolvedCustomerPhone && (
+                        <a
+                            href={`tel:${resolvedCustomerPhone}`}
+                            title={`Call ${resolvedCustomerName}`}
+                            onClick={e => e.stopPropagation()}
+                            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)', transition: 'all 0.15s', cursor: 'pointer', flexShrink: 0 }}
+                        >
+                            <Phone size={10} />
+                        </a>
+                    )}
                 </div>
             )}
 
             {/* Locality */}
-            <div className="job-card-info">
-                <div className="job-card-info-item" style={{ fontSize: '13px', fontWeight: 'bold', color: getLocalityColor(resolvedLocality) }}>
+            <div className="job-card-info" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                <div className="job-card-info-item" style={{ fontSize: '13px', fontWeight: 'bold', color: getLocalityColor(resolvedLocality), display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
                     <MapPin size={14} style={{ flexShrink: 0 }} />
-                    <span>{resolvedLocality || 'No location'}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resolvedLocality || 'No location'}</span>
                 </div>
+                {mapQuery && (
+                    <a
+                        href={hasCoords
+                            ? `https://www.google.com/maps?q=${property.latitude},${property.longitude}`
+                            : `https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open in Google Maps"
+                        onClick={e => e.stopPropagation()}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'rgba(59,130,246,0.12)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.25)', transition: 'all 0.15s', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                        <MapPin size={10} />
+                    </a>
+                )}
             </div>
 
             {/* Request CTA Button */}
@@ -286,29 +310,6 @@ function JobCard({ job, onClick, onCalculate }) {
                             </div>
                         )}
                     </div>
-                )}
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div style={{ display: 'flex', gap: '5px', marginTop: '8px' }} onClick={e => e.stopPropagation()}>
-                {resolvedCustomerPhone && (
-                    <a
-                        href={`tel:${resolvedCustomerPhone}`}
-                        style={{ flex: 1, padding: '5px 4px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '6px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}
-                    >
-                        <Phone size={11} /> Call
-                    </a>
-                )}
-                {mapQuery && (
-                    <a
-                        href={hasCoords
-                            ? `https://www.google.com/maps?q=${property.latitude},${property.longitude}`
-                            : `https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{ flex: 1, padding: '5px 4px', backgroundColor: 'rgba(59,130,246,0.12)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '6px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}
-                    >
-                        <MapPin size={11} /> Map
-                    </a>
                 )}
             </div>
         </div>
