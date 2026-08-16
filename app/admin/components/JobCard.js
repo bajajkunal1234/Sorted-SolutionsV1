@@ -152,14 +152,19 @@ function JobCard({ job, onClick, onCalculate }) {
     const resolvedOverdue = dueDate ? isOverdue(dueDate) : false;
 
     const isRepeat = job.warranty || String(job.description || '').toLowerCase().startsWith('repeat');
+    const isOver100Hours = hoursCrossed >= 100;
 
     const cardStyle = {
         ...style,
         position: 'relative',
         overflow: 'hidden',
         ...(isRepeat ? {
-            backgroundColor: 'rgba(99, 102, 241, 0.08)',
-            border: '1px solid rgba(99, 102, 241, 0.25)'
+            backgroundColor: 'rgba(249, 115, 22, 0.08)',
+            border: '1px solid rgba(249, 115, 22, 0.25)'
+        } : {}),
+        ...(isOver100Hours ? {
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.3)'
         } : {}),
         ...(isRequest ? { border: `2px solid ${primaryColor}`, backgroundColor: bgColor } : {}),
         ...(job.priority === 'urgent' ? {
@@ -304,7 +309,7 @@ function JobCard({ job, onClick, onCalculate }) {
                             <span>{displayDueDate} - Overdue</span>
                         </div>
                         {isRepeat && (
-                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)', textTransform: 'capitalize' }}>
+                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.3)', textTransform: 'capitalize' }}>
                                 🔁 Repeat
                             </div>
                         )}
@@ -323,7 +328,7 @@ function JobCard({ job, onClick, onCalculate }) {
                             </div>
                         )}
                         {isRepeat && (
-                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)', textTransform: 'capitalize' }}>
+                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#f97316', border: '1px solid rgba(249, 115, 22, 0.3)', textTransform: 'capitalize' }}>
                                 🔁 Repeat
                             </div>
                         )}
