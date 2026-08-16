@@ -150,17 +150,37 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
         const invoice = job.sales_invoices && job.sales_invoices.length > 0 ? job.sales_invoices[0] : null;
         const invoiceAmount = invoice ? invoice.total_amount : null;
 
+        const assignedDate = new Date(job.assignedAt || job.createdAt || job.created_at);
+        const diffMs = Date.now() - assignedDate.getTime();
+        const hoursCrossed = Math.max(0, Math.floor(diffMs / (3600 * 1000)));
+
+        const isRepeat = job.warranty || String(job.description || '').toLowerCase().startsWith('repeat');
+        const isOver100Hours = hoursCrossed >= 100;
+
+        let rowBg = 'transparent';
+        let rowBorder = '1px solid var(--border-primary)';
+
+        if (isRepeat) {
+            rowBg = 'rgba(249, 115, 22, 0.08)';
+            rowBorder = '1px solid rgba(249, 115, 22, 0.25)';
+        }
+        if (isOver100Hours) {
+            rowBg = 'rgba(239, 68, 68, 0.08)';
+            rowBorder = '1px solid rgba(239, 68, 68, 0.3)';
+        }
+
         return (
             <tr
                 key={job.id}
                 onClick={() => onJobClick?.(job)}
                 style={{
-                    borderBottom: '1px solid var(--border-primary)',
+                    backgroundColor: rowBg,
+                    borderBottom: rowBorder,
                     transition: 'background-color var(--transition-fast)',
                     cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = rowBg}
             >
                 {columnOrder.map(col => {
                     if (!visibleColumns?.[col]) return null;

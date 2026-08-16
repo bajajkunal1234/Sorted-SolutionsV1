@@ -2235,10 +2235,28 @@ function TechnicianApp() {
                                                 ribbonColor = '#ef4444';
                                             }
 
+                                            const isRepeat = job.warranty || String(job.description || '').toLowerCase().startsWith('repeat');
+                                            const isOver100Hours = hoursCrossed >= 100;
+
+                                            let cardBg = 'var(--bg-elevated)';
+                                            let cardBorder = isUrgent ? '2px solid #ef4444' : '2px solid var(--border-primary)';
+
+                                            if (isRepeat) {
+                                                cardBg = 'rgba(249, 115, 22, 0.08)';
+                                                cardBorder = '2px solid rgba(249, 115, 22, 0.25)';
+                                            }
+                                            if (isOver100Hours) {
+                                                cardBg = 'rgba(239, 68, 68, 0.08)';
+                                                cardBorder = '2px solid rgba(239, 68, 68, 0.3)';
+                                            }
+                                            if (isUrgent) {
+                                                cardBorder = '2px solid #ef4444';
+                                            }
+
                                             const shouldHideAddress = !isOnline && !isWorkingHours();
 
                                             return (
-                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${isUrgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', position: 'relative', overflow: 'hidden', flexShrink: 0 }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                <div key={job.id} style={{ backgroundColor: cardBg, border: cardBorder, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: isUrgent ? '0 0 0 2px rgba(239, 68, 68, 0.15)' : 'none', position: 'relative', overflow: 'hidden', flexShrink: 0 }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
                                                     <div style={{
                                                         position: 'absolute',
                                                         top: 0,
