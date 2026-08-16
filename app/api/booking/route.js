@@ -239,6 +239,65 @@ export async function POST(request) {
             console.error('[booking] customer lookup/create EXCEPTION:', customerErr.message);
         }
 
+        // ── Create or resolve the property in properties table ───────────────
+        let resolvedPropertyId = null;
+        let resolvedPropertyObj = null;
+
+        if (customer?.address?.street && customerId) {
+            try {
+                // Check if this property already exists for the customer to prevent duplicates
+                const { data: existingProps } = await supabase
+                    .from('customer_properties')
+                    .select('property_id, property:properties(*)')
+                    .eq('account_id', customerId);
+
+                const match = (existingProps || []).find(cp => 
+                    cp.property &&
+                    String(cp.property.flat_number || '').trim().toLowerCase() === String(customer.address.flat_number || '').trim().toLowerCase() &&
+                    String(cp.property.building_name || '').trim().toLowerCase() === String(customer.address.building_name || '').trim().toLowerCase() &&
+                    String(cp.property.address || '').trim().toLowerCase() === String(customer.address.street || '').trim().toLowerCase()
+                );
+
+                if (match?.property) {
+                    resolvedPropertyId = match.property_id;
+                    resolvedPropertyObj = match.property;
+                } else {
+                    // Create new property
+                    const { data: newProp, error: propErr } = await supabase
+                        .from('properties')
+                        .insert({
+                            address: customer.address.street,
+                            flat_number: customer.address.flat_number || '',
+                            building_name: customer.address.building_name || '',
+                            locality: customer.address.locality || customer.address.area || pincode || '',
+                            city: customer.address.city || 'Mumbai',
+                            pincode: customer.address.pincode || pincode || '',
+                            property_type: 'residential'
+                        })
+                        .select()
+                        .single();
+
+                    if (propErr) throw propErr;
+
+                    if (newProp) {
+                        resolvedPropertyId = newProp.id;
+                        resolvedPropertyObj = newProp;
+
+                        // Link it to the customer account
+                        await supabase
+                            .from('customer_properties')
+                            .insert({
+                                property_id: newProp.id,
+                                account_id: customerId,
+                                is_active: true
+                            });
+                    }
+                }
+            } catch (err) {
+                console.error('[booking] property resolution error:', err.message);
+            }
+        }
+
         // ── Generate booking reference number ──────────────────────────────────
         let bookingNumber = await generateJobNumber()
 
@@ -264,7 +323,7 @@ export async function POST(request) {
             status: 'new_job_request',
             priority: 'normal',
             customer_id: customerId,
-            property_id: propertyId,
+            property_id: resolvedPropertyId || propertyId,
             customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
             category: categoryName || categoryId,
             subcategory: subcategoryName || subcategoryId,
@@ -273,7 +332,7 @@ export async function POST(request) {
             scheduled_date: schedule?.date || null,
             scheduled_time: schedule?.slot || null,
             source: 'website',
-            property: {
+            property: resolvedPropertyObj || {
                 id: `inline:${customer?.address?.flat_number || ''}|${customer?.address?.building_name || ''}|${customer?.address?.street || ''}|${customer?.address?.locality || ''}|${customer?.address?.pincode || pincode || ''}`,
                 flat_number: customer?.address?.flat_number || '',
                 building_name: customer?.address?.building_name || '',
