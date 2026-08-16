@@ -276,7 +276,8 @@ export async function POST(request) {
                         locality: p.locality || '',
                         city: p.city || 'Mumbai',
                         pincode: p.pincode || '',
-                        property_type: p.property_type || 'residential'
+                        property_type: p.property_type || 'residential',
+                        created_by: 'Admin'
                     })
                     .select()
                     .single();

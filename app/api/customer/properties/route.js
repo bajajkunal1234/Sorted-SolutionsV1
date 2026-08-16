@@ -231,6 +231,7 @@ export async function POST(request) {
                         property_type: property_type || 'residential',
                         latitude: latitude || null,
                         longitude: longitude || null,
+                        created_by: 'Customer App'
                     })
                     .select()
                     .single()

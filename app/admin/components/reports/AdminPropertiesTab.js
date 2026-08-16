@@ -276,10 +276,20 @@ export default function AdminPropertiesTab() {
                                         {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
                                     </div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
-                                    <div style={{ fontSize: 11, marginTop: 4, color: prop.location_verified_by ? '#10b981' : prop.latitude ? '#38bdf8' : '#f59e0b' }}>
-                                        {prop.location_verified_by
-                                            ? `✅ Verified by ${prop.location_verified_by}`
-                                            : prop.latitude ? '📍 Pin saved' : '⚠️ No pin — click to add'}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: 11, color: prop.location_verified_by ? '#10b981' : prop.latitude ? '#38bdf8' : '#f59e0b' }}>
+                                            {prop.location_verified_by
+                                                ? `✅ Verified by ${prop.location_verified_by}`
+                                                : prop.latitude ? '📍 Pin saved' : '⚠️ No pin — click to add'}
+                                        </span>
+                                        <span style={{ fontSize: 11, color: '#334155' }}>|</span>
+                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                            📅 {prop.created_at ? new Date(prop.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                        </span>
+                                        <span style={{ fontSize: 11, color: '#334155' }}>|</span>
+                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                            👤 {prop.created_by || 'System'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
