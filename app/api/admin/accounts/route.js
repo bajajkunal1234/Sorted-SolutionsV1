@@ -164,16 +164,30 @@ export async function POST(request) {
 
         // ── Prevent Duplicate Mobile Numbers for Customers ──────────────────────
         if (isCustomer && body.mobile) {
-            const { data: existing } = await supabase
+            const { data: existingAccount } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .eq('mobile', body.mobile)
+                .neq('status', 'archived')
+                .maybeSingle();
+
+            if (existingAccount) {
+                return NextResponse.json({
+                    success: false,
+                    error: `An account with mobile number ${body.mobile} already exists ("${existingAccount.name}"). Please use the existing account.`
+                }, { status: 409 });
+            }
+
+            const { data: existingCustomer } = await supabase
                 .from('customers')
                 .select('id, full_name, name')
                 .eq('phone', body.mobile)
                 .maybeSingle();
 
-            if (existing) {
+            if (existingCustomer) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: `A customer with mobile number ${body.mobile} already exists (${existing.name || existing.full_name || 'Unknown'}). Please use the existing account.` 
+                    error: `A customer with mobile number ${body.mobile} already exists (${existingCustomer.name || existingCustomer.full_name || 'Unknown'}). Please use the existing account.` 
                 }, { status: 409 });
             }
         }
@@ -362,6 +376,28 @@ export async function PUT(request) {
             .select('*')
             .eq('id', id)
             .single()
+
+        // ── Prevent Duplicate Mobile Numbers on Update ──────────────────────────
+        const isCustomerAcc = (before?.type === 'customer' || updates.type === 'customer') ||
+            ((before?.under || '').toLowerCase().includes('customer')) ||
+            ((before?.under || '').toLowerCase().includes('debtor'));
+
+        if (isCustomerAcc && updates.mobile && updates.mobile !== before?.mobile) {
+            const { data: existingAccount } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .eq('mobile', updates.mobile)
+                .neq('id', id)
+                .neq('status', 'archived')
+                .maybeSingle();
+
+            if (existingAccount) {
+                return NextResponse.json({
+                    success: false,
+                    error: `An account with mobile number ${updates.mobile} already exists ("${existingAccount.name}").`
+                }, { status: 409 });
+            }
+        }
 
         // ── Clean updates to only include actual DB schema columns ──────────────
         const cleanUpdates = {};

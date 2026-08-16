@@ -310,7 +310,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
     useEffect(() => {
         if (ledgers && ledgers.length > 0) {
             setLocalLedgers(ledgers);
-        } else if (!initialData) {
+        } else {
             import('@/lib/adminAPI').then(({ accountsAPI }) => {
                 accountsAPI.getAll().then(data => {
                     if (data && data.length > 0) {
@@ -319,7 +319,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                 }).catch(err => console.error('Failed to pre-fetch accounts for SKU generation:', err));
             });
         }
-    }, [ledgers, initialData]);
+    }, [ledgers]);
 
     // Auto-generate SKU/KU dynamically
     useEffect(() => {
