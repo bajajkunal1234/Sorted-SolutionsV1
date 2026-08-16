@@ -1376,52 +1376,6 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                         </div>
                                     )}
 
-                                    {/* Credit Limit, Period & Price Level */}
-                                    {(showField('creditLimit') || showField('creditPeriod') || showField('priceLevel')) && (
-                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                                            {showField('creditLimit') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Credit Limit (₹)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.creditLimit}
-                                                        onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                            )}
-                                            {showField('creditPeriod') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Credit Period (days)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.creditPeriod}
-                                                        onChange={(e) => setFormData({ ...formData, creditPeriod: parseInt(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                            )}
-                                            {showField('priceLevel') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Price Level</label>
-                                                    <select
-                                                        className="form-select"
-                                                        value={formData.priceLevel}
-                                                        onChange={(e) => setFormData({ ...formData, priceLevel: e.target.value })}
-                                                    >
-                                                        <option value="">-- Select --</option>
-                                                        <option value="retail">Retail</option>
-                                                        <option value="wholesale">Wholesale</option>
-                                                        <option value="dealer">Dealer</option>
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
                                     {/* Customer Description */}
                                     {showField('customerDescription') && (
                                         <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>

@@ -788,68 +788,6 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                 </div>
                             )}
 
-                            {/* Credit Limit & Period */}
-                            {(showField('creditLimit') || showField('creditPeriod')) && (
-                                <div style={{
-                                    padding: 'var(--spacing-md)',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)'
-                                }}>
-                                    <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: '#3b82f6' }}>
-                                        Credit Management
-                                    </h3>
-                                    <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                                        {showField('creditLimit') && (
-                                            <div className="form-group">
-                                                <label className="form-label">Credit Limit (₹)</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={editedAccount.creditLimit}
-                                                    onChange={(e) => setEditedAccount({ ...editedAccount, creditLimit: parseFloat(e.target.value) || 0 })}
-                                                    disabled={!isEditing}
-                                                    placeholder="0"
-                                                    step="0.01"
-                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
-                                                />
-                                            </div>
-                                        )}
-                                        {showField('creditPeriod') && (
-                                            <div className="form-group">
-                                                <label className="form-label">Credit Period (days)</label>
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={editedAccount.creditPeriod}
-                                                    onChange={(e) => setEditedAccount({ ...editedAccount, creditPeriod: parseInt(e.target.value) || 0 })}
-                                                    disabled={!isEditing}
-                                                    placeholder="0"
-                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
-                                                />
-                                            </div>
-                                        )}
-                                        {showField('priceLevel') && (
-                                            <div className="form-group">
-                                                <label className="form-label">Price Level</label>
-                                                <select
-                                                    className="form-select"
-                                                    value={editedAccount.priceLevel}
-                                                    onChange={(e) => setEditedAccount({ ...editedAccount, priceLevel: e.target.value })}
-                                                    disabled={!isEditing}
-                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
-                                                >
-                                                    <option value="default">Default</option>
-                                                    <option value="wholesale">Wholesale</option>
-                                                    <option value="retail">Retail</option>
-                                                    <option value="premium">Premium</option>
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Bank Account Fields */}
                             {(showField('accountNumber') || showField('bankName')) && (
                                 <div style={{

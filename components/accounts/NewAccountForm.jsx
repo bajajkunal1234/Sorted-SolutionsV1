@@ -739,20 +739,6 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                                 </div>
                                             )}
 
-                                            {/* Credit Terms */}
-                                            {showField('creditLimit') && (
-                                                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                                                    <div className="form-group">
-                                                        <label className="form-label">Credit Limit</label>
-                                                        <input type="number" className="form-input" value={formData.creditLimit} onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) })} />
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label className="form-label">Period (Days)</label>
-                                                        <input type="number" className="form-input" value={formData.creditPeriod} onChange={(e) => setFormData({ ...formData, creditPeriod: parseInt(e.target.value) })} />
-                                                    </div>
-                                                </div>
-                                            )}
-
                                             {/* Inventory/Affected (for Income/Expense) */}
                                             {showField('inventoryAffected') && (
                                                 <div className="form-group">
