@@ -756,6 +756,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const displayPhoneRaw = customer.mobile || customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
     const displayPhone = displayPhoneRaw !== 'N/A' ? formatMobileNumber(displayPhoneRaw) : 'N/A';
+    const displayAltPhoneRaw = customer.alternate_mobile || bookingData.customer?.alternate_mobile || '';
+    const displayAltPhone = displayAltPhoneRaw ? formatMobileNumber(displayAltPhoneRaw) : '';
     const rawAddr = bookingData.customer?.address || {};
     const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
 
@@ -1551,6 +1553,35 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             </a>
                                         )}
                                     </div>
+                                    {displayAltPhone && (
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap', marginTop: '-4px' }}>
+                                            <Phone size={16} style={{ opacity: 0.5 }} />
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>ALT:</span>
+                                            <a href={`tel:${displayAltPhone}`} style={{ color: 'var(--color-primary)' }}>
+                                                {displayAltPhone}
+                                            </a>
+                                            <a
+                                                href={`https://wa.me/${displayAltPhoneRaw.replace(/\D/g, '').length === 10 ? '91' + displayAltPhoneRaw.replace(/\D/g, '') : displayAltPhoneRaw.replace(/\D/g, '')}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-secondary"
+                                                style={{
+                                                    padding: '2px 6px',
+                                                    fontSize: '11px',
+                                                    height: 'auto',
+                                                    backgroundColor: 'rgba(34,197,94,0.08)',
+                                                    color: '#22c55e',
+                                                    border: '1px solid rgba(34,197,94,0.25)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    marginLeft: 'var(--spacing-xs)',
+                                                }}
+                                            >
+                                                <MessageCircle size={10} /> WhatsApp
+                                            </a>
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-start' }}>
                                         <MapPin size={16} style={{ marginTop: '3px', flexShrink: 0, color: 'var(--text-secondary)' }} />
                                         <div style={{ lineHeight: 1.6 }}>

@@ -15,6 +15,7 @@ import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFl
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 import { apiCall, uploadOrQueueFile, storeOfflineFile } from '@/lib/offlineSync';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -3036,6 +3037,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '14px' }}>•••••••••• (Go online to view)</span>
                                         )}
                                     </div>
+                                    {isOnline && (editedJob.alternate_mobile || editedJob.customer?.alternate_mobile) && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '-4px' }}>
+                                            <Phone size={16} style={{ opacity: 0.5 }} color="var(--text-secondary)" />
+                                            <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>ALT:</span>
+                                            <a 
+                                                href={`tel:${editedJob.alternate_mobile || editedJob.customer?.alternate_mobile}`} 
+                                                onClick={handleCallCustomerClick} 
+                                                style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}
+                                            >
+                                                {formatMobileNumber(editedJob.alternate_mobile || editedJob.customer?.alternate_mobile)}
+                                            </a>
+                                        </div>
+                                    )}
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                         <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                                         <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>

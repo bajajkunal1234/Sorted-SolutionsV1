@@ -120,7 +120,7 @@ export async function GET(request) {
 // List of allowed database columns in the accounts table
 const ALLOWED_COLUMNS = [
     'id', 'name', 'type', 'under', 'gstin', 'address', 'opening_balance', 'closing_balance',
-    'active', 'created_at', 'updated_at', 'sku', 'alias', 'contact_person', 'mobile',
+    'active', 'created_at', 'updated_at', 'sku', 'alias', 'contact_person', 'mobile', 'alternate_mobile',
     'email', 'mailing_name', 'mailing_address', 'billing_address', 'shipping_address',
     'pan', 'state_name', 'country', 'credit_limit', 'credit_period', 'bank_name',
     'account_number', 'ifsc_code', 'branch', 'tax_rate', 'acquisition_source',
@@ -139,6 +139,9 @@ export async function POST(request) {
         // Normalize mobile phone number to raw 10 digits
         if (body.mobile) {
             body.mobile = body.mobile.replace(/\D/g, '').slice(-10);
+        }
+        if (body.alternate_mobile) {
+            body.alternate_mobile = body.alternate_mobile.replace(/\D/g, '').slice(-10);
         }
 
         const isCustomer = body.type === 'customer' ||
@@ -229,6 +232,7 @@ export async function POST(request) {
             const { error: customerError } = await supabase.from('customers').upsert({
                 name: body.name,
                 phone: body.mobile || '',
+                alternate_mobile: body.alternate_mobile || '',
                 email: body.email || '',
                 gstin: body.gstin || '',
                 address: formattedAddress,
@@ -369,6 +373,9 @@ export async function PUT(request) {
         if (updates.mobile) {
             updates.mobile = updates.mobile.replace(/\D/g, '').slice(-10);
         }
+        if (updates.alternate_mobile) {
+            updates.alternate_mobile = updates.alternate_mobile.replace(/\D/g, '').slice(-10);
+        }
 
         // Fetch the current state BEFORE updating so we can diff it
         const { data: before } = await supabase
@@ -437,6 +444,7 @@ export async function PUT(request) {
             const { error: customerError } = await supabase.from('customers').upsert({
                 name: updates.name || data.name,
                 phone: updates.mobile || data.mobile,
+                alternate_mobile: updates.alternate_mobile !== undefined ? updates.alternate_mobile : data.alternate_mobile,
                 email: updates.email || data.email,
                 gstin: updates.gstin || data.gstin,
                 address: formattedAddress,

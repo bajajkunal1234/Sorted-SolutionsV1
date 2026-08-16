@@ -171,6 +171,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         accountImage: initialData?.image_url || null,
         contactPerson: initialData?.contact_person || '',
         mobile: formatMobileNumber(initialData?.mobile || ''),
+        alternateMobile: formatMobileNumber(initialData?.alternate_mobile || ''),
         email: initialData?.email || '',
         mailingName: initialData?.mailing_name || '',
 
@@ -444,6 +445,32 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         setErrors(prev => { const { mobile, ...rest } = prev; return rest; });
     };
 
+    const handleAlternateMobileChange = (value) => {
+        const formatted = formatMobileNumber(value);
+        setFormData(prev => ({ ...prev, alternateMobile: formatted }));
+        // Clear error while typing so it's not distracting
+        setErrors(prev => { const { alternateMobile, ...rest } = prev; return rest; });
+    };
+
+    const handleAlternateMobileBlur = () => {
+        const raw = formData.alternateMobile.trim();
+        if (!raw) {
+            setErrors(prev => { const { alternateMobile, ...rest } = prev; return rest; });
+            return;
+        }
+        const digits = normalizeMobile(raw);
+        if (digits.length !== 10) {
+            setErrors(prev => ({ ...prev, alternateMobile: 'Enter a valid 10-digit alternate mobile number' }));
+            return;
+        }
+        if (!/^[6-9]/.test(digits)) {
+            setErrors(prev => ({ ...prev, alternateMobile: 'Alternate mobile number must start with 6, 7, 8, or 9' }));
+            return;
+        }
+        setErrors(prev => { const { alternateMobile, ...rest } = prev; return rest; });
+        setFormData(prev => ({ ...prev, alternateMobile: formatMobileNumber(raw) }));
+    };
+
     const handleMobileBlur = () => {
         const raw = formData.mobile.trim();
         if (!raw) {
@@ -567,6 +594,14 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             validationErrors.mobile = 'Mobile Number is required';
         }
 
+        // Validate alternate mobile number (optional)
+        if (formData.alternateMobile.trim()) {
+            const altDigits = normalizeMobile(formData.alternateMobile);
+            if (altDigits.length !== 10 || !/^[6-9]/.test(altDigits)) {
+                validationErrors.alternateMobile = 'Enter a valid 10-digit alternate mobile number';
+            }
+        }
+
         if (showField('customerDescription') && !formData.customerDescription?.trim()) {
             validationErrors.customerDescription = 'Customer Description is required';
         }
@@ -653,6 +688,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             as_on_date: formData.asOnDate,
             contact_person: formData.contactPerson,
             mobile: normalizeMobile(formData.mobile),
+            alternate_mobile: normalizeMobile(formData.alternateMobile),
             email: formData.email,
             mailing_name: formData.mailingName,
             mailing_address: formData.customerDescription,
@@ -1065,6 +1101,27 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                     {errors.mobile && (
                                                         <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
                                                             {errors.mobile}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {showField('mobile') && (
+                                                <div className="form-group">
+                                                    <label className="form-label">Alternate Number (optional)</label>
+                                                    <input
+                                                        type="tel"
+                                                        className="form-input"
+                                                        value={formData.alternateMobile}
+                                                        onChange={(e) => handleAlternateMobileChange(e.target.value)}
+                                                        onBlur={handleAlternateMobileBlur}
+                                                        placeholder="Alternate number"
+                                                        inputMode="tel"
+                                                        title="Enter 10-digit alternate number — auto-formatted to +91-XXXXX XXXXX"
+                                                        style={{ borderColor: errors.alternateMobile ? '#ef4444' : undefined }}
+                                                    />
+                                                    {errors.alternateMobile && (
+                                                        <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
+                                                            {errors.alternateMobile}
                                                         </span>
                                                     )}
                                                 </div>

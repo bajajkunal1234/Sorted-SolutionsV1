@@ -1,6 +1,7 @@
 'use client'
 
 import { X, Calendar, Package, User, CheckCircle, XCircle, Clock, MapPin, Phone, ExternalLink } from 'lucide-react';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 function RentalDetailsModal({ rental, onClose, onViewAccount }) {
     // Support both camelCase (old) and snake_case (Supabase)
@@ -24,6 +25,7 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
     
     // Extracted account details
     const mobileNum = rental.accounts?.mobile || rental.accounts?.phone || '';
+    const altMobileNum = rental.accounts?.alternate_mobile || '';
     let address = rental.accounts?.mailing_address || '';
     if (rental.accounts?.property && rental.accounts.property.length > 0) {
         const prop = rental.accounts.property[0];
@@ -88,8 +90,16 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
                             {mobileNum && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 8 }}>
                                     <Phone size={13} color="var(--text-secondary)" />
-                                    <span style={{ fontSize: 13 }}>{mobileNum}</span>
+                                    <span style={{ fontSize: 13 }}>{formatMobileNumber(mobileNum)}</span>
                                     <a href={`tel:${mobileNum}`} style={{ marginLeft: 'auto', fontSize: 11, color: '#10b981', textDecoration: 'none', padding: '2px 8px', backgroundColor: '#10b98115', borderRadius: 4, fontWeight: 600 }}>Dial</a>
+                                </div>
+                            )}
+                            {altMobileNum && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 4 }}>
+                                    <Phone size={13} color="var(--text-secondary)" style={{ opacity: 0.5 }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600 }}>ALT:</span>
+                                    <span style={{ fontSize: 13 }}>{formatMobileNumber(altMobileNum)}</span>
+                                    <a href={`tel:${altMobileNum}`} style={{ marginLeft: 'auto', fontSize: 11, color: '#10b981', textDecoration: 'none', padding: '2px 8px', backgroundColor: '#10b98115', borderRadius: 4, fontWeight: 600 }}>Dial</a>
                                 </div>
                             )}
                             {address && (

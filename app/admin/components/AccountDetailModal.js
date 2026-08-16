@@ -24,6 +24,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         // Ensure all fields exist with defaults
         contactPerson: account.contactPerson || account.contact_person || '',
         mobile: formatMobileNumber(account.mobile || ''),
+        alternateMobile: formatMobileNumber(account.alternate_mobile || ''),
         email: account.email || '',
         mailingName: account.mailingName || account.mailing_name || '',
         customerDescription: account.customerDescription || account.mailingAddress || account.mailing_address || '',
@@ -208,6 +209,28 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         }
     };
 
+    const handleAlternateMobileChange = (value) => {
+        const formatted = formatMobileNumber(value);
+        setEditedAccount({ ...editedAccount, alternateMobile: formatted });
+
+        if (formatted.trim()) {
+            const validation = validateMobileNumber(formatted);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, alternateMobile: validation.error }));
+            } else {
+                setErrors(prev => {
+                    const { alternateMobile, ...rest } = prev;
+                    return rest;
+                });
+            }
+        } else {
+            setErrors(prev => {
+                const { alternateMobile, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
     const handleSave = async () => {
         // Validate mobile number
         if (editedAccount.mobile && editedAccount.mobile.trim()) {
@@ -218,11 +241,21 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
             }
         }
 
+        if (editedAccount.alternateMobile && editedAccount.alternateMobile.trim()) {
+            const altMobileValidation = validateMobileNumber(editedAccount.alternateMobile);
+            if (!altMobileValidation.isValid) {
+                setErrors({ alternateMobile: altMobileValidation.error });
+                return;
+            }
+        }
+
         const cleanMobile = editedAccount.mobile ? editedAccount.mobile.replace(/\D/g, '').slice(-10) : '';
+        const cleanAltMobile = editedAccount.alternateMobile ? editedAccount.alternateMobile.replace(/\D/g, '').slice(-10) : '';
 
         const payloadToSave = {
             ...editedAccount,
             mobile: cleanMobile,
+            alternate_mobile: cleanAltMobile,
             contact_person: editedAccount.contactPerson,
             mailing_name: editedAccount.mailingName,
             mailing_address: editedAccount.customerDescription, // Or mailingAddress
@@ -253,6 +286,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
         // Remove camelCase keys to avoid Supabase errors on non-existent columns
         delete payloadToSave.contactPerson;
+        delete payloadToSave.alternateMobile;
         delete payloadToSave.mailingName;
         delete payloadToSave.customerDescription;
         delete payloadToSave.mailingAddress;
@@ -589,6 +623,25 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                                 {errors.mobile && (
                                                     <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
                                                         {errors.mobile}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {showField('mobile') && (
+                                            <div className="form-group">
+                                                <label className="form-label">Alternate Number</label>
+                                                <input
+                                                    type="tel"
+                                                    className="form-input"
+                                                    value={editedAccount.alternateMobile || ''}
+                                                    onChange={(e) => handleAlternateMobileChange(e.target.value)}
+                                                    disabled={!isEditing}
+                                                    placeholder="Alternate mobile"
+                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                                />
+                                                {errors.alternateMobile && (
+                                                    <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
+                                                        {errors.alternateMobile}
                                                     </span>
                                                 )}
                                             </div>
