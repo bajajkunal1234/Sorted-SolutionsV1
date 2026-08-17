@@ -1073,7 +1073,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
     const arrivedTime = editedJob.arrived_at ? new Date(editedJob.arrived_at).getTime() : 0;
     const photoTime = latestArrivalPhotoInt ? new Date(latestArrivalPhotoInt.timestamp || latestArrivalPhotoInt.created_at).getTime() : 0;
-    const arrivedButNoPhotos = arrivedTime > 0 && (arrivedTime > photoTime + 2000);
+    const beforePhotosCount = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length;
+    const arrivedButNoPhotos = arrivedTime > 0 && (arrivedTime > photoTime + 2000) && beforePhotosCount === 0;
+    const isCurrentlyOnVisit = arrivedTime > 0 && (new Date().getTime() - arrivedTime < 12 * 3600 * 1000);
 
     useEffect(() => {
         if (arrivedButNoPhotos && !showLocationVerifyModal && editedJob.status !== 'closed' && editedJob.status !== 'cancelled') {
@@ -3188,7 +3190,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 
                                 const showHeadOutSection = editedJob.status !== 'closed' && 
                                                            editedJob.status !== 'cancelled' && 
-                                                           (editedJob.status === 'scheduled' || editedJob.status === 'parts_ordered');
+                                                           (
+                                                               editedJob.status === 'scheduled' || 
+                                                               editedJob.status === 'parts_ordered' ||
+                                                               ((editedJob.status === 'work_in_progress' || editedJob.status === 'quotation_sent') && !isCurrentlyOnVisit)
+                                                           );
 
                                 return (
                                     <>
@@ -3394,7 +3400,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 );
                             })}
 
-                            {partsOption === 'select' ? (
+                            {isCurrentlyOnVisit || editedJob.status === 'closed' || editedJob.status === 'cancelled' ? (
+                                partsOption === 'select' ? (
                                 <div className="card" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '14px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', borderRadius: '12px' }}>
                                     <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', textAlign: 'center' }}>
                                         Select Parts Action
@@ -3520,6 +3527,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         </div>
                                     )}
                                 </div>
+                            ) ) : (
+                                <div style={{ padding: '24px 16px', borderRadius: '12px', backgroundColor: 'rgba(245, 158, 11, 0.07)', border: '1px dashed rgba(245, 158, 11, 0.3)', color: '#f59e0b', fontSize: '14px', fontWeight: 600, lineHeight: 1.6, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+                                    <span style={{ fontSize: '24px' }}>⚠️</span>
+                                    <div>You are not currently checked-in on-site for this visit.</div>
+                                    <div style={{ fontSize: '12px', fontWeight: 500, opacity: 0.85 }}>Please click "Start Job & Share Location" and mark arrival at the top of the details tab to enable job actions.</div>
+                                </div>
                             )}
 
                             <input 
@@ -3543,7 +3556,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             />
 
                             {/* 5. Quotation Approval & Billing (only displays if a quotation or invoice is created) */}
-                            {(savedQuotation || savedInvoice) && (
+                            {isCurrentlyOnVisit && (savedQuotation || savedInvoice) && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
