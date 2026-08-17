@@ -269,6 +269,160 @@ const generateActivitySummary = (interactions = [], job = {}) => {
     return sentences.join(' ');
 };
 
+const renderActivityDescription = (activity, onViewDocument) => {
+    const desc = activity.description || activity.message || '';
+    const type = activity.type || '';
+    
+    if (desc.includes('Quotation QUO-') || type.includes('quotation')) {
+        const quoMatch = desc.match(/QUO-\d{4}-\d+/);
+        const amountMatch = desc.match(/Total Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
+        if (quoMatch) {
+            const quoNum = quoMatch[0];
+            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span>📄 Quotation</span>
+                    <button
+                        onClick={() => onViewDocument && onViewDocument('quotation', quoNum)}
+                        style={{
+                            color: '#38bdf8',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            fontWeight: 700
+                        }}
+                    >
+                        {quoNum}
+                    </button>
+                    <span>created {amount && `for ${amount}`}</span>
+                </div>
+            );
+        }
+    }
+
+    if (desc.includes('Invoice INV-') || desc.includes('Sales Invoice INV-') || type.includes('invoice') || type.includes('sales-invoice')) {
+        const invMatch = desc.match(/INV-\d{4}-\d+/);
+        const amountMatch = desc.match(/Amount:\s*₹?\s*(\d+)/) || desc.match(/Total:\s*₹?\s*(\d+)/) || desc.match(/Total Amount:\s*₹?\s*([\d,.]+)/);
+        if (invMatch) {
+            const invNum = invMatch[0];
+            const amount = amountMatch ? `₹${amountMatch[1]}` : '';
+            return (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span>🧾 Sales Invoice</span>
+                    <button
+                        onClick={() => onViewDocument && onViewDocument('invoice', invNum)}
+                        style={{
+                            color: '#10b981',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            fontWeight: 700
+                        }}
+                    >
+                        {invNum}
+                    </button>
+                    <span>created {amount && `for ${amount}`}</span>
+                </div>
+            );
+        }
+    }
+
+    if (desc.includes(' → ') || desc.includes(' -> ')) {
+        const arrow = desc.includes(' → ') ? ' → ' : ' -> ';
+        const parts = desc.split(arrow);
+        let fromStatus = parts[0].split(':').pop().trim().split(' ').pop();
+        let toStatus = parts[1].split(' by ').shift().trim().split(' ').shift();
+        
+        const formatStatusLabel = (status) => {
+            return status.replace(/_/g, ' ').replace(/-/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        };
+
+        return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Status changed:</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{formatStatusLabel(fromStatus)}</span>
+                <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>➔</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>{formatStatusLabel(toStatus)}</span>
+            </div>
+        );
+    }
+
+    if (type.includes('note')) {
+        return <span style={{ fontStyle: 'italic', color: 'var(--text-primary)' }}>"{desc}"</span>;
+    }
+
+    if (type === 'payment-received' || type.includes('payment')) {
+        const isAdvance = desc.includes('Advance Payment') || desc.includes('advance') || desc.includes('part 1');
+        const isVisiting = desc.toLowerCase().includes('visit') || desc.toLowerCase().includes('diagnos');
+        
+        let paymentTypeBadge = null;
+        if (isAdvance) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)', 
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Advance Payment
+                </span>
+            );
+        } else if (isVisiting) {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Visiting Fee
+                </span>
+            );
+        } else {
+            paymentTypeBadge = (
+                <span style={{ 
+                    padding: '2px 6px', 
+                    borderRadius: '4px', 
+                    fontSize: '10px', 
+                    fontWeight: 700, 
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    marginRight: '6px',
+                    display: 'inline-block'
+                }}>
+                    Final Payment
+                </span>
+            );
+        }
+
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                <div>{paymentTypeBadge}</div>
+                <span>{desc}</span>
+            </div>
+        );
+    }
+
+    return <span>{desc}</span>;
+};
+
 const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDeleteInteraction, onDeleteVisit }) => {
     const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
     const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
