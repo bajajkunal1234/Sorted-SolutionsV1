@@ -399,6 +399,131 @@ const VisitsLogTab = ({ visits = [], onTabChange, onViewDocument }) => {
     );
 };
 
+const computeVisitsFromInteractions = (interactions = []) => {
+    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+    
+    // Find all visit start/arrival triggers
+    const triggerEvents = list.filter(i => {
+        const type = i.type || '';
+        const desc = (i.description || i.message || '').toLowerCase();
+        return (
+            type === 'on-way' ||
+            type === 'job-started' ||
+            type === 'before-photos-uploaded' ||
+            desc.includes('arrived at customer location') ||
+            desc.includes('technician is on the way')
+        );
+    });
+
+    // Deduplicate triggers that are within 1 hour (3600000 ms) of each other
+    const visitStarts = [];
+    triggerEvents.forEach(evt => {
+        const time = new Date(evt.timestamp || evt.created_at || 0).getTime();
+        const isDuplicate = visitStarts.some(prev => {
+            const prevTime = new Date(prev.timestamp || prev.created_at || 0).getTime();
+            return Math.abs(time - prevTime) < 3600000;
+        });
+        if (!isDuplicate) {
+            visitStarts.push(evt);
+        }
+    });
+
+    // Map each visit start to a visit object
+    return visitStarts.map((startEvt, idx) => {
+        const startTime = new Date(startEvt.timestamp || startEvt.created_at || 0).getTime();
+        const nextStart = visitStarts[idx + 1] || null;
+        const endTime = nextStart ? new Date(nextStart.timestamp || nextStart.created_at || 0).getTime() : Infinity;
+
+        const visitInteractions = list.filter(i => {
+            const time = new Date(i.timestamp || i.created_at || 0).getTime();
+            return time >= startTime && time < endTime;
+        });
+
+        // Find arrival event (before-photos-uploaded) for before photos preview
+        const arrival = visitInteractions.find(i => i.type === 'before-photos-uploaded');
+        
+        // Find status changes to determine outStatus
+        const statusChanges = visitInteractions.filter(i => 
+            i.type === 'status-changed' || 
+            i.type?.startsWith('job-status-') ||
+            (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
+        );
+
+        let outStatus = 'In Progress';
+        let resolvedTime = null;
+        if (statusChanges.length > 0) {
+            const latestChange = statusChanges[statusChanges.length - 1];
+            const desc = (latestChange.description || latestChange.message || '').toLowerCase();
+            resolvedTime = latestChange.timestamp || latestChange.created_at;
+            if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
+                outStatus = 'Parts Ordered';
+            } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
+                outStatus = 'Completed / Closed';
+            } else {
+                const parts = latestChange.description?.split(' → ') || latestChange.message?.split(' → ');
+                if (parts && parts.length > 1) {
+                    const toS = parts[1].split(' by ').shift().trim().replace(/_/g, ' ');
+                    outStatus = toS.charAt(0).toUpperCase() + toS.slice(1);
+                } else {
+                    outStatus = latestChange.description || latestChange.message || 'Status Updated';
+                }
+            }
+        } else if (idx < visitStarts.length - 1) {
+            outStatus = 'Parts Ordered / Re-assigned';
+            resolvedTime = nextStart ? nextStart.timestamp || nextStart.created_at : null;
+        }
+
+        const advPayment = visitInteractions.find(i => 
+            i.type === 'payment-received' && 
+            (String(i.description).toLowerCase().includes('advance') || String(i.description).toLowerCase().includes('part 1') || i.description?.toLowerCase().includes('advance payment'))
+        );
+
+        const quoteCreated = visitInteractions.find(i => i.type === 'quotation-created');
+        const quoteEdited = visitInteractions.find(i => i.type === 'quotation-edited');
+        const quotationDetails = quoteEdited || quoteCreated;
+
+        const beforeNote = arrival?.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
+        const beforeImages = arrival?.metadata?.attachments || [];
+
+        const activities = visitInteractions.filter(i => 
+            i.id !== arrival?.id && 
+            i.id !== startEvt.id
+        );
+
+        let durationStr = 'Ongoing';
+        const startJobTime = startEvt.timestamp || startEvt.created_at;
+        if (resolvedTime) {
+            const diffMs = new Date(resolvedTime).getTime() - new Date(startJobTime).getTime();
+            const diffMins = Math.round(diffMs / 60000);
+            durationStr = diffMins > 60 ? `${Math.floor(diffMins / 60)}h ${diffMins % 60}m` : `${diffMins} mins`;
+        }
+
+        // Try to get technician name from start event or any interaction in this visit
+        let technician = 'Technician';
+        const techInt = visitInteractions.find(i => i.performed_by_name || i.user_name);
+        if (techInt) {
+            technician = techInt.performed_by_name || techInt.user_name;
+        }
+
+        return {
+            visitNumber: idx + 1,
+            technician,
+            startJobTime,
+            arrivalTime: arrival ? (arrival.timestamp || arrival.created_at) : (startEvt.type === 'before-photos-uploaded' || (startEvt.description || '').toLowerCase().includes('arrived') ? startJobTime : null),
+            endTime: resolvedTime,
+            outStatus,
+            beforeNote,
+            beforeImages,
+            advPayment,
+            quotationDetails,
+            activities,
+            durationStr,
+            arrivalId: arrival?.id || null,
+            startJobId: startEvt.id || null
+        };
+    });
+};
+
 export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true, shouldHideAddress = false }) {
     const [activeTab, setActiveTab] = useState('actions');
     const [editedJob, setEditedJob] = useState(job);
@@ -918,14 +1043,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
     if (!job) return null;
 
-    const advancePaymentInt = (editedJob.interactions || []).find(i => 
-        i.type === 'payment-received' && 
-        (
-            String(i.description).toLowerCase().includes('advance') || 
-            String(i.description).toLowerCase().includes('part 1') || 
-            (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
-        )
-    );
+    const advancePaymentInt = [...(editedJob.interactions || [])]
+        .sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0))
+        .find(i => 
+            i.type === 'payment-received' && 
+            (
+                String(i.description).toLowerCase().includes('advance') || 
+                String(i.description).toLowerCase().includes('part 1') || 
+                (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
+            )
+        );
 
     const hasFinalPaymentInDB = (editedJob.interactions || []).some(i => 
         i.type === 'payment-received' && 
@@ -937,91 +1064,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const lastApproveInt = (editedJob.interactions || []).find(i => i.type === 'approve_quotation');
     const needsConfirmation = !lastApproveInt || (lastEditInt && new Date(lastEditInt.timestamp) > new Date(lastApproveInt.timestamp));
 
-    const sortedInteractions = [...(editedJob.interactions || [])].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
-    const startJobEvents = sortedInteractions.filter(i => 
-        i.type === 'on-way' || 
-        i.type === 'job-started' || 
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on_way')) ||
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on-way'))
-    );
-    const computedVisits = startJobEvents.map((startEvent, idx) => {
-        const startJobTime = startEvent.timestamp || startEvent.created_at;
-        const nextStartEvent = startJobEvents[idx + 1] || null;
-        const nextStartJobTime = nextStartEvent ? (nextStartEvent.timestamp || nextStartEvent.created_at) : null;
-        const visitStart = new Date(startJobTime).getTime();
-        const visitEnd = nextStartJobTime ? new Date(nextStartJobTime).getTime() : Infinity;
-        const arrival = sortedInteractions.find(i => {
-            if (i.type !== 'before-photos-uploaded') return false;
-            const time = new Date(i.timestamp || i.created_at || 0).getTime();
-            return time >= visitStart && time < visitEnd;
-        });
-        const visitInteractions = sortedInteractions.filter(i => {
-            const time = new Date(i.timestamp || i.created_at || 0).getTime();
-            return time >= visitStart && time < visitEnd;
-        });
-        const statusChanges = visitInteractions.filter(i => 
-            i.type === 'status-changed' || 
-            i.type?.startsWith('job-status-') ||
-            (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
-        );
-        let outStatus = 'In Progress';
-        let resolvedTime = null;
-        if (statusChanges.length > 0) {
-            const latestChange = statusChanges[statusChanges.length - 1];
-            const desc = (latestChange.description || latestChange.message || '').toLowerCase();
-            resolvedTime = latestChange.timestamp || latestChange.created_at;
-            if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
-                outStatus = 'Parts Ordered';
-            } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
-                outStatus = 'Completed / Closed';
-            } else {
-                const parts = latestChange.description?.split(' → ') || latestChange.message?.split(' → ');
-                if (parts && parts.length > 1) {
-                    const toS = parts[1].split(' by ').shift().trim().replace(/_/g, ' ');
-                    outStatus = toS.charAt(0).toUpperCase() + toS.slice(1);
-                } else {
-                    outStatus = latestChange.description || latestChange.message || 'Status Updated';
-                }
-            }
-        } else if (idx < startJobEvents.length - 1) {
-            outStatus = 'Parts Ordered / Re-assigned';
-            resolvedTime = nextStartJobTime;
-        }
-        const advPayment = visitInteractions.find(i => 
-            i.type === 'payment-received' && 
-            (String(i.description).toLowerCase().includes('advance') || String(i.description).toLowerCase().includes('part 1') || i.description?.toLowerCase().includes('advance payment'))
-        );
-        const quoteCreated = visitInteractions.find(i => i.type === 'quotation-created');
-        const quoteEdited = visitInteractions.find(i => i.type === 'quotation-edited');
-        const quotationDetails = quoteEdited || quoteCreated;
-        const beforeNote = arrival?.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
-        const beforeImages = arrival?.metadata?.attachments || [];
-        const activities = visitInteractions.filter(i => 
-            i.id !== arrival?.id && 
-            i.id !== startEvent.id
-        );
-        let durationStr = 'Ongoing';
-        if (resolvedTime) {
-            const diffMs = new Date(resolvedTime).getTime() - new Date(startJobTime).getTime();
-            const diffMins = Math.round(diffMs / 60000);
-            durationStr = diffMins > 60 ? `${Math.floor(diffMins / 60)}h ${diffMins % 60}m` : `${diffMins} mins`;
-        }
-        return {
-            visitNumber: idx + 1,
-            technician: startEvent.performed_by_name || startEvent.user_name || 'Technician',
-            startJobTime,
-            arrivalTime: arrival?.timestamp || arrival?.created_at || null,
-            endTime: resolvedTime,
-            outStatus,
-            beforeNote,
-            beforeImages,
-            activities,
-            advPayment,
-            quotationDetails,
-            durationStr
-        };
-    }).reverse();
+    const computedVisits = computeVisitsFromInteractions(editedJob.interactions || []).reverse();
     const latestEndedVisit = computedVisits.find(v => v.endTime !== null);
+
+    const latestArrivalPhotoInt = (editedJob.interactions || [])
+        .filter(i => i.type === 'before-photos-uploaded')
+        .sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0))[0];
+
+    const arrivedTime = editedJob.arrived_at ? new Date(editedJob.arrived_at).getTime() : 0;
+    const photoTime = latestArrivalPhotoInt ? new Date(latestArrivalPhotoInt.timestamp || latestArrivalPhotoInt.created_at).getTime() : 0;
+    const arrivedButNoPhotos = arrivedTime > 0 && (arrivedTime > photoTime + 2000);
+
+    useEffect(() => {
+        if (arrivedButNoPhotos && !showLocationVerifyModal && editedJob.status !== 'closed' && editedJob.status !== 'cancelled') {
+            setLocationVerifyStep('before_photos');
+            setShowLocationVerifyModal(true);
+        }
+    }, [arrivedButNoPhotos, showLocationVerifyModal, editedJob.status]);
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -3869,7 +3928,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                                       setShowAfterPhotosModal(true);
                                                                                   }}
                                                                               >
-                                                                                  {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Work Done: Collect Payment'}
+                                                                                  {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Complete Repair (Upload Photos)'}
                                                                               </button>
                                                                           );
                                                                       }

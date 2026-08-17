@@ -423,40 +423,67 @@ const renderActivityDescription = (activity, onViewDocument) => {
     return <span>{desc}</span>;
 };
 
-const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDeleteInteraction, onDeleteVisit }) => {
-    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
-    const arrivalEvents = list.filter(i => i.type === 'before-photos-uploaded');
-    const startJobEvents = list.filter(i => 
-        i.type === 'on-way' || 
-        i.type === 'job-started' || 
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on_way')) ||
-        (i.type === 'status-changed' && (i.description || '').toLowerCase().includes('on-way'))
-    );
+const isVisitingFeeInt = (i) => {
+    const desc = String(i.description || i.message || '').toLowerCase();
+    return desc.includes('visit') || desc.includes('diagnos');
+};
 
-    const visits = arrivalEvents.map((arrival, idx) => {
-        const startJob = startJobEvents[idx] || null;
-        const startJobTime = startJob ? (startJob.timestamp || startJob.created_at) : arrival.timestamp || arrival.created_at;
-        const visitStart = new Date(startJobTime).getTime();
-        const nextArrival = arrivalEvents[idx + 1] || null;
-        const nextStartJob = nextArrival ? startJobEvents[idx + 1] : null;
-        const nextStartJobTime = nextStartJob ? (nextStartJob.timestamp || nextStartJob.created_at) : (nextArrival ? (nextArrival.timestamp || nextArrival.created_at) : null);
-        const visitEnd = nextStartJobTime ? new Date(nextStartJobTime).getTime() : Infinity;
-        
+const computeVisitsFromInteractions = (interactions = []) => {
+    const list = [...interactions].sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0));
+    
+    // Find all visit start/arrival triggers
+    const triggerEvents = list.filter(i => {
+        const type = i.type || '';
+        const desc = (i.description || i.message || '').toLowerCase();
+        return (
+            type === 'on-way' ||
+            type === 'job-started' ||
+            type === 'before-photos-uploaded' ||
+            desc.includes('arrived at customer location') ||
+            desc.includes('technician is on the way')
+        );
+    });
+
+    // Deduplicate triggers that are within 1 hour (3600000 ms) of each other
+    const visitStarts = [];
+    triggerEvents.forEach(evt => {
+        const time = new Date(evt.timestamp || evt.created_at || 0).getTime();
+        const isDuplicate = visitStarts.some(prev => {
+            const prevTime = new Date(prev.timestamp || prev.created_at || 0).getTime();
+            return Math.abs(time - prevTime) < 3600000;
+        });
+        if (!isDuplicate) {
+            visitStarts.push(evt);
+        }
+    });
+
+    // Map each visit start to a visit object
+    return visitStarts.map((startEvt, idx) => {
+        const startTime = new Date(startEvt.timestamp || startEvt.created_at || 0).getTime();
+        const nextStart = visitStarts[idx + 1] || null;
+        const endTime = nextStart ? new Date(nextStart.timestamp || nextStart.created_at || 0).getTime() : Infinity;
+
         const visitInteractions = list.filter(i => {
             const time = new Date(i.timestamp || i.created_at || 0).getTime();
-            return time >= visitStart && time < visitEnd;
+            return time >= startTime && time < endTime;
         });
+
+        // Find arrival event (before-photos-uploaded) for before photos preview
+        const arrival = visitInteractions.find(i => i.type === 'before-photos-uploaded');
         
+        // Find status changes to determine outStatus
         const statusChanges = visitInteractions.filter(i => 
             i.type === 'status-changed' || 
             i.type?.startsWith('job-status-') ||
             (i.type === 'status-changed' && i.description?.toLowerCase().includes('status changed'))
         );
-        
+
         let outStatus = 'In Progress';
+        let resolvedTime = null;
         if (statusChanges.length > 0) {
             const latestChange = statusChanges[statusChanges.length - 1];
             const desc = (latestChange.description || latestChange.message || '').toLowerCase();
+            resolvedTime = latestChange.timestamp || latestChange.created_at;
             if (desc.includes('parts_ordered') || desc.includes('parts ordered')) {
                 outStatus = 'Parts Ordered';
             } else if (desc.includes('completed') || desc.includes('closed') || desc.includes('payment_collected') || desc.includes('payment collected')) {
@@ -470,28 +497,64 @@ const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDelete
                     outStatus = latestChange.description || latestChange.message || 'Status Updated';
                 }
             }
-        } else if (idx < arrivalEvents.length - 1) {
+        } else if (idx < visitStarts.length - 1) {
             outStatus = 'Parts Ordered / Re-assigned';
+            resolvedTime = nextStart ? nextStart.timestamp || nextStart.created_at : null;
         }
-        
-        const beforeNote = arrival.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
-        const beforeImages = arrival.metadata?.attachments || [];
-        const activities = visitInteractions.filter(i => 
-            i.id !== arrival.id && 
-            (!startJob || i.id !== startJob.id)
+
+        const advPayment = visitInteractions.find(i => 
+            i.type === 'payment-received' && 
+            (String(i.description).toLowerCase().includes('advance') || String(i.description).toLowerCase().includes('part 1') || i.description?.toLowerCase().includes('advance payment'))
         );
-        
+
+        const quoteCreated = visitInteractions.find(i => i.type === 'quotation-created');
+        const quoteEdited = visitInteractions.find(i => i.type === 'quotation-edited');
+        const quotationDetails = quoteEdited || quoteCreated;
+
+        const beforeNote = arrival?.description ? arrival.description.replace(/^Before Photos uploaded for Visit #\d+\.\nNote:\s*/, '').replace(/^Before Photos uploaded\.\nNote:\s*/, '') : '';
+        const beforeImages = arrival?.metadata?.attachments || [];
+
+        const activities = visitInteractions.filter(i => 
+            i.id !== arrival?.id && 
+            i.id !== startEvt.id
+        );
+
+        let durationStr = 'Ongoing';
+        const startJobTime = startEvt.timestamp || startEvt.created_at;
+        if (resolvedTime) {
+            const diffMs = new Date(resolvedTime).getTime() - new Date(startJobTime).getTime();
+            const diffMins = Math.round(diffMs / 60000);
+            durationStr = diffMins > 60 ? `${Math.floor(diffMins / 60)}h ${diffMins % 60}m` : `${diffMins} mins`;
+        }
+
+        // Try to get technician name from start event or any interaction in this visit
+        let technician = 'Technician';
+        const techInt = visitInteractions.find(i => i.performed_by_name || i.user_name);
+        if (techInt) {
+            technician = techInt.performed_by_name || techInt.user_name;
+        }
+
         return {
             visitNumber: idx + 1,
-            technician: arrival.performed_by_name || arrival.user_name || 'Technician',
+            technician,
             startJobTime,
-            arrivalTime: arrival.timestamp || arrival.created_at,
+            arrivalTime: arrival ? (arrival.timestamp || arrival.created_at) : (startEvt.type === 'before-photos-uploaded' || (startEvt.description || '').toLowerCase().includes('arrived') ? startJobTime : null),
+            endTime: resolvedTime,
             outStatus,
             beforeNote,
             beforeImages,
-            activities
+            advPayment,
+            quotationDetails,
+            activities,
+            durationStr,
+            arrivalId: arrival?.id || null,
+            startJobId: startEvt.id || null
         };
-    }).reverse();
+    });
+};
+
+const VisitsLogTab = ({ interactions = [], onTabChange, onViewDocument, onDeleteInteraction, onDeleteVisit }) => {
+    const visits = computeVisitsFromInteractions(interactions).reverse();
 
     if (visits.length === 0) {
         return (
@@ -845,14 +908,16 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     useEffect(() => {
         if (editedJob?.interactions) {
             const hasPhotos = editedJob.interactions.some(i => i.type === 'after-photos-uploaded');
-            const advInt = editedJob.interactions.find(i => 
-                i.type === 'payment-received' && 
-                (
-                    String(i.description).toLowerCase().includes('advance') || 
-                    String(i.description).toLowerCase().includes('part 1') || 
-                    (!savedInvoice && (i.metadata?.amount || i.amount))
-                )
-            );
+            const advInt = [...editedJob.interactions]
+                .sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0))
+                .find(i => 
+                    i.type === 'payment-received' && 
+                    (
+                        String(i.description).toLowerCase().includes('advance') || 
+                        String(i.description).toLowerCase().includes('part 1') || 
+                        (!savedInvoice && (i.metadata?.amount || i.amount))
+                    )
+                );
 
             const hasPay = editedJob.interactions.some(i => 
                 i.type === 'payment-received' && 
@@ -972,18 +1037,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         }
     };
 
-    const advancePaymentInt = (editedJob.interactions || []).find(i => 
-        i.type === 'payment-received' && 
-        (
-            String(i.description).toLowerCase().includes('advance') || 
-            String(i.description).toLowerCase().includes('part 1') || 
-            (!savedInvoice && (i.metadata?.amount || i.amount))
-        )
-    );
+    const advancePaymentInt = [...(editedJob.interactions || [])]
+        .sort((a, b) => new Date(a.timestamp || a.created_at || 0) - new Date(b.timestamp || b.created_at || 0))
+        .find(i => 
+            i.type === 'payment-received' && 
+            (
+                String(i.description).toLowerCase().includes('advance') || 
+                String(i.description).toLowerCase().includes('part 1') || 
+                (!savedInvoice && (i.metadata?.amount || i.amount) && !isVisitingFeeInt(i))
+            )
+        );
 
     const hasFinalPaymentInDB = (editedJob.interactions || []).some(i => 
         i.type === 'payment-received' && 
-        i !== advancePaymentInt
+        i !== advancePaymentInt &&
+        !isVisitingFeeInt(i)
     );
 
     const handleRestartProcess = async () => {
@@ -2726,66 +2794,91 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     );
                                                 } else {
                                                     if (['work_in_progress', 'completed', 'closed'].includes(editedJob.status)) {
+                                                        const dbPaymentsSum = (editedJob.interactions || [])
+                                                            .filter(i => i.type === 'payment-received' && !isVisitingFeeInt(i))
+                                                            .reduce((sum, i) => sum + (parseFloat(i.metadata?.amount || i.amount) || 0), 0);
+                                                        const quotationAmount = savedQuotation?.total_amount || 0;
+                                                        const hasPayment = dbPaymentsSum >= quotationAmount - 0.01 && dbPaymentsSum > 0;
+                                                        const isPaymentMatchingQuote = Math.abs(dbPaymentsSum - quotationAmount) < 0.01;
+
+                                                        if (!hasPayment) {
+                                                            return (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                                                                    <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '13px', color: '#f87171', fontWeight: 600, lineHeight: 1.4, textAlign: 'center' }}>
+                                                                        ⚠️ Payment has not been collected yet. Please collect payment in the Technician App or register a payment interaction first.
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        if (isPaymentMatchingQuote) {
+                                                            return (
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                                                                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                                                        <CheckCircle size={16} /> 
+                                                                        ✓ Payment of ₹{dbPaymentsSum.toLocaleString('en-IN')} received.
+                                                                    </div>
+                                                                    <button
+                                                                        className="btn"
+                                                                        type="button"
+                                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(139,92,246,0.2)', cursor: 'pointer' }}
+                                                                        disabled={loading}
+                                                                        onClick={async () => {
+                                                                            setLoading(true);
+                                                                            try {
+                                                                                const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                                    method: 'POST',
+                                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                                    body: JSON.stringify({
+                                                                                        account_id: savedQuotation.account_id,
+                                                                                        account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                                                                                        accountGSTIN: savedQuotation.accountGSTIN || '',
+                                                                                        accountState: savedQuotation.accountState || 'Maharashtra',
+                                                                                        billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                                        job_id: editedJob.id,
+                                                                                        date: new Date().toISOString().split('T')[0],
+                                                                                        due_date: new Date().toISOString().split('T')[0],
+                                                                                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                                        reference: savedQuotation.quote_number,
+                                                                                        status: 'unpaid',
+                                                                                        items: savedQuotation.items,
+                                                                                        subtotal: savedQuotation.subtotal,
+                                                                                        cgst: savedQuotation.cgst,
+                                                                                        sgst: savedQuotation.sgst,
+                                                                                        igst: savedQuotation.igst,
+                                                                                        total_tax: savedQuotation.total_tax,
+                                                                                        total_amount: savedQuotation.total_amount,
+                                                                                        notes: 'Auto-generated from approved quotation',
+                                                                                        terms: savedQuotation.terms,
+                                                                                        technician_id: savedQuotation.technician_id || editedJob.technician_id || null,
+                                                                                        technician_name: savedQuotation.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
+                                                                                    })
+                                                                                });
+                                                                                const data = await res.json();
+                                                                                if (data.success) {
+                                                                                    setSavedInvoice(data.data);
+                                                                                    await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
+                                                                                    }).catch(() => {});
+                                                                                    await fetchData();
+                                                                                    setShowWhatsappPopup({ type: 'invoice', doc: data.data });
+                                                                                } else throw new Error(data.error);
+                                                                            } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
+                                                                            finally { setLoading(false); }
+                                                                        }}
+                                                                    >
+                                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Generate Invoice'}
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        }
+
                                                         return (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-                                                                <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                                                                    <CheckCircle size={16} /> 
-                                                                    {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
-                                                                        ? 'Cx Approved from App' 
-                                                                        : 'Cx Said to Proceed'}
+                                                                <div style={{ padding: '12px', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', fontSize: '13px', color: '#f87171', fontWeight: 600, lineHeight: 1.4, textAlign: 'center' }}>
+                                                                    ⚠️ Collected payment (₹{dbPaymentsSum.toLocaleString('en-IN')}) does not match quotation amount (₹{quotationAmount.toLocaleString('en-IN')}). Please edit the quotation to match the collected payment amount.
                                                                 </div>
-                                                                <button
-                                                                    className="btn"
-                                                                    type="button"
-                                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
-                                                                    disabled={loading}
-                                                                    onClick={async () => {
-                                                                        setLoading(true);
-                                                                        try {
-                                                                            const res = await fetch(`/api/admin/transactions?type=sales`, {
-                                                                                method: 'POST',
-                                                                                headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({
-                                                                                    account_id: savedQuotation.account_id,
-                                                                                    account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
-                                                                                    accountGSTIN: savedQuotation.accountGSTIN || '',
-                                                                                    accountState: savedQuotation.accountState || 'Maharashtra',
-                                                                                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
-                                                                                    job_id: editedJob.id,
-                                                                                    date: new Date().toISOString().split('T')[0],
-                                                                                    due_date: new Date().toISOString().split('T')[0],
-                                                                                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-                                                                                    reference: savedQuotation.quote_number,
-                                                                                    status: 'unpaid',
-                                                                                    items: savedQuotation.items,
-                                                                                    subtotal: savedQuotation.subtotal,
-                                                                                    cgst: savedQuotation.cgst,
-                                                                                    sgst: savedQuotation.sgst,
-                                                                                    igst: savedQuotation.igst,
-                                                                                    total_tax: savedQuotation.total_tax,
-                                                                                    total_amount: savedQuotation.total_amount,
-                                                                                    notes: 'Auto-generated from approved quotation',
-                                                                                    terms: savedQuotation.terms,
-                                                                                    technician_id: savedQuotation.technician_id || editedJob.technician_id || null,
-                                                                                    technician_name: savedQuotation.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
-                                                                                })
-                                                                            });
-                                                                            const data = await res.json();
-                                                                            if (data.success) {
-                                                                                setSavedInvoice(data.data);
-                                                                                await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                                                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                    body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
-                                                                                }).catch(() => {});
-                                                                                await fetchData();
-                                                                                setShowWhatsappPopup({ type: 'invoice', doc: data.data });
-                                                                            } else throw new Error(data.error);
-                                                                        } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
-                                                                        finally { setLoading(false); }
-                                                                    }}
-                                                                >
-                                                                    {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
-                                                                </button>
                                                             </div>
                                                         );
                                                     } else {
