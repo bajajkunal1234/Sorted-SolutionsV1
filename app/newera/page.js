@@ -695,68 +695,41 @@ export default function NewEraDashboard() {
                 </div>
             </header>
 
-            {/* Glowing Big Counter Section */}
-            <section style={styles.heroSection}>
-                <div style={styles.heroGlow}></div>
-                <div style={styles.heroContent}>
-                    <span style={styles.heroLabel}>TOTAL OUTSTANDING LIABILITY TO PAY</span>
-                    <h1 style={styles.heroNumber}>
-                        ₹{metrics.totalOutstandingToPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </h1>
-                    <div style={styles.heroSubmetrics}>
-                        <div style={styles.heroSubItem}>
-                            <span style={styles.subItemLabel}>Outstanding Principal</span>
-                            <span style={styles.subItemValue}>₹{metrics.outstandingPrincipal.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div style={styles.divider}></div>
-                        <div style={styles.heroSubItem}>
-                            <span style={styles.subItemLabel}>Unpaid Interest Due</span>
-                            <span style={styles.subItemValue}>₹{metrics.unpaidInterestDue.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div style={styles.divider}></div>
-                        <div style={styles.heroSubItem}>
-                            <span style={styles.subItemLabel}>Total Paid Till Date</span>
-                            <span style={styles.subItemValue}>₹{metrics.totalPayments.toLocaleString('en-IN')}</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             {/* Navigation Tabs */}
             <nav style={styles.navBar}>
                 <button 
                     onClick={() => setActiveTab('overview')} 
-                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'overview' ? '#6366f1' : 'transparent', color: activeTab === 'overview' ? '#ffffff' : '#94a3b8' }}
+                    style={{ ...styles.navTab, color: activeTab === 'overview' ? '#6366f1' : '#64748b' }}
                 >
-                    <Coins size={16} />
+                    <Coins size={20} style={{ color: activeTab === 'overview' ? '#6366f1' : '#64748b' }} />
                     <span>Overview</span>
                 </button>
                 <button 
                     onClick={() => setActiveTab('liabilities')} 
-                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'liabilities' ? '#6366f1' : 'transparent', color: activeTab === 'liabilities' ? '#ffffff' : '#94a3b8' }}
+                    style={{ ...styles.navTab, color: activeTab === 'liabilities' ? '#6366f1' : '#64748b' }}
                 >
-                    <Landmark size={16} />
+                    <Landmark size={20} style={{ color: activeTab === 'liabilities' ? '#6366f1' : '#64748b' }} />
                     <span>Liabilities</span>
                 </button>
                 <button 
                     onClick={() => setActiveTab('schedule')} 
-                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'schedule' ? '#6366f1' : 'transparent', color: activeTab === 'schedule' ? '#ffffff' : '#94a3b8' }}
+                    style={{ ...styles.navTab, color: activeTab === 'schedule' ? '#6366f1' : '#64748b' }}
                 >
-                    <Calendar size={16} />
+                    <Calendar size={20} style={{ color: activeTab === 'schedule' ? '#6366f1' : '#64748b' }} />
                     <span>Schedules</span>
                 </button>
                 <button 
                     onClick={() => setActiveTab('payments')} 
-                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'payments' ? '#6366f1' : 'transparent', color: activeTab === 'payments' ? '#ffffff' : '#94a3b8' }}
+                    style={{ ...styles.navTab, color: activeTab === 'payments' ? '#6366f1' : '#64748b' }}
                 >
-                    <ClipboardList size={16} />
+                    <ClipboardList size={20} style={{ color: activeTab === 'payments' ? '#6366f1' : '#64748b' }} />
                     <span>Payment Logs</span>
                 </button>
                 <button 
                     onClick={() => setActiveTab('interactions')} 
-                    style={{ ...styles.navTab, borderBottomColor: activeTab === 'interactions' ? '#6366f1' : 'transparent', color: activeTab === 'interactions' ? '#ffffff' : '#94a3b8' }}
+                    style={{ ...styles.navTab, color: activeTab === 'interactions' ? '#6366f1' : '#64748b' }}
                 >
-                    <Briefcase size={16} />
+                    <Briefcase size={20} style={{ color: activeTab === 'interactions' ? '#6366f1' : '#64748b' }} />
                     <span>Activity Log</span>
                 </button>
             </nav>
@@ -766,73 +739,99 @@ export default function NewEraDashboard() {
 
                 {/* OVERVIEW TAB */}
                 {activeTab === 'overview' && (
-                    <div style={styles.tabContentGrid}>
-                        {/* Liability Breakdowns */}
-                        <div style={styles.panelCard}>
-                            <h2 style={styles.panelTitle}>Liability Breakdowns</h2>
-                            <div style={{ ...styles.breakdownGrid, gridTemplateColumns: '1fr' }}>
-                                {data.loans.filter(l => l.status === 'active').map(loan => {
-                                    // Total payments for this loan
-                                    const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-                                    const paidVal = loanPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-                                    const totalExpected = parseFloat(loan.principal_amount);
-                                    const progressPercent = Math.min(100, (paidVal / totalExpected) * 100);
-
-                                    return (
-                                        <div key={loan.id} style={styles.breakdownItem}>
-                                            <div style={styles.breakdownHeader}>
-                                                <div>
-                                                    <span style={styles.breakdownName}>{loan.name}</span>
-                                                    <span style={styles.breakdownLender}> ({loan.lender})</span>
-                                                </div>
-                                                <span style={styles.breakdownPercent}>{progressPercent.toFixed(1)}% Paid</span>
-                                            </div>
-                                            <div style={styles.progressBarBg}>
-                                                <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
-                                            </div>
-                                            <div style={styles.breakdownDetails}>
-                                                <span>Paid: ₹{paidVal.toLocaleString('en-IN')}</span>
-                                                <span>Total: ₹{totalExpected.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {data.loans.filter(l => l.status === 'active').length === 0 && (
-                                    <div style={{ ...styles.emptyState, width: '100%' }}>No active liabilities added yet.</div>
-                                )}
+                    <div style={styles.tabContentSingle}>
+                        {/* Glowing Big Counter Section */}
+                        <section style={styles.heroSection}>
+                            <div style={styles.heroGlow}></div>
+                            <div style={styles.heroContent}>
+                                <span style={styles.heroLabel}>TOTAL OUTSTANDING LIABILITY TO PAY</span>
+                                <h1 style={styles.heroNumber}>
+                                    ₹{metrics.totalOutstandingToPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </h1>
+                                <div style={styles.heroSubmetrics}>
+                                    <div style={styles.heroSubItem}>
+                                        <span style={styles.subItemLabel}>Outstanding Principal</span>
+                                        <span style={styles.subItemValue}>₹{metrics.outstandingPrincipal.toLocaleString('en-IN')}</span>
+                                    </div>
+                                    <div style={styles.divider}></div>
+                                    <div style={styles.heroSubItem}>
+                                        <span style={styles.subItemLabel}>Unpaid Interest Due</span>
+                                        <span style={styles.subItemValue}>₹{metrics.unpaidInterestDue.toLocaleString('en-IN')}</span>
+                                    </div>
+                                    <div style={styles.divider}></div>
+                                    <div style={styles.heroSubItem}>
+                                        <span style={styles.subItemLabel}>Total Paid Till Date</span>
+                                        <span style={styles.subItemValue}>₹{metrics.totalPayments.toLocaleString('en-IN')}</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        </section>
 
-                        {/* Recent Payments Logged */}
-                        <div style={styles.panelCard}>
-                            <div style={styles.panelCardHeader}>
-                                <h2 style={styles.panelTitle}>Recent Payments</h2>
-                                <button onClick={() => setShowAddPayment(true)} style={styles.actionButton}>
-                                    <Plus size={14} /> Log Payment
-                                </button>
-                            </div>
-                            <div style={styles.recentLogsList}>
-                                {data.payments.length === 0 ? (
-                                    <div style={styles.emptyState}>No payments recorded yet.</div>
-                                ) : (
-                                    data.payments.slice(0, 5).map(payment => {
-                                        const loan = data.loans.find(l => l.id === payment.loan_id);
-                                        const member = data.members.find(m => m.id === payment.member_id);
+                        <div style={styles.tabContentGrid}>
+                            {/* Liability Breakdowns */}
+                            <div style={styles.panelCard}>
+                                <h2 style={styles.panelTitle}>Liability Breakdowns</h2>
+                                <div style={{ ...styles.breakdownGrid, gridTemplateColumns: '1fr' }}>
+                                    {data.loans.filter(l => l.status === 'active').map(loan => {
+                                        // Total payments for this loan
+                                        const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                        const paidVal = loanPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+                                        const totalExpected = parseFloat(loan.principal_amount);
+                                        const progressPercent = Math.min(100, (paidVal / totalExpected) * 100);
+
                                         return (
-                                            <div key={payment.id} style={styles.recentLogItem}>
-                                                <div>
-                                                    <div style={styles.recentLogTitle}>{loan ? loan.name : 'Unknown Loan'}</div>
-                                                    <div style={styles.recentLogSub}>
-                                                        Paid by <strong>{member ? member.name : 'Unknown'}</strong> via {payment.source_of_income} on {payment.payment_date}
+                                            <div key={loan.id} style={styles.breakdownItem}>
+                                                <div style={styles.breakdownHeader}>
+                                                    <div>
+                                                        <span style={styles.breakdownName}>{loan.name}</span>
+                                                        <span style={styles.breakdownLender}> ({loan.lender})</span>
                                                     </div>
+                                                    <span style={styles.breakdownPercent}>{progressPercent.toFixed(1)}% Paid</span>
                                                 </div>
-                                                <div style={styles.recentLogAmount}>
-                                                    + ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
+                                                <div style={styles.progressBarBg}>
+                                                    <div style={{ ...styles.progressBarFill, width: `${progressPercent}%` }}></div>
+                                                </div>
+                                                <div style={styles.breakdownDetailRow}>
+                                                    <span>₹{paidVal.toLocaleString('en-IN')} paid</span>
+                                                    <span>₹{totalExpected.toLocaleString('en-IN')} principal</span>
                                                 </div>
                                             </div>
                                         );
-                                    })
-                                )}
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Recent Payments Logged */}
+                            <div style={styles.panelCard}>
+                                <div style={styles.tabHeaderRow}>
+                                    <h2 style={styles.panelTitle}>Recent Payments</h2>
+                                    <button onClick={() => setShowAddPayment(true)} style={styles.actionButton}>
+                                        <Plus size={14} /> Log Payment
+                                    </button>
+                                </div>
+                                <div style={styles.recentLogsList}>
+                                    {data.payments.length === 0 ? (
+                                        <div style={styles.emptyState}>No payments recorded yet.</div>
+                                    ) : (
+                                        data.payments.slice(0, 5).map(payment => {
+                                            const loan = data.loans.find(l => l.id === payment.loan_id);
+                                            const member = data.members.find(m => m.id === payment.member_id);
+                                            return (
+                                                <div key={payment.id} style={styles.recentLogItem}>
+                                                    <div>
+                                                        <div style={styles.recentLogTitle}>{loan ? loan.name : 'Unknown Loan'}</div>
+                                                        <div style={styles.recentLogSub}>
+                                                            Paid by <strong>{member ? member.name : 'Unknown'}</strong> via {payment.source_of_income} on {payment.payment_date}
+                                                        </div>
+                                                    </div>
+                                                    <div style={styles.recentLogAmount}>
+                                                        + ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2187,50 +2186,41 @@ const styles = {
         }
     },
     navBar: {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(9, 13, 22, 0.95)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
         display: 'flex',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        gap: '1.5rem',
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        paddingBottom: '2px',
-        // Mobile bottom navigation bar layout adjustments if needed
-        '@media (max-width: 600px)': {
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: '#0f172a',
-            borderTop: '1px solid rgba(255,255,255,0.08)',
-            borderBottom: 'none',
-            justifyContent: 'space-around',
-            padding: '0.5rem 0',
-            zIndex: 100,
-            gap: 0
-        }
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        padding: '0.5rem 0',
+        zIndex: 1000,
+        height: '64px',
+        boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.5)'
     },
     navTab: {
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: '0.5rem',
+        justifyContent: 'center',
+        gap: '0.25rem',
         background: 'transparent',
         border: 'none',
-        borderBottom: '2px solid transparent',
-        padding: '0.75rem 0.5rem',
+        padding: '0.25rem 0.75rem',
         cursor: 'pointer',
-        fontSize: '0.9rem',
+        fontSize: '0.75rem',
         fontWeight: '600',
         transition: 'all 0.2s',
         whiteSpace: 'nowrap',
-        '@media (max-width: 600px)': {
-            flexDirection: 'column',
-            gap: '0.2rem',
-            fontSize: '0.75rem',
-            padding: '0.25rem 0',
-            borderBottom: 'none'
-        }
+        outline: 'none',
+        flex: 1
     },
     mainContent: {
-        paddingBottom: '4rem' // spacer for mobile bottom bar
+        paddingBottom: '6rem' // spacer for bottom nav bar to prevent content obstruction
     },
     tabContentGrid: {
         display: 'grid',
