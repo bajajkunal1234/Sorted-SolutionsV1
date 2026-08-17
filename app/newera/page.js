@@ -1797,38 +1797,6 @@ export default function NewEraDashboard() {
                         <form onSubmit={submitCreateLoan} style={styles.modalForm}>
                             <div style={styles.formGrid}>
                                 <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Liability Account Name</label>
-                                    <input 
-                                        type="text" 
-                                        value={loanForm.name} 
-                                        onChange={e => setLoanForm(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="e.g. ICICI Home Loan, Vendor A Payable"
-                                        style={styles.formInput} 
-                                        required 
-                                    />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Supplier / Lender</label>
-                                    <input 
-                                        type="text" 
-                                        value={loanForm.lender} 
-                                        onChange={e => setLoanForm(prev => ({ ...prev, lender: e.target.value }))}
-                                        placeholder="e.g. ICICI Bank, Mukesh Kumar (Market)"
-                                        style={styles.formInput} 
-                                        required 
-                                    />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Account Number / Reference</label>
-                                    <input 
-                                        type="text" 
-                                        value={loanForm.account_number} 
-                                        onChange={e => setLoanForm(prev => ({ ...prev, account_number: e.target.value }))}
-                                        placeholder="e.g. 501004882103"
-                                        style={styles.formInput} 
-                                    />
-                                </div>
-                                <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Liability Category</label>
                                     <select 
                                         value={loanForm.loan_type} 
@@ -1842,6 +1810,59 @@ export default function NewEraDashboard() {
                                         <option value="Vendor Payable (Goods)">Vendor Payable (Goods)</option>
                                         <option value="Other">Other Liability</option>
                                     </select>
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Supplier / Lender</label>
+                                    <input 
+                                        type="text" 
+                                        value={loanForm.lender} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, lender: e.target.value }))}
+                                        placeholder="e.g. ICICI Bank, Mukesh Kumar (Market)"
+                                        style={styles.formInput} 
+                                        required 
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Liability Account Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={loanForm.name} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="e.g. ICICI Home Loan, Vendor A Payable"
+                                        style={styles.formInput} 
+                                        required 
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Mobile Number (Lender) — Mandatory</label>
+                                    <input 
+                                        type="tel" 
+                                        value={loanForm.mobile_number || ''} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, mobile_number: e.target.value }))}
+                                        placeholder="e.g. +91 9876543210"
+                                        style={styles.formInput} 
+                                        required
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Address (Lender) — Optional</label>
+                                    <input 
+                                        type="text" 
+                                        value={loanForm.address || ''} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, address: e.target.value }))}
+                                        placeholder="e.g. 1st Cross, Mumbai"
+                                        style={styles.formInput} 
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Account Number / Reference</label>
+                                    <input 
+                                        type="text" 
+                                        value={loanForm.account_number} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, account_number: e.target.value }))}
+                                        placeholder="e.g. 501004882103"
+                                        style={styles.formInput} 
+                                    />
                                 </div>
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Principal / Borrowed Amount</label>
@@ -1907,27 +1928,6 @@ export default function NewEraDashboard() {
                                         placeholder="e.g. 5"
                                         style={styles.formInput} 
                                         required
-                                    />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Mobile Number (Lender) — Mandatory</label>
-                                    <input 
-                                        type="tel" 
-                                        value={loanForm.mobile_number || ''} 
-                                        onChange={e => setLoanForm(prev => ({ ...prev, mobile_number: e.target.value }))}
-                                        placeholder="e.g. +91 9876543210"
-                                        style={styles.formInput} 
-                                        required
-                                    />
-                                </div>
-                                <div style={styles.formGroup}>
-                                    <label style={styles.formLabel}>Address (Lender) — Optional</label>
-                                    <input 
-                                        type="text" 
-                                        value={loanForm.address || ''} 
-                                        onChange={e => setLoanForm(prev => ({ ...prev, address: e.target.value }))}
-                                        placeholder="e.g. 1st Cross, Mumbai"
-                                        style={styles.formInput} 
                                     />
                                 </div>
                             </div>
@@ -2311,28 +2311,6 @@ export default function NewEraDashboard() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
                                                 <div style={styles.formGroup}>
-                                                    <label style={styles.formLabel}>Liability Account Name</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={newLoanForm.name} 
-                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, name: e.target.value }))}
-                                                        style={styles.formInput} 
-                                                        required
-                                                    />
-                                                </div>
-                                                <div style={styles.formGroup}>
-                                                    <label style={styles.formLabel}>Supplier / Lender</label>
-                                                    <input 
-                                                        type="text" 
-                                                        value={newLoanForm.lender} 
-                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, lender: e.target.value }))}
-                                                        style={styles.formInput} 
-                                                        required
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-                                                <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Category</label>
                                                     <select 
                                                         value={newLoanForm.loan_type} 
@@ -2348,26 +2326,34 @@ export default function NewEraDashboard() {
                                                     </select>
                                                 </div>
                                                 <div style={styles.formGroup}>
-                                                    <label style={styles.formLabel}>Annual Interest (%)</label>
+                                                    <label style={styles.formLabel}>Supplier / Lender</label>
                                                     <input 
-                                                        type="number" 
-                                                        step="0.01"
-                                                        value={newLoanForm.interest_rate_annual} 
-                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, interest_rate_annual: e.target.value }))}
+                                                        type="text" 
+                                                        value={newLoanForm.lender} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, lender: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Liability Account Name</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={newLoanForm.name} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, name: e.target.value }))}
                                                         style={styles.formInput} 
                                                         required
                                                     />
                                                 </div>
                                                 <div style={styles.formGroup}>
-                                                    <label style={styles.formLabel}>Repayment Day (1-31)</label>
+                                                    <label style={styles.formLabel}>Account Number / Reference</label>
                                                     <input 
-                                                        type="number" 
-                                                        min="1"
-                                                        max="31"
-                                                        value={newLoanForm.repayment_day} 
-                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
+                                                        type="text" 
+                                                        value={newLoanForm.account_number || ''} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, account_number: e.target.value }))}
                                                         style={styles.formInput} 
-                                                        required
                                                     />
                                                 </div>
                                             </div>
@@ -2403,6 +2389,31 @@ export default function NewEraDashboard() {
                                                         required
                                                     />
                                                 </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Annual Interest (%)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.01"
+                                                        value={newLoanForm.interest_rate_annual} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, interest_rate_annual: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Repayment Day (1-31)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        min="1"
+                                                        max="31"
+                                                        value={newLoanForm.repayment_day} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Tenure (Months)</label>
                                                     <input 
