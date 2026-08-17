@@ -63,6 +63,8 @@ export default function NewEraDashboard() {
         tenure_months: '',
         emi_amount: '',
         repayment_day: '5',
+        mobile_number: '',
+        address: '',
         allocations: [] // array of { member_id: X, share_percentage: Y }
     });
 
@@ -82,7 +84,9 @@ export default function NewEraDashboard() {
         start_date: new Date().toISOString().split('T')[0],
         tenure_months: '',
         emi_amount: '',
-        repayment_day: '5'
+        repayment_day: '5',
+        mobile_number: '',
+        address: ''
     });
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -109,6 +113,8 @@ export default function NewEraDashboard() {
             tenure_months: String(loan.tenure_months || ''),
             emi_amount: String(loan.emi_amount || ''),
             repayment_day: String(loan.repayment_day || '5'),
+            mobile_number: loan.mobile_number || '',
+            address: loan.address || '',
             allocations: []
         });
         setShowAddLoan(true);
@@ -461,6 +467,8 @@ export default function NewEraDashboard() {
                     tenure_months: '',
                     emi_amount: '',
                     repayment_day: '5',
+                    mobile_number: '',
+                    address: '',
                     allocations: data.members.map(m => {
                         const isAsha = m.name === 'Asha';
                         return {
@@ -1022,6 +1030,10 @@ export default function NewEraDashboard() {
                                                                 <span style={styles.loanBadge}>{loan.loan_type}</span>
                                                                 <h3 style={styles.loanCardTitle}>{loan.name}</h3>
                                                                 <span style={styles.loanCardLender}>Supplier/Lender: <strong>{loan.lender}</strong></span>
+                                                                <div style={{ marginTop: '0.25rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                                    <span>Phone: <strong>{loan.mobile_number || 'N/A'}</strong></span>
+                                                                    {loan.address && <span style={{ marginLeft: '1rem' }}>Address: <strong>{loan.address}</strong></span>}
+                                                                </div>
                                                             </div>
                                                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                                                                 <button 
@@ -1097,6 +1109,8 @@ export default function NewEraDashboard() {
                                                         <tr>
                                                             <th>Name</th>
                                                             <th>Lender</th>
+                                                            <th>Mobile</th>
+                                                            <th>Address</th>
                                                             <th>Category</th>
                                                             <th>Principal</th>
                                                             <th>Interest</th>
@@ -1115,6 +1129,8 @@ export default function NewEraDashboard() {
                                                                 <tr key={loan.id}>
                                                                     <td style={{ fontWeight: '700', color: '#ffffff' }}>{loan.name}</td>
                                                                     <td>{loan.lender}</td>
+                                                                    <td>{loan.mobile_number || 'N/A'}</td>
+                                                                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loan.address}>{loan.address || 'N/A'}</td>
                                                                     <td>
                                                                         <span style={{
                                                                             ...styles.statusBadge,
@@ -1201,7 +1217,7 @@ export default function NewEraDashboard() {
                                                                     <span style={styles.loanBadge}>{loan.loan_type}</span>
                                                                     <h3 style={styles.detailMainTitle}>{loan.name}</h3>
                                                                     <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginTop: '0.2rem' }}>
-                                                                        Supplier/Lender: <strong>{loan.lender}</strong>
+                                                                        Supplier/Lender: <strong>{loan.lender}</strong> • Phone: <strong>{loan.mobile_number || 'N/A'}</strong> {loan.address ? `• Address: ${loan.address}` : ''}
                                                                     </span>
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1893,6 +1909,27 @@ export default function NewEraDashboard() {
                                         required
                                     />
                                 </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Mobile Number (Lender) — Mandatory</label>
+                                    <input 
+                                        type="tel" 
+                                        value={loanForm.mobile_number || ''} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, mobile_number: e.target.value }))}
+                                        placeholder="e.g. +91 9876543210"
+                                        style={styles.formInput} 
+                                        required
+                                    />
+                                </div>
+                                <div style={styles.formGroup}>
+                                    <label style={styles.formLabel}>Address (Lender) — Optional</label>
+                                    <input 
+                                        type="text" 
+                                        value={loanForm.address || ''} 
+                                        onChange={e => setLoanForm(prev => ({ ...prev, address: e.target.value }))}
+                                        placeholder="e.g. 1st Cross, Mumbai"
+                                        style={styles.formInput} 
+                                    />
+                                </div>
                             </div>
 
                             {/* Member allocations removed */}
@@ -2331,6 +2368,27 @@ export default function NewEraDashboard() {
                                                         onChange={e => setNewLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
                                                         style={styles.formInput} 
                                                         required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Lender Mobile Number — Mandatory</label>
+                                                    <input 
+                                                        type="tel" 
+                                                        value={newLoanForm.mobile_number || ''} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, mobile_number: e.target.value }))}
+                                                        style={styles.formInput} 
+                                                        required
+                                                    />
+                                                </div>
+                                                <div style={styles.formGroup}>
+                                                    <label style={styles.formLabel}>Lender Address — Optional</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={newLoanForm.address || ''} 
+                                                        onChange={e => setNewLoanForm(prev => ({ ...prev, address: e.target.value }))}
+                                                        style={styles.formInput} 
                                                     />
                                                 </div>
                                             </div>

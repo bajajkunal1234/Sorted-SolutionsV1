@@ -180,7 +180,7 @@ export async function POST(request) {
 
         // 4. Create Loan
         if (action === 'create_loan') {
-            const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, allocations, repayment_day } = body;
+            const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, allocations, repayment_day, mobile_number, address } = body;
 
             // Insert loan
             const { data: loan, error: loanError } = await supabase
@@ -195,7 +195,9 @@ export async function POST(request) {
                     start_date,
                     tenure_months: tenure_months ? parseInt(tenure_months) : null,
                     emi_amount: emi_amount ? parseFloat(emi_amount) : null,
-                    repayment_day: repayment_day ? parseInt(repayment_day) : 5
+                    repayment_day: repayment_day ? parseInt(repayment_day) : 5,
+                    mobile_number: mobile_number || null,
+                    address: address || null
                 })
                 .select()
                 .single();
@@ -264,7 +266,7 @@ export async function POST(request) {
 
         // 4.5 Edit Loan
         if (action === 'edit_loan') {
-            const { loanId, name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day } = body;
+            const { loanId, name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day, mobile_number, address } = body;
 
             const { data: oldLoan } = await supabase.from('newera_loans').select('*').eq('id', loanId).single();
             if (!oldLoan) throw new Error('Loan not found');
@@ -281,7 +283,9 @@ export async function POST(request) {
                     start_date,
                     tenure_months: tenure_months ? parseInt(tenure_months) : null,
                     emi_amount: emi_amount ? parseFloat(emi_amount) : null,
-                    repayment_day: repayment_day ? parseInt(repayment_day) : 5
+                    repayment_day: repayment_day ? parseInt(repayment_day) : 5,
+                    mobile_number: mobile_number || null,
+                    address: address || null
                 })
                 .eq('id', loanId)
                 .select()
@@ -628,7 +632,7 @@ export async function POST(request) {
                     return NextResponse.json({ success: false, error: 'Loan details required for new liability' }, { status: 400 });
                 }
 
-                const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day } = newLoanForm;
+                const { name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day, mobile_number, address } = newLoanForm;
 
                 const { data: loan, error: loanError } = await supabase
                     .from('newera_loans')
@@ -642,7 +646,9 @@ export async function POST(request) {
                         start_date,
                         tenure_months: tenure_months ? parseInt(tenure_months) : null,
                         emi_amount: emi_amount ? parseFloat(emi_amount) : null,
-                        repayment_day: repayment_day ? parseInt(repayment_day) : 5
+                        repayment_day: repayment_day ? parseInt(repayment_day) : 5,
+                        mobile_number: mobile_number || null,
+                        address: address || null
                     })
                     .select()
                     .single();
