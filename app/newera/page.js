@@ -22,7 +22,11 @@ import {
     Briefcase,
     List,
     FileText,
-    Upload
+    Upload,
+    Edit,
+    LayoutGrid,
+    Table,
+    Eye
 } from 'lucide-react';
 
 export default function NewEraDashboard() {
@@ -84,6 +88,67 @@ export default function NewEraDashboard() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().toISOString().split('T')[0]);
     const [scheduleView, setScheduleView] = useState('calendar'); // 'calendar' or 'list'
+
+    // Liabilities View States
+    const [editingLoanId, setEditingLoanId] = useState(null);
+    const [liabilitiesView, setLiabilitiesView] = useState('card'); // 'card', 'table', 'detail'
+    const [selectedDetailLoanId, setSelectedDetailLoanId] = useState('');
+    const [liabilityFilterType, setLiabilityFilterType] = useState('all');
+    const [liabilitySortBy, setLiabilitySortBy] = useState('name_asc');
+
+    const startEditLoan = (loan) => {
+        setEditingLoanId(loan.id);
+        setLoanForm({
+            name: loan.name || '',
+            lender: loan.lender || '',
+            account_number: loan.account_number || '',
+            loan_type: loan.loan_type || 'Home Loan',
+            principal_amount: String(loan.principal_amount || ''),
+            interest_rate_annual: String(loan.interest_rate_annual || ''),
+            start_date: loan.start_date || new Date().toISOString().split('T')[0],
+            tenure_months: String(loan.tenure_months || ''),
+            emi_amount: String(loan.emi_amount || ''),
+            repayment_day: String(loan.repayment_day || '5'),
+            allocations: []
+        });
+        setShowAddLoan(true);
+    };
+
+    const getFilteredAndSortedLoans = () => {
+        let list = [...data.loans];
+
+        if (liabilityFilterType !== 'all') {
+            list = list.filter(l => l.loan_type === liabilityFilterType);
+        }
+
+        list.sort((a, b) => {
+            if (liabilitySortBy === 'name_asc') {
+                return a.name.localeCompare(b.name);
+            }
+            if (liabilitySortBy === 'name_desc') {
+                return b.name.localeCompare(a.name);
+            }
+            if (liabilitySortBy === 'principal_desc') {
+                return parseFloat(b.principal_amount) - parseFloat(a.principal_amount);
+            }
+            if (liabilitySortBy === 'principal_asc') {
+                return parseFloat(a.principal_amount) - parseFloat(b.principal_amount);
+            }
+            if (liabilitySortBy === 'remaining_desc' || liabilitySortBy === 'remaining_asc') {
+                const getRemaining = (loan) => {
+                    const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                    const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
+                    return Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
+                };
+                return liabilitySortBy === 'remaining_desc' 
+                    ? getRemaining(b) - getRemaining(a)
+                    : getRemaining(a) - getRemaining(b);
+            }
+            return 0;
+        });
+
+        return list;
+    };
 
     // Add Repayment Form State
     const [repaymentForm, setRepaymentForm] = useState({
@@ -369,18 +434,21 @@ export default function NewEraDashboard() {
         try {
             // Strip allocations from the form data
             const { allocations, ...loanPayload } = loanForm;
+            const actionType = editingLoanId ? 'edit_loan' : 'create_loan';
 
             const res = await fetch('/api/newera', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'create_loan',
+                    action: actionType,
+                    loanId: editingLoanId,
                     ...loanPayload
                 })
             });
             const result = await res.json();
             if (result.success) {
                 setShowAddLoan(false);
+                setEditingLoanId(null);
                 // Reset form
                 setLoanForm({
                     name: '',
@@ -392,6 +460,7 @@ export default function NewEraDashboard() {
                     start_date: new Date().toISOString().split('T')[0],
                     tenure_months: '',
                     emi_amount: '',
+                    repayment_day: '5',
                     allocations: data.members.map(m => {
                         const isAsha = m.name === 'Asha';
                         return {
@@ -402,7 +471,7 @@ export default function NewEraDashboard() {
                 });
                 fetchDashboardData();
             } else {
-                alert('Error creating loan: ' + result.error);
+                alert('Error saving loan: ' + result.error);
             }
         } catch (err) {
             console.error(err);
@@ -842,10 +911,91 @@ export default function NewEraDashboard() {
                     <div style={styles.tabContentSingle}>
                         <div style={styles.tabHeaderRow}>
                             <h2 style={styles.panelTitle}>Active Loans & Accounts Payable</h2>
-                            <button onClick={() => setShowAddLoan(true)} style={styles.primaryActionButton}>
+                            <button onClick={() => { setEditingLoanId(null); setShowAddLoan(true); }} style={styles.primaryActionButton}>
                                 <Plus size={16} /> Add Liability
                             </button>
                         </div>
+
+                        {/* Controls: View Toggles, Filter, Sort */}
+                        {data.loans.length > 0 && (
+                            <div style={styles.liabilitiesControlRow}>
+                                <div style={styles.viewToggleRow} style={{ ...styles.viewToggleRow, margin: 0 }}>
+                                    <button 
+                                        onClick={() => setLiabilitiesView('card')} 
+                                        style={{
+                                            ...styles.viewToggleBtn,
+                                            backgroundColor: liabilitiesView === 'card' ? '#6366f1' : 'transparent',
+                                            color: liabilitiesView === 'card' ? '#ffffff' : '#94a3b8',
+                                            borderColor: liabilitiesView === 'card' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                        }}
+                                    >
+                                        <LayoutGrid size={14} /> Cards
+                                    </button>
+                                    <button 
+                                        onClick={() => setLiabilitiesView('table')} 
+                                        style={{
+                                            ...styles.viewToggleBtn,
+                                            backgroundColor: liabilitiesView === 'table' ? '#6366f1' : 'transparent',
+                                            color: liabilitiesView === 'table' ? '#ffffff' : '#94a3b8',
+                                            borderColor: liabilitiesView === 'table' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                        }}
+                                    >
+                                        <Table size={14} /> Table
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            setLiabilitiesView('detail');
+                                            if (data.loans.length > 0 && !selectedDetailLoanId) {
+                                                setSelectedDetailLoanId(data.loans[0].id);
+                                            }
+                                        }} 
+                                        style={{
+                                            ...styles.viewToggleBtn,
+                                            backgroundColor: liabilitiesView === 'detail' ? '#6366f1' : 'transparent',
+                                            color: liabilitiesView === 'detail' ? '#ffffff' : '#94a3b8',
+                                            borderColor: liabilitiesView === 'detail' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                        }}
+                                    >
+                                        <Eye size={14} /> Details
+                                    </button>
+                                </div>
+
+                                {liabilitiesView !== 'detail' && (
+                                    <div style={styles.filtersWrapper}>
+                                        <div style={styles.filterItem}>
+                                            <span style={styles.filterLabel}>Type</span>
+                                            <select 
+                                                value={liabilityFilterType} 
+                                                onChange={e => setLiabilityFilterType(e.target.value)}
+                                                style={styles.filterDropdownSmall}
+                                            >
+                                                <option value="all">All Types</option>
+                                                <option value="Home Loan">Home Loan</option>
+                                                <option value="Bank OD">Bank OD</option>
+                                                <option value="Business Loan (Bank)">Business Loan (Bank)</option>
+                                                <option value="Business Loan (Market)">Business Loan (Market Vendor)</option>
+                                                <option value="Vendor Payable (Goods)">Vendor Payable (Goods)</option>
+                                            </select>
+                                        </div>
+                                        <div style={styles.filterItem}>
+                                            <span style={styles.filterLabel}>Sort</span>
+                                            <select 
+                                                value={liabilitySortBy} 
+                                                onChange={e => setLiabilitySortBy(e.target.value)}
+                                                style={styles.filterDropdownSmall}
+                                            >
+                                                <option value="name_asc">Name (A-Z)</option>
+                                                <option value="name_desc">Name (Z-A)</option>
+                                                <option value="principal_desc">Principal (High-Low)</option>
+                                                <option value="principal_asc">Principal (Low-High)</option>
+                                                <option value="remaining_desc">Remaining (High-Low)</option>
+                                                <option value="remaining_asc">Remaining (Low-High)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div style={styles.loansContainer}>
                             {data.loans.length === 0 ? (
@@ -855,66 +1005,319 @@ export default function NewEraDashboard() {
                                     <p>Start tracking by adding your first home loan, OD, vendor payable, or personal market loan.</p>
                                 </div>
                             ) : (
-                                <div style={styles.loansGrid}>
-                                    {data.loans.map(loan => {
-                                        const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-                                        const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
-                                        const outstanding = Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
-                                        const loanAllocations = data.allocations.filter(a => a.loan_id === loan.id);
+                                <>
+                                    {/* 1. Card View */}
+                                    {liabilitiesView === 'card' && (
+                                        <div style={styles.loansGrid}>
+                                            {getFilteredAndSortedLoans().map(loan => {
+                                                const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                                const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
+                                                const outstanding = Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
+                                                const loanAllocations = data.allocations.filter(a => a.loan_id === loan.id);
 
-                                        return (
-                                            <div key={loan.id} style={styles.loanCard}>
-                                                <div style={styles.loanCardHeader}>
-                                                    <div>
-                                                        <span style={styles.loanBadge}>{loan.loan_type}</span>
-                                                        <h3 style={styles.loanCardTitle}>{loan.name}</h3>
-                                                        <span style={styles.loanCardLender}>Supplier/Lender: <strong>{loan.lender}</strong></span>
+                                                return (
+                                                    <div key={loan.id} style={styles.loanCard}>
+                                                        <div style={styles.loanCardHeader}>
+                                                            <div>
+                                                                <span style={styles.loanBadge}>{loan.loan_type}</span>
+                                                                <h3 style={styles.loanCardTitle}>{loan.name}</h3>
+                                                                <span style={styles.loanCardLender}>Supplier/Lender: <strong>{loan.lender}</strong></span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                                <button 
+                                                                    onClick={() => startEditLoan(loan)} 
+                                                                    style={{ ...styles.iconDeleteBtn, color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' }} 
+                                                                    title="Edit Loan"
+                                                                >
+                                                                    <Edit size={14} />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteLoan(loan.id)} 
+                                                                    style={styles.iconDeleteBtn} 
+                                                                    title="Delete Loan"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={styles.loanCardDetailsGrid}>
+                                                            <div style={styles.detailBox}>
+                                                                <span style={styles.detailLabel}>Account Number</span>
+                                                                <span style={styles.detailVal}>{loan.account_number || 'N/A'}</span>
+                                                            </div>
+                                                            <div style={styles.detailBox}>
+                                                                <span style={styles.detailLabel}>Interest Rate</span>
+                                                                <span style={styles.detailVal}>{loan.interest_rate_annual}% p.a.</span>
+                                                            </div>
+                                                            <div style={styles.detailBox}>
+                                                                <span style={styles.detailLabel}>Principal Borrowed</span>
+                                                                <span style={styles.detailVal}>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div style={styles.detailBox}>
+                                                                <span style={styles.detailLabel}>Remaining Principal</span>
+                                                                <span style={styles.detailVal} style={{ color: '#818cf8', fontWeight: '700' }}>
+                                                                    ₹{outstanding.toLocaleString('en-IN')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Member Shares */}
+                                                        <div style={styles.loanCardShares}>
+                                                            <span style={styles.sharesTitle}>Member Payments Distribution:</span>
+                                                            <div style={styles.sharesGrid}>
+                                                                {loanAllocations.map(alloc => {
+                                                                    const m = data.members.find(member => member.id === alloc.member_id);
+                                                                    return (
+                                                                        <div key={alloc.id} style={styles.shareBadge}>
+                                                                            <span>{m ? m.name : 'Unknown'}:</span>
+                                                                            <strong>{alloc.share_percentage}%</strong>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => handleDeleteLoan(loan.id)} style={styles.iconDeleteBtn} title="Delete Loan">
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                );
+                                            })}
+                                            {getFilteredAndSortedLoans().length === 0 && (
+                                                <div style={{ ...styles.bigEmptyState, gridColumn: '1 / -1' }}>
+                                                    <p>No liabilities match your filters.</p>
                                                 </div>
+                                            )}
+                                        </div>
+                                    )}
 
-                                                <div style={styles.loanCardDetailsGrid}>
-                                                    <div style={styles.detailBox}>
-                                                        <span style={styles.detailLabel}>Account Number</span>
-                                                        <span style={styles.detailVal}>{loan.account_number || 'N/A'}</span>
-                                                    </div>
-                                                    <div style={styles.detailBox}>
-                                                        <span style={styles.detailLabel}>Interest Rate</span>
-                                                        <span style={styles.detailVal}>{loan.interest_rate_annual}% p.a.</span>
-                                                    </div>
-                                                    <div style={styles.detailBox}>
-                                                        <span style={styles.detailLabel}>Principal Borrowed</span>
-                                                        <span style={styles.detailVal}>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</span>
-                                                    </div>
-                                                    <div style={styles.detailBox}>
-                                                        <span style={styles.detailLabel}>Remaining Principal</span>
-                                                        <span style={styles.detailVal} style={{ color: '#818cf8', fontWeight: '700' }}>
-                                                            ₹{outstanding.toLocaleString('en-IN')}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Member Shares */}
-                                                <div style={styles.loanCardShares}>
-                                                    <span style={styles.sharesTitle}>Member Payments Distribution:</span>
-                                                    <div style={styles.sharesGrid}>
-                                                        {loanAllocations.map(alloc => {
-                                                            const m = data.members.find(member => member.id === alloc.member_id);
+                                    {/* 2. Table View */}
+                                    {liabilitiesView === 'table' && (
+                                        <div style={styles.tableCardContainer}>
+                                            <div style={{ overflowX: 'auto' }}>
+                                                <table style={styles.customTable}>
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Name</th>
+                                                            <th>Lender</th>
+                                                            <th>Category</th>
+                                                            <th>Principal</th>
+                                                            <th>Interest</th>
+                                                            <th>Remaining</th>
+                                                            <th>EMI</th>
+                                                            <th>Repayment Day</th>
+                                                            <th>Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {getFilteredAndSortedLoans().map(loan => {
+                                                            const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                                            const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
+                                                            const outstanding = Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
                                                             return (
-                                                                <div key={alloc.id} style={styles.shareBadge}>
-                                                                    <span>{m ? m.name : 'Unknown'}:</span>
-                                                                    <strong>{alloc.share_percentage}%</strong>
-                                                                </div>
+                                                                <tr key={loan.id}>
+                                                                    <td style={{ fontWeight: '700', color: '#ffffff' }}>{loan.name}</td>
+                                                                    <td>{loan.lender}</td>
+                                                                    <td>
+                                                                        <span style={{
+                                                                            ...styles.statusBadge,
+                                                                            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                                                            color: '#818cf8',
+                                                                            borderColor: 'rgba(99, 102, 241, 0.25)',
+                                                                            fontSize: '0.65rem'
+                                                                        }}>{loan.loan_type}</span>
+                                                                    </td>
+                                                                    <td>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</td>
+                                                                    <td>{loan.interest_rate_annual}%</td>
+                                                                    <td style={{ color: '#818cf8', fontWeight: '700' }}>₹{outstanding.toLocaleString('en-IN')}</td>
+                                                                    <td>{loan.emi_amount ? `₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : 'N/A'}</td>
+                                                                    <td>Day {loan.repayment_day || 5}</td>
+                                                                    <td>
+                                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                                            <button 
+                                                                                onClick={() => startEditLoan(loan)} 
+                                                                                style={{ ...styles.iconBtn, color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' }}
+                                                                                title="Edit Account"
+                                                                            >
+                                                                                <Edit size={14} />
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => handleDeleteLoan(loan.id)} 
+                                                                                style={{ ...styles.iconBtn, color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                                                                                title="Delete Account"
+                                                                            >
+                                                                                <Trash2 size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
                                                             );
                                                         })}
-                                                    </div>
-                                                </div>
+                                                        {getFilteredAndSortedLoans().length === 0 && (
+                                                            <tr>
+                                                                <td colSpan="9" style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '2rem' }}>
+                                                                    No liabilities found matching filters.
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </tbody>
+                                                </table>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        </div>
+                                    )}
+
+                                    {/* 3. Detail View */}
+                                    {liabilitiesView === 'detail' && (
+                                        <div style={styles.detailViewContainer}>
+                                            <div style={styles.detailSelectorRow}>
+                                                <span style={styles.detailSelectorLabel}>Select Account:</span>
+                                                <select 
+                                                    value={selectedDetailLoanId} 
+                                                    onChange={e => setSelectedDetailLoanId(e.target.value)}
+                                                    style={styles.detailDropdown}
+                                                >
+                                                    {data.loans.map(l => (
+                                                        <option key={l.id} value={l.id}>{l.name} ({l.lender})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+
+                                            {(() => {
+                                                const loan = data.loans.find(l => l.id === selectedDetailLoanId);
+                                                if (!loan) return <div style={styles.emptyState}>Choose a liability to inspect from the dropdown list.</div>;
+
+                                                const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                                const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
+                                                const paidInterest = loanPayments.reduce((sum, p) => sum + parseFloat(p.interest_portion), 0);
+                                                const totalPaid = paidPrincipal + paidInterest;
+                                                const outstanding = Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
+
+                                                const upcomingRepayments = data.repayments.filter(r => r.loan_id === loan.id && r.status !== 'paid');
+                                                const loanAllocations = data.allocations.filter(a => a.loan_id === loan.id);
+
+                                                return (
+                                                    <div style={styles.detailGrid}>
+                                                        {/* Summary Card */}
+                                                        <div style={styles.detailMainCard}>
+                                                            <div style={styles.detailMainHeader}>
+                                                                <div>
+                                                                    <span style={styles.loanBadge}>{loan.loan_type}</span>
+                                                                    <h3 style={styles.detailMainTitle}>{loan.name}</h3>
+                                                                    <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginTop: '0.2rem' }}>
+                                                                        Supplier/Lender: <strong>{loan.lender}</strong>
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                                    <button 
+                                                                        onClick={() => startEditLoan(loan)} 
+                                                                        style={{ ...styles.viewToggleBtn, backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' }}
+                                                                    >
+                                                                        <Edit size={14} /> Edit
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteLoan(loan.id)} 
+                                                                        style={{ ...styles.viewToggleBtn, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                                    >
+                                                                        <Trash2 size={14} /> Delete
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={styles.detailStatsRow}>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Principal Borrowed</span>
+                                                                    <span style={styles.detailStatVal}>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Remaining Principal</span>
+                                                                    <span style={{ ...styles.detailStatVal, color: '#818cf8' }}>₹{outstanding.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Interest Rate</span>
+                                                                    <span style={styles.detailStatVal}>{loan.interest_rate_annual}% p.a.</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Start Date</span>
+                                                                    <span style={styles.detailStatVal}>{loan.start_date}</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div style={{ ...styles.detailStatsRow, marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '1rem' }}>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Total Paid Till Date</span>
+                                                                    <span style={styles.detailStatVal}>₹{totalPaid.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Principal Repaid</span>
+                                                                    <span style={styles.detailStatVal}>₹{paidPrincipal.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Interest Paid</span>
+                                                                    <span style={styles.detailStatVal}>₹{paidInterest.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={styles.detailStatBox}>
+                                                                    <span style={styles.detailStatLabel}>Tenure / EMI</span>
+                                                                    <span style={styles.detailStatVal}>
+                                                                        {loan.tenure_months ? `${loan.tenure_months} Mo` : 'N/A'} {loan.emi_amount ? `(₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')})` : ''}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Subsections: Schedule & Payment Log */}
+                                                        <div style={styles.detailSectionsGrid}>
+                                                            {/* Left: Upcoming Schedule */}
+                                                            <div style={styles.panelCard}>
+                                                                <h3 style={styles.panelTitle}>Upcoming Repayments</h3>
+                                                                <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                                                    {upcomingRepayments.length === 0 ? (
+                                                                        <div style={styles.emptyState}>No upcoming schedule items.</div>
+                                                                    ) : (
+                                                                        upcomingRepayments.map(rep => (
+                                                                            <div key={rep.id} style={{ ...styles.dayDetailItem, padding: '0.5rem 0.75rem', borderRadius: '0.5rem' }}>
+                                                                                <div>
+                                                                                    <strong style={{ fontSize: '0.85rem', color: '#ffffff' }}>Date: {rep.due_date}</strong>
+                                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                                                        Installment #{rep.installment_number} • Principal: ₹{Math.round(rep.expected_principal).toLocaleString('en-IN')}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div style={{ textAlign: 'right' }}>
+                                                                                    <strong style={{ color: '#f59e0b', fontSize: '0.9rem' }}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</strong>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Right: Payment Logs */}
+                                                            <div style={styles.panelCard}>
+                                                                <h3 style={styles.panelTitle}>Recorded Payments</h3>
+                                                                <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.75rem' }}>
+                                                                    {loanPayments.length === 0 ? (
+                                                                        <div style={styles.emptyState}>No payments logged for this liability.</div>
+                                                                    ) : (
+                                                                        loanPayments.map(p => {
+                                                                            const member = data.members.find(m => m.id === p.member_id);
+                                                                            return (
+                                                                                <div key={p.id} style={{ ...styles.recentLogItem, padding: '0.5rem 0.75rem', borderRadius: '0.5rem', margin: 0 }}>
+                                                                                    <div>
+                                                                                        <strong style={{ fontSize: '0.85rem', color: '#ffffff' }}>{p.payment_date}</strong>
+                                                                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                                                            By {member ? member.name : 'Unknown'} • Principal: ₹{parseFloat(p.principal_portion).toLocaleString('en-IN')}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <strong style={{ color: '#10b981', fontSize: '0.9rem' }}>+ ₹{parseFloat(p.amount).toLocaleString('en-IN')}</strong>
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
@@ -1372,8 +1775,8 @@ export default function NewEraDashboard() {
                 <div style={styles.modalOverlay}>
                     <div style={styles.modalContent}>
                         <div style={styles.modalHeader}>
-                            <h3 style={styles.modalTitle}>Add Liability Account</h3>
-                            <button onClick={() => setShowAddLoan(false)} style={styles.closeModalBtn}>×</button>
+                            <h3 style={styles.modalTitle}>{editingLoanId ? 'Edit Liability Account' : 'Add Liability Account'}</h3>
+                            <button onClick={() => { setShowAddLoan(false); setEditingLoanId(null); }} style={styles.closeModalBtn}>×</button>
                         </div>
                         <form onSubmit={submitCreateLoan} style={styles.modalForm}>
                             <div style={styles.formGrid}>
@@ -1494,7 +1897,9 @@ export default function NewEraDashboard() {
 
                             {/* Member allocations removed */}
 
-                            <button type="submit" style={styles.modalSubmitBtn}>Save Liability Account</button>
+                            <button type="submit" style={styles.modalSubmitBtn}>
+                                {editingLoanId ? 'Save Changes' : 'Save Liability Account'}
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -3029,6 +3434,152 @@ const styles = {
         fontWeight: '700',
         cursor: 'pointer',
         transition: 'all 0.2s'
+    },
+    liabilitiesControlRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '1rem',
+        marginBottom: '1.25rem'
+    },
+    filtersWrapper: {
+        display: 'flex',
+        gap: '0.75rem',
+        alignItems: 'center'
+    },
+    filterItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.35rem'
+    },
+    filterLabel: {
+        fontSize: '0.75rem',
+        color: '#64748b',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+    },
+    filterDropdownSmall: {
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        color: '#ffffff',
+        padding: '0.35rem 0.6rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.8rem',
+        outline: 'none',
+        cursor: 'pointer'
+    },
+    tableCardContainer: {
+        background: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: '1rem',
+        padding: '1.25rem',
+        overflow: 'hidden'
+    },
+    customTable: {
+        width: '100%',
+        borderCollapse: 'collapse',
+        textAlign: 'left'
+    },
+    iconBtn: {
+        width: '28px',
+        height: '28px',
+        borderRadius: '0.25rem',
+        border: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+    },
+    detailViewContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.25rem'
+    },
+    detailSelectorRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        background: 'rgba(15, 23, 42, 0.25)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        borderRadius: '0.75rem',
+        padding: '0.75rem 1rem'
+    },
+    detailSelectorLabel: {
+        fontSize: '0.85rem',
+        fontWeight: '600',
+        color: '#94a3b8'
+    },
+    detailDropdown: {
+        backgroundColor: '#0f172a',
+        border: '1px solid rgba(255,255,255,0.08)',
+        color: '#ffffff',
+        padding: '0.4rem 0.75rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.85rem',
+        outline: 'none',
+        cursor: 'pointer',
+        flex: 1
+    },
+    detailGrid: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.25rem'
+    },
+    detailMainCard: {
+        background: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: '1rem',
+        padding: '1.5rem'
+    },
+    detailMainHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        paddingBottom: '1rem',
+        marginBottom: '1rem'
+    },
+    detailMainTitle: {
+        fontSize: '1.5rem',
+        fontWeight: '800',
+        color: '#ffffff',
+        margin: 0
+    },
+    detailStatsRow: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '1rem',
+        '@media (max-width: 800px)': {
+            gridTemplateColumns: 'repeat(2, 1fr)'
+        }
+    },
+    detailStatBox: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.25rem'
+    },
+    detailStatLabel: {
+        fontSize: '0.75rem',
+        color: '#64748b',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+    },
+    detailStatVal: {
+        fontSize: '1.2rem',
+        fontWeight: '800',
+        color: '#ffffff'
+    },
+    detailSectionsGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1.25rem',
+        '@media (max-width: 800px)': {
+            gridTemplateColumns: '1fr'
+        }
     }
 };
 

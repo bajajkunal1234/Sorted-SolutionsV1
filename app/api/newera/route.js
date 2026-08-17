@@ -262,6 +262,111 @@ export async function POST(request) {
             return NextResponse.json({ success: true, loan });
         }
 
+        // 4.5 Edit Loan
+        if (action === 'edit_loan') {
+            const { loanId, name, lender, account_number, loan_type, principal_amount, interest_rate_annual, start_date, tenure_months, emi_amount, repayment_day } = body;
+
+            const { data: oldLoan } = await supabase.from('newera_loans').select('*').eq('id', loanId).single();
+            if (!oldLoan) throw new Error('Loan not found');
+
+            const { data: loan, error: loanError } = await supabase
+                .from('newera_loans')
+                .update({
+                    name,
+                    lender,
+                    account_number: account_number || null,
+                    loan_type,
+                    principal_amount: parseFloat(principal_amount),
+                    interest_rate_annual: parseFloat(interest_rate_annual),
+                    start_date,
+                    tenure_months: tenure_months ? parseInt(tenure_months) : null,
+                    emi_amount: emi_amount ? parseFloat(emi_amount) : null,
+                    repayment_day: repayment_day ? parseInt(repayment_day) : 5
+                })
+                .eq('id', loanId)
+                .select()
+                .single();
+
+            if (loanError) throw loanError;
+
+            // Regenerate unpaid schedule if principal, interest, tenure, emi or repayment day changed
+            const principalChanged = parseFloat(oldLoan.principal_amount) !== parseFloat(principal_amount);
+            const interestChanged = parseFloat(oldLoan.interest_rate_annual) !== parseFloat(interest_rate_annual);
+            const tenureChanged = parseInt(oldLoan.tenure_months || 0) !== parseInt(tenure_months || 0);
+            const emiChanged = parseFloat(oldLoan.emi_amount || 0) !== parseFloat(emi_amount || 0);
+            const repaymentDayChanged = parseInt(oldLoan.repayment_day || 5) !== parseInt(repayment_day || 5);
+            const startDateChanged = oldLoan.start_date !== start_date;
+
+            if (tenure_months && emi_amount && parseFloat(emi_amount) > 0 && 
+                (principalChanged || interestChanged || tenureChanged || emiChanged || repaymentDayChanged || startDateChanged)) {
+                
+                // Get count of paid/partially paid repayments
+                const { data: paidRepayments } = await supabase
+                    .from('newera_repayments')
+                    .select('*')
+                    .eq('loan_id', loanId)
+                    .in('status', ['paid', 'partially_paid'])
+                    .order('installment_number', { ascending: true });
+
+                const paidCount = paidRepayments ? paidRepayments.length : 0;
+
+                // Delete unpaid repayments
+                await supabase
+                    .from('newera_repayments')
+                    .delete()
+                    .eq('loan_id', loanId)
+                    .eq('status', 'unpaid');
+
+                // Generate new unpaid repayments for the remaining tenure
+                if (parseInt(tenure_months) > paidCount) {
+                    const repayments = [];
+                    let balance = parseFloat(principal_amount);
+                    const monthlyRate = (parseFloat(interest_rate_annual) / 100) / 12;
+                    const startDateObj = new Date(start_date);
+
+                    // Skip the paid counts to compute the starting balance for the remaining installments
+                    for (let i = 1; i <= parseInt(tenure_months); i++) {
+                        const expectedInterest = balance * monthlyRate;
+                        let expectedPrincipal = parseFloat(emi_amount) - expectedInterest;
+                        
+                        if (expectedPrincipal > balance || i === parseInt(tenure_months)) {
+                            expectedPrincipal = balance;
+                        }
+                        
+                        const installmentAmount = expectedPrincipal + expectedInterest;
+                        balance -= expectedPrincipal;
+
+                        if (i > paidCount) {
+                            const dueDate = new Date(startDateObj);
+                            dueDate.setMonth(dueDate.getMonth() + i);
+                            
+                            const rDay = repayment_day ? parseInt(repayment_day) : 5;
+                            dueDate.setDate(rDay);
+
+                            repayments.push({
+                                loan_id: loanId,
+                                due_date: dueDate.toISOString().split('T')[0],
+                                installment_number: i,
+                                expected_amount: installmentAmount,
+                                expected_principal: expectedPrincipal,
+                                expected_interest: expectedInterest,
+                                status: 'unpaid'
+                            });
+                        }
+                    }
+
+                    if (repayments.length > 0) {
+                        const { error: repErr } = await supabase.from('newera_repayments').insert(repayments);
+                        if (repErr) throw repErr;
+                    }
+                }
+            }
+
+            await logInteraction(supabase, session.member_name, 'edit_loan', `Updated liability details for "${name}" (Lender: ${lender}, Principal: ₹${parseFloat(principal_amount).toLocaleString('en-IN')})`);
+
+            return NextResponse.json({ success: true, loan });
+        }
+
         // 5. Delete Loan
         if (action === 'delete_loan') {
             const { loanId } = body;
