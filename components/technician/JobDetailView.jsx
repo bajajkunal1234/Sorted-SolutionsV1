@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2, Navigation, Camera, Upload } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
@@ -526,7 +526,17 @@ const computeVisitsFromInteractions = (interactions = []) => {
 
 export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true, shouldHideAddress = false }) {
     const [activeTab, setActiveTab] = useState('actions');
-    const [editedJob, setEditedJob] = useState(job);
+    const [editedJob, _setEditedJob] = useState(job);
+    const setEditedJob = useCallback((val) => {
+        _setEditedJob(prev => {
+            const nextVal = typeof val === 'function' ? val(prev) : val;
+            if (!nextVal) return nextVal;
+            return {
+                ...nextVal,
+                interactions: nextVal.interactions !== undefined ? nextVal.interactions : prev?.interactions
+            };
+        });
+    }, []);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeForm, setActiveForm] = useState(null);
@@ -1074,7 +1084,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const arrivedTime = editedJob.arrived_at ? new Date(editedJob.arrived_at).getTime() : 0;
     const photoTime = latestArrivalPhotoInt ? new Date(latestArrivalPhotoInt.timestamp || latestArrivalPhotoInt.created_at).getTime() : 0;
     const beforePhotosCount = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length;
-    const arrivedButNoPhotos = arrivedTime > 0 && (arrivedTime > photoTime + 2000) && beforePhotosCount === 0;
+    const arrivedButNoPhotos = arrivedTime > 0 && 
+                               (arrivedTime > photoTime + 2000) && 
+                               editedJob.interactions !== undefined && 
+                               beforePhotosCount === 0;
     const isCurrentlyOnVisit = arrivedTime > 0 && (new Date().getTime() - arrivedTime < 12 * 3600 * 1000);
 
     useEffect(() => {
@@ -2053,11 +2066,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }).catch(() => {});
         }
 
-        // Transition to before photos step and open camera
-        setLocationVerifyStep('before_photos');
-        setTimeout(() => {
-            beforePhotosInputRef.current?.click();
-        }, 150);
+        if (beforePhotosCount > 0) {
+            setShowLocationVerifyModal(false);
+        } else {
+            // Transition to before photos step and open camera
+            setLocationVerifyStep('before_photos');
+            setTimeout(() => {
+                beforePhotosInputRef.current?.click();
+            }, 150);
+        }
     };
 
     // Called when tech confirms updated pin location (No → update path)
@@ -2105,11 +2122,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }
         })();
 
-        // Transition to before photos step and open camera
-        setLocationVerifyStep('before_photos');
-        setTimeout(() => {
-            beforePhotosInputRef.current?.click();
-        }, 150);
+        if (beforePhotosCount > 0) {
+            setShowLocationVerifyModal(false);
+        } else {
+            // Transition to before photos step and open camera
+            setLocationVerifyStep('before_photos');
+            setTimeout(() => {
+                beforePhotosInputRef.current?.click();
+            }, 150);
+        }
     };
 
     const compressImage = (file) => {
