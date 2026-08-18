@@ -34,6 +34,21 @@ const getDistanceBetweenCoords = (lat1, lon1, lat2, lon2) => {
     return R * c; // meters
 };
 
+// Helper to create thin, small color-coded map pin icons (timeline style)
+const createThinPinIcon = (color, strokeColor = '#ffffff') => {
+    return L.divIcon({
+        className: 'custom-thin-pin',
+        html: `<div style="position: relative; width: 20px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">
+            <svg width="20" height="28" viewBox="0 0 20 28" fill="none" style="display: block; width: 100%; height: 100%;">
+                <path d="M10 1C5.03 1 1 5.03 1 10c0 6.75 9 17 9 17s9-10.25 9-17c0-4.97-4.03-9-9-9z" fill="${color}" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+        </div>`,
+        iconSize: [20, 28],
+        iconAnchor: [10, 28],
+        popupAnchor: [0, -28]
+    });
+};
+
 // Helper: Format turn instruction text from OSRM step
 function formatStep(step) {
     const dir = step.maneuver?.modifier;
@@ -129,8 +144,8 @@ function RecenterController({ trigger, myLocation, onDone }) {
 
 export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     // Configurations state
-    const [custMarkerType, setCustMarkerType] = useState('circle');
-    const [supplierMarkerType, setSupplierMarkerType] = useState('pin');
+    const [custMarkerType, setCustMarkerType] = useState('thin');
+    const [supplierMarkerType, setSupplierMarkerType] = useState('thin');
     const [mapViewType, setMapViewType] = useState('roadmap');
     const [autoExpandSingleJob, setAutoExpandSingleJob] = useState(true);
     const [enableRoutePathHighlight, setEnableRoutePathHighlight] = useState(true);
@@ -417,6 +432,21 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
         const name = primaryJob.customerName || 'Customer';
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
+        if (custMarkerType === 'thin') {
+            let color = '#3b82f6'; // default blue
+            const groupJobs = group.jobs || [];
+            
+            const allClosed = groupJobs.every(j => j.status === 'closed' || j.status === 'cancelled' || j.status === 'completed');
+            const anyInProgress = groupJobs.some(j => j.status === 'in_progress' || j.status === 'arrived' || j.status === 'on_way');
+            
+            if (allClosed) {
+                color = '#10b981'; // Green
+            } else if (anyInProgress) {
+                color = '#eab308'; // Yellow for in progress / active on site
+            }
+            return createThinPinIcon(color);
+        }
+
         if (custMarkerType === 'pin') {
             const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
                 <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
@@ -484,6 +514,10 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const getSupplierIcon = (s) => {
         const name = s.name || 'Supplier';
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+        if (supplierMarkerType === 'thin') {
+            return createThinPinIcon('#f97316'); // Orange like in timeline map
+        }
 
         if (supplierMarkerType === 'pin') {
             const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">

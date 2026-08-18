@@ -6,9 +6,9 @@ import { Save, Layers, MapPin, Eye, Settings, HelpCircle, ToggleLeft, ToggleRigh
 export default function MapSettingsTab() {
     const [adminSettings, setAdminSettings] = useState({
         mapViewType: 'roadmap',
-        custMarkerType: 'circle',
+        custMarkerType: 'thin',
         techMarkerType: 'wrench',
-        supplierMarkerType: 'pin',
+        supplierMarkerType: 'thin',
         autoExpandSingleJob: true,
         enableRoutePathHighlight: true,
         showCustomersLayer: true,
@@ -18,8 +18,8 @@ export default function MapSettingsTab() {
 
     const [techSettings, setTechSettings] = useState({
         mapViewType: 'roadmap',
-        custMarkerType: 'circle',
-        supplierMarkerType: 'pin',
+        custMarkerType: 'thin',
+        supplierMarkerType: 'thin',
         autoExpandSingleJob: true,
         enableRoutePathHighlight: true,
         showCustomersLayer: true,
@@ -46,9 +46,9 @@ export default function MapSettingsTab() {
                     // Sync localStorage cache for Admin Map
                     const val = adminRes.data.value;
                     localStorage.setItem('mapViewType', val.mapViewType || 'roadmap');
-                    localStorage.setItem('custMarkerType', val.custMarkerType || 'circle');
+                    localStorage.setItem('custMarkerType', val.custMarkerType || 'thin');
                     localStorage.setItem('techMarkerType', val.techMarkerType || 'wrench');
-                    localStorage.setItem('supplierMarkerType', val.supplierMarkerType || 'pin');
+                    localStorage.setItem('supplierMarkerType', val.supplierMarkerType || 'thin');
                     localStorage.setItem('autoExpandSingleJob', String(val.autoExpandSingleJob !== false));
                     localStorage.setItem('enableRoutePathHighlight', String(val.enableRoutePathHighlight !== false));
                     localStorage.setItem('showCustomersLayer', String(val.showCustomersLayer !== false));
@@ -260,6 +260,7 @@ export default function MapSettingsTab() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Customer Marker Design:</label>
                                 <select value={adminSettings.custMarkerType} onChange={(e) => handleAdminChange('custMarkerType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
+                                    <option value="thin">Thin Color-Coded Pin (Timeline Style)</option>
                                     <option value="circle">Photo/Initials Circle (Standard)</option>
                                     <option value="compact-pin">Compact Map Pin (Clean blue pin with initials)</option>
                                     <option value="pin">Standard Map Pin (Larger blue pin with initials)</option>
@@ -277,6 +278,7 @@ export default function MapSettingsTab() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Supplier Marker Design:</label>
                                 <select value={adminSettings.supplierMarkerType} onChange={(e) => handleAdminChange('supplierMarkerType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
+                                    <option value="thin">Thin Color-Coded Pin (Timeline Style)</option>
                                     <option value="pin">Standard Map Pin (Green pin with initials)</option>
                                     <option value="circle">Initials Circle (Green circle badge)</option>
                                     <option value="compact">Compact Dot (Minimized green dot)</option>
@@ -368,6 +370,7 @@ export default function MapSettingsTab() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Customer Marker Design:</label>
                                 <select value={techSettings.custMarkerType} onChange={(e) => handleTechChange('custMarkerType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
+                                    <option value="thin">Thin Color-Coded Pin (Timeline Style)</option>
                                     <option value="circle">Photo/Initials Circle (Standard)</option>
                                     <option value="compact-pin">Compact Map Pin</option>
                                     <option value="pin">Standard Map Pin</option>
@@ -377,6 +380,7 @@ export default function MapSettingsTab() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Supplier Marker Design:</label>
                                 <select value={techSettings.supplierMarkerType} onChange={(e) => handleTechChange('supplierMarkerType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
+                                    <option value="thin">Thin Color-Coded Pin (Timeline Style)</option>
                                     <option value="pin">Standard Map Pin (Green pin with initials)</option>
                                     <option value="circle">Initials Circle (Green circle badge)</option>
                                     <option value="compact">Compact Dot (Minimized green dot)</option>
