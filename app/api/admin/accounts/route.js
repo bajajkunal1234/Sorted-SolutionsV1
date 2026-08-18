@@ -261,7 +261,7 @@ export async function POST(request) {
                         status: 'converted', // always converted on account creation
                         notes: leadNotes,
                         lead_source: resolvedSource || 'direct',
-                        first_contact_at: new Date().toISOString()
+                        first_contact_at: body.leadArrivalDate ? new Date(`${body.leadArrivalDate}T12:00:00Z`).toISOString() : new Date().toISOString()
                     });
                 } catch (leadError) {
                     console.error('[accounts POST] Lead tracking failed:', leadError.message);
@@ -465,7 +465,8 @@ export async function PUT(request) {
                         conversion_type: 'manual_account',
                         status: 'converted',
                         notes: 'Updated during customer account edit.',
-                        lead_source: resolvedSource || 'direct'
+                        lead_source: resolvedSource || 'direct',
+                        ...(updates.leadArrivalDate ? { first_contact_at: new Date(`${updates.leadArrivalDate}T12:00:00Z`).toISOString() } : {})
                     });
                 } catch (leadError) {
                     console.error('[accounts PUT] Lead tracking failed:', leadError.message);

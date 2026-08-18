@@ -224,6 +224,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         acquisitionSource: initialData?.acquisition_source || '',
         referredBy: initialData?.referred_by || '',
         leadChannel: '',
+        leadArrivalDate: new Date().toISOString().split('T')[0],
 
         // Status
         status: initialData?.status || 'active'
@@ -296,8 +297,12 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         } else {
             setLeadExists(false);
             setCheckingLead(false);
-            if (formData.leadChannel) {
-                setFormData(prev => ({ ...prev, leadChannel: '' }));
+            if (formData.leadChannel || formData.leadArrivalDate !== new Date().toISOString().split('T')[0]) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    leadChannel: '',
+                    leadArrivalDate: new Date().toISOString().split('T')[0]
+                }));
             }
         }
     }, [formData.mobile]);
@@ -709,6 +714,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
             leadChannel: formData.leadChannel,
+            leadArrivalDate: formData.leadArrivalDate,
             status: initialData?.status || 'active',
             // Fixed Asset Fields
             asset_category: formData.assetCategory,
@@ -1534,26 +1540,38 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                     </div>
                                                 )}
                                                 {(!initialData || !initialData.id) && showField('acquisitionSource') && (
-                                                    <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                                        <label className="form-label">Log Call / WhatsApp Lead Channel</label>
-                                                        <select
-                                                            className="form-select"
-                                                            value={formData.leadChannel || ''}
-                                                            onChange={(e) => setFormData({ ...formData, leadChannel: e.target.value })}
-                                                            disabled={leadExists || checkingLead}
-                                                            style={{ borderColor: leadExists ? '#10b981' : undefined }}
-                                                        >
-                                                            <option value="">-- Select Channel --</option>
-                                                            <option value="call">Call Received</option>
-                                                            <option value="whatsapp">WhatsApp Message Received</option>
-                                                        </select>
-                                                        {checkingLead && (
-                                                            <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 4 }}>Checking Leads Directory...</span>
-                                                        )}
-                                                        {leadExists && (
-                                                            <span style={{ color: '#10b981', fontSize: 'var(--font-size-xs)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Already detected in Leads Directory.</span>
-                                                        )}
-                                                    </div>
+                                                    <>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Log Call / WhatsApp Lead Channel</label>
+                                                            <select
+                                                                className="form-select"
+                                                                value={formData.leadChannel || ''}
+                                                                onChange={(e) => setFormData({ ...formData, leadChannel: e.target.value })}
+                                                                disabled={leadExists || checkingLead}
+                                                                style={{ borderColor: leadExists ? '#10b981' : undefined }}
+                                                            >
+                                                                <option value="">-- Select Channel --</option>
+                                                                <option value="call">Call Received</option>
+                                                                <option value="whatsapp">WhatsApp Message Received</option>
+                                                            </select>
+                                                            {checkingLead && (
+                                                                <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 4 }}>Checking Leads Directory...</span>
+                                                            )}
+                                                            {leadExists && (
+                                                                <span style={{ color: '#10b981', fontSize: 'var(--font-size-xs)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Already detected in Leads Directory.</span>
+                                                            )}
+                                                        </div>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Lead Arrival Date</label>
+                                                            <input
+                                                                type="date"
+                                                                className="form-input"
+                                                                value={formData.leadArrivalDate || ''}
+                                                                onChange={(e) => setFormData({ ...formData, leadArrivalDate: e.target.value })}
+                                                                disabled={leadExists || checkingLead}
+                                                            />
+                                                        </div>
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
