@@ -1764,9 +1764,15 @@ export default function NewEraDashboard() {
                                                 <td>
                                                     <span style={{
                                                         ...styles.statusBadge,
-                                                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                                                        color: '#a5b4fc',
-                                                        borderColor: 'rgba(99, 102, 241, 0.2)'
+                                                        backgroundColor: log.action_type === 'login' ? 'rgba(16, 185, 129, 0.1)' 
+                                                                        : log.action_type === 'logout' ? 'rgba(239, 68, 68, 0.1)' 
+                                                                        : 'rgba(99, 102, 241, 0.1)',
+                                                        color: log.action_type === 'login' ? '#34d399' 
+                                                              : log.action_type === 'logout' ? '#f87171' 
+                                                              : '#a5b4fc',
+                                                        borderColor: log.action_type === 'login' ? 'rgba(16, 185, 129, 0.25)' 
+                                                                    : log.action_type === 'logout' ? 'rgba(239, 68, 68, 0.25)' 
+                                                                    : 'rgba(99, 102, 241, 0.2)'
                                                     }}>
                                                         {log.action_type.replace('_', ' ').toUpperCase()}
                                                     </span>

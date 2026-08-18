@@ -148,6 +148,9 @@ export async function POST(request) {
 
             if (error) throw error;
 
+            // Log login interaction
+            await logInteraction(supabase, name, 'login', `Logged into the system console`);
+
             const response = NextResponse.json({ success: true, activeMember: name });
             // Set companion non-httpOnly cookie for client state
             response.cookies.set('newera_member', name, {
@@ -161,6 +164,10 @@ export async function POST(request) {
 
         // 3. Logout action
         if (action === 'logout') {
+            if (session.member_name) {
+                // Log logout interaction
+                await logInteraction(supabase, session.member_name, 'logout', `Logged out of the system console`);
+            }
             await supabase.from('newera_sessions').delete().eq('id', session.id);
             const response = NextResponse.json({ success: true });
             // Clear cookies for both paths on logout
