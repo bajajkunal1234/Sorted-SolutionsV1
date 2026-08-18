@@ -37,6 +37,7 @@ export default function AdminApp() {
     const [accountsSubTabToOpen, setAccountsSubTabToOpen] = useState(null)
     const [jobsViewTypeToOpen, setJobsViewTypeToOpen] = useState(null)
     const [jobsActiveTagsToOpen, setJobsActiveTagsToOpen] = useState(null)
+    const [jobsViewNameToOpen, setJobsViewNameToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
 
@@ -152,6 +153,10 @@ export default function AdminApp() {
             setJobsActiveTagsToOpen(activeTags);
             setActiveTab('jobs');
         }
+        window.openJobsSavedView = (viewName) => {
+            setJobsViewNameToOpen(viewName);
+            setActiveTab('jobs');
+        }
         return () => {
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
@@ -164,6 +169,7 @@ export default function AdminApp() {
             delete window.openRentalsReport
             delete window.openCustomerPaymentsReport
             delete window.openJobsMapWithFilter
+            delete window.openJobsSavedView
         }
     }, [])
 
@@ -236,9 +242,11 @@ export default function AdminApp() {
                         onJobOpened={() => setJobToOpen(null)} 
                         initialViewType={jobsViewTypeToOpen}
                         initialActiveTags={jobsActiveTagsToOpen}
+                        initialViewNameToOpen={jobsViewNameToOpen}
                         onClearInitial={() => {
                             setJobsViewTypeToOpen(null);
                             setJobsActiveTagsToOpen(null);
+                            setJobsViewNameToOpen(null);
                         }}
                     />
                 )

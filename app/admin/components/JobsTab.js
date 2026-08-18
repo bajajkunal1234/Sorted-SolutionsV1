@@ -97,7 +97,7 @@ function applyTags(jobs, tags, searchTerm) {
 }
 
 // ─── Component ────────────────────────────────────────────────────
-function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, onClearInitial }) {
+function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, initialViewNameToOpen, onClearInitial }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -149,7 +149,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
     const [savedViews, setSavedViews] = useState([]);
     
     // Store whether we mounted with deep link overrides to prevent default views fetch overriding them
-    const hasDeepLinkRef = useRef(!!(initialViewType || initialActiveTags));
+    const hasDeepLinkRef = useRef(!!(initialViewType || initialActiveTags || initialViewNameToOpen));
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -260,18 +260,26 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, o
         }
     }, [jobToOpen, jobs, onJobOpened]);
 
-    // Handle cross-tab deep-linking for map view and tag filters
+    // Handle cross-tab deep-linking for map view, tag filters, or saved view loading
     useEffect(() => {
-        if (initialViewType) {
-            setViewType(initialViewType);
-        }
-        if (initialActiveTags) {
-            setActiveTags(initialActiveTags);
-        }
-        if (initialViewType || initialActiveTags) {
+        if (initialViewNameToOpen && savedViews.length > 0) {
+            const view = savedViews.find(v => v.name.toLowerCase() === initialViewNameToOpen.toLowerCase());
+            if (view) {
+                applyViewConfig(view.config);
+            }
             if (onClearInitial) onClearInitial();
+        } else {
+            if (initialViewType) {
+                setViewType(initialViewType);
+            }
+            if (initialActiveTags) {
+                setActiveTags(initialActiveTags);
+            }
+            if (initialViewType || initialActiveTags) {
+                if (onClearInitial) onClearInitial();
+            }
         }
-    }, [initialViewType, initialActiveTags, onClearInitial]);
+    }, [initialViewNameToOpen, savedViews, initialViewType, initialActiveTags, onClearInitial]);
 
     // ── Processing ────────────────────────────────────────────────
     const processedJobs = useMemo(() => {

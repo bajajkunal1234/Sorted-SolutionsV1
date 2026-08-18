@@ -340,7 +340,7 @@ export default function JobsSearchPanel({
             {/* ── Dropdown Panel ── */}
             {open && (
                 <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 2100,
                     backgroundColor: '#1e293b', border: '1px solid #6366f1', borderTop: 'none',
                     borderRadius: '0 0 10px 10px', boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
                     maxHeight: '75vh', overflowY: 'auto',
