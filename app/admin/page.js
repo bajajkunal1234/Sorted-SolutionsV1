@@ -153,8 +153,9 @@ export default function AdminApp() {
             setJobsActiveTagsToOpen(activeTags);
             setActiveTab('jobs');
         }
-        window.openJobsSavedView = (viewName) => {
+        window.openJobsSavedView = (viewName, viewType = 'map') => {
             setJobsViewNameToOpen(viewName);
+            setJobsViewTypeToOpen(viewType);
             setActiveTab('jobs');
         }
         return () => {

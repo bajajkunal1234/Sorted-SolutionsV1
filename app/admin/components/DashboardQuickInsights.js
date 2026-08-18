@@ -489,7 +489,7 @@ export default function DashboardQuickInsights() {
                         <button
                             onClick={() => {
                                 if (window.openJobsSavedView) {
-                                    window.openJobsSavedView('Kunal View');
+                                    window.openJobsSavedView('Kunal View', 'map');
                                 } else if (window.openJobsMapWithFilter) {
                                     window.openJobsMapWithFilter(data.kunalActiveTags);
                                 }

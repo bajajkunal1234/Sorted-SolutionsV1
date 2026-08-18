@@ -266,6 +266,9 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
             const view = savedViews.find(v => v.name.toLowerCase() === initialViewNameToOpen.toLowerCase());
             if (view) {
                 applyViewConfig(view.config);
+                if (initialViewType) {
+                    setViewType(initialViewType);
+                }
             }
             if (onClearInitial) onClearInitial();
         } else {
