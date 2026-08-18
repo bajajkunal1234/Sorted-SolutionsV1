@@ -154,11 +154,52 @@ function getHaversineDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
+// Helper to get consistent distinct colors for technicians (darker shades as requested)
+function getTechColor(name) {
+    const clean = String(name).toLowerCase();
+    if (clean.includes('vinod') || clean.includes('gupta') || clean.includes('vg')) {
+        return '#d97706'; // Dark yellow / orange
+    }
+    if (clean.includes('kunal') || clean.includes('bajaj') || clean.includes('kb')) {
+        return '#047857'; // Dark green
+    }
+    // Dynamic color coding for other technicians based on name hashing
+    let hash = 0;
+    for (let i = 0; i < clean.length; i++) {
+        hash = clean.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const colors = [
+        '#b91c1c', // dark red
+        '#1d4ed8', // dark blue
+        '#6d28d9', // dark purple
+        '#a21caf', // dark magenta
+        '#0369a1', // dark sky blue
+        '#0f766e', // dark teal
+        '#4d7c0f', // dark lime green
+        '#c2410c'  // dark orange-red
+    ];
+    return colors[Math.abs(hash) % colors.length];
+}
+
+// Helper to format duration in hours and minutes
+const formatDuration = (totalMins) => {
+    if (!totalMins) return '0 mins';
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs > 0) {
+        return `${hrs} hr${hrs > 1 ? 's' : ''} ${mins > 0 ? `${mins} min${mins > 1 ? 's' : ''}` : ''}`.trim();
+    }
+    return `${mins} min${mins > 1 ? 's' : ''}`;
+};
+
 export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
     const [technicians, setTechnicians] = useState([]);
     const [fleetLocations, setFleetLocations] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [loadingTechs, setLoadingTechs] = useState(false);
+    
+    // Technician timeline tracking overlay states
+    const [selectedTechTimeline, setSelectedTechTimeline] = useState(null);
     
     // Proximity distances loading state
     const [distances, setDistances] = useState({});
@@ -421,11 +462,12 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
     const getTechIcon = (tech) => {
         const name = tech?.name || 'Technician';
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+        const techColor = getTechColor(name);
 
         if (techMarkerType === 'pin') {
             const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
                 <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
-                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#ea580c"/>
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="${techColor}"/>
                   <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                     ${initials}
                   </text>
@@ -446,9 +488,9 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                 width: 32px;
                 height: 32px;
                 border-radius: 50%;
-                border: 2px solid #eab308;
-                background-color: #fef08a;
-                color: #854d0e;
+                border: 2px solid #ffffff;
+                background-color: ${techColor};
+                color: #ffffff;
                 font-size: 11px;
                 display: flex;
                 align-items: center;
@@ -472,9 +514,9 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                 width: 32px;
                 height: 32px;
                 border-radius: 50%;
-                border: 2px solid #eab308;
-                background-color: #fef08a;
-                color: #854d0e;
+                border: 2px solid #ffffff;
+                background-color: ${techColor};
+                color: #ffffff;
                 font-size: 14px;
                 display: flex;
                 align-items: center;
@@ -670,6 +712,104 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             }
         } catch (err) {
             console.error('OSRM path drawing failed:', err);
+        }
+    };
+
+    // Fetch and snap today's timeline for a technician
+    const handleShowTodayTimeline = async (techId, techName) => {
+        if (selectedTechTimeline && selectedTechTimeline.techId === techId) {
+            // Toggle off if already showing this technician
+            setSelectedTechTimeline(null);
+            return;
+        }
+
+        // Set loading state
+        setSelectedTechTimeline({ techId, loading: true });
+
+        try {
+            const todayStr = new Date(Date.now() + (3600000 * 5.5)).toISOString().split('T')[0]; // IST today
+            const res = await fetch(`/api/admin/technician-location-history?technicianId=${techId}&date=${todayStr}`);
+            const payload = await res.json();
+            
+            if (payload.success && payload.data) {
+                const { routePath = [], stops = [] } = payload.data;
+                
+                let snapped = [];
+                if (routePath.length > 1) {
+                    try {
+                        let sampledPath = routePath;
+                        if (routePath.length > 90) {
+                            const factor = Math.ceil(routePath.length / 90);
+                            sampledPath = routePath.filter((_, idx) => idx % factor === 0);
+                            if (sampledPath[sampledPath.length - 1] !== routePath[routePath.length - 1]) {
+                                sampledPath.push(routePath[routePath.length - 1]);
+                            }
+                        }
+
+                        const coordString = sampledPath.map(p => `${p.lng},${p.lat}`).join(';');
+                        const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+                        const osrmRes = await fetch(url);
+                        const data = await osrmRes.json();
+                        
+                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                            const coords = data.routes[0].geometry.coordinates;
+                            snapped = coords.map(c => [c[1], c[0]]);
+                        }
+                    } catch (err) {
+                        console.error("OSRM snapping failed in Admin map timeline view:", err);
+                    }
+                }
+
+                if (snapped.length === 0) {
+                    snapped = routePath.map(p => [p.lat, p.lng]);
+                }
+
+                // Calculate direction arrows along the path
+                const arrows = [];
+                if (routePath.length >= 2) {
+                    let lastArrowPt = routePath[0];
+                    for (let i = 1; i < routePath.length; i++) {
+                        const pt1 = routePath[i - 1];
+                        const pt2 = routePath[i];
+                        const dist = getHaversineDistance(lastArrowPt.lat, lastArrowPt.lng, pt2.lat, pt2.lng) * 1000; // in meters
+                        if (dist >= 60) {
+                            const dLng = (pt2.lng - pt1.lng) * Math.PI / 180;
+                            const lat1Rad = pt1.lat * Math.PI / 180;
+                            const lat2Rad = pt2.lat * Math.PI / 180;
+                            const y = Math.sin(dLng) * Math.cos(lat2Rad);
+                            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+                            let angle = Math.atan2(y, x) * 180 / Math.PI;
+                            angle = (angle + 360) % 360;
+
+                            const formattedTime = new Date(pt2.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            arrows.push({
+                                id: `arrow-${techId}-${i}`,
+                                position: [pt2.lat, pt2.lng],
+                                angle: angle,
+                                time: formattedTime
+                            });
+                            lastArrowPt = pt2;
+                        }
+                    }
+                }
+
+                setSelectedTechTimeline({
+                    techId,
+                    techName,
+                    routePath,
+                    stops,
+                    snappedPath: snapped,
+                    arrows,
+                    loading: false
+                });
+            } else {
+                setSelectedTechTimeline(null);
+                alert("No location history found for this technician today.");
+            }
+        } catch (err) {
+            console.error("Failed to load technician timeline on Admin map:", err);
+            setSelectedTechTimeline(null);
+            alert("Error loading timeline history.");
         }
     };
 
@@ -1045,19 +1185,155 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                             </Tooltip>
 
                             <Popup>
-                                <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                                <div style={{ fontSize: '12px', color: '#cbd5e1', minWidth: '160px' }}>
                                     <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 700, color: '#eab308' }}>{tech.name}</h4>
                                     <div><strong>Status:</strong> {loc.is_on_job ? 'On Job 🔧' : 'Available 🟢'}</div>
                                     {loc.battery_level !== undefined && <div><strong>Battery:</strong> {loc.battery_level}%</div>}
                                     <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>
                                         Last seen: {new Date(loc.last_seen).toLocaleTimeString()}
                                     </div>
+                                    <div style={{ marginTop: '8px', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '8px' }}>
+                                        <button
+                                            onClick={() => handleShowTodayTimeline(tech.id, tech.name)}
+                                            disabled={selectedTechTimeline?.techId === tech.id && selectedTechTimeline.loading}
+                                            style={{
+                                                width: '100%',
+                                                padding: '5px 8px',
+                                                fontSize: '11px',
+                                                fontWeight: 'bold',
+                                                borderRadius: '4px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                backgroundColor: selectedTechTimeline?.techId === tech.id ? '#ef4444' : '#38bdf8',
+                                                color: selectedTechTimeline?.techId === tech.id ? '#ffffff' : '#0f172a',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '4px',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {selectedTechTimeline?.techId === tech.id && selectedTechTimeline.loading ? (
+                                                <>⌛ Loading...</>
+                                            ) : selectedTechTimeline?.techId === tech.id ? (
+                                                <>❌ Hide Today's Timeline</>
+                                            ) : (
+                                                <>🗺️ Show Today's Timeline</>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             </Popup>
                         </Marker>
                     );
                 })}
+
+                {/* Selected Technician Timeline Layer */}
+                {selectedTechTimeline && !selectedTechTimeline.loading && (
+                    <>
+                        {/* 1. Snapped Path Polyline */}
+                        {selectedTechTimeline.snappedPath && selectedTechTimeline.snappedPath.length > 1 && (
+                            <>
+                                <Polyline
+                                    positions={selectedTechTimeline.snappedPath}
+                                    pathOptions={{ color: 'rgba(14, 165, 233, 0.3)', weight: 8, lineCap: 'round' }}
+                                />
+                                <Polyline
+                                    positions={selectedTechTimeline.snappedPath}
+                                    pathOptions={{ color: '#0ea5e9', weight: 4, lineCap: 'round', dashArray: '1, 8' }}
+                                />
+                            </>
+                        )}
+
+                        {/* 2. Direction Arrows */}
+                        {selectedTechTimeline.arrows && selectedTechTimeline.arrows.map(arrow => {
+                            const arrowIconObj = new L.DivIcon({
+                                className: 'custom-arrow-icon',
+                                html: `<div style="transform: rotate(${arrow.angle}deg); font-size: 8px; color: #ffffff; width: 10px; height: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; text-shadow: 0px 0px 2px rgba(0,0,0,0.85); background: transparent; border: none;">▲</div>`,
+                                iconSize: [10, 10],
+                                iconAnchor: [5, 5]
+                            });
+                            return (
+                                <Marker key={arrow.id} position={arrow.position} icon={arrowIconObj}>
+                                    <Tooltip direction="top" offset={[0, -5]}>
+                                        <span>Passed at: {arrow.time}</span>
+                                    </Tooltip>
+                                </Marker>
+                            );
+                        })}
+
+                        {/* 3. Stops/Halts */}
+                        {selectedTechTimeline.stops && selectedTechTimeline.stops.map((stop, i) => {
+                            const stopIconObj = new L.DivIcon({
+                                className: '',
+                                html: `<div style="position: relative; width: 20px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));">
+                                    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" style="display: block; width: 100%; height: 100%;">
+                                        <path d="M10 1C5.03 1 1 5.03 1 10c0 6.75 9 17 9 17s9-10.25 9-17c0-4.97-4.03-9-9-9z" fill="#64748b" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>`,
+                                iconSize: [20, 28],
+                                iconAnchor: [10, 28],
+                                popupAnchor: [0, -28]
+                            });
+                            return (
+                                <Marker key={`stop-${selectedTechTimeline.techId}-${i}`} position={[stop.lat, stop.lng]} icon={stopIconObj}>
+                                    <Popup>
+                                        <div style={{ fontSize: '12px', color: '#cbd5e1' }}>
+                                            <strong>Parking Stop #{i + 1}</strong><br />
+                                            Duration: {formatDuration(stop.durationMinutes)}<br />
+                                            Arrival: {new Date(stop.arrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}<br />
+                                            Departure: {new Date(stop.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            );
+                        })}
+                    </>
+                )}
             </MapContainer>
+
+            {/* ── Selected Technician Timeline HUD Indicator ── */}
+            {selectedTechTimeline && !selectedTechTimeline.loading && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '12px',
+                    zIndex: 1000,
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backdropFilter: 'blur(8px)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    fontSize: '12px',
+                    color: '#f8fafc'
+                }}>
+                    <div>
+                        <span>Showing Timeline for <strong>{selectedTechTimeline.techName}</strong> (Today)</span>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
+                            🛣️ {selectedTechTimeline.routePath?.length || 0} pings | 🅿️ {selectedTechTimeline.stops?.length || 0} stops
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setSelectedTechTimeline(null)}
+                        style={{
+                            padding: '4px 8px',
+                            backgroundColor: '#ef4444',
+                            border: 'none',
+                            borderRadius: '4px',
+                            color: '#ffffff',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '11px'
+                        }}
+                    >
+                        Clear
+                    </button>
+                </div>
+            )}
 
             {/* ── Personal Map Base Layer Selector (Floating Right) ── */}
             <div style={{
