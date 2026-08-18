@@ -270,7 +270,7 @@ export default function MapSettingsTab() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '16px' }}>
                                 <label style={{ fontSize: '13px', fontWeight: 700, color: '#cbd5e1' }}>Technician Marker Design:</label>
                                 <select value={adminSettings.techMarkerType} onChange={(e) => handleAdminChange('techMarkerType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', backgroundColor: '#0f172a', border: '1px solid #334155', color: '#f8fafc', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
-                                    <option value="wrench">Wrench Circle (Standard yellow badge)</option>
+                                    <option value="wrench">Person Badge (Colored technician symbol)</option>
                                     <option value="pin">Standard Map Pin (Orange pin with initials)</option>
                                     <option value="avatar">Tech Initials Circle (Initials only circle)</option>
                                 </select>

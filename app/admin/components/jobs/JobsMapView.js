@@ -200,6 +200,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
     
     // Technician timeline tracking overlay states
     const [selectedTechTimeline, setSelectedTechTimeline] = useState(null);
+    const [showIndicators, setShowIndicators] = useState(false);
     
     // Proximity distances loading state
     const [distances, setDistances] = useState({});
@@ -508,7 +509,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             });
         }
 
-        // Default 'wrench' circle icon
+        // Default 'wrench' (now custom person silhouette badge) circle icon
         return L.divIcon({
             html: `<div style="
                 width: 32px;
@@ -517,13 +518,16 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                 border: 2px solid #ffffff;
                 background-color: ${techColor};
                 color: #ffffff;
-                font-size: 14px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-                font-weight: bold;
-            ">🔧</div>`,
+            ">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                </svg>
+            </div>`,
             className: 'custom-tech-marker-wrench',
             iconSize: [32, 32],
             iconAnchor: [16, 16],
@@ -1334,6 +1338,108 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                     </button>
                 </div>
             )}
+
+            {/* ── Marker Indicators Floating Dropdown ── */}
+            <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                fontFamily: 'inherit'
+            }}>
+                <button
+                    onClick={() => setShowIndicators(prev => !prev)}
+                    style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                        transition: 'all 0.15s',
+                        outline: 'none'
+                    }}
+                    type="button"
+                >
+                    📍 Marker Indicators <span style={{ transition: 'transform 0.2s', transform: showIndicators ? 'rotate(180deg)' : 'rotate(0deg)', fontSize: '10px' }}>▼</span>
+                </button>
+
+                {showIndicators && (
+                    <div style={{
+                        marginTop: '6px',
+                        width: '240px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        color: '#cbd5e1',
+                        fontSize: '11px',
+                        lineHeight: '1.4'
+                    }}>
+                        {/* Customers */}
+                        <div>
+                            <strong style={{ color: '#38bdf8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Customers / Properties</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#3b82f6', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Blue: Active / Assigned Job</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#ef4444', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Red: Active / Unassigned (Action Needed)</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#10b981', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Green: Completed / Closed</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Suppliers */}
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                            <strong style={{ color: '#f97316', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '10px', height: '14px', backgroundColor: '#f97316', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                <span>Orange: Spares Supplier Store</span>
+                            </div>
+                        </div>
+
+                        {/* Technicians */}
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                            <strong style={{ color: '#eab308', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Technician Live Location</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#d97706', border: '1px solid #fff' }}></div>
+                                    <span>Vinod Gupta (Dark Yellow/Orange)</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#047857', border: '1px solid #fff' }}></div>
+                                    <span>Kunal Bajaj (Dark Green)</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#1d4ed8', border: '1px solid #fff' }}></div>
+                                    <span>Other Technicians (Distinct Colors)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* ── Personal Map Base Layer Selector (Floating Right) ── */}
             <div style={{

@@ -157,6 +157,7 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
     const [myLocation, setMyLocation] = useState(null);
     const [suppliers, setSuppliers] = useState([]);
     const [loadingConfigs, setLoadingConfigs] = useState(true);
+    const [showIndicators, setShowIndicators] = useState(false);
 
     // Routing path state
     const [activeRoute, setActiveRoute] = useState(null);
@@ -1034,6 +1035,98 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
                     </button>
                 </div>
             )}
+            {/* ── Marker Indicators Floating Dropdown ── */}
+            <div style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                fontFamily: 'inherit'
+            }}>
+                <button
+                    onClick={() => setShowIndicators(prev => !prev)}
+                    style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                        transition: 'all 0.15s',
+                        outline: 'none'
+                    }}
+                    type="button"
+                >
+                    📍 Marker Indicators <span style={{ transition: 'transform 0.2s', transform: showIndicators ? 'rotate(180deg)' : 'rotate(0deg)', fontSize: '10px' }}>▼</span>
+                </button>
+
+                {showIndicators && (
+                    <div style={{
+                        marginTop: '6px',
+                        width: '240px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        color: '#cbd5e1',
+                        fontSize: '11px',
+                        lineHeight: '1.4'
+                    }}>
+                        {/* Customers */}
+                        <div>
+                            <strong style={{ color: '#38bdf8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Customer Jobs</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#3b82f6', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Blue: Scheduled Job</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#eab308', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Yellow: Active / In Progress / On-Way</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#10b981', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Green: Completed / Closed</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Suppliers */}
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                            <strong style={{ color: '#f97316', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '10px', height: '14px', backgroundColor: '#f97316', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                <span>Orange: Spares Supplier Store</span>
+                            </div>
+                        </div>
+
+                        {/* Self Location */}
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
+                            <strong style={{ color: '#ea580c', fontSize: '12px', display: 'block', marginBottom: '6px' }}>My Location</strong>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ffedd5', border: '2px solid #ea580c' }}></div>
+                                <span>Me (Pulsing GPS badge)</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* ── Personal Map Base Layer Selector (Floating Right) ── */}
             <div style={{
                 position: 'absolute',
