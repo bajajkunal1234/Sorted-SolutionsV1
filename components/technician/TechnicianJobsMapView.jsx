@@ -49,6 +49,21 @@ const createThinPinIcon = (color, strokeColor = '#ffffff') => {
     });
 };
 
+// Helper to create small, thin color-coded map pin icons for suppliers (significantly smaller than customer markers)
+const createSmallThinPinIcon = (color, strokeColor = '#ffffff') => {
+    return L.divIcon({
+        className: 'custom-small-thin-pin',
+        html: `<div style="position: relative; width: 14px; height: 20px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1.5px 3px rgba(0,0,0,0.45));">
+            <svg width="14" height="20" viewBox="0 0 20 28" fill="none" style="display: block; width: 100%; height: 100%;">
+                <path d="M10 1C5.03 1 1 5.03 1 10c0 6.75 9 17 9 17s9-10.25 9-17c0-4.97-4.03-9-9-9z" fill="${color}" stroke="${strokeColor}" stroke-width="2.2" stroke-linejoin="round"/>
+            </svg>
+        </div>`,
+        iconSize: [14, 20],
+        iconAnchor: [7, 20],
+        popupAnchor: [0, -20]
+    });
+};
+
 // Helper: Format turn instruction text from OSRM step
 function formatStep(step) {
     const dir = step.maneuver?.modifier;
@@ -517,14 +532,14 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
         if (supplierMarkerType === 'thin') {
-            return createThinPinIcon('#f97316'); // Orange like in timeline map
+            return createSmallThinPinIcon('#15803d'); // Dark green and small size
         }
 
         if (supplierMarkerType === 'pin') {
-            const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
-                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
-                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#22c55e"/>
-                  <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+            const htmlContent = `<div style="position: relative; width: 26px; height: 32px;">
+                <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#15803d"/>
+                  <text x="17" y="23" fill="#ffffff" font-size="11" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                     ${initials}
                   </text>
                 </svg>
@@ -533,33 +548,33 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
             return L.divIcon({
                 html: htmlContent,
                 className: 'custom-supplier-marker-pin',
-                iconSize: [34, 42],
-                iconAnchor: [17, 42],
-                popupAnchor: [17, -21]
+                iconSize: [26, 32],
+                iconAnchor: [13, 32],
+                popupAnchor: [13, -16]
             });
         }
 
         if (supplierMarkerType === 'compact') {
-            const htmlContent = `<div style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid #ffffff; background-color: #22c55e; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>`;
+            const htmlContent = `<div style="width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #ffffff; background-color: #15803d; box-shadow: 0 1px 4px rgba(0,0,0,0.4);"></div>`;
             return L.divIcon({
                 html: htmlContent,
                 className: 'custom-supplier-marker-compact',
-                iconSize: [14, 14],
-                iconAnchor: [7, 7],
-                popupAnchor: [7, 0]
+                iconSize: [10, 10],
+                iconAnchor: [5, 5],
+                popupAnchor: [5, 0]
             });
         }
 
-        const htmlContent = `<div style="width: 34px; height: 34px; border-radius: 50%; border: 2px solid #22c55e; background-color: #14532d; color: #ffffff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+        const htmlContent = `<div style="width: 26px; height: 26px; border-radius: 50%; border: 2px solid #ffffff; background-color: #15803d; color: #ffffff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
             ${initials}
         </div>`;
 
         return L.divIcon({
             html: htmlContent,
             className: 'custom-supplier-marker-circle',
-            iconSize: [34, 34],
-            iconAnchor: [17, 17],
-            popupAnchor: [17, 0]
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+            popupAnchor: [13, 0]
         });
     };
 
@@ -1108,10 +1123,10 @@ export default function TechnicianJobsMapView({ jobs = [], onJobClick }) {
 
                         {/* Suppliers */}
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
-                            <strong style={{ color: '#f97316', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
+                            <strong style={{ color: '#15803d', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ width: '10px', height: '14px', backgroundColor: '#f97316', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
-                                <span>Orange: Spares Supplier Store</span>
+                                <div style={{ width: '8px', height: '11px', backgroundColor: '#15803d', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                <span>Dark Green: Spares Supplier Store (Small)</span>
                             </div>
                         </div>
 

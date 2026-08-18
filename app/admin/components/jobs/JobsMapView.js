@@ -114,6 +114,21 @@ function createThinPinIcon(color, strokeColor = '#ffffff') {
     });
 }
 
+// Helper to create small, thin color-coded map pin icons for suppliers (significantly smaller than customer markers)
+function createSmallThinPinIcon(color, strokeColor = '#ffffff') {
+    return L.divIcon({
+        className: 'custom-small-thin-pin',
+        html: `<div style="position: relative; width: 14px; height: 20px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1.5px 3px rgba(0,0,0,0.45));">
+            <svg width="14" height="20" viewBox="0 0 20 28" fill="none" style="display: block; width: 100%; height: 100%;">
+                <path d="M10 1C5.03 1 1 5.03 1 10c0 6.75 9 17 9 17s9-10.25 9-17c0-4.97-4.03-9-9-9z" fill="${color}" stroke="${strokeColor}" stroke-width="2.2" stroke-linejoin="round"/>
+            </svg>
+        </div>`,
+        iconSize: [14, 20],
+        iconAnchor: [7, 20],
+        popupAnchor: [0, -20]
+    });
+}
+
 // Helper to center the map when jobs change
 function MapCenterController({ groups }) {
     const map = useMap();
@@ -509,29 +524,22 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             });
         }
 
-        // Default 'wrench' (now custom person silhouette badge) circle icon
+        // Default 'wrench' (now custom standing man silhouette badge) circle icon
         return L.divIcon({
-            html: `<div style="
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                border: 2px solid #ffffff;
-                background-color: ${techColor};
-                color: #ffffff;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-            ">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+            html: `<div style="position: relative; width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+                <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style="display: block; width: 100%; height: 100%;">
+                    <!-- Oval base -->
+                    <ellipse cx="12" cy="24" rx="8" ry="3" fill="#facc15" stroke="#1e293b" stroke-width="2" />
+                    <!-- Body -->
+                    <path d="M 10.5 9 H 13.5 C 14 9, 14.5 9.5, 14.5 10 L 14.5 11.5 H 15.5 C 16 11.5, 16.5 12, 16.5 12.5 L 16.5 17.5 C 16.5 18, 16 18.5, 15.5 18.5 C 15 18.5, 14.5 18, 14.5 17.5 L 14.5 12.5 H 13.5 L 13.5 24 H 12.5 L 12.5 16 H 11.5 L 11.5 24 H 10.5 L 10.5 12.5 H 9.5 L 9.5 17.5 C 9.5 18, 9 18.5, 8.5 18.5 C 8 18.5, 7.5 18, 7.5 17.5 L 7.5 12.5 C 7.5 12, 8 11.5, 8.5 11.5 H 9.5 L 9.5 10 C 9.5 9.5, 10 9, 10.5 9 Z" fill="${techColor}" stroke="#1e293b" stroke-width="2" stroke-linejoin="round" />
+                    <!-- Head -->
+                    <circle cx="12" cy="5.5" r="3.5" fill="${techColor}" stroke="#1e293b" stroke-width="2" />
                 </svg>
             </div>`,
             className: 'custom-tech-marker-wrench',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            popupAnchor: [16, 0]
+            iconSize: [24, 28],
+            iconAnchor: [12, 28],
+            popupAnchor: [0, -28]
         });
     };
 
@@ -541,14 +549,14 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
 
         if (supplierMarkerType === 'thin') {
-            return createThinPinIcon('#f97316'); // Orange like in timeline map
+            return createSmallThinPinIcon('#15803d'); // Dark green and small size
         }
 
         if (supplierMarkerType === 'pin') {
-            const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
-                <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
-                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#22c55e"/>
-                  <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
+            const htmlContent = `<div style="position: relative; width: 26px; height: 32px;">
+                <svg width="26" height="32" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
+                  <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="#15803d"/>
+                  <text x="17" y="23" fill="#ffffff" font-size="11" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
                     ${initials}
                   </text>
                 </svg>
@@ -557,40 +565,40 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             return L.divIcon({
                 html: htmlContent,
                 className: 'custom-supplier-marker-pin',
-                iconSize: [34, 42],
-                iconAnchor: [17, 42],
-                popupAnchor: [17, -21]
+                iconSize: [26, 32],
+                iconAnchor: [13, 32],
+                popupAnchor: [13, -16]
             });
         }
 
         if (supplierMarkerType === 'compact') {
             const htmlContent = `<div style="
-                width: 14px;
-                height: 14px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
-                border: 2px solid #ffffff;
-                background-color: #22c55e;
+                border: 1.5px solid #ffffff;
+                background-color: #15803d;
                 box-shadow: 0 1px 4px rgba(0,0,0,0.4);
             "></div>`;
 
             return L.divIcon({
                 html: htmlContent,
                 className: 'custom-supplier-marker-compact',
-                iconSize: [14, 14],
-                iconAnchor: [7, 7],
-                popupAnchor: [7, 0]
+                iconSize: [10, 10],
+                iconAnchor: [5, 5],
+                popupAnchor: [5, 0]
             });
         }
 
         // Default 'circle' initials avatar
         const htmlContent = `<div style="
-            width: 34px;
-            height: 34px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
-            border: 2px solid #22c55e;
-            background-color: #14532d;
+            border: 2px solid #ffffff;
+            background-color: #15803d;
             color: #ffffff;
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 700;
             display: flex;
             align-items: center;
@@ -603,9 +611,9 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
         return L.divIcon({
             html: htmlContent,
             className: 'custom-supplier-marker-circle',
-            iconSize: [34, 34],
-            iconAnchor: [17, 17],
-            popupAnchor: [17, 0]
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+            popupAnchor: [13, 0]
         });
     };
 
@@ -1412,10 +1420,10 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
 
                         {/* Suppliers */}
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '8px' }}>
-                            <strong style={{ color: '#f97316', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
+                            <strong style={{ color: '#15803d', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Suppliers</strong>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ width: '10px', height: '14px', backgroundColor: '#f97316', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
-                                <span>Orange: Spares Supplier Store</span>
+                                <div style={{ width: '8px', height: '11px', backgroundColor: '#15803d', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                <span>Dark Green: Spares Supplier Store (Small)</span>
                             </div>
                         </div>
 
@@ -1424,16 +1432,16 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                             <strong style={{ color: '#eab308', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Technician Live Location</strong>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#d97706', border: '1px solid #fff' }}></div>
-                                    <span>Vinod Gupta (Dark Yellow/Orange)</span>
+                                    <span style={{ fontSize: '12px' }}>🧍</span>
+                                    <span>Vinod Gupta (Dark Yellow/Orange Man)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#047857', border: '1px solid #fff' }}></div>
-                                    <span>Kunal Bajaj (Dark Green)</span>
+                                    <span style={{ fontSize: '12px' }}>🧍</span>
+                                    <span>Kunal Bajaj (Dark Green Man)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#1d4ed8', border: '1px solid #fff' }}></div>
-                                    <span>Other Technicians (Distinct Colors)</span>
+                                    <span style={{ fontSize: '12px' }}>🧍</span>
+                                    <span>Other Techs (Custom Color Man on Yellow Base)</span>
                                 </div>
                             </div>
                         </div>
