@@ -891,3 +891,11 @@ select option {
 .p-md {
   padding: var(--spacing-md);
 }
+
+/* Fix Leaflet tile seams / grid lines showing up on high-DPI scaling or dark mode filtering */
+.leaflet-tile-container img,
+.leaflet-tile {
+  outline: 1px solid transparent !important;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}

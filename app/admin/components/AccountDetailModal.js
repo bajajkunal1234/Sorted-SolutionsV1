@@ -74,16 +74,20 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         // Acquisition Details
         acquisitionSource: account.acquisitionSource || account.acquisition_source || '',
         referredBy: account.referredBy || account.referred_by || '',
+        leadArrivalDate: '',
     });
 
     const [errors, setErrors] = useState({});
     const [imagePreview, setImagePreview] = useState(account.accountImage || null);
 
     useEffect(() => {
+        const formattedMobile = formatMobileNumber(account.mobile || '');
+        const cleanPhone = (account.mobile || '').replace(/\D/g, '').slice(-10);
+
         setEditedAccount({
             ...account,
             contactPerson: account.contactPerson || account.contact_person || '',
-            mobile: account.mobile || '',
+            mobile: formattedMobile,
             email: account.email || '',
             mailingName: account.mailingName || account.mailing_name || '',
             customerDescription: account.customerDescription || account.mailingAddress || account.mailing_address || '',
@@ -117,8 +121,27 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
             currency: account.currency || 'INR',
             acquisitionSource: account.acquisitionSource || account.acquisition_source || '',
             referredBy: account.referredBy || account.referred_by || '',
+            leadArrivalDate: '',
         });
         setImagePreview(account.accountImage || null);
+
+        // Fetch lead details to populate leadArrivalDate if applicable
+        if (cleanPhone && cleanPhone.length === 10) {
+            fetch(`/api/admin/leads?phone=${cleanPhone}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.lead) {
+                        const dateOnly = data.lead.first_contact_at 
+                            ? data.lead.first_contact_at.split('T')[0] 
+                            : '';
+                        setEditedAccount(prev => ({
+                            ...prev,
+                            leadArrivalDate: dateOnly
+                        }));
+                    }
+                })
+                .catch(err => console.error('Failed to fetch lead details in AccountDetailModal:', err));
+        }
     }, [account]);
 
     // Get required fields for current account type (with inheritance)
@@ -754,6 +777,19 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                                     onChange={(e) => setEditedAccount({ ...editedAccount, referredBy: e.target.value })}
                                                     disabled={!isEditing}
                                                     placeholder="Name or details"
+                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                                />
+                                            </div>
+                                        )}
+                                        {showField('acquisitionSource') && (
+                                            <div className="form-group">
+                                                <label className="form-label">Lead Arrival Date</label>
+                                                <input
+                                                    type="date"
+                                                    className="form-input"
+                                                    value={editedAccount.leadArrivalDate || ''}
+                                                    onChange={(e) => setEditedAccount({ ...editedAccount, leadArrivalDate: e.target.value })}
+                                                    disabled={!isEditing}
                                                     style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
                                                 />
                                             </div>
