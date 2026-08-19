@@ -262,25 +262,30 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
     // Handle cross-tab deep-linking for map view, tag filters, or saved view loading
     useEffect(() => {
-        if (initialViewNameToOpen && savedViews.length > 0) {
-            const view = savedViews.find(v => v.name.toLowerCase() === initialViewNameToOpen.toLowerCase());
-            if (view) {
-                applyViewConfig(view.config);
-                if (initialViewType) {
-                    setViewType(initialViewType);
+        if (initialViewNameToOpen) {
+            if (savedViews.length > 0) {
+                const view = savedViews.find(v => v.name.toLowerCase() === initialViewNameToOpen.toLowerCase());
+                if (view) {
+                    applyViewConfig(view.config);
+                    if (initialViewType) {
+                        setViewType(initialViewType);
+                    }
                 }
-            }
-            if (onClearInitial) onClearInitial();
-        } else {
-            if (initialViewType) {
-                setViewType(initialViewType);
-            }
-            if (initialActiveTags) {
-                setActiveTags(initialActiveTags);
-            }
-            if (initialViewType || initialActiveTags) {
                 if (onClearInitial) onClearInitial();
             }
+            // Do not run the fallback logic or clear initial parameters if savedViews is still loading
+            return;
+        }
+
+        // Normal deep linking when view name is not specified
+        if (initialViewType) {
+            setViewType(initialViewType);
+        }
+        if (initialActiveTags) {
+            setActiveTags(initialActiveTags);
+        }
+        if (initialViewType || initialActiveTags) {
+            if (onClearInitial) onClearInitial();
         }
     }, [initialViewNameToOpen, savedViews, initialViewType, initialActiveTags, onClearInitial]);
 
