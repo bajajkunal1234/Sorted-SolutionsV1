@@ -529,11 +529,11 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             html: `<div style="position: relative; width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
                 <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style="display: block; width: 100%; height: 100%;">
                     <!-- Oval base -->
-                    <ellipse cx="12" cy="24" rx="8" ry="3" fill="#facc15" stroke="#1e293b" stroke-width="2" />
+                    <ellipse cx="12" cy="24" rx="8" ry="3" fill="#facc15" stroke="#1e293b" stroke-width="1.5" />
                     <!-- Body -->
-                    <path d="M 10.5 9 H 13.5 C 14 9, 14.5 9.5, 14.5 10 L 14.5 11.5 H 15.5 C 16 11.5, 16.5 12, 16.5 12.5 L 16.5 17.5 C 16.5 18, 16 18.5, 15.5 18.5 C 15 18.5, 14.5 18, 14.5 17.5 L 14.5 12.5 H 13.5 L 13.5 24 H 12.5 L 12.5 16 H 11.5 L 11.5 24 H 10.5 L 10.5 12.5 H 9.5 L 9.5 17.5 C 9.5 18, 9 18.5, 8.5 18.5 C 8 18.5, 7.5 18, 7.5 17.5 L 7.5 12.5 C 7.5 12, 8 11.5, 8.5 11.5 H 9.5 L 9.5 10 C 9.5 9.5, 10 9, 10.5 9 Z" fill="${techColor}" stroke="#1e293b" stroke-width="2" stroke-linejoin="round" />
+                    <path d="M 12 11 C 9.5 11, 7.5 12, 7.5 14 L 8.8 19 L 9 24 H 11 L 12 21.5 L 13 24 H 15.2 L 15.5 19 L 16.5 14 C 16.5 12, 14.5 11, 12 11 Z" fill="${techColor}" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" />
                     <!-- Head -->
-                    <circle cx="12" cy="5.5" r="3.5" fill="${techColor}" stroke="#1e293b" stroke-width="2" />
+                    <circle cx="12" cy="6" r="4" fill="${techColor}" stroke="#ffffff" stroke-width="1.5" />
                 </svg>
             </div>`,
             className: 'custom-tech-marker-wrench',
