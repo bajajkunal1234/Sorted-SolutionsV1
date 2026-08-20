@@ -1915,7 +1915,53 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const handleMarkArrived = () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         
-        // 1. Instantly open the location verification check-in modal!
+        // Subsequent visit path: bypass modal, update arrived_at instantly, sync in background
+        if (beforePhotosCount > 0) {
+            setMarkingArrival(true);
+            const now = new Date().toISOString();
+            
+            const locallyCheckedInJob = {
+                ...editedJob,
+                arrived_at: now
+            };
+            setEditedJob(locallyCheckedInJob);
+            if (onJobUpdate) {
+                onJobUpdate(locallyCheckedInJob);
+            }
+
+            (async () => {
+                try {
+                    const coords = await getCoordsWithTimeout(1500);
+                    const lat = coords?.latitude || null;
+                    const lng = coords?.longitude || null;
+                    
+                    const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            action: 'mark_arrived', 
+                            updated_by_name: techName,
+                            latitude: lat,
+                            longitude: lng
+                        })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.job) {
+                            setEditedJob(data.job);
+                            if (onJobUpdate) onJobUpdate(data.job);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[Offline] Failed to sync subsequent arrival in background:', err);
+                } finally {
+                    setMarkingArrival(false);
+                }
+            })();
+            return;
+        }
+
+        // Visit 1 path: Instantly open the location verification check-in modal
         const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
         const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
         setVerifyLat(existingLat);
@@ -1923,7 +1969,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setLocationVerifyStep('ask');
         setShowLocationVerifyModal(true);
 
-        // 2. Perform the actual check-in API call and location recording asynchronously in the background
+        // Perform the actual check-in API call and location recording asynchronously in the background
         (async () => {
             try {
                 const coords = await getCoordsWithTimeout(1500);
