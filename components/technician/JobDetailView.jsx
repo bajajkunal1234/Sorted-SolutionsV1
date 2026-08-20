@@ -3214,7 +3214,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                            (
                                                                editedJob.status === 'scheduled' || 
                                                                editedJob.status === 'parts_ordered' ||
-                                                               ((editedJob.status === 'work_in_progress' || editedJob.status === 'quotation_sent') && !isCurrentlyOnVisit)
+                                                               ((editedJob.status === 'work_in_progress' || editedJob.status === 'quotation_sent' || editedJob.status === 'diagnosing_quoting') && !isCurrentlyOnVisit)
                                                            );
 
                                 return (
