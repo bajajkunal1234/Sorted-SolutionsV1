@@ -1503,7 +1503,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             }).length;
             const activeCols = (tabColumns.amc || []).filter(c => (visibleColumns.amc || new Set()).has(c.id));
             return (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', minHeight: 0 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
                         {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `₹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1578,7 +1578,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
             const activeCols = (tabColumns.rentals || []).filter(c => (visibleColumns.rentals || new Set()).has(c.id));
             return (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', minHeight: 0 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
                         {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `₹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1807,7 +1807,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
             {/* Row 1: Header — title + unified Odoo-style search/filter panel */}
-            <div className="tab-header-row" style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="tab-header-row" style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                 <span className="tab-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Accounts</span>
                 <AccountsSearchPanel
                     tab={activeTab}
@@ -1841,16 +1841,16 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             </div>
 
             {/* Row 2: Sub-tabs */}
-            <div style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto' }}>
+            <div className="sub-tabs" style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto', flexShrink: 0 }}>
                 {Object.keys(tabConfig).map(tabKey => (
-                    <button key={tabKey} onClick={() => handleTabChange(tabKey)} style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
+                    <button key={tabKey} onClick={() => handleTabChange(tabKey)} className="sub-tab" style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
                         {tabConfig[tabKey].label}
                     </button>
                 ))}
             </div>
 
             {/* Row 3: View Type Toggles + Columns + Refresh + Count */}
-            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {/* View toggles */}
                 <select 
                     value={activeTab === 'accounts' ? viewType : txViewType}
