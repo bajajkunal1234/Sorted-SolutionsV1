@@ -421,7 +421,10 @@ export default function BookingWizard() {
             // GTM
             if (typeof window !== 'undefined') {
                 window.dataLayer = window.dataLayer || [];
-                window.dataLayer.push({ event: 'form_submit_success' });
+                window.dataLayer.push({
+                    event: 'form_submit_success',
+                    user_phone: rawPhone
+                });
             }
 
             // Show success popup for 3 seconds, then navigate
