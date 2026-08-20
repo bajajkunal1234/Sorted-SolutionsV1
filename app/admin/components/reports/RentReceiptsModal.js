@@ -125,7 +125,8 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
             label: `Month ${i}`,
             period: `${fmtDate(dStart)} - ${fmtDate(dEnd)}`,
             amount: monthlyRent,
-            linkedId: rentReceipts[i] || null
+            linkedId: rentReceipts[i] || null,
+            startDate: dStart.toISOString()
         });
     }
 
@@ -208,7 +209,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                             const isPaid = !!row.linkedId;
                             // Check if this row is currently overdue (if past end date and not paid)
                             // Or maybe just past start date
-                            const rowIsOverdue = !isPaid && row.monthIndex > (rental.rents_paid || 0) && isOverdue(rowStartDate.toISOString());
+                            const rowIsOverdue = !isPaid && row.monthIndex > (rental.rents_paid || 0) && isOverdue(row.startDate);
 
                             return (
                                 <div key={row.monthIndex} style={{
