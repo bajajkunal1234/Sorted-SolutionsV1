@@ -107,6 +107,17 @@ function TechnicianApp() {
     const [hasClickedMap, setHasClickedMap] = useState(true);
     const [backPressToast, setBackPressToast] = useState('');
     const [pendingVisitSummary, setPendingVisitSummary] = useState(null);
+    const [postponedSummary, setPostponedSummary] = useState(null);
+
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('postponed_visit_summary');
+            if (saved) {
+                setPostponedSummary(JSON.parse(saved));
+            }
+        } catch (e) {}
+    }, []);
+
     const [visitNotes, setVisitNotes] = useState('');
     const [recording, setRecording] = useState(false);
     const [audioLoading, setAudioLoading] = useState(false);
@@ -256,6 +267,9 @@ function TechnicianApp() {
 
             if (res.ok) {
                 alert('Visit summary submitted successfully!');
+                localStorage.removeItem('active_visit_check_in');
+                localStorage.removeItem('postponed_visit_summary');
+                setPostponedSummary(null);
                 setPendingVisitSummary(null);
             } else {
                 throw new Error('Failed to submit interaction to server');
@@ -961,7 +975,12 @@ function TechnicianApp() {
                     const activeCheckInStr = localStorage.getItem('active_visit_check_in');
                     if (activeCheckInStr) {
                         const activeCheckIn = JSON.parse(activeCheckInStr);
-                        if (activeCheckIn.lat && activeCheckIn.lng && pos.coords.latitude && pos.coords.longitude) {
+                        
+                        // If the job is already closed/cancelled (no longer in active list), clean up check-in
+                        const jobInList = jobs.find(j => String(j.id) === String(activeCheckIn.jobId));
+                        if (jobs.length > 0 && !jobInList) {
+                            localStorage.removeItem('active_visit_check_in');
+                        } else if (activeCheckIn.lat && activeCheckIn.lng && pos.coords.latitude && pos.coords.longitude) {
                             const dist = getDistanceMeters(
                                 Number(activeCheckIn.lat), Number(activeCheckIn.lng),
                                 Number(pos.coords.latitude), Number(pos.coords.longitude)
@@ -3800,6 +3819,31 @@ function TechnicianApp() {
                     </div>
                 </div>
 
+                {/* Pending Visit Summary Banner */}
+                {postponedSummary && (
+                    <div 
+                        onClick={() => setPendingVisitSummary(postponedSummary)}
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(249, 115, 22, 0.25))',
+                            border: '1px solid rgba(249, 115, 22, 0.4)',
+                            borderRadius: '12px',
+                            padding: '14px 16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            cursor: 'pointer',
+                            color: '#ffedd5',
+                            boxShadow: 'var(--shadow-sm)'
+                        }}
+                    >
+                        <AlertCircle size={20} color="#fb923c" style={{ flexShrink: 0 }} />
+                        <div style={{ flex: 1, fontSize: '13px', lineHeight: 1.4 }}>
+                            <strong>Pending Visit Summary:</strong> You have a pending summary for Job <strong>#{postponedSummary.jobNumber}</strong>. Tap here to write notes and submit.
+                        </div>
+                        <ChevronRight size={16} color="#fb923c" />
+                    </div>
+                )}
+
                 {/* Duty Status Card */}
                 <div 
                     className="card"
@@ -5024,7 +5068,33 @@ function TechnicianApp() {
                             
                             <button
                                 onClick={() => {
-                                    if (window.confirm('Are you sure you want to dismiss this? You will need to check-in again if you return.')) {
+                                    try {
+                                        localStorage.setItem('postponed_visit_summary', JSON.stringify(pendingVisitSummary));
+                                        setPostponedSummary(pendingVisitSummary);
+                                    } catch (e) {}
+                                    setPendingVisitSummary(null);
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '14px',
+                                    borderRadius: '14px',
+                                    background: 'rgba(56,189,248,0.12)',
+                                    border: '1px solid rgba(56,189,248,0.3)',
+                                    color: '#38bdf8',
+                                    fontWeight: 600,
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Fill Later
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to discard this check-out summary? You will lose this visit record if you dismiss.')) {
+                                        localStorage.removeItem('active_visit_check_in');
+                                        localStorage.removeItem('postponed_visit_summary');
+                                        setPostponedSummary(null);
                                         setPendingVisitSummary(null);
                                     }
                                 }}
@@ -5040,7 +5110,7 @@ function TechnicianApp() {
                                     cursor: 'pointer'
                                 }}
                             >
-                                Dismiss
+                                Discard
                             </button>
                         </div>
                     </div>
