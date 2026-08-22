@@ -22,7 +22,7 @@ export default function DashboardQuickInsights() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState({
-        leads: { total: 0, manual: 0 },
+        leads: { total: 0, manual: 0, last7Days: [] },
         daybook: { moneyIn: 0, moneyOut: 0 },
         cashReceipts: { count: 0, total: 0, byTech: {} },
         rentals: { active: 0, rentDue: 0 },
@@ -44,7 +44,19 @@ export default function DashboardQuickInsights() {
         const startOfTodayUTC = new Date(startOfTodayIST.getTime() - (3600000 * 5.5));
         const startOfTodayISO = startOfTodayUTC.toISOString();
 
-        return { todayStr, startOfTodayISO };
+        // 7 days ago in IST
+        const startOfLast7DaysIST = new Date(nowIST);
+        startOfLast7DaysIST.setDate(startOfLast7DaysIST.getDate() - 6);
+        startOfLast7DaysIST.setHours(0, 0, 0, 0);
+        const startOfLast7DaysUTC = new Date(startOfLast7DaysIST.getTime() - (3600000 * 5.5));
+        const startOfLast7DaysISO = startOfLast7DaysUTC.toISOString();
+
+        const l7Year = startOfLast7DaysIST.getFullYear();
+        const l7Month = String(startOfLast7DaysIST.getMonth() + 1).padStart(2, '0');
+        const l7Day = String(startOfLast7DaysIST.getDate()).padStart(2, '0');
+        const startOfLast7DaysYMD = `${l7Year}-${l7Month}-${l7Day}`;
+
+        return { todayStr, startOfTodayISO, startOfLast7DaysISO, startOfLast7DaysYMD, nowIST };
     };
 
     const fetchInsights = async (silent = false) => {
@@ -52,7 +64,7 @@ export default function DashboardQuickInsights() {
             if (!silent) setLoading(true);
             setError(null);
             
-            const { todayStr, startOfTodayISO } = getISTTodayDateStrings();
+            const { todayStr, startOfTodayISO, startOfLast7DaysISO, startOfLast7DaysYMD, nowIST } = getISTTodayDateStrings();
 
             // Run database queries concurrently
             const [
@@ -63,13 +75,14 @@ export default function DashboardQuickInsights() {
                 rentalsRes,
                 jobsRes,
                 techsRes,
-                viewsRes
+                viewsRes,
+                dailyMetricsRes
             ] = await Promise.all([
-                // 1. Today's Leads
+                // 1. Leads for the last 7 days
                 supabase
                     .from('lead_attributions')
-                    .select('conversion_type')
-                    .gte('first_contact_at', startOfTodayISO),
+                    .select('conversion_type, first_contact_at')
+                    .gte('first_contact_at', startOfLast7DaysISO),
                 
                 // 2. Today's Daybook In (Receipts)
                 supabase
@@ -82,46 +95,64 @@ export default function DashboardQuickInsights() {
                     .from('payment_vouchers')
                     .select('amount')
                     .eq('date', todayStr),
-
+ 
                 // 4. Cash collections pending verification
                 supabase
                     .from('receipt_vouchers')
                     .select('amount, created_by')
                     .in('status', ['pending_verification', 'draft'])
                     .ilike('payment_mode', 'cash'),
-
+ 
                 // 5. Active Rentals
                 supabase
                     .from('active_rentals')
                     .select('next_rent_due_date, status')
                     .neq('status', 'archived'),
-
+ 
                 // 6. Open & Scheduled Jobs
                 supabase
                     .from('jobs')
                     .select('id, scheduled_date, technician_id, status')
                     .neq('status', 'closed')
                     .neq('status', 'cancelled'),
-
+ 
                 // 7. Active Technicians
                 supabase
                     .from('technicians')
                     .select('id, name')
                     .eq('is_active', true)
                     .eq('is_fired', false),
-
+ 
                 // 8. Saved Job Views
                 supabase
                     .from('website_settings')
                     .select('value')
                     .eq('key', 'admin_jobs_views')
-                    .maybeSingle()
-            ]);
+                    .maybeSingle(),
 
+                // 9. Google Ads Spend Metrics for the last 7 days
+                supabase
+                    .from('google_ads_daily_metrics')
+                    .select('date, amount_spent')
+                    .gte('date', startOfLast7DaysYMD)
+            ]);
+ 
             // Handlers & calculation
+            const getLocalDateStringIST = (isoString) => {
+                if (!isoString) return '';
+                const d = new Date(isoString);
+                const istTime = d.getTime() + (5.5 * 3600000);
+                const istDate = new Date(istTime);
+                const y = istDate.getFullYear();
+                const m = String(istDate.getMonth() + 1).padStart(2, '0');
+                const day = String(istDate.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
             const leads = leadsRes.data || [];
-            const leadsCount = leads.length;
-            const manualLeadsCount = leads.filter(l => l.conversion_type?.startsWith('manual_')).length;
+            const todayLeads = leads.filter(l => getLocalDateStringIST(l.first_contact_at) === todayStr);
+            const leadsCount = todayLeads.length;
+            const manualLeadsCount = todayLeads.filter(l => l.conversion_type?.startsWith('manual_')).length;
 
             const receiptsSum = (receiptsRes.data || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
             const paymentsSum = (paymentsRes.data || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
@@ -185,8 +216,51 @@ export default function DashboardQuickInsights() {
                 ];
             }
 
+            // Generate last 7 days list
+            const last7DaysList = [];
+            for (let i = 0; i < 7; i++) {
+                const dateVal = new Date(nowIST);
+                dateVal.setDate(dateVal.getDate() - i);
+                const y = dateVal.getFullYear();
+                const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+                const d = String(dateVal.getDate()).padStart(2, '0');
+                const ymd = `${y}-${m}-${d}`;
+
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const display = `${dateVal.getDate()} ${months[dateVal.getMonth()]}`;
+
+                last7DaysList.push({
+                    dateStr: ymd,
+                    displayDate: display,
+                    leadsCount: 0,
+                    spent: 0
+                });
+            }
+
+            // Map leads to days
+            leads.forEach(l => {
+                const leadYMD = getLocalDateStringIST(l.first_contact_at);
+                const dayObj = last7DaysList.find(day => day.dateStr === leadYMD);
+                if (dayObj) {
+                    dayObj.leadsCount++;
+                }
+            });
+
+            // Map spends to days
+            const dailyMetrics = dailyMetricsRes?.data || [];
+            dailyMetrics.forEach(m => {
+                const dayObj = last7DaysList.find(day => day.dateStr === m.date);
+                if (dayObj) {
+                    dayObj.spent = parseFloat(m.amount_spent) || 0;
+                }
+            });
+
             setData({
-                leads: { total: leadsCount, manual: manualLeadsCount },
+                leads: { 
+                    total: leadsCount, 
+                    manual: manualLeadsCount,
+                    last7Days: last7DaysList
+                },
                 daybook: { moneyIn: receiptsSum, moneyOut: paymentsSum },
                 cashReceipts: { count: pendingCashCount, total: pendingCashSum, byTech: cashByTech },
                 rentals: { active: activeRentalsCount, rentDue: overdueRentalsCount },
@@ -283,6 +357,47 @@ export default function DashboardQuickInsights() {
                             </div>
                         </div>
                     </div>
+
+                    {/* 7-day trend breakdown */}
+                    {data.leads.last7Days && data.leads.last7Days.length > 0 && (
+                        <div style={{ 
+                            borderTop: '1px solid rgba(255,255,255,0.04)', 
+                            paddingTop: 8,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6
+                        }}>
+                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, paddingBottom: 2 }}>
+                                Past 7 Days Activity
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {data.leads.last7Days.map((day, idx) => (
+                                    <div key={day.dateStr} style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'space-between',
+                                        fontSize: 11,
+                                        color: '#e2e8f0',
+                                        padding: '2px 4px',
+                                        borderRadius: 4,
+                                        backgroundColor: idx === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'
+                                    }}>
+                                        <span style={{ color: '#94a3b8' }}>
+                                            {day.displayDate} {idx === 0 && <span style={{ fontSize: 9, color: '#10b981', fontWeight: 600 }}>(Today)</span>}
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span style={{ color: '#a5f3fc', fontWeight: 600 }}>
+                                                {day.leadsCount} lead{day.leadsCount !== 1 ? 's' : ''}
+                                            </span>
+                                            <span style={{ color: day.spent > 0 ? '#fbcfe8' : '#64748b' }}>
+                                                ₹{Math.round(day.spent).toLocaleString('en-IN')} spent
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* 2. Cash & Daily Flow Card */}
