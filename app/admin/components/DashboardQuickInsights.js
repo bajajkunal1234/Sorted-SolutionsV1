@@ -64,26 +64,29 @@ export default function DashboardQuickInsights() {
             if (!silent) setLoading(true);
             setError(null);
             
-            const { todayStr, startOfTodayISO, startOfLast7DaysISO, startOfLast7DaysYMD, nowIST } = getISTTodayDateStrings();
+            const { todayStr } = getISTTodayDateStrings();
+
+            // Run API fetch for leads and marketing spends securely from the backend to bypass client-side RLS block
+            const leadsMetricsPromise = fetch('/api/admin/dashboard/leads-metrics')
+                .then(r => r.json())
+                .catch(err => {
+                    console.error('[DashboardQuickInsights] Failed to fetch leads metrics:', err);
+                    return { total: 0, manual: 0, last7Days: [] };
+                });
 
             // Run database queries concurrently
             const [
-                leadsRes,
+                leadsMetrics,
                 receiptsRes,
                 paymentsRes,
                 cashReceiptsRes,
                 rentalsRes,
                 jobsRes,
                 techsRes,
-                viewsRes,
-                dailyMetricsRes
+                viewsRes
             ] = await Promise.all([
-                // 1. Leads for the last 7 days
-                supabase
-                    .from('lead_attributions')
-                    .select('conversion_type, first_contact_at')
-                    .gte('first_contact_at', startOfLast7DaysISO),
-                
+                leadsMetricsPromise,
+
                 // 2. Today's Daybook In (Receipts)
                 supabase
                     .from('receipt_vouchers')
@@ -128,31 +131,8 @@ export default function DashboardQuickInsights() {
                     .from('website_settings')
                     .select('value')
                     .eq('key', 'admin_jobs_views')
-                    .maybeSingle(),
-
-                // 9. Google Ads Spend Metrics for the last 7 days
-                supabase
-                    .from('google_ads_daily_metrics')
-                    .select('date, amount_spent')
-                    .gte('date', startOfLast7DaysYMD)
+                    .maybeSingle()
             ]);
- 
-            // Handlers & calculation
-            const getLocalDateStringIST = (isoString) => {
-                if (!isoString) return '';
-                const d = new Date(isoString);
-                const istTime = d.getTime() + (5.5 * 3600000);
-                const istDate = new Date(istTime);
-                const y = istDate.getFullYear();
-                const m = String(istDate.getMonth() + 1).padStart(2, '0');
-                const day = String(istDate.getDate()).padStart(2, '0');
-                return `${y}-${m}-${day}`;
-            };
-
-            const leads = leadsRes.data || [];
-            const todayLeads = leads.filter(l => getLocalDateStringIST(l.first_contact_at) === todayStr);
-            const leadsCount = todayLeads.length;
-            const manualLeadsCount = todayLeads.filter(l => l.conversion_type?.startsWith('manual_')).length;
 
             const receiptsSum = (receiptsRes.data || []).reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
             const paymentsSum = (paymentsRes.data || []).reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
@@ -216,50 +196,11 @@ export default function DashboardQuickInsights() {
                 ];
             }
 
-            // Generate last 7 days list
-            const last7DaysList = [];
-            for (let i = 0; i < 7; i++) {
-                const dateVal = new Date(nowIST);
-                dateVal.setDate(dateVal.getDate() - i);
-                const y = dateVal.getFullYear();
-                const m = String(dateVal.getMonth() + 1).padStart(2, '0');
-                const d = String(dateVal.getDate()).padStart(2, '0');
-                const ymd = `${y}-${m}-${d}`;
-
-                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                const display = `${dateVal.getDate()} ${months[dateVal.getMonth()]}`;
-
-                last7DaysList.push({
-                    dateStr: ymd,
-                    displayDate: display,
-                    leadsCount: 0,
-                    spent: 0
-                });
-            }
-
-            // Map leads to days
-            leads.forEach(l => {
-                const leadYMD = getLocalDateStringIST(l.first_contact_at);
-                const dayObj = last7DaysList.find(day => day.dateStr === leadYMD);
-                if (dayObj) {
-                    dayObj.leadsCount++;
-                }
-            });
-
-            // Map spends to days
-            const dailyMetrics = dailyMetricsRes?.data || [];
-            dailyMetrics.forEach(m => {
-                const dayObj = last7DaysList.find(day => day.dateStr === m.date);
-                if (dayObj) {
-                    dayObj.spent = parseFloat(m.amount_spent) || 0;
-                }
-            });
-
             setData({
                 leads: { 
-                    total: leadsCount, 
-                    manual: manualLeadsCount,
-                    last7Days: last7DaysList
+                    total: leadsMetrics.total || 0, 
+                    manual: leadsMetrics.manual || 0,
+                    last7Days: leadsMetrics.last7Days || []
                 },
                 daybook: { moneyIn: receiptsSum, moneyOut: paymentsSum },
                 cashReceipts: { count: pendingCashCount, total: pendingCashSum, byTech: cashByTech },
