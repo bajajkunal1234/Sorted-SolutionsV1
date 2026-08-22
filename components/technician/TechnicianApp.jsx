@@ -107,13 +107,13 @@ function TechnicianApp() {
     const [hasClickedMap, setHasClickedMap] = useState(true);
     const [backPressToast, setBackPressToast] = useState('');
     const [pendingVisitSummary, setPendingVisitSummary] = useState(null);
-    const [postponedSummary, setPostponedSummary] = useState(null);
+    const [postponedSummaries, setPostponedSummaries] = useState([]);
 
     useEffect(() => {
         try {
-            const saved = localStorage.getItem('postponed_visit_summary');
+            const saved = localStorage.getItem('postponed_visit_summaries');
             if (saved) {
-                setPostponedSummary(JSON.parse(saved));
+                setPostponedSummaries(JSON.parse(saved));
             }
         } catch (e) {}
     }, []);
@@ -267,9 +267,22 @@ function TechnicianApp() {
 
             if (res.ok) {
                 alert('Visit summary submitted successfully!');
-                localStorage.removeItem('active_visit_check_in');
-                localStorage.removeItem('postponed_visit_summary');
-                setPostponedSummary(null);
+                
+                try {
+                    const saved = localStorage.getItem('postponed_visit_summaries');
+                    const list = saved ? JSON.parse(saved) : [];
+                    const newList = list.filter(item => String(item.jobId) !== String(pendingVisitSummary.jobId));
+                    localStorage.setItem('postponed_visit_summaries', JSON.stringify(newList));
+                    setPostponedSummaries(newList);
+                } catch (e) {}
+
+                try {
+                    const active = localStorage.getItem('active_visit_check_in');
+                    if (active && String(JSON.parse(active).jobId) === String(pendingVisitSummary.jobId)) {
+                        localStorage.removeItem('active_visit_check_in');
+                    }
+                } catch (e) {}
+
                 setPendingVisitSummary(null);
             } else {
                 throw new Error('Failed to submit interaction to server');
@@ -975,12 +988,7 @@ function TechnicianApp() {
                     const activeCheckInStr = localStorage.getItem('active_visit_check_in');
                     if (activeCheckInStr) {
                         const activeCheckIn = JSON.parse(activeCheckInStr);
-                        
-                        // If the job is already closed/cancelled (no longer in active list), clean up check-in
-                        const jobInList = jobs.find(j => String(j.id) === String(activeCheckIn.jobId));
-                        if (jobs.length > 0 && !jobInList) {
-                            localStorage.removeItem('active_visit_check_in');
-                        } else if (activeCheckIn.lat && activeCheckIn.lng && pos.coords.latitude && pos.coords.longitude) {
+                        if (activeCheckIn.lat && activeCheckIn.lng && pos.coords.latitude && pos.coords.longitude) {
                             const dist = getDistanceMeters(
                                 Number(activeCheckIn.lat), Number(activeCheckIn.lng),
                                 Number(pos.coords.latitude), Number(pos.coords.longitude)
@@ -3819,10 +3827,11 @@ function TechnicianApp() {
                     </div>
                 </div>
 
-                {/* Pending Visit Summary Banner */}
-                {postponedSummary && (
+                {/* Pending Visit Summary Banners */}
+                {postponedSummaries.map((summary) => (
                     <div 
-                        onClick={() => setPendingVisitSummary(postponedSummary)}
+                        key={summary.jobId}
+                        onClick={() => setPendingVisitSummary(summary)}
                         style={{
                             background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(249, 115, 22, 0.25))',
                             border: '1px solid rgba(249, 115, 22, 0.4)',
@@ -3833,16 +3842,17 @@ function TechnicianApp() {
                             gap: '12px',
                             cursor: 'pointer',
                             color: '#ffedd5',
-                            boxShadow: 'var(--shadow-sm)'
+                            boxShadow: 'var(--shadow-sm)',
+                            marginBottom: '4px'
                         }}
                     >
                         <AlertCircle size={20} color="#fb923c" style={{ flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: '13px', lineHeight: 1.4 }}>
-                            <strong>Pending Visit Summary:</strong> You have a pending summary for Job <strong>#{postponedSummary.jobNumber}</strong>. Tap here to write notes and submit.
+                            <strong>Pending Visit Summary:</strong> You have a pending summary for Job <strong>#{summary.jobNumber}</strong>. Tap here to write notes and submit.
                         </div>
                         <ChevronRight size={16} color="#fb923c" />
                     </div>
-                )}
+                ))}
 
                 {/* Duty Status Card */}
                 <div 
@@ -5069,8 +5079,12 @@ function TechnicianApp() {
                             <button
                                 onClick={() => {
                                     try {
-                                        localStorage.setItem('postponed_visit_summary', JSON.stringify(pendingVisitSummary));
-                                        setPostponedSummary(pendingVisitSummary);
+                                        const saved = localStorage.getItem('postponed_visit_summaries');
+                                        const list = saved ? JSON.parse(saved) : [];
+                                        const filtered = list.filter(item => String(item.jobId) !== String(pendingVisitSummary.jobId));
+                                        const newList = [...filtered, pendingVisitSummary];
+                                        localStorage.setItem('postponed_visit_summaries', JSON.stringify(newList));
+                                        setPostponedSummaries(newList);
                                     } catch (e) {}
                                     setPendingVisitSummary(null);
                                 }}
@@ -5092,9 +5106,21 @@ function TechnicianApp() {
                             <button
                                 onClick={() => {
                                     if (window.confirm('Are you sure you want to discard this check-out summary? You will lose this visit record if you dismiss.')) {
-                                        localStorage.removeItem('active_visit_check_in');
-                                        localStorage.removeItem('postponed_visit_summary');
-                                        setPostponedSummary(null);
+                                        try {
+                                            const saved = localStorage.getItem('postponed_visit_summaries');
+                                            const list = saved ? JSON.parse(saved) : [];
+                                            const newList = list.filter(item => String(item.jobId) !== String(pendingVisitSummary.jobId));
+                                            localStorage.setItem('postponed_visit_summaries', JSON.stringify(newList));
+                                            setPostponedSummaries(newList);
+                                        } catch (e) {}
+
+                                        try {
+                                            const active = localStorage.getItem('active_visit_check_in');
+                                            if (active && String(JSON.parse(active).jobId) === String(pendingVisitSummary.jobId)) {
+                                                localStorage.removeItem('active_visit_check_in');
+                                            }
+                                        } catch (e) {}
+
                                         setPendingVisitSummary(null);
                                     }
                                 }}
