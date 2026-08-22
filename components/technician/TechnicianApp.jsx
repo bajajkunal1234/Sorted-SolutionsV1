@@ -201,14 +201,13 @@ function TechnicianApp() {
                         const rec = new SpeechRecognition();
                         rec.continuous = true;
                         rec.interimResults = false;
-                        rec.lang = 'hi-IN';
+                        rec.lang = 'en-IN';
 
-                        rec.onresult = async (event) => {
+                        rec.onresult = (event) => {
                             const lastIndex = event.results.length - 1;
                             const transcriptText = event.results[lastIndex][0].transcript;
                             if (transcriptText.trim()) {
-                                const translated = await translateToEnglish(transcriptText);
-                                setVisitNotes(prev => prev ? prev + ' ' + translated : translated);
+                                setVisitNotes(prev => prev ? prev + ' ' + transcriptText.trim() : transcriptText.trim());
                             }
                         };
                         rec.onerror = (e) => {
