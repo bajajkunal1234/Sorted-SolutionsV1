@@ -1935,6 +1935,25 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     const lat = coords?.latitude || null;
                     const lng = coords?.longitude || null;
                     
+                    const finalLat = lat || editedJob.location?.lat || null;
+                    const finalLng = lng || editedJob.location?.lng || null;
+                    try {
+                        localStorage.setItem('active_visit_check_in', JSON.stringify({
+                            jobId: job.id,
+                            jobNumber: job.job_number,
+                            customerName: editedJob.customerName || editedJob.customer_name || '',
+                            locality: editedJob.locality || '',
+                            appliance: editedJob.product?.name || editedJob.appliance || '',
+                            applianceType: editedJob.product?.type || editedJob.category || '',
+                            defect: editedJob.defect || editedJob.issue || '',
+                            lat: finalLat,
+                            lng: finalLng,
+                            time: now
+                        }));
+                    } catch (e) {
+                        console.warn('Failed to save subsequent check-in coordinates to localStorage:', e);
+                    }
+                    
                     const res = await apiCall(`/api/technician/jobs/${job.id}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -2293,6 +2312,25 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }));
 
             // Notify parent component about the updated job data
+            const checkInLat = arrivalCoordsRef.current?.lat || pending?.jobData?.latitude || editedJob.location?.lat || null;
+            const checkInLng = arrivalCoordsRef.current?.lng || pending?.jobData?.longitude || editedJob.location?.lng || null;
+            try {
+                localStorage.setItem('active_visit_check_in', JSON.stringify({
+                    jobId: job.id,
+                    jobNumber: job.job_number,
+                    customerName: editedJob.customerName || editedJob.customer_name || '',
+                    locality: editedJob.locality || '',
+                    appliance: editedJob.product?.name || editedJob.appliance || '',
+                    applianceType: editedJob.product?.type || editedJob.category || '',
+                    defect: editedJob.defect || editedJob.issue || '',
+                    lat: checkInLat,
+                    lng: checkInLng,
+                    time: pending?.arrivedAt || new Date().toISOString()
+                }));
+            } catch (e) {
+                console.warn('Failed to save Visit 1 check-in coordinates to localStorage:', e);
+            }
+
             if (onJobUpdate) {
                 onJobUpdate({
                     ...editedJob,

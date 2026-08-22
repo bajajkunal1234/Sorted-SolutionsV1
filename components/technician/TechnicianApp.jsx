@@ -28,6 +28,21 @@ const isNativePlatform = () => {
     return !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web');
 };
 
+const getDistanceMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // metres
+    const phi1 = lat1 * Math.PI/180;
+    const phi2 = lat2 * Math.PI/180;
+    const deltaPhi = (lat2-lat1) * Math.PI/180;
+    const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // in metres
+};
+
 const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() !== 'web'
     ? registerPlugin('GPSBridgePlugin')
     : null;
@@ -91,6 +106,224 @@ function TechnicianApp() {
     const [viewMode, setViewMode] = useState('kanban');
     const [hasClickedMap, setHasClickedMap] = useState(true);
     const [backPressToast, setBackPressToast] = useState('');
+    const [pendingVisitSummary, setPendingVisitSummary] = useState(null);
+    const [visitNotes, setVisitNotes] = useState('');
+    const [recording, setRecording] = useState(false);
+    const [audioLoading, setAudioLoading] = useState(false);
+    const [uploadedAudioUrl, setUploadedAudioUrl] = useState('');
+    const [submittingVisitSummary, setSubmittingVisitSummary] = useState(false);
+    const [visitSummaryJobDetails, setVisitSummaryJobDetails] = useState(null);
+    const [visitSummaryInteractions, setVisitSummaryInteractions] = useState([]);
+    const [visitSummaryQuotation, setVisitSummaryQuotation] = useState(null);
+    const [visitSummaryInvoice, setVisitSummaryInvoice] = useState(null);
+
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recognitionRef = useRef(null);
+
+    const translateToEnglish = async (text) => {
+        try {
+            const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`);
+            const json = await res.json();
+            if (json && json[0]) {
+                const translated = json[0].map(s => s[0]).join('');
+                return translated;
+            }
+            return text;
+        } catch (e) {
+            console.error('Translation failed, using raw transcript:', e);
+            return text;
+        }
+    };
+
+    const uploadAudioBlob = async (blob) => {
+        setAudioLoading(true);
+        const fileName = `voice-summary-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.webm`;
+        const filePath = `uploads/${fileName}`;
+
+        try {
+            const { data, error } = await supabase.storage
+                .from('media')
+                .upload(filePath, blob, {
+                    contentType: 'audio/webm',
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) throw error;
+
+            const { data: urlData } = supabase.storage
+                .from('media')
+                .getPublicUrl(filePath);
+
+            setUploadedAudioUrl(urlData.publicUrl);
+        } catch (e) {
+            console.error('Failed to upload audio recording:', e);
+            alert('Failed to upload audio recording: ' + e.message);
+        } finally {
+            setAudioLoading(false);
+        }
+    };
+
+    const handleVoiceRecordToggle = async () => {
+        if (recording) {
+            if (mediaRecorderRef.current) {
+                mediaRecorderRef.current.stop();
+            }
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+            setRecording(false);
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorderRef.current = new MediaRecorder(stream);
+                audioChunksRef.current = [];
+
+                mediaRecorderRef.current.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorderRef.current.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    await uploadAudioBlob(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorderRef.current.start();
+                setRecording(true);
+
+                if (typeof window !== 'undefined') {
+                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if (SpeechRecognition) {
+                        const rec = new SpeechRecognition();
+                        rec.continuous = true;
+                        rec.interimResults = false;
+                        rec.lang = 'hi-IN';
+
+                        rec.onresult = async (event) => {
+                            const lastIndex = event.results.length - 1;
+                            const transcriptText = event.results[lastIndex][0].transcript;
+                            if (transcriptText.trim()) {
+                                const translated = await translateToEnglish(transcriptText);
+                                setVisitNotes(prev => prev ? prev + ' ' + translated : translated);
+                            }
+                        };
+                        rec.onerror = (e) => {
+                            console.error('Speech recognition error:', e);
+                        };
+                        rec.start();
+                        recognitionRef.current = rec;
+                    }
+                }
+            } catch (err) {
+                alert('Microphone access is required for recording voice notes.');
+                console.error(err);
+            }
+        }
+    };
+
+    const handleSubmitVisitSummary = async () => {
+        if (!visitNotes.trim()) {
+            alert('Please enter visit summary notes.');
+            return;
+        }
+        setSubmittingVisitSummary(true);
+        const techName = technicianData?.name || 'Technician';
+        try {
+            const jobId = pendingVisitSummary.jobId;
+            const res = await apiCall(`/api/technician/jobs/${jobId}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'visit-summary',
+                    category: 'job',
+                    description: `Visit Summary Notes: ${visitNotes.trim()}`,
+                    user_name: techName,
+                    metadata: {
+                        notes: visitNotes.trim(),
+                        audio_url: uploadedAudioUrl || null,
+                        distance_metres: pendingVisitSummary.distanceMetres,
+                        checkout_latitude: pendingVisitSummary.actualCheckoutLat,
+                        checkout_longitude: pendingVisitSummary.actualCheckoutLng,
+                        checkin_latitude: pendingVisitSummary.lat,
+                        checkin_longitude: pendingVisitSummary.lng,
+                        checkin_time: pendingVisitSummary.time
+                    }
+                })
+            });
+
+            if (res.ok) {
+                alert('Visit summary submitted successfully!');
+                setPendingVisitSummary(null);
+            } else {
+                throw new Error('Failed to submit interaction to server');
+            }
+        } catch (e) {
+            console.error('Error submitting visit summary:', e);
+            alert('Failed to submit: ' + e.message);
+        } finally {
+            setSubmittingVisitSummary(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!pendingVisitSummary) return;
+
+        const loadVisitSummaryData = async () => {
+            try {
+                const jobId = pendingVisitSummary.jobId;
+                const [jobRes, intRes, quoRes, invRes] = await Promise.all([
+                    apiCall(`/api/technician/jobs/${jobId}`),
+                    apiCall(`/api/technician/jobs/${jobId}/interactions`),
+                    apiCall(`/api/technician/jobs/${jobId}/quotation`).catch(() => null),
+                    apiCall(`/api/technician/jobs/${jobId}/invoice`).catch(() => null),
+                ]);
+
+                if (jobRes.ok) {
+                    const jobData = await jobRes.json();
+                    if (jobData.success) {
+                        setVisitSummaryJobDetails(jobData.job);
+                    }
+                }
+
+                if (intRes.ok) {
+                    const intData = await intRes.json();
+                    if (intData.success) {
+                        setVisitSummaryInteractions(intData.data || []);
+                    }
+                }
+
+                if (quoRes && quoRes.ok) {
+                    const quoData = await quoRes.json();
+                    if (quoData.success && quoData.data && quoData.data.length > 0) {
+                        setVisitSummaryQuotation(quoData.data[0]);
+                    }
+                }
+
+                if (invRes && invRes.ok) {
+                    const invData = await invRes.json();
+                    if (invData.success && invData.invoice) {
+                        setVisitSummaryInvoice(invData.invoice);
+                    } else if (invData.success && invData.data && invData.data.length > 0) {
+                        setVisitSummaryInvoice(invData.data[0]);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load visit summary job details:', e);
+            }
+        };
+
+        setVisitNotes('');
+        setUploadedAudioUrl('');
+        setVisitSummaryJobDetails(null);
+        setVisitSummaryInteractions([]);
+        setVisitSummaryQuotation(null);
+        setVisitSummaryInvoice(null);
+        loadVisitSummaryData();
+    }, [pendingVisitSummary]);
 
 
 
@@ -723,6 +956,33 @@ function TechnicianApp() {
                         longitude: pos.coords.longitude
                     }));
                 } catch (e) {}
+
+                // Check distance from active check-in site
+                try {
+                    const activeCheckInStr = localStorage.getItem('active_visit_check_in');
+                    if (activeCheckInStr) {
+                        const activeCheckIn = JSON.parse(activeCheckInStr);
+                        if (activeCheckIn.lat && activeCheckIn.lng && pos.coords.latitude && pos.coords.longitude) {
+                            const dist = getDistanceMeters(
+                                Number(activeCheckIn.lat), Number(activeCheckIn.lng),
+                                Number(pos.coords.latitude), Number(pos.coords.longitude)
+                            );
+                            if (dist > 500) {
+                                // Clear active check-in session so it doesn't trigger again
+                                localStorage.removeItem('active_visit_check_in');
+                                // Trigger Visit Summary Modal
+                                setPendingVisitSummary({
+                                    ...activeCheckIn,
+                                    actualCheckoutLat: pos.coords.latitude,
+                                    actualCheckoutLng: pos.coords.longitude,
+                                    distanceMetres: dist
+                                });
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Error checking active visit location distance:', e);
+                }
                 // Web/PWA: post coordinates.
                 if (!isNative) {
                     const activeWorkingHours = isWorkingHoursCheck();
@@ -4546,6 +4806,246 @@ function TechnicianApp() {
                         setSelectedJob({ ...calculatorJob, _calculatorItems: items });
                     }}
                 />
+            )}
+
+            {/* Visit Summary Modal (Distance-based checkout) */}
+            {pendingVisitSummary && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px'
+                }}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '500px',
+                        maxHeight: '90vh',
+                        background: 'linear-gradient(180deg, #1e293b, #0f172a)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: '24px',
+                        padding: '24px',
+                        overflowY: 'auto',
+                        color: '#f8fafc',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                            <div style={{ display: 'inline-flex', padding: '12px', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', marginBottom: '12px' }}>
+                                <MapPin size={28} color="#f87171" />
+                            </div>
+                            <h2 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Visit Complete Check</h2>
+                            <p style={{ fontSize: '13px', color: '#94a3b8', margin: '4px 0 0' }}>
+                                You moved {Math.round(pendingVisitSummary.distanceMetres)}m away from customer site. Please submit visit notes.
+                            </p>
+                        </div>
+
+                        {/* Job Details Card */}
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '8px 12px', fontSize: '13px' }}>
+                                <span style={{ color: '#94a3b8' }}>Job ID:</span>
+                                <strong style={{ color: '#38bdf8' }}>{pendingVisitSummary.jobNumber}</strong>
+                                
+                                <span style={{ color: '#94a3b8' }}>Customer:</span>
+                                <strong>{pendingVisitSummary.customerName}</strong>
+                                
+                                <span style={{ color: '#94a3b8' }}>Locality:</span>
+                                <strong>{pendingVisitSummary.locality}</strong>
+                                
+                                <span style={{ color: '#94a3b8' }}>Appliance:</span>
+                                <strong>{pendingVisitSummary.appliance} ({pendingVisitSummary.applianceType})</strong>
+                                
+                                <span style={{ color: '#94a3b8' }}>Issue:</span>
+                                <span style={{ color: '#cbd5e1' }}>{pendingVisitSummary.defect}</span>
+
+                                {/* Quotation */}
+                                <span style={{ color: '#94a3b8' }}>Quotation:</span>
+                                <strong>
+                                    {visitSummaryQuotation ? `₹${visitSummaryQuotation.total_amount.toLocaleString('en-IN')}` : 'None'}
+                                </strong>
+
+                                {/* Invoice */}
+                                <span style={{ color: '#94a3b8' }}>Invoice:</span>
+                                <strong>
+                                    {visitSummaryInvoice ? `${visitSummaryInvoice.invoice_number} (${visitSummaryInvoice.status})` : 'None'}
+                                </strong>
+
+                                {/* Payments */}
+                                <span style={{ color: '#94a3b8' }}>Payments:</span>
+                                <strong>
+                                    {(() => {
+                                        const payInts = visitSummaryInteractions.filter(i => i.type === 'payment-received');
+                                        if (payInts.length === 0) return 'None';
+                                        return payInts.map(p => `₹${p.metadata?.amount || p.amount} (${p.metadata?.method || 'CASH'})`).join(', ');
+                                    })()}
+                                </strong>
+                            </div>
+
+                            {/* Images thumbnails */}
+                            {(() => {
+                                const beforeInts = visitSummaryInteractions.filter(i => i.type === 'before-photos-uploaded');
+                                const afterInts = visitSummaryInteractions.filter(i => i.type === 'after-photos-uploaded');
+                                const beforeUrls = beforeInts.flatMap(i => i.metadata?.attachments || []);
+                                const afterUrls = afterInts.flatMap(i => i.metadata?.attachments || []);
+
+                                if (beforeUrls.length === 0 && afterUrls.length === 0) return null;
+
+                                return (
+                                    <div style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '12px' }}>
+                                        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', fontWeight: 600 }}>Photos Uploaded</div>
+                                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                            {beforeUrls.map((url, i) => (
+                                                <div key={`bef-${i}`} style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(56,189,248,0.2)' }}>
+                                                    <img src={url} alt="before" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: '8px', background: 'rgba(56,189,248,0.85)', color: '#fff', textAlign: 'center', fontWeight: 700, padding: '1px 0' }}>BEF</span>
+                                                </div>
+                                            ))}
+                                            {afterUrls.map((url, i) => (
+                                                <div key={`aft-${i}`} style={{ position: 'relative', flexShrink: 0, width: '48px', height: '48px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                                    <img src={url} alt="after" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: '8px', background: 'rgba(16,185,129,0.85)', color: '#fff', textAlign: 'center', fontWeight: 700, padding: '1px 0' }}>AFT</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Text Feedback */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>
+                                Tell us what happened on this job: *
+                            </label>
+                            <textarea
+                                value={visitNotes}
+                                onChange={(e) => setVisitNotes(e.target.value)}
+                                placeholder="Diagnosis details, repair status, customer feedback, next steps..."
+                                style={{
+                                    width: '100%',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: '12px',
+                                    padding: '12px',
+                                    fontSize: '13px',
+                                    color: '#f8fafc',
+                                    resize: 'vertical',
+                                    minHeight: '90px',
+                                    outline: 'none',
+                                    lineHeight: 1.5
+                                }}
+                            />
+                        </div>
+
+                        {/* Hinglish Audio Recording Button */}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                            <button
+                                type="button"
+                                onClick={handleVoiceRecordToggle}
+                                disabled={audioLoading}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    background: recording ? '#ef4444' : 'rgba(56,189,248,0.12)',
+                                    color: recording ? '#fff' : '#38bdf8',
+                                    border: recording ? 'none' : '1px solid rgba(56,189,248,0.25)',
+                                    fontWeight: 700,
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                {recording ? (
+                                    <>🛑 Stop & Translate</>
+                                ) : audioLoading ? (
+                                    <>
+                                        <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                                        Uploading Voice...
+                                    </>
+                                ) : (
+                                    <>🎤 Speak Hindi/Hinglish</>
+                                )}
+                            </button>
+
+                            {uploadedAudioUrl && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'rgba(16,185,129,0.1)',
+                                    border: '1px solid rgba(16,185,129,0.25)',
+                                    color: '#10b981',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    borderRadius: '12px',
+                                    padding: '0 12px'
+                                }}>
+                                    🔊 Audio Saved
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Submit Actions */}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={handleSubmitVisitSummary}
+                                disabled={submittingVisitSummary || !visitNotes.trim()}
+                                style={{
+                                    flex: 2,
+                                    padding: '14px',
+                                    borderRadius: '14px',
+                                    background: visitNotes.trim() ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(16,185,129,0.15)',
+                                    border: 'none',
+                                    color: visitNotes.trim() ? '#fff' : 'rgba(255,255,255,0.3)',
+                                    fontWeight: 700,
+                                    fontSize: '14px',
+                                    cursor: visitNotes.trim() && !submittingVisitSummary ? 'pointer' : 'not-allowed',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                {submittingVisitSummary ? (
+                                    <>
+                                        <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                        Submitting...
+                                    </>
+                                ) : (
+                                    <>Submit Visit Notes</>
+                                )}
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to dismiss this? You will need to check-in again if you return.')) {
+                                        setPendingVisitSummary(null);
+                                    }
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '14px',
+                                    borderRadius: '14px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: '#cbd5e1',
+                                    fontWeight: 600,
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Purchase Spare Parts Job Selector Modal */}
