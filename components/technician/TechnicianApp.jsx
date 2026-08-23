@@ -232,10 +232,13 @@ function TechnicianApp() {
 
                         rec.onerror = (e) => {
                             console.error('Speech recognition error:', e);
+                            alert('Speech Recognition Error: ' + e.error + (e.message ? ' - ' + e.message : ''));
                         };
 
                         rec.start();
                         recognitionRef.current = rec;
+                    } else {
+                        alert('SpeechRecognition / webkitSpeechRecognition is NOT defined or supported in this WebView browser context.');
                     }
                 }
             } catch (err) {
