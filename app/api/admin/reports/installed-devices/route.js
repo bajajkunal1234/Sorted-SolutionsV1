@@ -75,7 +75,7 @@ export async function GET() {
         let adminApkSize = '6.72 MB';
         try {
             const publicDir = path.join(process.cwd(), 'public', 'downloads');
-            const techPath = path.join(publicDir, 'technician-app-v7.apk');
+            const techPath = path.join(publicDir, 'technician-app-v8.apk');
             if (fs.existsSync(techPath)) {
                 techApkSize = `${(fs.statSync(techPath).size / (1024 * 1024)).toFixed(2)} MB`;
             }
