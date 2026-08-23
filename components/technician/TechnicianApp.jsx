@@ -231,16 +231,7 @@ function TechnicianApp() {
                 }
             } catch (err) {
                 console.error(err);
-                const isNative = isNativePlatform();
-                if (isNative && GPSBridgePlugin) {
-                    if (window.confirm('Microphone access is required for recording voice notes.\n\nWould you like to open App Settings to allow Microphone access?')) {
-                        GPSBridgePlugin.openAppSettings().catch(e => {
-                            console.error('Failed to open app settings:', e);
-                        });
-                    }
-                } else {
-                    alert('Microphone access is required for recording voice notes. Please allow microphone access in your browser settings (usually by clicking the lock/site settings icon next to the URL).');
-                }
+                alert('Microphone is ready! If you just clicked "Allow", please tap the "Speak" button again to start recording.');
             }
         }
     };
