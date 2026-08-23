@@ -162,9 +162,6 @@ function TechnicianApp() {
     const handleVoiceRecordToggle = async () => {
         if (recording) {
             isRecordingRef.current = false;
-            if (mediaRecorderRef.current) {
-                mediaRecorderRef.current.stop();
-            }
             if (recognitionRef.current) {
                 recognitionRef.current.stop();
             }
@@ -179,26 +176,13 @@ function TechnicianApp() {
                     }
                 }
 
+                // Prompt browser mic permissions and release the hardware lock immediately
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorderRef.current = new MediaRecorder(stream);
-                audioChunksRef.current = [];
-
-                mediaRecorderRef.current.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunksRef.current.push(event.data);
-                    }
-                };
-
-                mediaRecorderRef.current.onstop = () => {
-                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                    audioBlobRef.current = audioBlob;
-                    stream.getTracks().forEach(track => track.stop());
-                };
+                stream.getTracks().forEach(track => track.stop());
 
                 isRecordingRef.current = true;
                 beforeRecordTextRef.current = visitNotes || '';
                 setSpeechDebug('Initializing Speech Engine...');
-                mediaRecorderRef.current.start();
                 setRecording(true);
 
                 if (typeof window !== 'undefined') {
@@ -267,17 +251,6 @@ function TechnicianApp() {
         setSubmittingVisitSummary(true);
         const techName = technicianData?.name || 'Technician';
         try {
-            let finalAudioUrl = null;
-            if (audioBlobRef.current) {
-                try {
-                    const fileName = `voice-summary-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.webm`;
-                    const file = new File([audioBlobRef.current], fileName, { type: 'audio/webm' });
-                    finalAudioUrl = await uploadOrQueueFile(file, fileName);
-                } catch (err) {
-                    console.error('Failed to queue audio file:', err);
-                }
-            }
-
             const jobId = pendingVisitSummary.jobId;
             const res = await apiCall(`/api/technician/jobs/${jobId}/interactions`, {
                 method: 'POST',
@@ -289,7 +262,7 @@ function TechnicianApp() {
                     user_name: techName,
                     metadata: {
                         notes: visitNotes.trim(),
-                        audio_url: finalAudioUrl || null,
+                        audio_url: null,
                         distance_metres: pendingVisitSummary.distanceMetres,
                         checkout_latitude: pendingVisitSummary.actualCheckoutLat,
                         checkout_longitude: pendingVisitSummary.actualCheckoutLng,
@@ -301,7 +274,6 @@ function TechnicianApp() {
             });
 
             if (res.ok) {
-                audioBlobRef.current = null;
                 alert('Visit summary submitted successfully!');
                 
                 try {
@@ -5067,12 +5039,11 @@ function TechnicianApp() {
                             />
                         </div>
 
-                        {/* Hinglish Audio Recording Button */}
+                        {/* Hinglish Speech Button */}
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
                             <button
                                 type="button"
                                 onClick={handleVoiceRecordToggle}
-                                disabled={audioLoading}
                                 style={{
                                     flex: 1,
                                     padding: '12px',
@@ -5090,34 +5061,11 @@ function TechnicianApp() {
                                 }}
                             >
                                 {recording ? (
-                                    <>🛑 Stop & Translate</>
-                                ) : audioLoading ? (
-                                    <>
-                                        <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                                        Uploading Voice...
-                                    </>
+                                    <>🛑 Stop Listening</>
                                 ) : (
                                     <>🎤 Speak Hindi/Hinglish</>
                                 )}
                             </button>
-
-                            {(audioBlobRef.current || uploadedAudioUrl) && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: 'rgba(16,185,129,0.1)',
-                                    border: '1px solid rgba(16,185,129,0.25)',
-                                    color: '#10b981',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    borderRadius: '12px',
-                                    padding: '0 12px',
-                                    height: '46px'
-                                }}>
-                                    🔊 Audio Saved
-                                </div>
-                            )}
                         </div>
 
                         {/* Microphone Guidance / Settings Helper */}
