@@ -20,7 +20,7 @@ import TechSupportTab from '@/components/technician/TechSupportTab';
 import TechEmailInbox from '@/components/technician/TechEmailInbox';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
-import { apiCall, syncOfflineQueue } from '@/lib/offlineSync';
+import { apiCall, syncOfflineQueue, uploadOrQueueFile } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
 
 const isNativePlatform = () => {
@@ -132,6 +132,7 @@ function TechnicianApp() {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const recognitionRef = useRef(null);
+    const audioBlobRef = useRef(null);
 
     const translateToEnglish = async (text) => {
         try {
@@ -148,34 +149,7 @@ function TechnicianApp() {
         }
     };
 
-    const uploadAudioBlob = async (blob) => {
-        setAudioLoading(true);
-        const fileName = `voice-summary-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.webm`;
-        const filePath = `uploads/${fileName}`;
 
-        try {
-            const { data, error } = await supabase.storage
-                .from('media')
-                .upload(filePath, blob, {
-                    contentType: 'audio/webm',
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (error) throw error;
-
-            const { data: urlData } = supabase.storage
-                .from('media')
-                .getPublicUrl(filePath);
-
-            setUploadedAudioUrl(urlData.publicUrl);
-        } catch (e) {
-            console.error('Failed to upload audio recording:', e);
-            alert('Failed to upload audio recording: ' + e.message);
-        } finally {
-            setAudioLoading(false);
-        }
-    };
 
     const handleVoiceRecordToggle = async () => {
         if (recording) {
@@ -206,9 +180,9 @@ function TechnicianApp() {
                     }
                 };
 
-                mediaRecorderRef.current.onstop = async () => {
+                mediaRecorderRef.current.onstop = () => {
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                    await uploadAudioBlob(audioBlob);
+                    audioBlobRef.current = audioBlob;
                     stream.getTracks().forEach(track => track.stop());
                 };
 
@@ -252,6 +226,17 @@ function TechnicianApp() {
         setSubmittingVisitSummary(true);
         const techName = technicianData?.name || 'Technician';
         try {
+            let finalAudioUrl = null;
+            if (audioBlobRef.current) {
+                try {
+                    const fileName = `voice-summary-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.webm`;
+                    const file = new File([audioBlobRef.current], fileName, { type: 'audio/webm' });
+                    finalAudioUrl = await uploadOrQueueFile(file, fileName);
+                } catch (err) {
+                    console.error('Failed to queue audio file:', err);
+                }
+            }
+
             const jobId = pendingVisitSummary.jobId;
             const res = await apiCall(`/api/technician/jobs/${jobId}/interactions`, {
                 method: 'POST',
@@ -263,7 +248,7 @@ function TechnicianApp() {
                     user_name: techName,
                     metadata: {
                         notes: visitNotes.trim(),
-                        audio_url: uploadedAudioUrl || null,
+                        audio_url: finalAudioUrl || null,
                         distance_metres: pendingVisitSummary.distanceMetres,
                         checkout_latitude: pendingVisitSummary.actualCheckoutLat,
                         checkout_longitude: pendingVisitSummary.actualCheckoutLng,
@@ -275,6 +260,7 @@ function TechnicianApp() {
             });
 
             if (res.ok) {
+                audioBlobRef.current = null;
                 alert('Visit summary submitted successfully!');
                 
                 try {
@@ -353,6 +339,7 @@ function TechnicianApp() {
 
         setVisitNotes('');
         setUploadedAudioUrl('');
+        audioBlobRef.current = null;
         setVisitSummaryJobDetails(null);
         setVisitSummaryInteractions([]);
         setVisitSummaryQuotation(null);
@@ -5073,7 +5060,7 @@ function TechnicianApp() {
                                 )}
                             </button>
 
-                            {uploadedAudioUrl && (
+                            {(audioBlobRef.current || uploadedAudioUrl) && (
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -5084,7 +5071,8 @@ function TechnicianApp() {
                                     fontSize: '12px',
                                     fontWeight: 600,
                                     borderRadius: '12px',
-                                    padding: '0 12px'
+                                    padding: '0 12px',
+                                    height: '46px'
                                 }}>
                                     🔊 Audio Saved
                                 </div>
