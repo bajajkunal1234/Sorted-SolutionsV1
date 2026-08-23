@@ -453,7 +453,7 @@ function TechnicianApp() {
     const [copied, setCopied] = useState(false);
 
     const handleCopyLink = () => {
-        const url = 'https://sortedsolutions.in/downloads/technician-app-v9.apk';
+        const url = 'https://sortedsolutions.in/downloads/technician-app-v10.apk';
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url)
                 .then(() => {
@@ -479,7 +479,7 @@ function TechnicianApp() {
             setCopied(true);
             setTimeout(() => setCopied(false), 3000);
         } catch (err) {
-            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v9.apk');
+            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v10.apk');
         }
     };
 
@@ -499,7 +499,7 @@ function TechnicianApp() {
                         const res = await GPSBridgePlugin.getAppVersion();
                         if (res && res.version) {
                             setNativeAppVersion(res.version);
-                            if (res.version === '1.9.0') {
+                            if (res.version === '1.10.0') {
                                 // Up to date!
                                 return;
                             }
@@ -520,7 +520,7 @@ function TechnicianApp() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        fetch('/downloads/technician-app-v9.apk', { method: 'HEAD' })
+        fetch('/downloads/technician-app-v10.apk', { method: 'HEAD' })
             .then(res => {
                 const bytes = res.headers.get('Content-Length');
                 if (bytes) {
@@ -3253,8 +3253,8 @@ function TechnicianApp() {
                     Install the native Android app for thermal printer support and reliable push notifications.
                 </p>
                 <a
-                    href="/downloads/technician-app-v9.apk"
-                    download="SortedTechnician_v9.apk"
+                    href="/downloads/technician-app-v10.apk"
+                    download="SortedTechnician_v10.apk"
                     target="_blank"
                     style={{
                         display: 'flex',
@@ -4470,7 +4470,7 @@ function TechnicianApp() {
                         onClick={() => {
                             if (typeof window !== 'undefined') {
                                 const isNative = isNativePlatform();
-                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v9.apk';
+                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v10.apk';
                                 if (isNative && GPSBridgePlugin && GPSBridgePlugin.openSystemBrowser) {
                                     GPSBridgePlugin.openSystemBrowser({ url: downloadUrl }).catch(() => {
                                         window.location.href = downloadUrl;
