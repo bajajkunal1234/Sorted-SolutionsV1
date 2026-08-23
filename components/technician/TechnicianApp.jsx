@@ -231,7 +231,6 @@ function TechnicianApp() {
                 }
             } catch (err) {
                 console.error(err);
-                alert('Microphone is ready! If you just clicked "Allow", please tap the "Speak" button again to start recording.');
             }
         }
     };
@@ -5168,42 +5167,6 @@ function TechnicianApp() {
                                 }}
                             >
                                 Fill Later
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    if (window.confirm('Are you sure you want to discard this check-out summary? You will lose this visit record if you dismiss.')) {
-                                        try {
-                                            const saved = localStorage.getItem('postponed_visit_summaries');
-                                            const list = saved ? JSON.parse(saved) : [];
-                                            const newList = list.filter(item => String(item.jobId) !== String(pendingVisitSummary.jobId));
-                                            localStorage.setItem('postponed_visit_summaries', JSON.stringify(newList));
-                                            setPostponedSummaries(newList);
-                                        } catch (e) {}
-
-                                        try {
-                                            const active = localStorage.getItem('active_visit_check_in');
-                                            if (active && String(JSON.parse(active).jobId) === String(pendingVisitSummary.jobId)) {
-                                                localStorage.removeItem('active_visit_check_in');
-                                            }
-                                        } catch (e) {}
-
-                                        setPendingVisitSummary(null);
-                                    }
-                                }}
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    borderRadius: '14px',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    color: '#cbd5e1',
-                                    fontWeight: 600,
-                                    fontSize: '14px',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Discard
                             </button>
                         </div>
                     </div>
