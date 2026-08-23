@@ -25,6 +25,7 @@ import android.app.NotificationManager;
 import android.media.AudioAttributes;
 import android.content.ContentResolver;
 import android.os.Build;
+import android.webkit.PermissionRequest;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -54,6 +55,24 @@ public class MainActivity extends BridgeActivity {
                 getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
                 getBridge().getWebView().getSettings().setDomStorageEnabled(true);
                 getBridge().getWebView().getSettings().setDatabaseEnabled(true);
+
+                // Allow microphone and camera access on our remote origin by overriding the chrome client
+                getBridge().getWebView().setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
+                    @Override
+                    public void onPermissionRequest(final PermissionRequest request) {
+                        try {
+                            String origin = request.getOrigin().toString();
+                            if (origin.contains("sortedsolutions.in") || origin.contains("localhost")) {
+                                request.grant(request.getResources());
+                            } else {
+                                super.onPermissionRequest(request);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            super.onPermissionRequest(request);
+                        }
+                    }
+                });
             } catch (Exception e) {
                 e.printStackTrace();
             }
