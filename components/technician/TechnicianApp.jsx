@@ -231,6 +231,7 @@ function TechnicianApp() {
                 }
             } catch (err) {
                 console.error(err);
+                alert('Mic Error: ' + err.name + ': ' + err.message);
             }
         }
     };
