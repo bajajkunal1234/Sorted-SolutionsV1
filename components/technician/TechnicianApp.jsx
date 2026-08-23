@@ -229,8 +229,17 @@ function TechnicianApp() {
                     }
                 }
             } catch (err) {
-                alert('Microphone access is required for recording voice notes.');
                 console.error(err);
+                const isNative = isNativePlatform();
+                if (isNative && GPSBridgePlugin) {
+                    if (window.confirm('Microphone access is required for recording voice notes.\n\nWould you like to open App Settings to allow Microphone access?')) {
+                        GPSBridgePlugin.openAppSettings().catch(e => {
+                            console.error('Failed to open app settings:', e);
+                        });
+                    }
+                } else {
+                    alert('Microphone access is required for recording voice notes. Please allow microphone access in your browser settings (usually by clicking the lock/site settings icon next to the URL).');
+                }
             }
         }
     };
@@ -5038,6 +5047,35 @@ function TechnicianApp() {
                                     🔊 Audio Saved
                                 </div>
                             )}
+                        </div>
+
+                        {/* Microphone Guidance / Settings Helper */}
+                        <div 
+                            onClick={async () => {
+                                const isNative = isNativePlatform();
+                                if (isNative && GPSBridgePlugin) {
+                                    if (window.confirm('Would you like to open App Settings to grant Microphone permission for voice recording?')) {
+                                        await GPSBridgePlugin.openAppSettings().catch(e => console.error(e));
+                                    }
+                                } else {
+                                    alert('To enable microphone access:\n\n1. Click the lock/settings icon next to the URL at the top of your browser.\n2. Turn on the "Microphone" toggle.\n3. Reload the page.');
+                                }
+                            }}
+                            style={{
+                                fontSize: '11px',
+                                color: '#94a3b8',
+                                textAlign: 'center',
+                                marginTop: '-8px',
+                                marginBottom: '12px',
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            <span>⚠️ Mic Blocked? Tap here to fix permissions</span>
                         </div>
 
                         {/* Submit Actions */}
