@@ -25,6 +25,12 @@ import android.Manifest;
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
             }
+        ),
+        @Permission(
+            alias = "microphone",
+            strings = {
+                Manifest.permission.RECORD_AUDIO
+            }
         )
     }
 )
@@ -356,5 +362,27 @@ public class GPSBridgePlugin extends Plugin {
             e.printStackTrace();
             call.reject("Failed to open browser: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void requestMicrophonePermission(PluginCall call) {
+        if (getPermissionState("microphone") == PermissionState.GRANTED) {
+            JSObject ret = new JSObject();
+            ret.put("status", "granted");
+            call.resolve(ret);
+        } else {
+            requestPermissionForAlias("microphone", call, "microphonePermissionCallback");
+        }
+    }
+
+    @PermissionCallback
+    private void microphonePermissionCallback(PluginCall call) {
+        JSObject ret = new JSObject();
+        if (getPermissionState("microphone") == PermissionState.GRANTED) {
+            ret.put("status", "granted");
+        } else {
+            ret.put("status", "denied");
+        }
+        call.resolve(ret);
     }
 }

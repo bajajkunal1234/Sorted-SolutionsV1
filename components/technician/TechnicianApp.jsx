@@ -188,6 +188,14 @@ function TechnicianApp() {
             setRecording(false);
         } else {
             try {
+                const isNative = isNativePlatform();
+                if (isNative && GPSBridgePlugin && GPSBridgePlugin.requestMicrophonePermission) {
+                    const perm = await GPSBridgePlugin.requestMicrophonePermission();
+                    if (!perm || perm.status !== 'granted') {
+                        throw new Error('Native Microphone permission not granted');
+                    }
+                }
+
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorderRef.current = new MediaRecorder(stream);
                 audioChunksRef.current = [];
@@ -231,7 +239,6 @@ function TechnicianApp() {
                 }
             } catch (err) {
                 console.error(err);
-                alert('Mic Error: ' + err.name + ': ' + err.message);
             }
         }
     };
