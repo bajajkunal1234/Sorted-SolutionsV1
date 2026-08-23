@@ -128,8 +128,8 @@ export default function InstalledDevicesReport() {
                     </div>
 
                     <a 
-                        href="/downloads/technician-app-v6.apk" 
-                        download="SortedTechnician_v6.apk"
+                        href="/downloads/technician-app-v7.apk" 
+                        download="SortedTechnician_v7.apk"
                         className="btn btn-primary"
                         style={{ marginTop: 'var(--spacing-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', padding: '8px' }}
                     >

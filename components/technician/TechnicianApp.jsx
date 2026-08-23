@@ -108,6 +108,7 @@ function TechnicianApp() {
     const [backPressToast, setBackPressToast] = useState('');
     const [pendingVisitSummary, setPendingVisitSummary] = useState(null);
     const [postponedSummaries, setPostponedSummaries] = useState([]);
+    const [nativeAppVersion, setNativeAppVersion] = useState('Web PWA');
 
     useEffect(() => {
         try {
@@ -453,7 +454,7 @@ function TechnicianApp() {
     const [copied, setCopied] = useState(false);
 
     const handleCopyLink = () => {
-        const url = 'https://sortedsolutions.in/downloads/technician-app-v6.apk';
+        const url = 'https://sortedsolutions.in/downloads/technician-app-v7.apk';
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url)
                 .then(() => {
@@ -479,7 +480,7 @@ function TechnicianApp() {
             setCopied(true);
             setTimeout(() => setCopied(false), 3000);
         } catch (err) {
-            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v6.apk');
+            alert('Failed to copy. Please type: sortedsolutions.in/downloads/technician-app-v7.apk');
         }
     };
 
@@ -497,9 +498,12 @@ function TechnicianApp() {
                     // Check if getAppVersion method exists on the plugin
                     if (GPSBridgePlugin.getAppVersion) {
                         const res = await GPSBridgePlugin.getAppVersion();
-                        if (res && res.version === '1.6.0') {
-                            // Up to date!
-                            return;
+                        if (res && res.version) {
+                            setNativeAppVersion(res.version);
+                            if (res.version === '1.7.0') {
+                                // Up to date!
+                                return;
+                            }
                         }
                     }
                     // Old version or missing method -> Force update
@@ -517,7 +521,7 @@ function TechnicianApp() {
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        fetch('/downloads/technician-app-v6.apk', { method: 'HEAD' })
+        fetch('/downloads/technician-app-v7.apk', { method: 'HEAD' })
             .then(res => {
                 const bytes = res.headers.get('Content-Length');
                 if (bytes) {
@@ -3000,9 +3004,10 @@ function TechnicianApp() {
                         { label: 'Employee ID', value: technicianData?.id || '...' },
                         { label: 'Phone', value: technicianData?.phone || '...' },
                         { label: 'Email', value: technicianData?.email || '...', breakWord: true },
-                        { label: 'Joined', value: technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...' }
+                        { label: 'Joined', value: technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...' },
+                        { label: 'App Version', value: nativeAppVersion }
                     ].map((item, idx) => (
-                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx !== 4 ? '1px solid var(--border-primary)' : 'none', paddingBottom: idx !== 4 ? '8px' : '0' }}>
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx !== 5 ? '1px solid var(--border-primary)' : 'none', paddingBottom: idx !== 5 ? '8px' : '0' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{item.label}</span>
                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', wordBreak: item.breakWord ? 'break-all' : 'normal', maxWidth: '70%' }}>{item.value}</span>
                         </div>
@@ -3249,8 +3254,8 @@ function TechnicianApp() {
                     Install the native Android app for thermal printer support and reliable push notifications.
                 </p>
                 <a
-                    href="/downloads/technician-app-v6.apk"
-                    download="SortedTechnician_v6.apk"
+                    href="/downloads/technician-app-v7.apk"
+                    download="SortedTechnician_v7.apk"
                     target="_blank"
                     style={{
                         display: 'flex',
@@ -4466,7 +4471,7 @@ function TechnicianApp() {
                         onClick={() => {
                             if (typeof window !== 'undefined') {
                                 const isNative = isNativePlatform();
-                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v6.apk';
+                                const downloadUrl = 'https://sortedsolutions.in/downloads/technician-app-v7.apk';
                                 if (isNative && GPSBridgePlugin && GPSBridgePlugin.openSystemBrowser) {
                                     GPSBridgePlugin.openSystemBrowser({ url: downloadUrl }).catch(() => {
                                         window.location.href = downloadUrl;
