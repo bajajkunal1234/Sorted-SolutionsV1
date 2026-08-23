@@ -239,6 +239,7 @@ function TechnicianApp() {
                 }
             } catch (err) {
                 console.error(err);
+                alert('Diagnostic Info:\nRunning Version: ' + (nativeAppVersion || 'Web') + '\nError: ' + err.name + ': ' + err.message);
             }
         }
     };
