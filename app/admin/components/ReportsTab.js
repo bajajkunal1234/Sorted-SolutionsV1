@@ -226,7 +226,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                             justifyContent: 'center',
                             padding: '10px 12px'
                         }}
-                        title="Download Tech App v6 APK"
+                        title="Download Tech App v7 APK"
                     >
                         <Download size={18} />
                     </a>
