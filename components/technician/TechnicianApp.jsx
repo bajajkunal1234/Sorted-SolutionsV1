@@ -134,6 +134,12 @@ function TechnicianApp() {
     const recognitionRef = useRef(null);
     const audioBlobRef = useRef(null);
     const beforeRecordTextRef = useRef('');
+    const isRecordingRef = useRef(false);
+    const visitNotesRef = useRef('');
+
+    useEffect(() => {
+        visitNotesRef.current = visitNotes;
+    }, [visitNotes]);
 
     const translateToEnglish = async (text) => {
         try {
@@ -154,6 +160,7 @@ function TechnicianApp() {
 
     const handleVoiceRecordToggle = async () => {
         if (recording) {
+            isRecordingRef.current = false;
             if (mediaRecorderRef.current) {
                 mediaRecorderRef.current.stop();
             }
@@ -187,6 +194,7 @@ function TechnicianApp() {
                     stream.getTracks().forEach(track => track.stop());
                 };
 
+                isRecordingRef.current = true;
                 beforeRecordTextRef.current = visitNotes || '';
                 mediaRecorderRef.current.start();
                 setRecording(true);
@@ -195,7 +203,7 @@ function TechnicianApp() {
                     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                     if (SpeechRecognition) {
                         const rec = new SpeechRecognition();
-                        rec.continuous = true;
+                        rec.continuous = false;
                         rec.interimResults = true;
                         rec.lang = 'en-IN';
 
@@ -210,9 +218,22 @@ function TechnicianApp() {
                                 setVisitNotes(baseText ? baseText + ' ' + trimmedSession : trimmedSession);
                             }
                         };
+
+                        rec.onend = () => {
+                            if (isRecordingRef.current) {
+                                try {
+                                    beforeRecordTextRef.current = visitNotesRef.current;
+                                    rec.start();
+                                } catch (e) {
+                                    console.error('Failed to restart speech recognition:', e);
+                                }
+                            }
+                        };
+
                         rec.onerror = (e) => {
                             console.error('Speech recognition error:', e);
                         };
+
                         rec.start();
                         recognitionRef.current = rec;
                     }
