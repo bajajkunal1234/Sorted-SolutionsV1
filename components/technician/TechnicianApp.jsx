@@ -120,6 +120,7 @@ function TechnicianApp() {
     }, []);
 
     const [visitNotes, setVisitNotes] = useState('');
+    const [speechDebug, setSpeechDebug] = useState('idle');
     const [recording, setRecording] = useState(false);
     const [audioLoading, setAudioLoading] = useState(false);
     const [uploadedAudioUrl, setUploadedAudioUrl] = useState('');
@@ -196,6 +197,7 @@ function TechnicianApp() {
 
                 isRecordingRef.current = true;
                 beforeRecordTextRef.current = visitNotes || '';
+                setSpeechDebug('Initializing Speech Engine...');
                 mediaRecorderRef.current.start();
                 setRecording(true);
 
@@ -207,12 +209,17 @@ function TechnicianApp() {
                         rec.interimResults = true;
                         rec.lang = 'en-IN';
 
+                        rec.onstart = () => {
+                            setSpeechDebug('Listening (en-IN)... Speak now.');
+                        };
+
                         rec.onresult = (event) => {
                             let sessionTranscript = '';
                             for (let i = 0; i < event.results.length; ++i) {
                                 sessionTranscript += event.results[i][0].transcript;
                             }
                             const trimmedSession = sessionTranscript.trim();
+                            setSpeechDebug('Transcribing: "' + trimmedSession + '"');
                             if (trimmedSession) {
                                 const baseText = beforeRecordTextRef.current.trim();
                                 setVisitNotes(baseText ? baseText + ' ' + trimmedSession : trimmedSession);
@@ -221,24 +228,28 @@ function TechnicianApp() {
 
                         rec.onend = () => {
                             if (isRecordingRef.current) {
+                                setSpeechDebug('Session boundary reached, auto-restarting...');
                                 try {
                                     beforeRecordTextRef.current = visitNotesRef.current;
                                     rec.start();
                                 } catch (e) {
                                     console.error('Failed to restart speech recognition:', e);
+                                    setSpeechDebug('Restart failed: ' + e.message);
                                 }
+                            } else {
+                                setSpeechDebug('Stopped.');
                             }
                         };
 
                         rec.onerror = (e) => {
                             console.error('Speech recognition error:', e);
-                            alert('Speech Recognition Error: ' + e.error + (e.message ? ' - ' + e.message : ''));
+                            setSpeechDebug('Error: ' + e.error + (e.message ? ' - ' + e.message : ''));
                         };
 
                         rec.start();
                         recognitionRef.current = rec;
                     } else {
-                        alert('SpeechRecognition / webkitSpeechRecognition is NOT defined or supported in this WebView browser context.');
+                        setSpeechDebug('SpeechRecognition / webkitSpeechRecognition API is not defined or supported on this device/browser.');
                     }
                 }
             } catch (err) {
@@ -5137,6 +5148,24 @@ function TechnicianApp() {
                         >
                             <span>⚠️ Mic Blocked? Tap here to fix permissions</span>
                         </div>
+
+                        {/* Speech-to-Text Debug Indicator */}
+                        {recording && (
+                            <div style={{
+                                fontSize: '11px',
+                                color: '#cbd5e1',
+                                background: 'rgba(30,41,59,0.7)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                textAlign: 'center',
+                                marginBottom: '16px',
+                                fontFamily: 'monospace',
+                                wordBreak: 'break-all'
+                            }}>
+                                🤖 Speech Status: {speechDebug}
+                            </div>
+                        )}
 
                         {/* Submit Actions */}
                         <div style={{ display: 'flex', gap: '12px' }}>
