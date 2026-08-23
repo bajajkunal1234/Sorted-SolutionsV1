@@ -651,6 +651,44 @@ function TechnicianApp() {
     }, [selectedJob]);
 
     useEffect(() => {
+        if (!selectedJob) return;
+
+        // Check if there is an active check-in session for this job
+        try {
+            const activeStr = localStorage.getItem('active_visit_check_in');
+            if (activeStr) {
+                const active = JSON.parse(activeStr);
+                if (String(active.jobId) === String(selectedJob.id)) {
+                    setPendingVisitSummary({
+                        ...active,
+                        actualCheckoutLat: null,
+                        actualCheckoutLng: null,
+                        distanceMetres: 0
+                    });
+                    // Close the selected job detail view so the modal is focus
+                    setSelectedJob(null);
+                    return;
+                }
+            }
+        } catch (e) {}
+
+        // Check if there is a postponed summary for this job
+        try {
+            const saved = localStorage.getItem('postponed_visit_summaries');
+            if (saved) {
+                const list = JSON.parse(saved);
+                const found = list.find(item => String(item.jobId) === String(selectedJob.id));
+                if (found) {
+                    setPendingVisitSummary(found);
+                    // Close the selected job detail view so the modal is focus
+                    setSelectedJob(null);
+                    return;
+                }
+            }
+        } catch (e) {}
+    }, [selectedJob]);
+
+    useEffect(() => {
         if (!showStockModal) return;
         const handler = () => setShowStockModal(false);
         window.backHandlers = window.backHandlers || [];
