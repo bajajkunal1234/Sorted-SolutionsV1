@@ -957,7 +957,6 @@ function TechnicianApp() {
         // 1. If native, bypass GPS check and never block the app UI
         if (isNative) {
             setGpsStatus('granted');
-            return;
         }
 
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -1388,12 +1387,8 @@ function TechnicianApp() {
         // Run foreground check immediately to verify status and set block screens
         checkGpsAndPingLocation();
 
-        let pingInterval;
-
-        if (!isNative) {
-            // Web fallback: ping every 60s
-            pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
-        }
+        // Run foreground check periodically (every 60s) for distance-based checkouts on both web and native
+        const pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
 
         return () => {
             if (pingInterval) clearInterval(pingInterval);
