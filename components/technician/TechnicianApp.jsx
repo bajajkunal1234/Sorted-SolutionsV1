@@ -133,6 +133,7 @@ function TechnicianApp() {
     const audioChunksRef = useRef([]);
     const recognitionRef = useRef(null);
     const audioBlobRef = useRef(null);
+    const beforeRecordTextRef = useRef('');
 
     const translateToEnglish = async (text) => {
         try {
@@ -186,6 +187,7 @@ function TechnicianApp() {
                     stream.getTracks().forEach(track => track.stop());
                 };
 
+                beforeRecordTextRef.current = visitNotes || '';
                 mediaRecorderRef.current.start();
                 setRecording(true);
 
@@ -194,14 +196,18 @@ function TechnicianApp() {
                     if (SpeechRecognition) {
                         const rec = new SpeechRecognition();
                         rec.continuous = true;
-                        rec.interimResults = false;
+                        rec.interimResults = true;
                         rec.lang = 'en-IN';
 
                         rec.onresult = (event) => {
-                            const lastIndex = event.results.length - 1;
-                            const transcriptText = event.results[lastIndex][0].transcript;
-                            if (transcriptText.trim()) {
-                                setVisitNotes(prev => prev ? prev + ' ' + transcriptText.trim() : transcriptText.trim());
+                            let sessionTranscript = '';
+                            for (let i = 0; i < event.results.length; ++i) {
+                                sessionTranscript += event.results[i][0].transcript;
+                            }
+                            const trimmedSession = sessionTranscript.trim();
+                            if (trimmedSession) {
+                                const baseText = beforeRecordTextRef.current.trim();
+                                setVisitNotes(baseText ? baseText + ' ' + trimmedSession : trimmedSession);
                             }
                         };
                         rec.onerror = (e) => {
