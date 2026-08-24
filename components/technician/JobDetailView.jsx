@@ -28,6 +28,21 @@ const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
 
 
 
+const getDistanceMeters = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // metres
+    const phi1 = lat1 * Math.PI/180;
+    const phi2 = lat2 * Math.PI/180;
+    const deltaPhi = (lat2-lat1) * Math.PI/180;
+    const deltaLambda = (lon2-lon1) * Math.PI/180;
+
+    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // in metres
+};
+
 const deduplicateInteractions = (list) => {
     if (!Array.isArray(list)) return [];
     const seen = new Set();
@@ -2086,6 +2101,35 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
         // Optimistically update status and coordinates locally
         if (finalLat && finalLng) {
+            const localityName = editedJob.locality || editedJob._raw_property?.locality || '';
+            if (localityName && typeof window !== 'undefined') {
+                try {
+                    const geoRes = await fetch(`/api/geocode?q=${encodeURIComponent(localityName + ', Mumbai')}`);
+                    if (geoRes.ok) {
+                        const geoData = await geoRes.json();
+                        if (geoData.success && geoData.lat && geoData.lng) {
+                            const dist = getDistanceMeters(
+                                Number(geoData.lat), Number(geoData.lng),
+                                Number(finalLat), Number(finalLng)
+                            );
+                            if (dist > 5000) {
+                                const distKm = dist / 1000;
+                                const confirmMsg = `⚠️ Location Warning:\n\nThe pin location being confirmed is ${distKm.toFixed(1)} km away from the registered locality "${localityName}".\n\nAre you sure you want to verify this location? Click OK to save anyway, or CANCEL to drag the pin manually.`;
+                                if (!window.confirm(confirmMsg)) {
+                                    // Redirect to manual update screen
+                                    setLocationVerifyStep('verify');
+                                    setVerifyLat(finalLat);
+                                    setVerifyLng(finalLng);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to verify locality coordinates boundary check in YES path:', e);
+                }
+            }
+
             const currentProp = editedJob._raw_property || {};
             const updatedProp = {
                 ...currentProp,
@@ -2146,6 +2190,32 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const handleLocationVerifySave = async () => {
         if (!verifyLat || !verifyLng) { alert('Please set the pin location first.'); return; }
         
+        const localityName = editedJob.locality || editedJob._raw_property?.locality || '';
+        if (localityName && typeof window !== 'undefined') {
+            try {
+                // Call geocoding API to resolve the locality center in Mumbai
+                const geoRes = await fetch(`/api/geocode?q=${encodeURIComponent(localityName + ', Mumbai')}`);
+                if (geoRes.ok) {
+                    const geoData = await geoRes.json();
+                    if (geoData.success && geoData.lat && geoData.lng) {
+                        const dist = getDistanceMeters(
+                            Number(geoData.lat), Number(geoData.lng),
+                            Number(verifyLat), Number(verifyLng)
+                        );
+                        if (dist > 5000) {
+                            const distKm = dist / 1000;
+                            const confirmMsg = `⚠️ Location Warning:\n\nThe pin location you set is ${distKm.toFixed(1)} km away from the registered locality "${localityName}".\n\nAre you sure you want to save this pin location? Click OK to save anyway, or CANCEL to drag the pin manually.`;
+                            if (!window.confirm(confirmMsg)) {
+                                return; // abort save
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to verify locality coordinates boundary check:', e);
+            }
+        }
+
         // Optimistically update locally
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         const currentProp = editedJob._raw_property || {};
