@@ -80,6 +80,7 @@ export default function AdminPropertiesTab() {
         }
         const q = val.trim().toLowerCase()
         const results = allProperties.filter(p =>
+            (p.sku || '').toLowerCase().includes(q) ||
             (p.flat_number || '').toLowerCase().includes(q) ||
             (p.building_name || '').toLowerCase().includes(q) ||
             (p.address || '').toLowerCase().includes(q) ||
@@ -272,8 +273,13 @@ export default function AdminPropertiesTab() {
                                     <MapPin size={18} color={prop.latitude ? '#10b981' : '#f59e0b'} />
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>
-                                        {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontFamily: 'monospace' }}>
+                                            {prop.sku || 'PENDING'}
+                                        </span>
+                                        <span>
+                                            {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
+                                        </span>
                                     </div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
@@ -308,6 +314,11 @@ export default function AdminPropertiesTab() {
                         {/* Panel header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontFamily: 'monospace' }}>
+                                        {selected.sku || 'PENDING'}
+                                    </span>
+                                </div>
                                 <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f8fafc', margin: 0, lineHeight: 1.3 }}>
                                     {[selected.flat_number, selected.building_name, selected.address].filter(Boolean).join(', ')}
                                 </h2>

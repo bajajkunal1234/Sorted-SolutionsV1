@@ -285,7 +285,23 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
             case 'performedBy':
                 return <td key="performedBy" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', minWidth: '130px' }}>{interaction.performedByName}</td>;
             case 'description':
-                return <td key="description" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '220px' }}>{interaction.description}</td>;
+                return (
+                    <td key="description" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '220px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div>{interaction.description}</div>
+                            {interaction.properties && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                    <span style={{ fontSize: '10px', padding: '1px 4px', borderRadius: '4px', background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontFamily: 'monospace', fontWeight: 600 }}>
+                                        {interaction.properties.sku || 'PROPERTY'}
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                        {[interaction.properties.flat_number, interaction.properties.building_name].filter(Boolean).join(', ')}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </td>
+                );
             case 'source':
                 return (
                     <td key="source" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '110px' }}>
@@ -373,7 +389,10 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                 (interaction.performedByName || '').toLowerCase().includes(term) ||
                 (interaction.jobId || '').toLowerCase().includes(term) ||
                 (interaction.invoiceId || '').toLowerCase().includes(term) ||
-                (interaction.description || '').toLowerCase().includes(term)
+                (interaction.description || '').toLowerCase().includes(term) ||
+                (interaction.properties?.sku || '').toLowerCase().includes(term) ||
+                (interaction.properties?.building_name || '').toLowerCase().includes(term) ||
+                (interaction.properties?.address || '').toLowerCase().includes(term)
             );
         }
 

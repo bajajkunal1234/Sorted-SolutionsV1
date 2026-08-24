@@ -18,7 +18,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('interactions')
-            .select('*, jobs(technician_name)')
+            .select('*, jobs(technician_name), properties(sku, flat_number, building_name, address, locality)')
             .order('timestamp', { ascending: false })
             .limit(limit)
 
