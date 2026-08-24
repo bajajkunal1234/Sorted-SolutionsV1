@@ -54,8 +54,24 @@ function DraggableMarker({ position, onMove }) {
 
 function MapController({ center }) {
     const map = useMap();
+
     useEffect(() => {
-        if (center) map.flyTo(center, 17, { animate: true, duration: 1.2 });
+        if (map) {
+            // Force redraw immediately
+            map.invalidateSize();
+            // Schedule a deferred redraw to account for modal CSS transition settling
+            const timer = setTimeout(() => {
+                map.invalidateSize();
+            }, 350);
+            return () => clearTimeout(timer);
+        }
+    }, [map]);
+
+    useEffect(() => {
+        if (center && map) {
+            map.invalidateSize();
+            map.flyTo(center, 17, { animate: true, duration: 1.2 });
+        }
     }, [center, map]);
     return null;
 }

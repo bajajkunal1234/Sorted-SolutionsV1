@@ -4373,6 +4373,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         if (!navigator.geolocation) { alert('GPS not available on this device'); return; }
                                         setVerifyGpsLoading(true);
                                         setVerifyGpsSuccess(false);
+
+                                        const options = { enableHighAccuracy: true, timeout: 6000 };
+
                                         navigator.geolocation.getCurrentPosition(
                                             (pos) => {
                                                 setVerifyLat(pos.coords.latitude);
@@ -4381,8 +4384,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 setVerifyGpsSuccess(true);
                                                 setTimeout(() => setVerifyGpsSuccess(false), 3000);
                                             },
-                                            () => { setVerifyGpsLoading(false); alert('Could not get GPS. Try dragging the pin manually.'); },
-                                            { enableHighAccuracy: true, timeout: 10000 }
+                                            (err) => {
+                                                console.warn('High accuracy GPS request failed, trying fallback...', err);
+                                                // Fallback to low accuracy (Wi-Fi / Cell tower triangulation)
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (pos) => {
+                                                        setVerifyLat(pos.coords.latitude);
+                                                        setVerifyLng(pos.coords.longitude);
+                                                        setVerifyGpsLoading(false);
+                                                        setVerifyGpsSuccess(true);
+                                                        setTimeout(() => setVerifyGpsSuccess(false), 3000);
+                                                    },
+                                                    (fallbackErr) => {
+                                                        console.error('GPS and fallback triangulation both failed:', fallbackErr);
+                                                        setVerifyGpsLoading(false);
+                                                        alert('Could not get GPS. Try dragging the pin manually.');
+                                                    },
+                                                    { enableHighAccuracy: false, timeout: 10000 }
+                                                );
+                                            },
+                                            options
                                         );
                                     }}
                                     style={{ width: '100%', padding: '12px', borderRadius: 12, border: `1px solid ${verifyGpsSuccess ? 'rgba(16,185,129,0.4)' : 'rgba(56,189,248,0.3)'}`, background: verifyGpsSuccess ? 'rgba(16,185,129,0.12)' : 'rgba(56,189,248,0.1)', color: verifyGpsSuccess ? '#10b981' : '#38bdf8', fontWeight: 700, fontSize: 14, cursor: verifyGpsLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12, opacity: verifyGpsLoading ? 0.7 : 1 }}
