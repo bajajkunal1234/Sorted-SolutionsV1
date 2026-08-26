@@ -408,7 +408,7 @@ export async function POST(request) {
 
         // 7. Upsert repayment schedule item manually
         if (action === 'upsert_repayment') {
-            const { id, loan_id, due_date, installment_number, expected_amount, expected_principal, expected_interest, status, notes } = body;
+            const { id, loan_id, due_date, installment_number, expected_amount, expected_principal, expected_interest, status, notes, recur_months } = body;
 
             const repaymentRow = {
                 loan_id,
@@ -438,13 +438,44 @@ export async function POST(request) {
                 }
             } else {
                 // Insert
-                const { error: insErr } = await supabase
-                    .from('newera_repayments')
-                    .insert(repaymentRow);
-                error = insErr;
+                if (recur_months && parseInt(recur_months) > 1) {
+                    const count = parseInt(recur_months);
+                    const repaymentsToInsert = [];
+                    const startDateObj = new Date(due_date);
 
-                if (!error) {
-                    await logInteraction(supabase, session.member_name, 'create_repayment', `Added manual schedule installment of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} due on ${due_date} for "${loanName}"`);
+                    for (let i = 0; i < count; i++) {
+                        const nextDueDate = new Date(startDateObj);
+                        nextDueDate.setMonth(nextDueDate.getMonth() + i);
+
+                        repaymentsToInsert.push({
+                            loan_id,
+                            due_date: nextDueDate.toISOString().split('T')[0],
+                            installment_number: installment_number ? parseInt(installment_number) + i : null,
+                            expected_amount: parseFloat(expected_amount),
+                            expected_principal: parseFloat(expected_principal),
+                            expected_interest: parseFloat(expected_interest),
+                            status: status || 'unpaid',
+                            notes: notes || null
+                        });
+                    }
+
+                    const { error: insErr } = await supabase
+                        .from('newera_repayments')
+                        .insert(repaymentsToInsert);
+                    error = insErr;
+
+                    if (!error) {
+                        await logInteraction(supabase, session.member_name, 'create_repayment', `Added recurring manual schedule installments of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} monthly for ${count} months for "${loanName}"`);
+                    }
+                } else {
+                    const { error: insErr } = await supabase
+                        .from('newera_repayments')
+                        .insert(repaymentRow);
+                    error = insErr;
+
+                    if (!error) {
+                        await logInteraction(supabase, session.member_name, 'create_repayment', `Added manual schedule installment of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} due on ${due_date} for "${loanName}"`);
+                    }
                 }
             }
 

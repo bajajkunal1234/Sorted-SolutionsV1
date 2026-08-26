@@ -167,6 +167,10 @@ export default function NewEraDashboard() {
         notes: ''
     });
 
+    const [editingRepaymentId, setEditingRepaymentId] = useState(null);
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurMonths, setRecurMonths] = useState('12');
+
     // Add Payment Form State
     const [paymentForm, setPaymentForm] = useState({
         loan_id: '',
@@ -488,18 +492,35 @@ export default function NewEraDashboard() {
 
     const submitUpsertRepayment = async (e) => {
         e.preventDefault();
+
+        const totalAmount = parseFloat(repaymentForm.expected_amount || 0);
+        const principalPortion = parseFloat(repaymentForm.expected_principal || 0);
+        const interestPortion = parseFloat(repaymentForm.expected_interest || 0);
+
+        if (Math.abs((principalPortion + interestPortion) - totalAmount) > 0.01) {
+            alert(`Error: Principal Component (₹${principalPortion.toLocaleString('en-IN')}) and Interest Component (₹${interestPortion.toLocaleString('en-IN')}) must sum exactly to the Expected Due Amount (₹${totalAmount.toLocaleString('en-IN')}).`);
+            return;
+        }
+
         try {
+            const payload = {
+                action: 'upsert_repayment',
+                id: editingRepaymentId,
+                ...repaymentForm,
+                recur_months: (!editingRepaymentId && isRecurring) ? parseInt(recurMonths) : null
+            };
+
             const res = await fetch('/api/newera', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'upsert_repayment',
-                    ...repaymentForm
-                })
+                body: JSON.stringify(payload)
             });
             const result = await res.json();
             if (result.success) {
                 setShowAddRepayment(false);
+                setEditingRepaymentId(null);
+                setIsRecurring(false);
+                setRecurMonths('12');
                 setRepaymentForm({
                     loan_id: '',
                     due_date: new Date().toISOString().split('T')[0],
@@ -511,7 +532,7 @@ export default function NewEraDashboard() {
                 });
                 fetchDashboardData();
             } else {
-                alert('Error adding schedule item: ' + result.error);
+                alert('Error saving schedule item: ' + result.error);
             }
         } catch (err) {
             console.error(err);
@@ -1521,26 +1542,54 @@ export default function NewEraDashboard() {
                                                                         {repayment.status.toUpperCase()}
                                                                     </span>
                                                                     {repayment.status !== 'paid' && (
-                                                                        <button 
-                                                                            onClick={() => {
-                                                                                const activeM = data.members.find(m => m.name === activeMember);
-                                                                                setPaymentForm({
-                                                                                    loan_id: repayment.loan_id,
-                                                                                    repayment_id: repayment.id,
-                                                                                    member_id: activeM ? activeM.id : '',
-                                                                                    payment_date: new Date().toISOString().split('T')[0],
-                                                                                    amount: repayment.expected_amount,
-                                                                                    principal_portion: repayment.expected_principal,
-                                                                                    interest_portion: repayment.expected_interest,
-                                                                                    source_of_income: 'Business',
-                                                                                    notes: `Repayment of installment #${repayment.installment_number}`
-                                                                                });
-                                                                                setShowAddPayment(true);
-                                                                            }} 
-                                                                            style={styles.payDayBtn}
-                                                                        >
-                                                                            Log Pay
-                                                                        </button>
+                                                                        <>
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    const activeM = data.members.find(m => m.name === activeMember);
+                                                                                    setPaymentForm({
+                                                                                        loan_id: repayment.loan_id,
+                                                                                        repayment_id: repayment.id,
+                                                                                        member_id: activeM ? activeM.id : '',
+                                                                                        payment_date: new Date().toISOString().split('T')[0],
+                                                                                        amount: repayment.expected_amount,
+                                                                                        principal_portion: repayment.expected_principal,
+                                                                                        interest_portion: repayment.expected_interest,
+                                                                                        source_of_income: 'Business',
+                                                                                        notes: `Repayment of installment #${repayment.installment_number}`
+                                                                                    });
+                                                                                    setShowAddPayment(true);
+                                                                                }} 
+                                                                                style={styles.payDayBtn}
+                                                                            >
+                                                                                Log Pay
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    setEditingRepaymentId(repayment.id);
+                                                                                    setRepaymentForm({
+                                                                                        loan_id: repayment.loan_id,
+                                                                                        due_date: repayment.due_date,
+                                                                                        installment_number: repayment.installment_number || '',
+                                                                                        expected_amount: repayment.expected_amount,
+                                                                                        expected_principal: repayment.expected_principal,
+                                                                                        expected_interest: repayment.expected_interest,
+                                                                                        notes: repayment.notes || ''
+                                                                                    });
+                                                                                    setShowAddRepayment(true);
+                                                                                }}
+                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                                                                title="Edit Installment"
+                                                                            >
+                                                                                Edit
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => handleDeleteRepayment(repayment.id)}
+                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                                                                title="Delete Installment"
+                                                                            >
+                                                                                Delete
+                                                                            </button>
+                                                                        </>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -1624,9 +1673,31 @@ export default function NewEraDashboard() {
                                                                 >
                                                                     Log Pay
                                                                 </button>
-                                                                <button onClick={() => handleDeleteRepayment(repayment.id)} style={styles.deleteRowBtn}>
-                                                                    <Trash2 size={14} />
-                                                                </button>
+                                                                {repayment.status !== 'paid' && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setEditingRepaymentId(repayment.id);
+                                                                            setRepaymentForm({
+                                                                                loan_id: repayment.loan_id,
+                                                                                due_date: repayment.due_date,
+                                                                                installment_number: repayment.installment_number || '',
+                                                                                expected_amount: repayment.expected_amount,
+                                                                                expected_principal: repayment.expected_principal,
+                                                                                expected_interest: repayment.expected_interest,
+                                                                                notes: repayment.notes || ''
+                                                                            });
+                                                                            setShowAddRepayment(true);
+                                                                        }} 
+                                                                        style={{ ...styles.payScheduleBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                                                    >
+                                                                        Edit
+                                                                    </button>
+                                                                )}
+                                                                {repayment.status !== 'paid' && (
+                                                                    <button onClick={() => handleDeleteRepayment(repayment.id)} style={styles.deleteRowBtn}>
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1953,8 +2024,22 @@ export default function NewEraDashboard() {
                 <div style={styles.modalOverlay}>
                     <div style={styles.modalContent} style={{ ...styles.modalContent, maxWidth: '450px' }}>
                         <div style={styles.modalHeader}>
-                            <h3 style={styles.modalTitle}>Add Due Repayment Item</h3>
-                            <button onClick={() => setShowAddRepayment(false)} style={styles.closeModalBtn}>×</button>
+                            <h3 style={styles.modalTitle}>{editingRepaymentId ? 'Edit Due Repayment Item' : 'Add Due Repayment Item'}</h3>
+                            <button onClick={() => {
+                                setShowAddRepayment(false);
+                                setEditingRepaymentId(null);
+                                setIsRecurring(false);
+                                setRecurMonths('12');
+                                setRepaymentForm({
+                                    loan_id: '',
+                                    due_date: new Date().toISOString().split('T')[0],
+                                    installment_number: '',
+                                    expected_amount: '',
+                                    expected_principal: '',
+                                    expected_interest: '',
+                                    notes: ''
+                                });
+                            }} style={styles.closeModalBtn}>×</button>
                         </div>
                         <form onSubmit={submitUpsertRepayment} style={styles.modalForm}>
                             <div style={styles.formGroup}>
@@ -2041,7 +2126,49 @@ export default function NewEraDashboard() {
                                     style={styles.formInput} 
                                 />
                             </div>
-                            <button type="submit" style={styles.modalSubmitBtn}>Create Installment</button>
+
+                            {!editingRepaymentId && (
+                                <div style={{ 
+                                    backgroundColor: 'rgba(255,255,255,0.02)', 
+                                    border: '1px solid rgba(255,255,255,0.06)', 
+                                    borderRadius: '0.5rem', 
+                                    padding: '0.75rem', 
+                                    marginBottom: '1rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.5rem'
+                                }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ffffff' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isRecurring} 
+                                            onChange={e => setIsRecurring(e.target.checked)}
+                                            style={{ cursor: 'pointer' }}
+                                        />
+                                        Recurring Installment?
+                                    </label>
+                                    
+                                    {isRecurring && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Repeat monthly for:</span>
+                                            <input 
+                                                type="number" 
+                                                min="2" 
+                                                max="120" 
+                                                value={recurMonths} 
+                                                onChange={e => setRecurMonths(e.target.value)}
+                                                style={{ ...styles.formInput, width: '80px', padding: '0.25rem 0.5rem', margin: 0 }}
+                                                required
+                                            />
+                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>months</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button type="submit" style={styles.modalSubmitBtn}>
+                                {editingRepaymentId ? 'Save Changes' : 'Create Installment'}
+                            </button>
                         </form>
                     </div>
                 </div>
