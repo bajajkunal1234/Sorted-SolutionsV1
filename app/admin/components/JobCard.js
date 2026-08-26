@@ -3,32 +3,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MapPin, User, Calendar, AlertCircle, Calculator, Phone } from 'lucide-react';
-import { getLocalityFromAddress, formatDate, getInitials, isOverdue } from '@/lib/utils/helpers';
+import { getLocalityFromAddress, formatDate, getInitials, isOverdue, getTechnicianColor } from '@/lib/utils/helpers';
 import { formatMobileNumber } from '@/lib/utils/validation';
-const getTechnicianColor = (name) => {
-    if (!name || name === 'Unassigned') {
-        return 'linear-gradient(135deg, #64748b, #475569)';
-    }
-    const cleanName = name.toLowerCase().trim();
-    if (cleanName.includes('kunal') || cleanName.includes('bajaj') || cleanName === 'kb') {
-        return 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
-    }
-    if (cleanName.includes('vinod') || cleanName.includes('gupta') || cleanName === 'vg') {
-        return 'linear-gradient(135deg, #ec4899, #be185d)';
-    }
-    if (cleanName.includes('sandeep') || cleanName.includes('yadav')) {
-        return 'linear-gradient(135deg, #10b981, #047857)';
-    }
-    if (cleanName.includes('arjun') || cleanName.includes('ruby')) {
-        return 'linear-gradient(135deg, #f97316, #c2410c)';
-    }
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-        hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const hue = Math.abs(hash) % 360;
-    return `linear-gradient(135deg, hsl(${hue}, 65%, 45%), hsl(${(hue + 35) % 360}, 70%, 35%))`;
-};
 
 const getLocalityColor = (locality) => {
     if (!locality) return 'var(--text-secondary)';

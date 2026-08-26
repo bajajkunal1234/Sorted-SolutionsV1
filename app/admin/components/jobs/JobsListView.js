@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar, User, MapPin, AlertCircle, Clock } from 'lucide-react';
-import { getInitials, getLocalityFromAddress, getStatusColor } from '@/lib/utils/helpers';
+import { getInitials, getLocalityFromAddress, getStatusColor, getTechnicianColor } from '@/lib/utils/helpers';
 
 function JobsListView({ jobs, onJobClick }) {
 
@@ -130,7 +130,7 @@ function JobsListView({ jobs, onJobClick }) {
                                     {/* Technician */}
                                     {!isBooking && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
-                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 600 }}>
+                                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: getTechnicianColor(technicianName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '8px', fontWeight: 600 }}>
                                                 {getInitials(technicianName || 'U')}
                                             </div>
                                             <span>{technicianName || 'Unassigned'}</span>

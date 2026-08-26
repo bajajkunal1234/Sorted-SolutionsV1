@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar, MapPin, User, AlertCircle } from 'lucide-react';
-import { getInitials, getLocalityFromAddress, getStatusColor } from '@/lib/utils/helpers';
+import { getInitials, getLocalityFromAddress, getStatusColor, getTechnicianColor } from '@/lib/utils/helpers';
 
 function JobsCardView({ jobs, onJobClick }) {
 
@@ -221,7 +221,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                                     width: '24px',
                                                     height: '24px',
                                                     borderRadius: '50%',
-                                                    background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                    background: getTechnicianColor(technicianName),
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',

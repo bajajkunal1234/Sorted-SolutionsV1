@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Fragment } from 'react';
 import { Calendar, User, MapPin, AlertCircle } from 'lucide-react';
-import { getInitials, getLocalityFromAddress, getStatusColor } from '@/lib/utils/helpers';
+import { getInitials, getLocalityFromAddress, getStatusColor, getTechnicianColor } from '@/lib/utils/helpers';
 
 function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
     const [columnWidths, setColumnWidths] = useState({
@@ -261,7 +261,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Waiting</span>
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'visible', position: 'relative' }}>
-                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 600, flexShrink: 0 }}>
+                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: getTechnicianColor(technicianName), display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 600, flexShrink: 0 }}>
                                                 {getInitials(technicianName)}
                                             </div>
                                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={technicianName}>{technicianName}</span>
