@@ -356,6 +356,9 @@ export async function PUT(request, { params }) {
             // 4. Log to interactions
             await supabase.from('interactions').insert([{
                 job_id: id,
+                property_id: existing?.property_id && !String(existing.property_id).startsWith('inline') ? existing.property_id : null,
+                customer_id: customerId,
+                customer_name: customerName,
                 type: 'location-updated',
                 category: 'property',
                 description: `Customer pin location updated and verified by ${verifiedBy} (${lat.toFixed(5)}, ${lng.toFixed(5)})`,

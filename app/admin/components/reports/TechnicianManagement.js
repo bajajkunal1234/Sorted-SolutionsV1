@@ -1294,79 +1294,126 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                             {/* Verification Documents Upload Section */}
                             <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
                                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>📁 Verification Documents (PDF)</div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Upload Aadhaar Card, PAN Card, and Appointment Letter (PDF format only).</div>
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>📁 Verification Documents (PDF / Images)</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Upload Aadhaar Card, PAN Card, and Appointment Letter (PDF or Image format). Multiple files allowed.</div>
                                 </div>
                                 <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {[
                                         { id: 'aadhaar_url', label: 'Aadhaar Card', icon: '🪪' },
                                         { id: 'pan_url', label: 'PAN Card', icon: '💳' },
                                         { id: 'appointment_letter_url', label: 'Appointment Letter', icon: '📄' }
-                                    ].map(doc => (
-                                        <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    {doc.icon} {doc.label}
-                                                </span>
-                                                {profileDraft[doc.id] && (
-                                                    <a 
-                                                        href={profileDraft[doc.id]} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
-                                                    >
-                                                        👁️ View PDF
-                                                    </a>
+                                    ].map(doc => {
+                                        const urls = profileDraft[doc.id] 
+                                            ? profileDraft[doc.id].split(',').map(s => s.trim()).filter(Boolean)
+                                            : [];
+                                        
+                                        const isImageUrl = (url) => {
+                                            if (!url) return false;
+                                            const ext = url.split('.').pop().split('?')[0].toLowerCase();
+                                            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext) || url.includes('/image');
+                                        };
+
+                                        return (
+                                            <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        {doc.icon} {doc.label}
+                                                    </span>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                                        {urls.length === 0 ? 'No documents' : `${urls.length} attached`}
+                                                    </span>
+                                                </div>
+
+                                                {/* Render List of Attached Documents */}
+                                                {urls.length > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '4px 0' }}>
+                                                        {urls.map((url, idx) => {
+                                                            const isImg = isImageUrl(url);
+                                                            return (
+                                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 6, border: '1px solid var(--border-primary)' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                        {isImg ? (
+                                                                            <img 
+                                                                                src={url} 
+                                                                                alt="preview" 
+                                                                                style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', border: '1px solid var(--border-primary)' }} 
+                                                                            />
+                                                                        ) : (
+                                                                            <div style={{ width: 32, height: 32, borderRadius: 4, backgroundColor: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 'bold', color: '#ef4444' }}>
+                                                                                PDF
+                                                                            </div>
+                                                                        )}
+                                                                        <a 
+                                                                            href={url} 
+                                                                            target="_blank" 
+                                                                            rel="noopener noreferrer"
+                                                                            style={{ fontSize: 12, color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}
+                                                                        >
+                                                                            Doc {idx + 1} {isImg ? '(Image)' : '(PDF)'} ↗
+                                                                        </a>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const updated = [...urls];
+                                                                            updated.splice(idx, 1);
+                                                                            setProfileDraft(prev => ({ ...prev, [doc.id]: updated.join(',') }));
+                                                                        }}
+                                                                        className="btn"
+                                                                        style={{ padding: '2px 6px', fontSize: 11, color: '#ef4444', backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 )}
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <input 
-                                                    type="file"
-                                                    accept="application/pdf"
-                                                    onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-                                                        if (file.type !== 'application/pdf') {
-                                                            alert('Only PDF files are allowed.');
-                                                            return;
-                                                        }
-                                                        setDocumentUploading(prev => ({ ...prev, [doc.id]: true }));
-                                                        try {
-                                                            const formData = new FormData();
-                                                            formData.append('file', file);
-                                                            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                                                            const data = await res.json();
-                                                            if (data.url) {
-                                                                setProfileDraft(prev => ({ ...prev, [doc.id]: data.url }));
-                                                            } else throw new Error(data.error || 'Upload failed');
-                                                        } catch (err) {
-                                                            alert(`Failed to upload ${doc.label}: ${err.message}`);
-                                                        } finally {
-                                                            setDocumentUploading(prev => ({ ...prev, [doc.id]: false }));
-                                                        }
-                                                    }}
-                                                    style={{ display: 'none' }}
-                                                    id={`file-input-${doc.id}`}
-                                                />
-                                                <label 
-                                                    htmlFor={`file-input-${doc.id}`}
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '4px 10px', fontSize: 11, cursor: 'pointer', margin: 0 }}
-                                                >
-                                                    {documentUploading[doc.id] ? 'Uploading...' : (profileDraft[doc.id] ? 'Replace PDF' : 'Upload PDF')}
-                                                </label>
-                                                {profileDraft[doc.id] && (
-                                                    <button
-                                                        onClick={() => setProfileDraft(prev => ({ ...prev, [doc.id]: '' }))}
-                                                        className="btn"
-                                                        style={{ padding: '4px 10px', fontSize: 11, color: '#ef4444', backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <input 
+                                                        type="file"
+                                                        accept="application/pdf,image/*"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+                                                            if (!allowedTypes.includes(file.type) && !file.type.startsWith('image/')) {
+                                                                alert('Only PDF and image files are allowed.');
+                                                                return;
+                                                            }
+                                                            setDocumentUploading(prev => ({ ...prev, [doc.id]: true }));
+                                                            try {
+                                                                const formData = new FormData();
+                                                                formData.append('file', file);
+                                                                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                                                                const data = await res.json();
+                                                                if (data.url) {
+                                                                    const current = profileDraft[doc.id] ? profileDraft[doc.id].split(',').map(s => s.trim()).filter(Boolean) : [];
+                                                                    current.push(data.url);
+                                                                    setProfileDraft(prev => ({ ...prev, [doc.id]: current.join(',') }));
+                                                                } else throw new Error(data.error || 'Upload failed');
+                                                            } catch (err) {
+                                                                alert(`Failed to upload ${doc.label}: ${err.message}`);
+                                                            } finally {
+                                                                setDocumentUploading(prev => ({ ...prev, [doc.id]: false }));
+                                                            }
+                                                        }}
+                                                        style={{ display: 'none' }}
+                                                        id={`file-input-${doc.id}`}
+                                                    />
+                                                    <label 
+                                                        htmlFor={`file-input-${doc.id}`}
+                                                        className="btn btn-secondary"
+                                                        style={{ padding: '6px 12px', fontSize: 11, cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                                                     >
-                                                        Delete
-                                                    </button>
-                                                )}
+                                                        {documentUploading[doc.id] ? <Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={12} />}
+                                                        {documentUploading[doc.id] ? 'Uploading...' : 'Attach Doc (PDF/Image)'}
+                                                    </label>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
 
