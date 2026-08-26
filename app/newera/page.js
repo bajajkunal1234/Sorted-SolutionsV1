@@ -65,12 +65,15 @@ export default function NewEraDashboard() {
         repayment_day: '5',
         mobile_number: '',
         address: '',
+        attachment_url: '',
+        attachment_name: '',
         allocations: [] // array of { member_id: X, share_percentage: Y }
     });
 
     // Parsing document state
     const [documentFile, setDocumentFile] = useState(null);
     const [isParsing, setIsParsing] = useState(false);
+    const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
     const [parsedData, setParsedData] = useState(null); 
     const [importTarget, setImportTarget] = useState('existing'); 
     const [importLoanId, setImportLoanId] = useState('');
@@ -115,6 +118,8 @@ export default function NewEraDashboard() {
             repayment_day: String(loan.repayment_day || '5'),
             mobile_number: loan.mobile_number || '',
             address: loan.address || '',
+            attachment_url: loan.attachment_url || '',
+            attachment_name: loan.attachment_name || '',
             allocations: []
         });
         setShowAddLoan(true);
@@ -473,6 +478,8 @@ export default function NewEraDashboard() {
                     repayment_day: '5',
                     mobile_number: '',
                     address: '',
+                    attachment_url: '',
+                    attachment_name: '',
                     allocations: data.members.map(m => {
                         const isAsha = m.name === 'Asha';
                         return {
@@ -626,6 +633,40 @@ export default function NewEraDashboard() {
             }
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const handleAttachmentUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploadingAttachment(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucket', 'media');
+            formData.append('folder', 'newera-statements');
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                setLoanForm(prev => ({
+                    ...prev,
+                    attachment_url: result.url,
+                    attachment_name: result.name
+                }));
+            } else {
+                alert('Upload failed: ' + result.error);
+            }
+        } catch (err) {
+            console.error('Attachment upload error:', err);
+            alert('An error occurred during file upload.');
+        } finally {
+            setIsUploadingAttachment(false);
         }
     };
 
@@ -1110,6 +1151,26 @@ export default function NewEraDashboard() {
                                                                 })}
                                                             </div>
                                                         </div>
+                                                        {loan.attachment_url && (
+                                                            <div style={{ 
+                                                                marginTop: '0.75rem', 
+                                                                paddingTop: '0.75rem', 
+                                                                borderTop: '1px solid rgba(255,255,255,0.06)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.4rem'
+                                                            }}>
+                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Attached Statement:</span>
+                                                                <a 
+                                                                    href={loan.attachment_url} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer" 
+                                                                    style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }}
+                                                                >
+                                                                    📄 {loan.attachment_name || 'View Attachment'}
+                                                                </a>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -1138,6 +1199,7 @@ export default function NewEraDashboard() {
                                                             <th>Remaining</th>
                                                             <th>EMI</th>
                                                             <th>Repayment Day</th>
+                                                            <th>Statement</th>
                                                             <th>Actions</th>
                                                         </tr>
                                                     </thead>
@@ -1166,6 +1228,21 @@ export default function NewEraDashboard() {
                                                                     <td style={{ color: '#818cf8', fontWeight: '700' }}>₹{outstanding.toLocaleString('en-IN')}</td>
                                                                     <td>{loan.emi_amount ? `₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : 'N/A'}</td>
                                                                     <td>Day {loan.repayment_day || 5}</td>
+                                                                    <td>
+                                                                        {loan.attachment_url ? (
+                                                                            <a 
+                                                                                href={loan.attachment_url} 
+                                                                                target="_blank" 
+                                                                                rel="noopener noreferrer" 
+                                                                                style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                                                                title={loan.attachment_name || 'View Statement'}
+                                                                            >
+                                                                                📄 View
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span style={{ color: '#475569', fontSize: '0.8rem' }}>None</span>
+                                                                        )}
+                                                                    </td>
                                                                     <td>
                                                                         <div style={{ display: 'flex', gap: '0.4rem' }}>
                                                                             <button 
@@ -1240,6 +1317,19 @@ export default function NewEraDashboard() {
                                                                     <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginTop: '0.2rem' }}>
                                                                         Supplier/Lender: <strong>{loan.lender}</strong> • Phone: <strong>{loan.mobile_number || 'N/A'}</strong> {loan.address ? `• Address: ${loan.address}` : ''}
                                                                     </span>
+                                                                    {loan.attachment_url && (
+                                                                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Statement File:</span>
+                                                                            <a 
+                                                                                href={loan.attachment_url} 
+                                                                                target="_blank" 
+                                                                                rel="noopener noreferrer" 
+                                                                                style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.85rem', fontWeight: 'bold' }}
+                                                                            >
+                                                                                📄 {loan.attachment_name || 'View Attached Statement'}
+                                                                            </a>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                                     <button 
@@ -2009,10 +2099,58 @@ export default function NewEraDashboard() {
                                 </div>
                             </div>
 
+                            <div style={{ ...styles.formGroup, marginBottom: '1.25rem' }}>
+                                <label style={styles.formLabel}>Attach Statement / Agreement (PDF or Image)</label>
+                                {loanForm.attachment_url ? (
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'space-between', 
+                                        backgroundColor: 'rgba(255,255,255,0.02)', 
+                                        border: '1px solid rgba(255,255,255,0.06)', 
+                                        padding: '0.65rem 0.75rem', 
+                                        borderRadius: '0.5rem' 
+                                    }}>
+                                        <a 
+                                            href={loanForm.attachment_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.9rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '280px' }}
+                                        >
+                                            📄 {loanForm.attachment_name || 'View Statement'}
+                                        </a>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setLoanForm(prev => ({ ...prev, attachment_url: '', attachment_name: '' }))}
+                                            style={{ backgroundColor: 'transparent', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*,application/pdf" 
+                                            onChange={handleAttachmentUpload}
+                                            disabled={isUploadingAttachment}
+                                            style={{
+                                                fontSize: '0.85rem',
+                                                color: '#94a3b8',
+                                                cursor: isUploadingAttachment ? 'not-allowed' : 'pointer'
+                                            }}
+                                        />
+                                        {isUploadingAttachment && (
+                                            <span style={{ fontSize: '0.8rem', color: '#f59e0b', marginTop: '0.25rem' }}>Uploading statement... Please wait.</span>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Member allocations removed */}
 
-                            <button type="submit" style={styles.modalSubmitBtn}>
-                                {editingLoanId ? 'Save Changes' : 'Save Liability Account'}
+                            <button type="submit" style={styles.modalSubmitBtn} disabled={isUploadingAttachment}>
+                                {isUploadingAttachment ? 'Uploading statement...' : (editingLoanId ? 'Save Changes' : 'Save Liability Account')}
                             </button>
                         </form>
                     </div>
