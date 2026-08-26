@@ -12,7 +12,7 @@ export async function GET(request) {
     try {
         let query = supabase
             .from('technicians')
-            .select('id, name, username, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id')
+            .select('id, name, username, phone, is_active, created_at, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id, driving_licence_url')
             .order('name', { ascending: true })
 
         if (id) query = query.eq('id', id).single()
@@ -92,7 +92,7 @@ export async function PATCH(request) {
             .from('technicians')
             .update({ ...updates, updated_at: new Date().toISOString() })
             .eq('id', id)
-            .select('id, name, username, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id')
+            .select('id, name, username, phone, is_active, photo_url, rating, years_experience, bio, specializations, customer_card_fields, ledger_id, date_joined, last_working_day, weekly_off_day, aadhaar_url, pan_url, appointment_letter_url, is_fired, mdm_device_id, driving_licence_url')
             .single()
 
         if (error) throw error

@@ -53,7 +53,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
     const [profileDraft, setProfileDraft] = useState(null);
     const [newSpecialization, setNewSpecialization] = useState('');
     const fileInputRef = useRef(null);
-    const [documentUploading, setDocumentUploading] = useState({ aadhaar_url: false, pan_url: false, appointment_letter_url: false });
+    const [documentUploading, setDocumentUploading] = useState({ aadhaar_url: false, pan_url: false, appointment_letter_url: false, driving_licence_url: false, photo_url: false });
 
     // ─── Expenses state ───────────────────────────────────────────────────────
     const [categories, setCategories] = useState([]);
@@ -524,6 +524,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             aadhaar_url: tech.aadhaar_url || '',
             pan_url: tech.pan_url || '',
             appointment_letter_url: tech.appointment_letter_url || '',
+            driving_licence_url: tech.driving_licence_url || '',
             is_fired: !!tech.is_fired,
             mdm_device_id: tech.mdm_device_id || ''
         });
@@ -1082,7 +1083,7 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                         <div style={{ position: 'relative', flexShrink: 0 }}>
                                             {profileDraft.photo_url
-                                                ? <img src={profileDraft.photo_url} alt="photo" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-primary)' }} />
+                                                ? <img src={profileDraft.photo_url.split(',')[0].trim()} alt="photo" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-primary)' }} />
                                                 : <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700 }}>
                                                     {profileDraft.name?.[0]?.toUpperCase() || '?'}
                                                   </div>
@@ -1299,8 +1300,10 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
                                 </div>
                                 <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {[
+                                        { id: 'photo_url', label: 'Profile Photo', icon: '👤' },
                                         { id: 'aadhaar_url', label: 'Aadhaar Card', icon: '🪪' },
                                         { id: 'pan_url', label: 'PAN Card', icon: '💳' },
+                                        { id: 'driving_licence_url', label: 'Driving Licence', icon: '🚗' },
                                         { id: 'appointment_letter_url', label: 'Appointment Letter', icon: '📄' }
                                     ].map(doc => {
                                         const urls = profileDraft[doc.id] 
