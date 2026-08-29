@@ -625,6 +625,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [showAdvanceConfirmModal, setShowAdvanceConfirmModal] = useState(false);
     const [showAdvanceCollectPayment, setShowAdvanceCollectPayment] = useState(false);
     const partsPhotosInputRef = useRef(null);
+    const partsPhotosGalleryInputRef = useRef(null);
     const [calledCustomer, setCalledCustomer] = useState(false);
 
     const getCoordsWithTimeout = (timeoutMs = 5000) => {
@@ -728,11 +729,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const [beforePhotosDescription, setBeforePhotosDescription] = useState('');
     const [beforePhotosLoading, setBeforePhotosLoading] = useState(false);
     const beforePhotosInputRef = useRef(null);
+    const beforePhotosGalleryInputRef = useRef(null);
     const [showAfterPhotosModal, setShowAfterPhotosModal] = useState(false);
     const [afterPhotos, setAfterPhotos] = useState([]);
     const [afterPhotosDescription, setAfterPhotosDescription] = useState('');
     const [afterPhotosLoading, setAfterPhotosLoading] = useState(false);
     const afterPhotosInputRef = useRef(null);
+    const afterPhotosGalleryInputRef = useRef(null);
     const [verifyLat, setVerifyLat] = useState(null);
     const [verifyLng, setVerifyLng] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
@@ -3588,7 +3591,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             onClick={() => {
                                                 setPartsActionType('Order Part');
                                                 setPartsOption(null);
-                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                setShowPartsNoteModal(true);
                                             }}
                                         >
                                             📦 Order Part
@@ -3599,7 +3602,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             onClick={() => {
                                                 setPartsActionType('Collect Part');
                                                 setPartsOption(null);
-                                                setTimeout(() => partsPhotosInputRef.current?.click(), 100);
+                                                setShowPartsNoteModal(true);
                                             }}
                                         >
                                             🛒 Collect Part
@@ -3715,6 +3718,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 type="file"
                                 accept="image/*"
                                 capture="environment"
+                                multiple
+                                onChange={(e) => {
+                                    const files = Array.from(e.target.files);
+                                    const newPhotos = files.map(file => ({
+                                        id: Date.now() + Math.random(),
+                                        name: file.name,
+                                        url: URL.createObjectURL(file),
+                                        file
+                                    }));
+                                    setPartsPhotos(prev => [...prev, ...newPhotos]);
+                                    setShowPartsNoteModal(true);
+                                }}
+                                style={{ display: 'none' }}
+                            />
+                            <input 
+                                ref={partsPhotosGalleryInputRef}
+                                type="file"
+                                accept="image/*"
                                 multiple
                                 onChange={(e) => {
                                     const files = Array.from(e.target.files);
@@ -4539,13 +4560,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         })()} * (Minimum 1 photo required)
                                     </label>
                                     
-                                    <div 
-                                        onClick={() => beforePhotosInputRef.current?.click()}
-                                        style={{ border: '2px dashed rgba(56,189,248,0.3)', borderRadius: 14, padding: 20, textAlign: 'center', background: 'rgba(56,189,248,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                                    >
-                                        <Upload size={32} color="#38bdf8" style={{ margin: '0 auto 8px' }} />
-                                        <div style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 600 }}>Open Camera / Upload Photo</div>
-                                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Capture the product condition</div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div 
+                                            onClick={() => beforePhotosInputRef.current?.click()}
+                                            style={{ border: '2px dashed rgba(56,189,248,0.3)', borderRadius: 14, padding: '16px 8px', textAlign: 'center', background: 'rgba(56,189,248,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                        >
+                                            <Camera size={24} color="#38bdf8" style={{ margin: '0 auto 6px' }} />
+                                            <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600 }}>Open Camera</div>
+                                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Capture live photo</div>
+                                        </div>
+                                        <div 
+                                            onClick={() => beforePhotosGalleryInputRef.current?.click()}
+                                            style={{ border: '2px dashed rgba(56,189,248,0.3)', borderRadius: 14, padding: '16px 8px', textAlign: 'center', background: 'rgba(56,189,248,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                        >
+                                            <Upload size={24} color="#38bdf8" style={{ margin: '0 auto 6px' }} />
+                                            <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600 }}>Upload Gallery</div>
+                                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Choose from phone</div>
+                                        </div>
                                     </div>
                                     
                                     <input 
@@ -4553,6 +4584,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         type="file"
                                         accept="image/*"
                                         capture="environment"
+                                        multiple
+                                        onChange={handleBeforePhotosUpload}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <input 
+                                        ref={beforePhotosGalleryInputRef}
+                                        type="file"
+                                        accept="image/*"
                                         multiple
                                         onChange={handleBeforePhotosUpload}
                                         style={{ display: 'none' }}
@@ -4639,24 +4678,42 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 After Repair Photos * (Minimum 1 photo required)
                             </label>
                             
-                            <div 
-                                onClick={() => afterPhotosInputRef.current?.click()}
-                                style={{ border: '2px dashed rgba(16,185,129,0.3)', borderRadius: 14, padding: 20, textAlign: 'center', background: 'rgba(16,185,129,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
-                            >
-                                <Upload size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
-                                <div style={{ fontSize: 14, color: '#e2e8f0', fontWeight: 600 }}>Open Camera / Upload Photo</div>
-                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Capture the repaired/completed product</div>
-                            </div>
-                            
-                            <input 
-                                ref={afterPhotosInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                multiple
-                                onChange={handleAfterPhotosUpload}
-                                style={{ display: 'none' }}
-                            />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div 
+                                            onClick={() => afterPhotosInputRef.current?.click()}
+                                            style={{ border: '2px dashed rgba(16,185,129,0.3)', borderRadius: 14, padding: '16px 8px', textAlign: 'center', background: 'rgba(16,185,129,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                        >
+                                            <Camera size={24} color="#10b981" style={{ margin: '0 auto 6px' }} />
+                                            <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600 }}>Open Camera</div>
+                                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Capture live photo</div>
+                                        </div>
+                                        <div 
+                                            onClick={() => afterPhotosGalleryInputRef.current?.click()}
+                                            style={{ border: '2px dashed rgba(16,185,129,0.3)', borderRadius: 14, padding: '16px 8px', textAlign: 'center', background: 'rgba(16,185,129,0.03)', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                                        >
+                                            <Upload size={24} color="#10b981" style={{ margin: '0 auto 6px' }} />
+                                            <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600 }}>Upload Gallery</div>
+                                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>Choose from phone</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <input 
+                                        ref={afterPhotosInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        multiple
+                                        onChange={handleAfterPhotosUpload}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <input 
+                                        ref={afterPhotosGalleryInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleAfterPhotosUpload}
+                                        style={{ display: 'none' }}
+                                    />
 
                             {/* Uploaded Photos Preview */}
                             {afterPhotos.length > 0 && (
@@ -4740,7 +4797,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     style={{ width: 70, height: 70, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', color: '#cbd5e1' }}
                                 >
                                     <Camera size={18} />
-                                    <span style={{ fontSize: 9, fontWeight: 600 }}>Add More</span>
+                                    <span style={{ fontSize: 9, fontWeight: 600 }}>Camera</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => partsPhotosGalleryInputRef.current?.click()}
+                                    style={{ width: 70, height: 70, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.03)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer', color: '#cbd5e1' }}
+                                >
+                                    <Upload size={18} />
+                                    <span style={{ fontSize: 9, fontWeight: 600 }}>Gallery</span>
                                 </button>
                             </div>
                         </div>

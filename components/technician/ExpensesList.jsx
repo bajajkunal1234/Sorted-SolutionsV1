@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
+import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
 
@@ -56,6 +56,7 @@ export default function ExpensesList({ technicianId }) {
 
     // Photo/Receipt states
     const fileInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
     const [receiptPhoto, setReceiptPhoto] = useState(null);
     const [receiptUrl, setReceiptUrl] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -407,31 +408,50 @@ export default function ExpensesList({ technicianId }) {
                                         </label>
                                         
                                         {!receiptPhoto ? (
-                                            <div
-                                                onClick={() => !uploading && fileInputRef.current?.click()}
-                                                style={{
-                                                    border: '2px dashed var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    padding: 'var(--spacing-md)',
-                                                    textAlign: 'center',
-                                                    backgroundColor: 'var(--bg-secondary)',
-                                                    cursor: uploading ? 'not-allowed' : 'pointer',
-                                                    transition: 'border-color var(--transition-normal)',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: 'var(--spacing-xs)'
-                                                }}
-                                                onMouseEnter={(e) => !uploading && (e.currentTarget.style.borderColor = '#3b82f6')}
-                                                onMouseLeave={(e) => !uploading && (e.currentTarget.style.borderColor = 'var(--border-primary)')}
-                                            >
-                                                <Camera size={24} color="var(--text-secondary)" />
-                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                                    Tap to capture or upload receipt
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                                <div
+                                                    onClick={() => !uploading && fileInputRef.current?.click()}
+                                                    style={{
+                                                        border: '2px dashed var(--border-primary)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        padding: 'var(--spacing-md) var(--spacing-sm)',
+                                                        textAlign: 'center',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        cursor: uploading ? 'not-allowed' : 'pointer',
+                                                        transition: 'border-color var(--transition-normal)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: 'var(--spacing-xs)'
+                                                    }}
+                                                >
+                                                    <Camera size={24} color="var(--text-secondary)" />
+                                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                        Open Camera
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                                    (Petrol bill, tools bill, etc.)
+                                                <div
+                                                    onClick={() => !uploading && galleryInputRef.current?.click()}
+                                                    style={{
+                                                        border: '2px dashed var(--border-primary)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        padding: 'var(--spacing-md) var(--spacing-sm)',
+                                                        textAlign: 'center',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        cursor: uploading ? 'not-allowed' : 'pointer',
+                                                        transition: 'border-color var(--transition-normal)',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: 'var(--spacing-xs)'
+                                                    }}
+                                                >
+                                                    <Upload size={24} color="var(--text-secondary)" />
+                                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                        Upload Gallery
+                                                    </div>
                                                 </div>
                                             </div>
                                         ) : (
@@ -475,6 +495,13 @@ export default function ExpensesList({ technicianId }) {
                                             type="file"
                                             accept="image/*"
                                             capture="environment"
+                                            onChange={handlePhotoUpload}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <input
+                                            ref={galleryInputRef}
+                                            type="file"
+                                            accept="image/*"
                                             onChange={handlePhotoUpload}
                                             style={{ display: 'none' }}
                                         />

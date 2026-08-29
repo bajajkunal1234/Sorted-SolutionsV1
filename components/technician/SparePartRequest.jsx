@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react';
-import { Package, Calendar, Camera, DollarSign, AlertCircle, Zap, Clock } from 'lucide-react';
+import { Package, Calendar, Camera, DollarSign, AlertCircle, Zap, Clock, Upload } from 'lucide-react';
 import SourcingTimer from '@/components/technician/SourcingTimer';
 
 function SparePartRequest({ job, onComplete, onCancel }) {
@@ -15,6 +15,7 @@ function SparePartRequest({ job, onComplete, onCancel }) {
     const [rescheduleDate, setRescheduleDate] = useState('');
     const [rescheduleTime, setRescheduleTime] = useState('');
     const fileInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
     const handlePhotoUpload = (event) => {
         const file = event.target.files[0];
@@ -277,29 +278,39 @@ function SparePartRequest({ job, onComplete, onCancel }) {
                         Sample Part Photo * (Mandatory)
                     </label>
                     {!partPhoto ? (
-                        <div
-                            onClick={() => fileInputRef.current?.click()}
-                            style={{
-                                border: '2px dashed var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: 'var(--spacing-lg)',
-                                textAlign: 'center',
-                                backgroundColor: 'var(--bg-secondary)',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <Camera size={32} color="var(--text-secondary)" style={{ margin: '0 auto var(--spacing-sm)' }} />
-                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                Take photo of the sample part
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                style={{
+                                    border: '2px dashed var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: 'var(--spacing-md) var(--spacing-sm)',
+                                    textAlign: 'center',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Camera size={24} color="var(--text-secondary)" style={{ margin: '0 auto 6px' }} />
+                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    Open Camera
+                                </div>
                             </div>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={handlePhotoUpload}
-                                style={{ display: 'none' }}
-                            />
+                            <div
+                                onClick={() => galleryInputRef.current?.click()}
+                                style={{
+                                    border: '2px dashed var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    padding: 'var(--spacing-md) var(--spacing-sm)',
+                                    textAlign: 'center',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Upload size={24} color="var(--text-secondary)" style={{ margin: '0 auto 6px' }} />
+                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                    Upload Gallery
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
@@ -318,8 +329,22 @@ function SparePartRequest({ job, onComplete, onCancel }) {
                             >
                                 Remove
                             </button>
-                        </div>
                     )}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                    />
+                    <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                    />
                 </div>
             )}
 

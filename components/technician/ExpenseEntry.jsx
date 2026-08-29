@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, X, Upload } from 'lucide-react';
 
 function ExpenseEntry({ onSave, onCancel, existingExpense = null }) {
     const [date, setDate] = useState(existingExpense?.date || new Date().toISOString().split('T')[0]);
@@ -11,6 +11,7 @@ function ExpenseEntry({ onSave, onCancel, existingExpense = null }) {
     const [description, setDescription] = useState(existingExpense?.description || '');
     const [receiptPhoto, setReceiptPhoto] = useState(existingExpense?.receiptPhoto || null);
     const fileInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
 
     const categories = [
         { value: 'petrol', label: 'Petrol/Fuel', color: '#ef4444' },
@@ -158,20 +159,38 @@ function ExpenseEntry({ onSave, onCancel, existingExpense = null }) {
                 </label>
 
                 {!receiptPhoto ? (
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{
-                            border: '2px dashed var(--border-primary)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: 'var(--spacing-lg)',
-                            textAlign: 'center',
-                            backgroundColor: 'var(--bg-secondary)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Camera size={32} color="var(--text-secondary)" style={{ margin: '0 auto var(--spacing-sm)' }} />
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            Tap to upload receipt photo
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            style={{
+                                border: '2px dashed var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: 'var(--spacing-md) var(--spacing-sm)',
+                                textAlign: 'center',
+                                backgroundColor: 'var(--bg-secondary)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Camera size={24} color="var(--text-secondary)" style={{ margin: '0 auto 6px' }} />
+                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                Open Camera
+                            </div>
+                        </div>
+                        <div
+                            onClick={() => galleryInputRef.current?.click()}
+                            style={{
+                                border: '2px dashed var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: 'var(--spacing-md) var(--spacing-sm)',
+                                textAlign: 'center',
+                                backgroundColor: 'var(--bg-secondary)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Upload size={24} color="var(--text-secondary)" style={{ margin: '0 auto 6px' }} />
+                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                Upload Gallery
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -199,6 +218,13 @@ function ExpenseEntry({ onSave, onCancel, existingExpense = null }) {
                     type="file"
                     accept="image/*"
                     capture="environment"
+                    onChange={handlePhotoUpload}
+                    style={{ display: 'none' }}
+                />
+                <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
                     onChange={handlePhotoUpload}
                     style={{ display: 'none' }}
                 />

@@ -58,6 +58,8 @@ export default function CollectPaymentFlow({
     const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
     const [screenshotFile, setScreenshotFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const screenshotCameraRef = useRef(null);
+    const screenshotGalleryRef = useRef(null);
     
     // Data State
     const [customers, setCustomers] = useState([]);
@@ -981,24 +983,39 @@ export default function CollectPaymentFlow({
                                         border: '1px dashed var(--border-primary)',
                                         marginBottom: 'var(--spacing-md)'
                                     }}>
-                                        <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                            <div style={{
-                                                width: '50px', height: '50px', borderRadius: '50%', backgroundColor: 'var(--color-primary)20', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)'
-                                            }}>
-                                                <Upload size={24} />
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>Upload Customer Screen Screenshot</div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Mandatory for verification</div>
-                                            </div>
-                                            <input 
-                                                type="file" 
-                                                accept="image/*" 
-                                                capture="environment" 
-                                                style={{ display: 'none' }} 
-                                                onChange={handleScreenshotChange}
-                                            />
-                                        </label>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', width: '100%', padding: '16px 12px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => screenshotCameraRef.current?.click()}
+                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 8px', background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border-primary)', borderRadius: '12px', cursor: 'pointer', color: 'var(--text-primary)', outline: 'none' }}
+                                            >
+                                                <Camera size={20} color="var(--color-primary)" />
+                                                <span style={{ fontSize: '13px', fontWeight: 600 }}>Open Camera</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => screenshotGalleryRef.current?.click()}
+                                                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '16px 8px', background: 'rgba(255,255,255,0.03)', border: '1px dashed var(--border-primary)', borderRadius: '12px', cursor: 'pointer', color: 'var(--text-primary)', outline: 'none' }}
+                                            >
+                                                <Upload size={20} color="var(--color-primary)" />
+                                                <span style={{ fontSize: '13px', fontWeight: 600 }}>Upload Gallery</span>
+                                            </button>
+                                        </div>
+                                        <input 
+                                            ref={screenshotCameraRef}
+                                            type="file" 
+                                            accept="image/*" 
+                                            capture="environment" 
+                                            style={{ display: 'none' }} 
+                                            onChange={handleScreenshotChange}
+                                        />
+                                        <input 
+                                            ref={screenshotGalleryRef}
+                                            type="file" 
+                                            accept="image/*" 
+                                            style={{ display: 'none' }} 
+                                            onChange={handleScreenshotChange}
+                                        />
                                         
                                         {screenshotFile && (
                                             <div style={{ marginTop: 'var(--spacing-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#10b981', fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>
