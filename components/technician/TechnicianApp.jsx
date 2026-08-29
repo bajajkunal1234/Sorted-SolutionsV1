@@ -653,24 +653,7 @@ function TechnicianApp() {
         };
     }, [selectedJob]);
 
-    useEffect(() => {
-        if (!selectedJob) return;
 
-        // Check if there is a postponed summary for this job
-        try {
-            const saved = localStorage.getItem('postponed_visit_summaries');
-            if (saved) {
-                const list = JSON.parse(saved);
-                const found = list.find(item => String(item.jobId) === String(selectedJob.id));
-                if (found) {
-                    setPendingVisitSummary(found);
-                    // Close the selected job detail view so the modal is focus
-                    setSelectedJob(null);
-                    return;
-                }
-            }
-        } catch (e) {}
-    }, [selectedJob]);
 
     useEffect(() => {
         if (!showStockModal) return;
@@ -4831,7 +4814,22 @@ function TechnicianApp() {
             {selectedJob && (
                 <JobDetailView
                     job={selectedJob}
-                    onClose={() => setSelectedJob(null)}
+                    onClose={() => {
+                        const closedJobId = selectedJob.id;
+                        setSelectedJob(null);
+                        try {
+                            const saved = localStorage.getItem('postponed_visit_summaries');
+                            if (saved) {
+                                const list = JSON.parse(saved);
+                                const found = list.find(item => String(item.jobId) === String(closedJobId));
+                                if (found) {
+                                    setPendingVisitSummary(found);
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error checking postponed summary on close:', e);
+                        }
+                    }}
                     isOnline={isOnline}
                     shouldHideAddress={!isOnline && !isWorkingHours()}
                     onJobUpdate={(updatedJob) => {
