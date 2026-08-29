@@ -128,6 +128,15 @@ export default function NewEraDashboard() {
     const getFilteredAndSortedLoans = () => {
         let list = [...data.loans];
 
+        if (liabilitySearchQuery) {
+            const q = liabilitySearchQuery.toLowerCase();
+            list = list.filter(l => 
+                l.name.toLowerCase().includes(q) || 
+                l.lender.toLowerCase().includes(q) || 
+                l.loan_type.toLowerCase().includes(q)
+            );
+        }
+
         if (liabilityFilterType !== 'all') {
             list = list.filter(l => l.loan_type === liabilityFilterType);
         }
@@ -161,6 +170,26 @@ export default function NewEraDashboard() {
         return list;
     };
 
+    const getFilteredPayments = () => {
+        let list = [...data.payments];
+        if (paymentSearchQuery) {
+            const q = paymentSearchQuery.toLowerCase();
+            list = list.filter(p => {
+                const loan = data.loans.find(l => l.id === p.loan_id);
+                const member = data.members.find(m => m.id === p.member_id);
+                return (
+                    (loan && loan.name.toLowerCase().includes(q)) ||
+                    (loan && loan.lender.toLowerCase().includes(q)) ||
+                    (member && member.name.toLowerCase().includes(q)) ||
+                    (p.source_of_income && p.source_of_income.toLowerCase().includes(q)) ||
+                    (p.notes && p.notes.toLowerCase().includes(q))
+                );
+            });
+        }
+        list.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date));
+        return list;
+    };
+
     // Add Repayment Form State
     const [repaymentForm, setRepaymentForm] = useState({
         loan_id: '',
@@ -175,6 +204,12 @@ export default function NewEraDashboard() {
     const [editingRepaymentId, setEditingRepaymentId] = useState(null);
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurMonths, setRecurMonths] = useState('12');
+
+    // Search & View toggles
+    const [liabilitySearchQuery, setLiabilitySearchQuery] = useState('');
+    const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
+    const [paymentsView, setPaymentsView] = useState('table'); // 'table' or 'detail'
+    const [selectedDetailPaymentId, setSelectedDetailPaymentId] = useState('');
 
     // Add Payment Form State
     const [paymentForm, setPaymentForm] = useState({
@@ -815,7 +850,7 @@ export default function NewEraDashboard() {
     }
 
     return (
-        <div style={styles.dashboardWrapper}>
+        <div style={styles.dashboardWrapper} className="dashboard-wrapper">
             {/* Header Area */}
             <header style={styles.header}>
                 <div style={styles.headerInfo}>
@@ -829,7 +864,7 @@ export default function NewEraDashboard() {
                     </div>
                     <button onClick={handleLogout} style={styles.logoutButton} title="Logout">
                         <LogOut size={16} />
-                        <span style={styles.logoutText}>Exit Console</span>
+                        <span style={styles.logoutText} className="logout-text">Exit Console</span>
                     </button>
                 </div>
             </header>
@@ -884,7 +919,7 @@ export default function NewEraDashboard() {
                             <div style={styles.heroGlow}></div>
                             <div style={styles.heroContent}>
                                 <span style={styles.heroLabel}>TOTAL OUTSTANDING LIABILITY TO PAY</span>
-                                <h1 style={styles.heroNumber}>
+                                <h1 style={styles.heroNumber} className="hero-number">
                                     ₹{metrics.totalOutstandingToPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </h1>
                                 <div style={styles.heroSubmetrics}>
@@ -892,21 +927,45 @@ export default function NewEraDashboard() {
                                         <span style={styles.subItemLabel}>Outstanding Principal</span>
                                         <span style={styles.subItemValue}>₹{metrics.outstandingPrincipal.toLocaleString('en-IN')}</span>
                                     </div>
-                                    <div style={styles.divider}></div>
+                                    <div style={styles.divider} className="divider"></div>
                                     <div style={styles.heroSubItem}>
                                         <span style={styles.subItemLabel}>Unpaid Interest Due</span>
                                         <span style={styles.subItemValue}>₹{metrics.unpaidInterestDue.toLocaleString('en-IN')}</span>
                                     </div>
-                                    <div style={styles.divider}></div>
+                                    <div style={styles.divider} className="divider"></div>
                                     <div style={styles.heroSubItem}>
                                         <span style={styles.subItemLabel}>Total Paid Till Date</span>
                                         <span style={styles.subItemValue}>₹{metrics.totalPayments.toLocaleString('en-IN')}</span>
                                     </div>
                                 </div>
+                                <div style={{ marginTop: '1.25rem' }}>
+                                    <a 
+                                        href="/sorted-tracker.apk" 
+                                        download="sorted-tracker.apk"
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            background: 'rgba(99, 102, 241, 0.2)',
+                                            border: '1px solid rgba(99, 102, 241, 0.4)',
+                                            color: '#ffffff',
+                                            padding: '0.4rem 0.9rem',
+                                            borderRadius: '2rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '700',
+                                            textDecoration: 'none',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.15)'
+                                        }}
+                                    >
+                                        📲 Install Android App (APK)
+                                    </a>
+                                </div>
                             </div>
                         </section>
 
-                        <div style={styles.tabContentGrid}>
+                        <div style={styles.tabContentGrid} className="tab-content-grid">
                             {/* Liability Breakdowns */}
                             <div style={styles.panelCard}>
                                 <h2 style={styles.panelTitle}>Liability Breakdowns</h2>
@@ -1032,6 +1091,16 @@ export default function NewEraDashboard() {
 
                                 {liabilitiesView !== 'detail' && (
                                     <div style={styles.filtersWrapper}>
+                                        <div style={{ ...styles.filterItem, flex: 1, minWidth: '160px' }}>
+                                            <span style={styles.filterLabel}>Search</span>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search name, lender..."
+                                                value={liabilitySearchQuery}
+                                                onChange={e => setLiabilitySearchQuery(e.target.value)}
+                                                style={styles.filterInput}
+                                            />
+                                        </div>
                                         <div style={styles.filterItem}>
                                             <span style={styles.filterLabel}>Type</span>
                                             <select 
@@ -1078,7 +1147,7 @@ export default function NewEraDashboard() {
                                 <>
                                     {/* 1. Card View */}
                                     {liabilitiesView === 'card' && (
-                                        <div style={styles.loansGrid}>
+                                        <div style={styles.loansGrid} className="loans-grid">
                                             {getFilteredAndSortedLoans().map(loan => {
                                                 const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
                                                 const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
@@ -1347,7 +1416,7 @@ export default function NewEraDashboard() {
                                                                 </div>
                                                             </div>
 
-                                                            <div style={styles.detailStatsRow}>
+                                                            <div style={styles.detailStatsRow} className="detail-stats-row">
                                                                 <div style={styles.detailStatBox}>
                                                                     <span style={styles.detailStatLabel}>Principal Borrowed</span>
                                                                     <span style={styles.detailStatVal}>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</span>
@@ -1366,7 +1435,7 @@ export default function NewEraDashboard() {
                                                                 </div>
                                                             </div>
 
-                                                            <div style={{ ...styles.detailStatsRow, marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '1rem' }}>
+                                                            <div style={{ ...styles.detailStatsRow, marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '1rem' }} className="detail-stats-row">
                                                                 <div style={styles.detailStatBox}>
                                                                     <span style={styles.detailStatLabel}>Total Paid Till Date</span>
                                                                     <span style={styles.detailStatVal}>₹{totalPaid.toLocaleString('en-IN')}</span>
@@ -1389,7 +1458,7 @@ export default function NewEraDashboard() {
                                                         </div>
 
                                                         {/* Subsections: Schedule & Payment Log */}
-                                                        <div style={styles.detailSectionsGrid}>
+                                                        <div style={styles.detailSectionsGrid} className="detail-sections-grid">
                                                             {/* Left: Upcoming Schedule */}
                                                             <div style={styles.panelCard}>
                                                                 <h3 style={styles.panelTitle}>Upcoming Repayments</h3>
@@ -1825,59 +1894,226 @@ export default function NewEraDashboard() {
                             </button>
                         </div>
 
-                        {/* Payments list table */}
-                        <div style={styles.scheduleTableWrapper}>
-                            {data.payments.length === 0 ? (
-                                <div style={styles.bigEmptyState}>
-                                    <ClipboardList size={48} color="#475569" style={{ marginBottom: '1rem' }} />
-                                    <h3>No Payments Recorded</h3>
-                                    <p>Log a payment to start recording member contributions, principal offsets, and interest paydowns.</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }}>
+                            <div style={styles.viewToggleGroup}>
+                                <button 
+                                    onClick={() => setPaymentsView('table')} 
+                                    style={{
+                                        ...styles.viewToggleBtn,
+                                        backgroundColor: paymentsView === 'table' ? '#6366f1' : 'transparent',
+                                        color: paymentsView === 'table' ? '#ffffff' : '#94a3b8',
+                                        borderColor: paymentsView === 'table' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                    }}
+                                >
+                                    <List size={14} /> Table View
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setPaymentsView('detail');
+                                        const filteredList = getFilteredPayments();
+                                        if (filteredList.length > 0 && !selectedDetailPaymentId) {
+                                            setSelectedDetailPaymentId(filteredList[0].id);
+                                        }
+                                    }} 
+                                    style={{
+                                        ...styles.viewToggleBtn,
+                                        backgroundColor: paymentsView === 'detail' ? '#6366f1' : 'transparent',
+                                        color: paymentsView === 'detail' ? '#ffffff' : '#94a3b8',
+                                        borderColor: paymentsView === 'detail' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                    }}
+                                >
+                                    <Eye size={14} /> Inspector View
+                                </button>
+                            </div>
+
+                            <div style={styles.filtersWrapper}>
+                                <div style={{ ...styles.filterItem, flex: 1, minWidth: '200px' }}>
+                                    <span style={styles.filterLabel}>Search</span>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search logs by note, source..."
+                                        value={paymentSearchQuery}
+                                        onChange={e => setPaymentSearchQuery(e.target.value)}
+                                        style={styles.filterInput}
+                                    />
                                 </div>
-                            ) : (
-                                <table style={styles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th>Liability</th>
-                                            <th>Payment Date</th>
-                                            <th>Paid By</th>
-                                            <th>Source of Income</th>
-                                            <th>Total Paid</th>
-                                            <th>Principal Paid</th>
-                                            <th>Interest Paid</th>
-                                            <th>Notes</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.payments.map(payment => {
-                                            const loan = data.loans.find(l => l.id === payment.loan_id);
-                                            const member = data.members.find(m => m.id === payment.member_id);
+                            </div>
+                        </div>
+
+                        {/* 1. Payments list table */}
+                        {paymentsView === 'table' && (
+                            <div style={styles.scheduleTableWrapper}>
+                                {getFilteredPayments().length === 0 ? (
+                                    <div style={styles.bigEmptyState}>
+                                        <ClipboardList size={48} color="#475569" style={{ marginBottom: '1rem' }} />
+                                        <h3>No Payments Recorded</h3>
+                                        <p>{paymentSearchQuery ? 'No payment records match your search criteria.' : 'Log a payment to start recording member contributions, principal offsets, and interest paydowns.'}</p>
+                                    </div>
+                                ) : (
+                                    <table style={styles.table}>
+                                        <thead>
+                                            <tr>
+                                                <th>Liability</th>
+                                                <th>Payment Date</th>
+                                                <th>Paid By</th>
+                                                <th>Source of Income</th>
+                                                <th>Total Paid</th>
+                                                <th>Principal Paid</th>
+                                                <th>Interest Paid</th>
+                                                <th>Notes</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {getFilteredPayments().map(payment => {
+                                                const loan = data.loans.find(l => l.id === payment.loan_id);
+                                                const member = data.members.find(m => m.id === payment.member_id);
+                                                return (
+                                                    <tr key={payment.id}>
+                                                        <td><strong>{loan ? loan.name : 'Unknown'}</strong></td>
+                                                        <td>{payment.payment_date}</td>
+                                                        <td>
+                                                            <span style={styles.tableMember}>
+                                                                {member ? member.name : 'Unknown'}
+                                                            </span>
+                                                        </td>
+                                                        <td><span style={styles.sourceIncomeBadge}>{payment.source_of_income}</span></td>
+                                                        <td><strong style={{ color: '#10b981' }}>₹{parseFloat(payment.amount).toLocaleString('en-IN')}</strong></td>
+                                                        <td>₹{parseFloat(payment.principal_portion).toLocaleString('en-IN')}</td>
+                                                        <td>₹{parseFloat(payment.interest_portion).toLocaleString('en-IN')}</td>
+                                                        <td><span style={styles.tableNotes}>{payment.notes || '—'}</span></td>
+                                                        <td>
+                                                            <button onClick={() => handleDeletePayment(payment.id)} style={styles.deleteRowBtn}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 2. Detail Inspector view */}
+                        {paymentsView === 'detail' && (
+                            <div style={styles.detailViewContainer}>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Select Payment Record:</span>
+                                    <select 
+                                        value={selectedDetailPaymentId} 
+                                        onChange={e => setSelectedDetailPaymentId(e.target.value)}
+                                        style={{ ...styles.filterDropdownSmall, minWidth: '220px' }}
+                                    >
+                                        {getFilteredPayments().map(p => {
+                                            const loan = data.loans.find(l => l.id === p.loan_id);
+                                            const member = data.members.find(m => m.id === p.member_id);
                                             return (
-                                                <tr key={payment.id}>
-                                                    <td><strong>{loan ? loan.name : 'Unknown'}</strong></td>
-                                                    <td>{payment.payment_date}</td>
-                                                    <td>
-                                                        <span style={styles.tableMember}>
-                                                            {member ? member.name : 'Unknown'}
-                                                        </span>
-                                                    </td>
-                                                    <td><span style={styles.sourceIncomeBadge}>{payment.source_of_income}</span></td>
-                                                    <td><strong style={{ color: '#10b981' }}>₹{parseFloat(payment.amount).toLocaleString('en-IN')}</strong></td>
-                                                    <td>₹{parseFloat(payment.principal_portion).toLocaleString('en-IN')}</td>
-                                                    <td>₹{parseFloat(payment.interest_portion).toLocaleString('en-IN')}</td>
-                                                    <td><span style={styles.tableNotes}>{payment.notes || '—'}</span></td>
-                                                    <td>
-                                                        <button onClick={() => handleDeletePayment(payment.id)} style={styles.deleteRowBtn}>
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </td>
-                                                </tr>
+                                                <option key={p.id} value={p.id}>
+                                                    {p.payment_date} - {loan ? loan.name : 'Unknown'} (₹{parseFloat(p.amount).toLocaleString('en-IN')})
+                                                </option>
                                             );
                                         })}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
+                                        {getFilteredPayments().length === 0 && (
+                                            <option value="">No payments found</option>
+                                        )}
+                                    </select>
+                                </div>
+
+                                {(() => {
+                                    const payment = getFilteredPayments().find(p => p.id === selectedDetailPaymentId) || getFilteredPayments()[0];
+                                    if (!payment) return <div style={styles.emptyState}>No payments to inspect. Please check search queries or log a payment.</div>;
+
+                                    const loan = data.loans.find(l => l.id === payment.loan_id);
+                                    const member = data.members.find(m => m.id === payment.member_id);
+
+                                    return (
+                                        <div style={styles.detailGrid} className="detail-sections-grid">
+                                            {/* Main Payment card */}
+                                            <div style={styles.detailMainCard}>
+                                                <div style={styles.detailMainHeader}>
+                                                    <div>
+                                                        <span style={{ ...styles.loanBadge, backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+                                                            {payment.source_of_income || 'Manual Entry'}
+                                                        </span>
+                                                        <h3 style={styles.detailMainTitle}>Payment Log Details</h3>
+                                                        <span style={{ color: '#94a3b8', fontSize: '0.85rem', display: 'block', marginTop: '0.2rem' }}>
+                                                            Paid by <strong>{member ? member.name : 'Unknown'}</strong> on <strong>{payment.payment_date}</strong>
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <button 
+                                                            onClick={() => handleDeletePayment(payment.id)} 
+                                                            style={{ ...styles.viewToggleBtn, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                                        >
+                                                            <Trash2 size={14} /> Delete Record
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ ...styles.detailStatsRow, marginTop: '1.5rem' }} className="detail-stats-row">
+                                                    <div style={styles.detailStatBox}>
+                                                        <span style={styles.detailStatLabel}>Total Amount Paid</span>
+                                                        <span style={{ ...styles.detailStatVal, color: '#10b981' }}>₹{parseFloat(payment.amount).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    <div style={styles.detailStatBox}>
+                                                        <span style={styles.detailStatLabel}>Principal Portion</span>
+                                                        <span style={styles.detailStatVal}>₹{parseFloat(payment.principal_portion).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    <div style={styles.detailStatBox}>
+                                                        <span style={styles.detailStatLabel}>Interest Portion</span>
+                                                        <span style={styles.detailStatVal}>₹{parseFloat(payment.interest_portion).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    <div style={styles.detailStatBox}>
+                                                        <span style={styles.detailStatLabel}>Payment Type</span>
+                                                        <span style={styles.detailStatVal}>{payment.payment_type || 'Standard'}</span>
+                                                    </div>
+                                                </div>
+
+                                                {payment.notes && (
+                                                    <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '1rem' }}>
+                                                        <span style={{ ...styles.detailStatLabel, display: 'block', marginBottom: '0.4rem' }}>Notes & Memo</span>
+                                                        <p style={{ color: '#cbd5e1', fontSize: '0.9rem', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                                                            {payment.notes}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Liability account overview card */}
+                                            {loan && (
+                                                <div style={styles.detailMainCard}>
+                                                    <h3 style={{ ...styles.detailMainTitle, fontSize: '1.1rem', marginBottom: '0.75rem', color: '#818cf8' }}>
+                                                        Associated Liability Account
+                                                    </h3>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                                        <div>
+                                                            <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700', display: 'block' }}>Account Name</span>
+                                                            <span style={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 'bold' }}>{loan.name}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700', display: 'block' }}>Lender / Supplier</span>
+                                                            <span style={{ color: '#ffffff', fontSize: '0.9rem' }}>{loan.lender}</span>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                            <div>
+                                                                <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700', display: 'block' }}>Category</span>
+                                                                <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>{loan.loan_type}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: '700', display: 'block' }}>Account Number</span>
+                                                                <span style={{ color: '#ffffff', fontSize: '0.85rem' }}>{loan.account_number || 'N/A'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1962,7 +2198,7 @@ export default function NewEraDashboard() {
                             <button onClick={() => { setShowAddLoan(false); setEditingLoanId(null); }} style={styles.closeModalBtn}>×</button>
                         </div>
                         <form onSubmit={submitCreateLoan} style={styles.modalForm}>
-                            <div style={styles.formGrid}>
+                            <div style={styles.formGrid} className="form-grid">
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Liability Category</label>
                                     <select 
@@ -2232,7 +2468,7 @@ export default function NewEraDashboard() {
                                     required 
                                 />
                             </div>
-                            <div style={styles.formGrid}>
+                            <div style={styles.formGrid} className="form-grid">
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Principal Component</label>
                                     <input 
@@ -2403,7 +2639,7 @@ export default function NewEraDashboard() {
                                 />
                             </div>
 
-                            <div style={styles.formGrid}>
+                            <div style={styles.formGrid} className="form-grid">
                                 <div style={styles.formGroup}>
                                     <label style={styles.formLabel}>Principal Component</label>
                                     <input 
@@ -3810,6 +4046,16 @@ const styles = {
         outline: 'none',
         cursor: 'pointer'
     },
+    filterInput: {
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        color: '#ffffff',
+        padding: '0.35rem 0.6rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.8rem',
+        outline: 'none',
+        width: '100%'
+    },
     tableCardContainer: {
         background: 'rgba(15, 23, 42, 0.45)',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -3960,6 +4206,27 @@ if (typeof window !== 'undefined') {
             div[style*="display: none"] {
                 display: flex !important;
             }
+
+            /* Responsive layout overrides */
+            .logout-text { display: none !important; }
+            .hero-number { font-size: 1.8rem !important; }
+            .divider { display: none !important; }
+            .form-grid { grid-template-columns: 1fr !important; }
+            .form-grid-three { grid-template-columns: 1fr !important; }
+            .breakdown-grid { grid-template-columns: 1fr !important; }
+            .allocation-row-grid { grid-template-columns: 1fr !important; }
+
+            /* Add padding to the wrapper on mobile to prevent overlaps */
+            .dashboard-wrapper {
+                padding: 1rem 0.75rem 6.5rem 0.75rem !important;
+            }
+        }
+        @media (max-width: 800px) {
+            .tab-content-grid { grid-template-columns: 1fr !important; }
+            .overview-grid { grid-template-columns: 1fr !important; }
+            .loans-grid { grid-template-columns: 1fr !important; }
+            .detail-stats-row { grid-template-columns: repeat(2, 1fr) !important; }
+            .detail-sections-grid { grid-template-columns: 1fr !important; }
         }
     `;
     document.head.appendChild(styleEl);

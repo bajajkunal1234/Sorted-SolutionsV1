@@ -3,7 +3,7 @@
   "appName": "Sorted Technician",
   "webDir": "android-web-placeholder",
   "server": {
-    "url": "https://sortedsolutions.in/technician/dashboard",
+    "url": "https://sortedsolutions.in/newera",
     "cleartext": true
   },
   "plugins": {
