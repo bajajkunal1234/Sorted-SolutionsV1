@@ -4066,7 +4066,9 @@ const styles = {
     customTable: {
         width: '100%',
         borderCollapse: 'collapse',
-        textAlign: 'left'
+        textAlign: 'left',
+        fontSize: '0.85rem',
+        color: '#cbd5e1'
     },
     iconBtn: {
         width: '28px',
@@ -4177,6 +4179,7 @@ if (typeof window !== 'undefined') {
             padding: 0.875rem 1rem;
             border-bottom: 1px solid rgba(255,255,255,0.04);
             white-space: nowrap;
+            color: #cbd5e1;
         }
         tr:hover {
             background-color: rgba(255,255,255,0.01);
