@@ -218,7 +218,7 @@ export default async function CategoryPage({ params }) {
                     <div id="brands" key="brands">
                         <BrandLogos
                             title={dynamicSettings?.brands_title || "Brands We Serve"}
-                            subtitle={dynamicSettings?.brands_subtitle || "Trusted by leading appliance manufacturers"}
+                            subtitle={(dynamicSettings?.brands_subtitle && dynamicSettings.brands_subtitle !== "Trusted by leading appliance manufacturers") ? dynamicSettings.brands_subtitle : ""}
                             selectedBrandIds={dynamicSettings?.brandIds}
                         />
                     </div>

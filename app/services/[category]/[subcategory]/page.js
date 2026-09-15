@@ -305,8 +305,8 @@ export default async function SubCategoryPage({ params }) {
                 return sv.brands !== false && (
                     <div id="brands" key="brands">
                         <BrandLogos
-                            title={dynamicSettings?.brands_title || "Authorized Service Provider"}
-                            subtitle={dynamicSettings?.brands_subtitle || "We service all major brands"}
+                            title={dynamicSettings?.brands_title || "Brands We Serve"}
+                            subtitle={dynamicSettings?.brands_subtitle || ""}
                             selectedBrandIds={dynamicSettings?.brandIds}
                         />
                     </div>

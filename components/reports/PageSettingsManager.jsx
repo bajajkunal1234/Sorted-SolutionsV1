@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef } from 'react';
 import { exportPageSettingsToExcel, importPageSettingsFromExcel, applyImportPatch } from '@/lib/pageSettingsExcel';
@@ -699,7 +699,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
             },
             brands_settings: {
                 title: d?.brands_settings?.title || 'Brands We Serve',
-                subtitle: d?.brands_settings?.subtitle || 'Trusted by leading appliance manufacturers',
+                subtitle: (d?.brands_settings?.subtitle && d?.brands_settings?.subtitle !== 'Trusted by leading appliance manufacturers') ? d?.brands_settings?.subtitle : '',
                 items: (r.brandIds?.length > 0) ? r.brandIds : (d?.brands_settings?.items || [])
             },
             faqs_settings: {

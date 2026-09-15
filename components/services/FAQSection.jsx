@@ -15,42 +15,46 @@ export default function FAQSection({
         setExpandedFAQ(expandedFAQ === index ? null : index)
     }
 
-    if (faqs.length === 0) {
+    if (!faqs || faqs.length === 0) {
         return null
     }
 
     return (
-        <section className="faq-section">
-            <div className="faq-header">
-                <HelpCircle size={40} className="faq-header-icon" />
-                <h2 className="faq-title">{title}</h2>
-                {subtitle && <p className="faq-subtitle">{subtitle}</p>}
+        <section className="services-faq-section">
+            <div className="services-faq-header">
+                <HelpCircle size={40} className="services-faq-header-icon" />
+                <h2 className="services-faq-title">{title}</h2>
+                {subtitle && <p className="services-faq-subtitle">{subtitle}</p>}
             </div>
 
-            <div className="faq-container">
+            <div className="services-faq-container">
                 {faqs.map((faq, index) => {
                     const isExpanded = expandedFAQ === index
 
                     return (
                         <div
                             key={index}
-                            className={`faq-item ${isExpanded ? 'expanded' : ''}`}
+                            className={`services-faq-item ${isExpanded ? 'expanded' : ''}`}
                             style={{ animationDelay: `${index * 0.05}s` }}
                         >
                             <button
-                                className="faq-question"
+                                className="services-faq-question"
                                 onClick={() => toggleFAQ(index)}
                                 aria-expanded={isExpanded}
+                                type="button"
                             >
-                                <span className="question-text">{faq.question}</span>
+                                <span className="services-question-text">{faq.question}</span>
                                 <ChevronDown
-                                    size={24}
-                                    className={`faq-chevron ${isExpanded ? 'rotated' : ''}`}
+                                    size={22}
+                                    className={`services-faq-chevron ${isExpanded ? 'rotated' : ''}`}
                                 />
                             </button>
 
-                            <div className={`faq-answer ${isExpanded ? 'show' : ''}`}>
-                                <div className="answer-content">
+                            <div
+                                className={`services-faq-answer ${isExpanded ? 'show' : ''}`}
+                                aria-hidden={!isExpanded}
+                            >
+                                <div className="services-answer-content">
                                     <p>{faq.answer}</p>
                                 </div>
                             </div>
@@ -59,9 +63,15 @@ export default function FAQSection({
                 })}
             </div>
 
-            <div className="faq-footer">
-                <p className="footer-question">Still have questions?</p>
-                <button className="contact-button">Contact Support</button>
+            <div className="services-faq-footer">
+                <p className="services-footer-question">Still have questions?</p>
+                <a
+                    href="tel:+918928895590"
+                    className="services-contact-button"
+                    aria-label="Call customer support"
+                >
+                    Contact Support
+                </a>
             </div>
         </section>
     )

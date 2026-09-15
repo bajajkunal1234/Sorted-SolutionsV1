@@ -71,6 +71,10 @@ const Header = () => {
                         </div>
                         <div className="header-logo-text">
                             <span className="header-logo-name">Sorted<span className="header-logo-accent header-logo-name-solutions"> Solutions</span></span>
+                            <span className="header-logo-tagline" aria-label="An Independent Service Provider">
+                                <span className="header-logo-tagline-part1">AN INDEPENDENT </span>
+                                <span className="header-logo-tagline-part2">SERVICE PROVIDER</span>
+                            </span>
                         </div>
                     </Link>
 

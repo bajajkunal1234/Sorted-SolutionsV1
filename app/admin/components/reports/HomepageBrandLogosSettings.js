@@ -11,7 +11,7 @@ export default function HomepageBrandLogosSettings() {
     // Configuration state
     const [config, setConfig] = useState({
         title: 'Brands We Serve',
-        subtitle: 'Trusted by leading appliance manufacturers',
+        subtitle: '',
         selectedBrandIds: null // null = all brands, [] = none (hidden), [ids] = specific
     });
 
@@ -166,7 +166,7 @@ export default function HomepageBrandLogosSettings() {
                                 value={config.subtitle}
                                 onChange={(e) => setConfig({ ...config, subtitle: e.target.value })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="e.g., Trusted by leading appliance manufacturers"
+                                placeholder="Optional subtitle (leave blank to hide)"
                             />
                         </div>
                     </div>

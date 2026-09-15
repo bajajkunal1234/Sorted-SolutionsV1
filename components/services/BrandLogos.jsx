@@ -5,9 +5,15 @@ import './BrandLogos.css'
 
 export default function BrandLogos({
     title = "Brands We Serve",
-    subtitle = "Trusted by leading appliance manufacturers",
+    subtitle = "",
     selectedBrandIds = null // null = not configured (show all); [] = explicitly empty (show none); [ids] = filter
 }) {
+    // Replace "Trusted" with "Experienced" (e.g. "Trusted to Repair..." -> "Experienced to Repair...")
+    const displayTitle = (title || "Brands We Serve").replace(/\bTrusted\b/g, 'Experienced');
+
+    // If subtitle is the old manufacturer trust claim, suppress it
+    const displaySubtitle = subtitle === "Trusted by leading appliance manufacturers" ? "" : subtitle;
+
     // isMounted prevents any render until after React hydration completes.
     // This avoids #425 text-content mismatch because the server has no brand data
     // but the old code tried to render a static import list on first paint.
@@ -48,8 +54,8 @@ export default function BrandLogos({
         return (
             <section className="brand-logos">
                 <div className="logos-header">
-                    <h2 className="logos-title">{title}</h2>
-                    {subtitle && <p className="logos-subtitle">{subtitle}</p>}
+                    <h2 className="logos-title">{displayTitle}</h2>
+                    {displaySubtitle && <p className="logos-subtitle">{displaySubtitle}</p>}
                 </div>
                 <div className="logos-marquee-wrapper">
                     <div className="logos-marquee-track logos-marquee-loading">
@@ -68,8 +74,8 @@ export default function BrandLogos({
     return (
         <section className="brand-logos">
             <div className="logos-header">
-                <h2 className="logos-title">{title}</h2>
-                {subtitle && <p className="logos-subtitle">{subtitle}</p>}
+                <h2 className="logos-title">{displayTitle}</h2>
+                {displaySubtitle && <p className="logos-subtitle">{displaySubtitle}</p>}
             </div>
 
             <div className="logos-marquee-wrapper">
@@ -101,7 +107,7 @@ export default function BrandLogos({
 
             <div className="logos-footer">
                 <p className="footer-note">
-                    ...and many more! We service all major brands with genuine spare parts.
+                    Sorted Solutions is an independent repair provider and is not affiliated with, or authorized by, any appliance brands.
                 </p>
             </div>
         </section>

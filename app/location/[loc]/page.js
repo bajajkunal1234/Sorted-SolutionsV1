@@ -216,7 +216,7 @@ export default async function LocationPage({ params }) {
                     <div id="brands" key="brands">
                         <BrandLogos
                             title="Brands We Serve"
-                            subtitle="Trusted by leading appliance manufacturers"
+                            subtitle=""
                             selectedBrandIds={dynamicSettings?.brandIds}
                         />
                     </div>

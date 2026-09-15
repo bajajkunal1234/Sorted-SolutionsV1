@@ -1,31 +1,31 @@
-.faq-section {
-    padding: var(--spacing-2xl) var(--spacing-md);
+.services-faq-section {
+    padding: var(--spacing-2xl) var(--spacing-md) calc(var(--spacing-2xl) + 60px);
     background: var(--bg-primary);
 }
 
-.faq-header {
+.services-faq-header {
     text-align: center;
     margin-bottom: var(--spacing-2xl);
 }
 
-.faq-header-icon {
+.services-faq-header-icon {
     color: var(--color-primary);
     margin-bottom: var(--spacing-md);
 }
 
-.faq-title {
+.services-faq-title {
     font-size: var(--font-size-3xl);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
 }
 
-.faq-subtitle {
+.services-faq-subtitle {
     font-size: var(--font-size-lg);
     color: var(--text-secondary);
 }
 
-.faq-container {
+.services-faq-container {
     max-width: 800px;
     margin: 0 auto var(--spacing-2xl);
     display: flex;
@@ -33,22 +33,22 @@
     gap: var(--spacing-md);
 }
 
-.faq-item {
+.services-faq-item {
     background: var(--bg-elevated);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    transition: all var(--transition-base);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
     opacity: 0;
     animation: fadeInUp 0.5s ease-out forwards;
 }
 
-.faq-item.expanded {
+.services-faq-item.expanded {
     border-color: var(--color-primary);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.15);
 }
 
-.faq-question {
+.services-faq-question {
     width: 100%;
     padding: var(--spacing-lg);
     background: transparent;
@@ -62,50 +62,53 @@
     transition: background var(--transition-fast);
 }
 
-.faq-question:hover {
+.services-faq-question:hover {
     background: var(--bg-secondary);
 }
 
-.question-text {
+.services-question-text {
     font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
     flex: 1;
 }
 
-.faq-chevron {
+.services-faq-chevron {
     color: var(--text-secondary);
-    transition: transform var(--transition-base), color var(--transition-fast);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color var(--transition-fast);
     flex-shrink: 0;
 }
 
-.faq-chevron.rotated {
+.services-faq-chevron.rotated {
     transform: rotate(180deg);
     color: var(--color-primary);
 }
 
-.faq-answer {
-    max-height: 0;
+/* CSS Grid accordion: 0fr when collapsed, 1fr when expanded */
+.services-faq-answer {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.services-faq-answer.show {
+    grid-template-rows: 1fr;
+}
+
+.services-answer-content {
     overflow: hidden;
-    transition: max-height var(--transition-slow);
+    min-height: 0;
 }
 
-.faq-answer.show {
-    max-height: 500px;
-}
-
-.answer-content {
+.services-answer-content p {
     padding: 0 var(--spacing-lg) var(--spacing-lg);
-}
-
-.answer-content p {
     font-size: var(--font-size-base);
     color: var(--text-secondary);
-    line-height: 1.8;
+    line-height: 1.7;
     margin: 0;
 }
 
-.faq-footer {
+.services-faq-footer {
     text-align: center;
     padding: var(--spacing-xl);
     background: var(--bg-elevated);
@@ -115,29 +118,32 @@
     margin: 0 auto;
 }
 
-.footer-question {
+.services-footer-question {
     font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: var(--spacing-md);
 }
 
-.contact-button {
+.services-contact-button {
+    display: inline-block;
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    color: var(--text-inverse);
+    color: #ffffff !important;
     padding: var(--spacing-sm) var(--spacing-2xl);
     border: none;
     border-radius: var(--radius-md);
     font-size: var(--font-size-base);
     font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
     transition: all var(--transition-base);
     box-shadow: var(--shadow-md);
 }
 
-.contact-button:hover {
+.services-contact-button:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
+    color: #ffffff !important;
 }
 
 @keyframes fadeInUp {
@@ -153,11 +159,11 @@
 }
 
 @media (max-width: 768px) {
-    .question-text {
+    .services-question-text {
         font-size: var(--font-size-base);
     }
 
-    .faq-section {
-        padding: var(--spacing-xl) var(--spacing-md);
+    .services-faq-section {
+        padding: var(--spacing-xl) var(--spacing-md) calc(var(--spacing-xl) + 80px);
     }
 }

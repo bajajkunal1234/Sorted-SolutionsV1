@@ -28,7 +28,7 @@ export default function HomepageBrandLogosSection() {
     if (loading) return null;
 
     const title = config?.title || "Brands We Serve";
-    const subtitle = config?.subtitle !== undefined ? config.subtitle : "Trusted by leading appliance manufacturers";
+    const subtitle = (config?.subtitle && config.subtitle !== "Trusted by leading appliance manufacturers") ? config.subtitle : "";
     const selectedBrandIds = config?.selectedBrandIds !== undefined ? config.selectedBrandIds : null;
 
     return (

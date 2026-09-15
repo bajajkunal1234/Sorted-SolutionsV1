@@ -5,15 +5,6 @@ import { Phone, Mail, MapPin, FileText, Shield, Users } from 'lucide-react'
 import './ServiceFooter.css'
 
 export default function ServiceFooter() {
-    const officeLocations = [
-        { name: 'Andheri', slug: 'andheri' },
-        { name: 'Dadar', slug: 'dadar' },
-        { name: 'Ghatkopar', slug: 'ghatkopar' },
-        { name: 'Mumbai Central', slug: 'mumbai-central' },
-        { name: 'Kurla', slug: 'kurla' },
-        { name: 'Parel', slug: 'parel' }
-    ]
-
     return (
         <footer className="service-footer">
             <div className="footer-content">
@@ -62,25 +53,6 @@ export default function ServiceFooter() {
                         <Link href="/accessibility" className="footer-link">
                             Accessibility Statement
                         </Link>
-                    </div>
-                </div>
-
-                {/* Office Locations */}
-                <div className="footer-column">
-                    <h4 className="footer-heading">
-                        <MapPin size={20} />
-                        Other Office Locations
-                    </h4>
-                    <div className="footer-links">
-                        {officeLocations.map(location => (
-                            <Link
-                                key={location.slug}
-                                href={`/location/${location.slug}`}
-                                className="footer-link"
-                            >
-                                {location.name}
-                            </Link>
-                        ))}
                     </div>
                 </div>
 

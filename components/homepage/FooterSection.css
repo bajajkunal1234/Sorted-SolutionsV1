@@ -66,19 +66,6 @@
     line-height: 1.6;
 }
 
-.locations-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.location-tag {
-    background: #374151;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: #d1d5db;
-}
 
 .footer-bottom {
     text-align: center;

@@ -8,8 +8,6 @@ function FooterSection() {
     const [showJoinForm, setShowJoinForm] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', location: '', experience: '' });
 
-    const locations = ['Andheri', 'Dadar', 'Ghatkopar', 'Mumbai Central', 'Kurla', 'Parel'];
-
     const handleSubmit = (e) => {
         e.preventDefault();
         console.log('Join form:', formData);
@@ -41,12 +39,7 @@ function FooterSection() {
                         <MapPin size={16} />
                         A138 Orchard Mall, Royal Palms, Goregaon East
                     </p>
-                    <h4>Other Locations</h4>
-                    <div className="locations-grid">
-                        {locations.map((loc) => (
-                            <span key={loc} className="location-tag">{loc}</span>
-                        ))}
-                    </div>
+
                 </div>
             </div>
 
