@@ -367,6 +367,165 @@
     }
 }
 
+/* ── Legal Split Dropdown ──────────────────────────────────────────────── */
+.header-legal-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.header-split-btn {
+    display: flex;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f8fafc;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    height: 38px;
+}
+
+.header-split-btn:hover,
+.header-split-btn.open {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+}
+
+[data-theme="dark"] .header-split-btn {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+[data-theme="dark"] .header-split-btn:hover,
+[data-theme="dark"] .header-split-btn.open {
+    background: #273549;
+    border-color: #475569;
+}
+
+/* Link part (clickable separately to navigate to /terms) */
+.header-split-link {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    height: 100%;
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1;
+    transition: color 0.15s ease;
+}
+
+.header-split-link:hover {
+    color: #0f172a;
+    text-decoration: none;
+}
+
+[data-theme="dark"] .header-split-link {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .header-split-link:hover {
+    color: #f8fafc;
+}
+
+/* Arrow part (clickable separately to toggle dropdown) */
+.header-split-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px 0 8px;
+    height: 100%;
+    background: transparent;
+    border: none;
+    border-left: 1px solid #e2e8f0;
+    color: #64748b;
+    cursor: pointer;
+    line-height: 1;
+    transition: all 0.15s ease;
+}
+
+.header-split-arrow:hover,
+.header-split-btn.open .header-split-arrow {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .header-split-arrow {
+    border-left-color: #334155;
+    color: #94a3b8;
+}
+
+[data-theme="dark"] .header-split-arrow:hover,
+[data-theme="dark"] .header-split-btn.open .header-split-arrow {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* Desktop vs Mobile label */
+.legal-label-desktop {
+    display: inline;
+}
+
+.legal-label-mobile {
+    display: none;
+}
+
+@media (max-width: 899px) {
+    .legal-label-desktop {
+        display: none;
+    }
+    .legal-label-mobile {
+        display: inline;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+    }
+    .header-split-link {
+        padding: 0 10px;
+        font-size: 12px;
+    }
+    .header-split-arrow {
+        padding: 0 8px 0 7px;
+    }
+    .header-split-btn {
+        height: 38px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-split-link {
+        padding: 0 8px;
+        font-size: 11.5px;
+    }
+    .header-split-arrow {
+        padding: 0 6px 0 5px;
+    }
+    .header-split-btn {
+        height: 36px;
+    }
+}
+
+/* Legal Dropdown Menu */
+.header-legal-menu {
+    right: 0;
+    left: auto;
+    transform: translateY(-6px);
+    min-width: 230px;
+}
+
+.header-legal-menu.visible {
+    transform: translateY(0);
+}
+
+.header-legal-menu-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* ── Generic Header Buttons ────────────────────────────────────────────── */
 .header-btn {
     display: flex;
     align-items: center;
@@ -380,40 +539,7 @@
     text-decoration: none;
     transition: all 0.2s ease;
     white-space: nowrap;
-}
-
-@media (max-width: 480px) {
-    .header-btn {
-        padding: 8px 10px;
-        font-size: 12px;
-        gap: 4px;
-    }
-
-    .header-btn-text {
-        display: none;
-    }
-}
-
-.header-btn--call {
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: #ffffff;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
-}
-
-.header-btn--call:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
-}
-
-/* Show phone number text on desktop only */
-.header-btn--call .phone-number-text {
-    display: none;
-}
-
-@media (min-width: 1080px) {
-    .header-btn--call .phone-number-text {
-        display: inline;
-    }
+    height: 38px;
 }
 
 /* ── Call Button (GTM-trackable) ───────────────────────────────────────── */
@@ -433,6 +559,7 @@
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
     transition: all 0.2s ease;
+    height: 38px;
 }
 
 .call-btn:hover {
@@ -442,20 +569,11 @@
     text-decoration: none;
 }
 
-@media (max-width: 480px) {
-    .call-btn span {
-        display: none;
-    }
-    .call-btn {
-        padding: 9px 12px;
-        min-width: 40px;
-        justify-content: center;
-    }
-}
-
+/* ── Login Button ──────────────────────────────────────────────────────── */
 .header-btn--login {
     background: #f1f5f9;
     color: #334155;
+    height: 38px;
 }
 
 .header-btn--login:hover {
@@ -463,17 +581,73 @@
 }
 
 [data-theme="dark"] .header-btn--login {
-    background: #334155;
+    background: #1e293b;
     color: #f8fafc;
+    border: 1px solid #334155;
 }
 
 [data-theme="dark"] .header-btn--login:hover {
-    background: #475569;
+    background: #273549;
+    border-color: #475569;
 }
 
 .header-btn--full {
     width: 100%;
     justify-content: center;
+}
+
+/* ── Option A Responsive Rules for Header Bar Action Icons (< 900px) ───── */
+@media (max-width: 899px) {
+    .site-header__actions .call-btn span {
+        display: none;
+    }
+
+    .site-header__actions .call-btn {
+        padding: 0;
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        justify-content: center;
+    }
+
+    .site-header__actions .header-btn--login .header-btn-text {
+        display: none;
+    }
+
+    .site-header__actions .header-btn--login {
+        padding: 0;
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .site-header__actions {
+        gap: 4px;
+    }
+
+    .site-header__actions .call-btn {
+        width: 36px;
+        min-width: 36px;
+        height: 36px;
+    }
+
+    .site-header__actions .header-btn--login {
+        width: 36px;
+        min-width: 36px;
+        height: 36px;
+    }
+}
+
+/* Ensure inside the mobile drawer, text is ALWAYS fully visible */
+.header-mobile-drawer .call-btn span {
+    display: inline !important;
+}
+
+.header-mobile-drawer .header-btn--login .header-btn-text {
+    display: inline !important;
 }
 
 /* ── Hamburger ────────────────────────────────────────────────────────── */
@@ -648,9 +822,4 @@
     border-color: #334155;
 }
 
-/* ── Hide Login span on very small screens ─────────────────────────────── */
-@media (max-width: 480px) {
-    .header-btn--login span {
-        display: none;
-    }
-}
+/* Scoped login icon text hiding handled in actions responsive section */

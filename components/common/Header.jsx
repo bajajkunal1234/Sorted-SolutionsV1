@@ -25,7 +25,9 @@ const Header = () => {
     const [scrolled, setScrolled] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const [legalDropdownOpen, setLegalDropdownOpen] = useState(false)
     const dropdownRef = useRef(null)
+    const legalDropdownRef = useRef(null)
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 20)
@@ -33,11 +35,14 @@ const Header = () => {
         return () => window.removeEventListener('scroll', onScroll)
     }, [])
 
-    // Close dropdown when clicking outside
+    // Close dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setDropdownOpen(false)
+            }
+            if (legalDropdownRef.current && !legalDropdownRef.current.contains(e.target)) {
+                setLegalDropdownOpen(false)
             }
         }
         document.addEventListener('mousedown', handleClickOutside)
@@ -123,6 +128,73 @@ const Header = () => {
                     {/* ── Actions ── */}
                     <div className="site-header__actions">
                         <ThemeToggle />
+
+                        {/* ── Legal Dropdown (T&C on mobile, Terms & Conditions on desktop) ── */}
+                        <div className="header-legal-dropdown" ref={legalDropdownRef}>
+                            <div className={`header-split-btn ${legalDropdownOpen ? 'open' : ''}`}>
+                                <Link
+                                    href="/terms"
+                                    className="header-split-link"
+                                    title="Terms & Conditions"
+                                    onClick={() => setLegalDropdownOpen(false)}
+                                >
+                                    <span className="legal-label-desktop">Terms & Conditions</span>
+                                    <span className="legal-label-mobile">T&C</span>
+                                </Link>
+                                <button
+                                    type="button"
+                                    className="header-split-arrow"
+                                    aria-label="Toggle legal links dropdown"
+                                    aria-haspopup="true"
+                                    aria-expanded={legalDropdownOpen}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setLegalDropdownOpen(v => !v);
+                                    }}
+                                >
+                                    <ChevronDown size={13} className={`header-chevron ${legalDropdownOpen ? 'open' : ''}`} />
+                                </button>
+                            </div>
+
+                            <div className={`header-dropdown__menu header-legal-menu ${legalDropdownOpen ? 'visible' : ''}`}>
+                                <div className="header-legal-menu-inner">
+                                    <Link
+                                        href="/terms"
+                                        className="header-dropdown__item"
+                                        onClick={() => setLegalDropdownOpen(false)}
+                                    >
+                                        <span className="header-dropdown__dot" />
+                                        Terms & Conditions
+                                    </Link>
+                                    <Link
+                                        href="/contact"
+                                        className="header-dropdown__item"
+                                        onClick={() => setLegalDropdownOpen(false)}
+                                    >
+                                        <span className="header-dropdown__dot" />
+                                        Contact Us
+                                    </Link>
+                                    <Link
+                                        href="/privacy"
+                                        className="header-dropdown__item"
+                                        onClick={() => setLegalDropdownOpen(false)}
+                                    >
+                                        <span className="header-dropdown__dot" />
+                                        Privacy Policy
+                                    </Link>
+                                    <Link
+                                        href="/accessibility"
+                                        className="header-dropdown__item"
+                                        onClick={() => setLegalDropdownOpen(false)}
+                                    >
+                                        <span className="header-dropdown__dot" />
+                                        Accessibility Statement
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+
                         <a href="tel:+918928895590" className="call-btn" aria-label="Call +918928895590"
                             onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
                             suppressHydrationWarning
@@ -160,13 +232,27 @@ const Header = () => {
                         </Link>
                     ))}
                     <hr className="header-mobile-divider" />
-                    <a href="tel:+918928895590" className="call-btn" style={{width:'100%', justifyContent:'center'}}
+                    <p className="header-mobile-section">Information & Legal</p>
+                    <Link href="/terms" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
+                        Terms & Conditions
+                    </Link>
+                    <Link href="/contact" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
+                        Contact Us
+                    </Link>
+                    <Link href="/privacy" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
+                        Privacy Policy
+                    </Link>
+                    <Link href="/accessibility" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
+                        Accessibility Statement
+                    </Link>
+                    <hr className="header-mobile-divider" />
+                    <a href="tel:+918928895590" className="call-btn drawer-call-btn" style={{width:'100%', justifyContent:'center'}}
                         onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
                         suppressHydrationWarning
                     >
                         <Phone size={16} /> <span suppressHydrationWarning>+918928895590</span>
                     </a>
-                    <Link href="/login" className="header-btn header-btn--login header-btn--full" onClick={() => setMobileOpen(false)}>
+                    <Link href="/login" className="header-btn header-btn--login header-btn--full drawer-login-btn" onClick={() => setMobileOpen(false)}>
                         <User size={16} /> Login
                     </Link>
                     <div className="header-mobile-drawer-bottom">
