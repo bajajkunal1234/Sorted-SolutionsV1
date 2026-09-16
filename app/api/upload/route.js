@@ -22,18 +22,21 @@ export async function POST(request) {
         const formData = await request.formData();
         const file = formData.get('file');
 
-        if (!file) {
-            return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
+        if (!file || typeof file === 'string' || typeof file.arrayBuffer !== 'function') {
+            return NextResponse.json({ success: false, error: 'No valid file uploaded' }, { status: 400 });
         }
 
         const bucket = formData.get('bucket') || 'media';
         const folder = formData.get('folder') || 'uploads';
 
         const bytes = await file.arrayBuffer();
+        if (!bytes || bytes.byteLength === 0) {
+            return NextResponse.json({ success: false, error: 'Uploaded file is empty' }, { status: 400 });
+        }
         const rawBuffer = Buffer.from(bytes);
 
         // Compress images; videos/PDFs pass through unchanged
-        const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type);
+        const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type || 'image/jpeg');
 
         const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 

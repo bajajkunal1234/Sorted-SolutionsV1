@@ -2342,16 +2342,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         setBeforePhotosLoading(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // Generate local file mappings and placeholder URLs instantly
-            const uploadMappings = beforePhotos.filter(photo => photo.file).map(photo => {
-                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                return {
-                    fileId,
-                    file: photo.file,
-                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
-                };
-            });
-            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
+            // Capture snapshot of photos for background processing
+            const photosToProcess = [...beforePhotos];
+            const localPreviewUrls = photosToProcess.map(p => p.url).filter(Boolean);
 
             // Calculate visit number dynamically
             const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
@@ -2378,7 +2371,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         performed_by_name: techName,
                         description: descText,
                         timestamp: new Date().toISOString(),
-                        metadata: { attachments: uploadedUrls, visit_number: nextVisitNum }
+                        metadata: { attachments: localPreviewUrls, visit_number: nextVisitNum }
                     },
                     ...(prev.interactions || [])
                 ]
@@ -2412,25 +2405,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 });
             }
 
-            // Perform slow image compression, storage, and API calls in the background!
+            // Perform image compression, storage / direct upload, and API calls in the background!
             (async () => {
                 try {
-                    // 1. Compress and write to IndexedDB asynchronously
-                    for (const item of uploadMappings) {
-                        try {
-                            const compressed = await compressImage(item.file);
-                            await storeOfflineFile(item.fileId, compressed);
-                        } catch (compErr) {
-                            console.error('[Offline] Background check-in compression failed, storing raw:', compErr);
+                    const finalUrls = [];
+                    for (const photo of photosToProcess) {
+                        if (photo.file) {
+                            let compressed = photo.file;
                             try {
-                                await storeOfflineFile(item.fileId, item.file);
-                            } catch (storeErr) {
-                                console.error('[Offline] Background check-in raw store failed:', storeErr);
+                                compressed = await compressImage(photo.file);
+                            } catch (compErr) {
+                                console.warn('[Photos] Check-in compression failed, using raw file:', compErr);
                             }
+                            const url = await uploadOrQueueFile(compressed, photo.file.name || 'before_photo.jpg');
+                            if (url) finalUrls.push(url);
                         }
                     }
 
-                    // 2. Call the APIs now that files are safely in IndexedDB
+                    // 2. Call the APIs with resolved URLs (Supabase URLs if online, placeholders if offline)
                     const logPromise = apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2439,7 +2431,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             category: 'job',
                             description: descText,
                             user_name: techName,
-                            metadata: { attachments: uploadedUrls, visit_number: nextVisitNum }
+                            metadata: { attachments: finalUrls, visit_number: nextVisitNum }
                         })
                     });
 
@@ -2494,16 +2486,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // Generate local file mappings and placeholder URLs instantly
-            const uploadMappings = afterPhotos.filter(photo => photo.file).map(photo => {
-                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                return {
-                    fileId,
-                    file: photo.file,
-                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
-                };
-            });
-            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
+            // Capture snapshot of photos for background processing
+            const photosToProcess = [...afterPhotos];
 
             const descText = afterPhotosDescription.trim() 
                 ? `After Photos uploaded.\nNote: ${afterPhotosDescription.trim()}`
@@ -2518,21 +2502,20 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             // Automatically open Collect Payment modal!
             setShowCollectPayment(true);
 
-            // Run compression, local storage, and real network requests in background!
+            // Run compression, upload or offline storage, and real network requests in background!
             (async () => {
                 try {
-                    // 1. Compress and write to IndexedDB asynchronously
-                    for (const item of uploadMappings) {
-                        try {
-                            const compressed = await compressImage(item.file);
-                            await storeOfflineFile(item.fileId, compressed);
-                        } catch (compErr) {
-                            console.error('[Offline] Background checkout compression failed, storing raw:', compErr);
+                    const finalUrls = [];
+                    for (const photo of photosToProcess) {
+                        if (photo.file) {
+                            let compressed = photo.file;
                             try {
-                                await storeOfflineFile(item.fileId, item.file);
-                            } catch (storeErr) {
-                                console.error('[Offline] Background checkout raw store failed:', storeErr);
+                                compressed = await compressImage(photo.file);
+                            } catch (compErr) {
+                                console.warn('[Photos] Checkout compression failed, using raw file:', compErr);
                             }
+                            const url = await uploadOrQueueFile(compressed, photo.file.name || 'after_photo.jpg');
+                            if (url) finalUrls.push(url);
                         }
                     }
 
@@ -2545,16 +2528,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             category: 'job',
                             description: descText,
                             user_name: techName,
-                            metadata: { attachments: uploadedUrls }
+                            metadata: { attachments: finalUrls }
                         })
                     });
 
-                    // Reload job state from server to immediately fetch the new interaction
-                    const reloadRes = await apiCall(`/api/technician/jobs/${editedJob.id}`);
-                    const reloadData = await reloadRes.json();
-                    if (reloadData.success && reloadData.job) {
-                        setEditedJob(reloadData.job);
-                        if (onJobUpdate) onJobUpdate(reloadData.job);
+                    // Reload job state from server if online to immediately fetch the new interaction
+                    if (isOnline()) {
+                        const reloadRes = await apiCall(`/api/technician/jobs/${editedJob.id}`);
+                        const reloadData = await reloadRes.json();
+                        if (reloadData.success && reloadData.job) {
+                            setEditedJob(reloadData.job);
+                            if (onJobUpdate) onJobUpdate(reloadData.job);
+                        }
                     }
                 } catch (bgErr) {
                     console.warn('[Offline] Background photos save failed:', bgErr);
@@ -2697,28 +2682,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         try {
-            // Generate local file mappings and placeholder URLs instantly
-            const uploadMappings = (note.attachments || []).filter(att => att.file).map(att => {
-                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                return {
-                    fileId,
-                    file: att.file,
-                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
-                };
-            });
-
-            // Map final list of attachment URLs to include placeholders and existing URLs
-            const uploadedUrls = [];
-            if (note.attachments && note.attachments.length > 0) {
-                note.attachments.forEach(att => {
-                    if (att.file) {
-                        const match = uploadMappings.find(m => m.file === att.file);
-                        if (match) uploadedUrls.push(match.placeholderUrl);
-                    } else if (att.url && !att.url.startsWith('blob:')) {
-                        uploadedUrls.push(att.url);
-                    }
-                });
-            }
+            // Capture snapshot of attachments
+            const noteAttachments = [...(note.attachments || [])];
+            const localPreviewUrls = noteAttachments.map(att => att.url || (att.file ? URL.createObjectURL(att.file) : null)).filter(Boolean);
 
             const payload = {
                 job_id: editedJob.id,
@@ -2729,7 +2695,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 performed_by_name: techName,
                 source: 'Technician App',
                 timestamp: new Date().toISOString(),
-                metadata: { attachments: uploadedUrls },
+                metadata: { attachments: localPreviewUrls },
             };
 
             const tempId = `temp-note-${Date.now()}`;
@@ -2746,29 +2712,28 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
             setIsAddingNote(false);
 
-            // Perform slow image compression, storage, and API call in background
+            // Perform image compression, storage / direct upload, and API call in background
             (async () => {
                 try {
-                    // 1. Compress and store new files asynchronously in the background
-                    for (const item of uploadMappings) {
-                        try {
-                            const compressed = await compressImage(item.file);
-                            await storeOfflineFile(item.fileId, compressed);
-                        } catch (compErr) {
-                            console.error('[Offline] Background note photo compression failed, storing raw:', compErr);
-                            try {
-                                await storeOfflineFile(item.fileId, item.file);
-                            } catch (storeErr) {
-                                console.error('[Offline] Background note photo raw store failed:', storeErr);
-                            }
+                    const finalUrls = [];
+                    for (const att of noteAttachments) {
+                        if (att.file) {
+                            let comp = att.file;
+                            try { comp = await compressImage(att.file); } catch (_) {}
+                            const url = await uploadOrQueueFile(comp, att.file.name || 'note_attachment.jpg');
+                            if (url) finalUrls.push(url);
+                        } else if (att.url && !att.url.startsWith('blob:')) {
+                            finalUrls.push(att.url);
                         }
                     }
 
-                    // 2. Call the API now that files are in IndexedDB
                     const res = await apiCall('/api/admin/interactions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
+                        body: JSON.stringify({
+                            ...payload,
+                            metadata: { attachments: finalUrls }
+                        }),
                     });
                     
                     const data = await res.json();
@@ -2809,28 +2774,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
 
         try {
-            // Generate local file mappings and placeholders for new attachments
-            const uploadMappings = (editedNote.attachments || []).filter(att => att.file).map(att => {
-                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                return {
-                    fileId,
-                    file: att.file,
-                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
-                };
-            });
-
-            // Map final list of attachment URLs
-            const uploadedUrls = [];
-            if (editedNote.attachments && editedNote.attachments.length > 0) {
-                editedNote.attachments.forEach(att => {
-                    if (att.file) {
-                        const match = uploadMappings.find(m => m.file === att.file);
-                        if (match) uploadedUrls.push(match.placeholderUrl);
-                    } else if (att.url && !att.url.startsWith('blob:')) {
-                        uploadedUrls.push(att.url);
-                    }
-                });
-            }
+            // Capture snapshot of attachments
+            const noteAttachments = [...(editedNote.attachments || [])];
+            const localPreviewUrls = noteAttachments.map(att => att.url || (att.file ? URL.createObjectURL(att.file) : null)).filter(Boolean);
 
             const tempHistoryId = `temp-edit-hist-${Date.now()}`;
             const mockHistoryLog = {
@@ -2850,39 +2796,41 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             setEditedJob(prev => {
                 const prevInts = prev.interactions || [];
                 const updatedInts = prevInts.map(int => 
-                    int.id === editedNote.id ? { ...int, description: editedNote.description, metadata: { ...int.metadata, attachments: uploadedUrls } } : int
+                    int.id === editedNote.id ? { ...int, description: editedNote.description, metadata: { ...int.metadata, attachments: localPreviewUrls } } : int
                 );
                 return { ...prev, interactions: [mockHistoryLog, ...updatedInts] };
             });
 
             setIsAddingNote(false);
 
-            // Perform file storage and backend sync in background
+            // Perform file storage / direct upload and backend sync in background
             (async () => {
                 try {
-                    // 1. Store new files in IndexedDB
-                    for (const item of uploadMappings) {
-                        try {
-                            await storeOfflineFile(item.fileId, item.file);
-                        } catch (storeErr) {
-                            console.error('[Offline] Background note edit file storage failed:', storeErr);
+                    const finalUrls = [];
+                    for (const att of noteAttachments) {
+                        if (att.file) {
+                            let comp = att.file;
+                            try { comp = await compressImage(att.file); } catch (_) {}
+                            const url = await uploadOrQueueFile(comp, att.file.name || 'note_attachment.jpg');
+                            if (url) finalUrls.push(url);
+                        } else if (att.url && !att.url.startsWith('blob:')) {
+                            finalUrls.push(att.url);
                         }
                     }
 
                     // 2. Patch the original note
-                    const patchRes = await apiCall('/api/admin/interactions', {
+                    await apiCall('/api/admin/interactions', {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             id: editedNote.id,
                             description: editedNote.description,
-                            metadata: { ...editedNote.metadata, attachments: uploadedUrls }
+                            metadata: { ...editedNote.metadata, attachments: finalUrls }
                         })
                     });
-                    const patchData = await patchRes.json();
                     
                     // 3. Log the history interaction
-                    const postRes = await apiCall('/api/admin/interactions', {
+                    await apiCall('/api/admin/interactions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -4991,16 +4939,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
-                                            // Generate local file mappings and placeholder URLs instantly
-                                            const uploadMappings = partsPhotos.filter(photo => photo.file).map(photo => {
-                                                const fileId = `offline-file-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-                                                return {
-                                                    fileId,
-                                                    file: photo.file,
-                                                    placeholderUrl: `/offline-file-placeholder?id=${fileId}`
-                                                };
-                                            });
-                                            const uploadedUrls = uploadMappings.map(m => m.placeholderUrl);
+                                            // Capture snapshot of photos for background upload
+                                            const photosToProcess = [...partsPhotos];
 
                                             const detailedNote = `[${partsActionType.toUpperCase()}] ${partsNoteText.trim()} | Est. Price Range: ₹${partsMinPrice} to ₹${partsMaxPrice} | Est. Time Range: ${partsMinDays} to ${partsMaxDays} days`;
                                             
@@ -5061,21 +5001,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                 })();
                                             }
 
-                                            // Perform background compression, storage, and API calls!
+                                            // Perform background compression, storage / direct upload, and API calls!
                                             (async () => {
                                                 try {
-                                                    // 1. Compress and store files in IndexedDB asynchronously
-                                                    for (const item of uploadMappings) {
-                                                        try {
-                                                            const compressed = await compressImage(item.file);
-                                                            await storeOfflineFile(item.fileId, compressed);
-                                                        } catch (compErr) {
-                                                            console.error('[Offline] Background parts photo compression failed, storing raw:', compErr);
-                                                            try {
-                                                                await storeOfflineFile(item.fileId, item.file);
-                                                            } catch (storeErr) {
-                                                                console.error('[Offline] Background parts photo raw store failed:', storeErr);
-                                                            }
+                                                    const finalUrls = [];
+                                                    for (const item of photosToProcess) {
+                                                        if (item.file) {
+                                                            let comp = item.file;
+                                                            try { comp = await compressImage(item.file); } catch (_) {}
+                                                            const url = await uploadOrQueueFile(comp, item.file.name || 'part_photo.jpg');
+                                                            if (url) finalUrls.push(url);
                                                         }
                                                     }
 
@@ -5089,7 +5024,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                             note_text: detailedNote,
                                                             updated_by_name: techName,
                                                             latitude: lat,
-                                                            longitude: lng
+                                                            longitude: lng,
+                                                            attachments: finalUrls,
+                                                            parts_action: partsActionType,
+                                                            metadata: {
+                                                                attachments: finalUrls,
+                                                                parts_action: partsActionType,
+                                                                note_text: partsNoteText.trim(),
+                                                                min_price: partsMinPrice,
+                                                                max_price: partsMaxPrice,
+                                                                min_days: partsMinDays,
+                                                                max_days: partsMaxDays
+                                                            }
                                                         })
                                                     });
                                                     const noteData = await noteRes.json();
@@ -5103,7 +5049,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                          performed_by_name: techName,
                                                          timestamp: new Date().toISOString(),
                                                          metadata: {
-                                                             attachments: uploadedUrls,
+                                                             attachments: finalUrls,
                                                              parts_action: partsActionType,
                                                              note_text: partsNoteText.trim(),
                                                              min_price: partsMinPrice,
@@ -5130,13 +5076,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                          interactions: deduplicateInteractions([newInteraction, ...(prev.interactions || [])])
                                                      }));
 
-                                                    // 4. Set status to parts_ordered
-                                                    await handleSaveStatus('parts_ordered');
+                                                     // 4. Set status to parts_ordered
+                                                     await handleSaveStatus('parts_ordered');
 
-                                                } catch (bgErr) {
-                                                    console.warn('[Offline] Background saveRepairNote failed/queued:', bgErr);
-                                                }
-                                            })();
+                                                 } catch (bgErr) {
+                                                     console.warn('[Offline] Background saveRepairNote failed/queued:', bgErr);
+                                                 }
+                                             })();
 
                                         } catch (err) {
                                             alert('Could not save parts ordered details: ' + err.message);

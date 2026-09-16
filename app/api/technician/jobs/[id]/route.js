@@ -382,6 +382,9 @@ export async function PUT(request, { params }) {
             if (error) return NextResponse.json({ error: 'Failed to record repair note' }, { status: 500 });
 
             const noteText = updates.note_text || body.note_text || body.repair_note || '';
+            const attachments = body.attachments || body.metadata?.attachments || [];
+            const partsAction = body.parts_action || body.metadata?.parts_action || null;
+
             supabase.from('job_interactions').insert([{
                 job_id: id, type: 'repair-note-added',
                 message: noteText ? `Repair note added: ${noteText}` : 'Repair note added',
@@ -396,8 +399,15 @@ export async function PUT(request, { params }) {
                 customerName,
                 performedBy: existing?.technician_id || null,
                 performedByName: techName,
-                description: noteText ? `Technician added repair/parts note: ${noteText}` : 'Technician added repair note',
-                metadata: { note_text: noteText, latitude: body.latitude || null, longitude: body.longitude || null },
+                description: body.description || (noteText ? `Technician added repair/parts note: ${noteText}` : 'Technician added repair note'),
+                metadata: {
+                    note_text: noteText,
+                    latitude: body.latitude || null,
+                    longitude: body.longitude || null,
+                    attachments: attachments,
+                    ...(partsAction ? { parts_action: partsAction } : {}),
+                    ...(body.metadata || {})
+                },
                 source: 'Technician App'
             });
 

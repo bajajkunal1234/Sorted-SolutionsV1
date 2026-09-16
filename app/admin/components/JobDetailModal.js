@@ -3288,7 +3288,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                 action: 'add_repair_note', 
                                                 repair_note: detailedNote, 
                                                 note_text: detailedNote,
-                                                updated_by_name: 'Admin'
+                                                updated_by_name: 'Admin',
+                                                attachments: uploadedUrls,
+                                                parts_action: partsActionType,
+                                                metadata: {
+                                                    attachments: uploadedUrls,
+                                                    parts_action: partsActionType,
+                                                    note_text: partsNoteText.trim(),
+                                                    min_price: partsMinPrice,
+                                                    max_price: partsMaxPrice,
+                                                    min_days: partsMinDays,
+                                                    max_days: partsMaxDays
+                                                }
                                             })
                                         });
                                         if (!noteRes.ok) throw new Error('Failed to save repair note');
