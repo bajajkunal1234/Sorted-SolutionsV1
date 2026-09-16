@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy, Info } from 'lucide-react';
+import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy, Info, Camera } from 'lucide-react';
 import AutocompleteSearch from '../admin/AutocompleteSearch';
 import imageCompression from 'browser-image-compression';
 import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';

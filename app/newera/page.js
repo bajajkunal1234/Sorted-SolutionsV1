@@ -26,8 +26,24 @@ import {
     Edit,
     LayoutGrid,
     Table,
-    Eye
+    Eye,
+    SlidersHorizontal
 } from 'lucide-react';
+
+const DEFAULT_LIABILITY_COLUMNS = [
+    { id: 'name', label: 'Name', width: 160, visible: true, sortable: true },
+    { id: 'lender', label: 'Lender', width: 140, visible: true, sortable: true },
+    { id: 'mobile_number', label: 'Mobile', width: 130, visible: true, sortable: true },
+    { id: 'address', label: 'Address', width: 150, visible: true, sortable: true },
+    { id: 'loan_type', label: 'Category', width: 130, visible: true, sortable: true },
+    { id: 'principal_amount', label: 'Principal', width: 130, visible: true, sortable: true },
+    { id: 'interest_rate_annual', label: 'Interest', width: 95, visible: true, sortable: true },
+    { id: 'remaining', label: 'Remaining', width: 130, visible: true, sortable: true },
+    { id: 'emi_amount', label: 'EMI', width: 110, visible: true, sortable: true },
+    { id: 'repayment_day', label: 'Repayment Day', width: 130, visible: true, sortable: true },
+    { id: 'attachment_url', label: 'Statement', width: 110, visible: true, sortable: false },
+    { id: 'actions', label: 'Actions', width: 100, visible: true, sortable: false }
+];
 
 export default function NewEraDashboard() {
     const [loading, setLoading] = useState(true);
@@ -103,6 +119,128 @@ export default function NewEraDashboard() {
     const [liabilityFilterType, setLiabilityFilterType] = useState('all');
     const [liabilitySortBy, setLiabilitySortBy] = useState('name_asc');
 
+    // Dynamic Columns & Sorting for Liabilities Table
+    const [liabilityColumns, setLiabilityColumns] = useState(DEFAULT_LIABILITY_COLUMNS);
+    const [showColumnSettings, setShowColumnSettings] = useState(false);
+    const [tableSort, setTableSort] = useState({ column: 'name', direction: 'asc' });
+
+    // Load saved column preferences
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('newera_liabilities_columns');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    const merged = DEFAULT_LIABILITY_COLUMNS.map(def => {
+                        const found = parsed.find(p => p.id === def.id);
+                        return found ? { ...def, width: found.width || def.width, visible: found.visible !== undefined ? found.visible : def.visible } : def;
+                    });
+                    setLiabilityColumns(merged);
+                } catch (e) {
+                    console.error('Failed to load column settings:', e);
+                }
+            }
+        }
+    }, []);
+
+    const saveColumnsConfig = (newCols) => {
+        setLiabilityColumns(newCols);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('newera_liabilities_columns', JSON.stringify(newCols));
+        }
+    };
+
+    const handleColumnResizeMouseDown = (colId, e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const currentCol = liabilityColumns.find(c => c.id === colId);
+        if (!currentCol) return;
+        const startWidth = currentCol.width || 120;
+
+        const handleMouseMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            setLiabilityColumns(prev => prev.map(c => 
+                c.id === colId ? { ...c, width: Math.max(60, startWidth + deltaX) } : c
+            ));
+        };
+
+        const handleMouseUp = () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            setLiabilityColumns(latestCols => {
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('newera_liabilities_columns', JSON.stringify(latestCols));
+                }
+                return latestCols;
+            });
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleColumnResizeTouchStart = (colId, e) => {
+        e.stopPropagation();
+        if (!e.touches || e.touches.length === 0) return;
+        const startX = e.touches[0].clientX;
+        const currentCol = liabilityColumns.find(c => c.id === colId);
+        if (!currentCol) return;
+        const startWidth = currentCol.width || 120;
+
+        const handleTouchMove = (moveEvent) => {
+            if (!moveEvent.touches || moveEvent.touches.length === 0) return;
+            const deltaX = moveEvent.touches[0].clientX - startX;
+            setLiabilityColumns(prev => 
+                prev.map(c => c.id === colId ? { ...c, width: Math.max(60, startWidth + deltaX) } : c)
+            );
+        };
+
+        const handleTouchEnd = () => {
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+            setLiabilityColumns(latestCols => {
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('newera_liabilities_columns', JSON.stringify(latestCols));
+                }
+                return latestCols;
+            });
+        };
+
+        document.addEventListener('touchmove', handleTouchMove, { passive: true });
+        document.addEventListener('touchend', handleTouchEnd);
+    };
+
+    const handleHeaderSort = (colId) => {
+        const colDef = liabilityColumns.find(c => c.id === colId);
+        if (!colDef || !colDef.sortable) return;
+
+        setTableSort(prev => {
+            const nextDir = (prev.column === colId && prev.direction === 'asc') ? 'desc' : 'asc';
+            if (colId === 'name') setLiabilitySortBy(nextDir === 'asc' ? 'name_asc' : 'name_desc');
+            else if (colId === 'principal_amount') setLiabilitySortBy(nextDir === 'asc' ? 'principal_asc' : 'principal_desc');
+            else if (colId === 'remaining') setLiabilitySortBy(nextDir === 'asc' ? 'remaining_asc' : 'remaining_desc');
+            return { column: colId, direction: nextDir };
+        });
+    };
+
+    const toggleColumnVisibility = (colId) => {
+        const visibleCols = liabilityColumns.filter(c => c.visible);
+        const col = liabilityColumns.find(c => c.id === colId);
+        if (col && col.visible && visibleCols.length <= 1) {
+            alert('At least one column must remain visible.');
+            return;
+        }
+        const updated = liabilityColumns.map(c => 
+            c.id === colId ? { ...c, visible: !c.visible } : c
+        );
+        saveColumnsConfig(updated);
+    };
+
+    const resetColumns = () => {
+        saveColumnsConfig(DEFAULT_LIABILITY_COLUMNS);
+    };
+
     const startEditLoan = (loan) => {
         setEditingLoanId(loan.id);
         setLoanForm({
@@ -133,7 +271,9 @@ export default function NewEraDashboard() {
             list = list.filter(l => 
                 l.name.toLowerCase().includes(q) || 
                 l.lender.toLowerCase().includes(q) || 
-                l.loan_type.toLowerCase().includes(q)
+                l.loan_type.toLowerCase().includes(q) ||
+                (l.mobile_number && l.mobile_number.toLowerCase().includes(q)) ||
+                (l.address && l.address.toLowerCase().includes(q))
             );
         }
 
@@ -141,31 +281,62 @@ export default function NewEraDashboard() {
             list = list.filter(l => l.loan_type === liabilityFilterType);
         }
 
-        list.sort((a, b) => {
-            if (liabilitySortBy === 'name_asc') {
-                return a.name.localeCompare(b.name);
-            }
-            if (liabilitySortBy === 'name_desc') {
-                return b.name.localeCompare(a.name);
-            }
-            if (liabilitySortBy === 'principal_desc') {
-                return parseFloat(b.principal_amount) - parseFloat(a.principal_amount);
-            }
-            if (liabilitySortBy === 'principal_asc') {
-                return parseFloat(a.principal_amount) - parseFloat(b.principal_amount);
-            }
-            if (liabilitySortBy === 'remaining_desc' || liabilitySortBy === 'remaining_asc') {
-                const getRemaining = (loan) => {
-                    const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-                    const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
-                    return Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
-                };
-                return liabilitySortBy === 'remaining_desc' 
-                    ? getRemaining(b) - getRemaining(a)
-                    : getRemaining(a) - getRemaining(b);
-            }
-            return 0;
-        });
+        const getRemaining = (loan) => {
+            const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+            const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
+            return Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
+        };
+
+        if (liabilitiesView === 'table' && tableSort.column) {
+            const dir = tableSort.direction === 'asc' ? 1 : -1;
+            list.sort((a, b) => {
+                switch (tableSort.column) {
+                    case 'name':
+                        return a.name.localeCompare(b.name) * dir;
+                    case 'lender':
+                        return (a.lender || '').localeCompare(b.lender || '') * dir;
+                    case 'mobile_number':
+                        return (a.mobile_number || '').localeCompare(b.mobile_number || '') * dir;
+                    case 'address':
+                        return (a.address || '').localeCompare(b.address || '') * dir;
+                    case 'loan_type':
+                        return (a.loan_type || '').localeCompare(b.loan_type || '') * dir;
+                    case 'principal_amount':
+                        return (parseFloat(a.principal_amount || 0) - parseFloat(b.principal_amount || 0)) * dir;
+                    case 'interest_rate_annual':
+                        return (parseFloat(a.interest_rate_annual || 0) - parseFloat(b.interest_rate_annual || 0)) * dir;
+                    case 'remaining':
+                        return (getRemaining(a) - getRemaining(b)) * dir;
+                    case 'emi_amount':
+                        return (parseFloat(a.emi_amount || 0) - parseFloat(b.emi_amount || 0)) * dir;
+                    case 'repayment_day':
+                        return ((parseInt(a.repayment_day) || 5) - (parseInt(b.repayment_day) || 5)) * dir;
+                    default:
+                        return 0;
+                }
+            });
+        } else {
+            list.sort((a, b) => {
+                if (liabilitySortBy === 'name_asc') {
+                    return a.name.localeCompare(b.name);
+                }
+                if (liabilitySortBy === 'name_desc') {
+                    return b.name.localeCompare(a.name);
+                }
+                if (liabilitySortBy === 'principal_desc') {
+                    return parseFloat(b.principal_amount) - parseFloat(a.principal_amount);
+                }
+                if (liabilitySortBy === 'principal_asc') {
+                    return parseFloat(a.principal_amount) - parseFloat(b.principal_amount);
+                }
+                if (liabilitySortBy === 'remaining_desc' || liabilitySortBy === 'remaining_asc') {
+                    return liabilitySortBy === 'remaining_desc' 
+                        ? getRemaining(b) - getRemaining(a)
+                        : getRemaining(a) - getRemaining(b);
+                }
+                return 0;
+            });
+        }
 
         return list;
     };
@@ -1047,8 +1218,8 @@ export default function NewEraDashboard() {
 
                         {/* Controls: View Toggles, Filter, Sort */}
                         {data.loans.length > 0 && (
-                            <div style={styles.liabilitiesControlRow}>
-                                <div style={styles.viewToggleRow} style={{ ...styles.viewToggleRow, margin: 0 }}>
+                            <div style={styles.liabilitiesControlRow} className="liabilities-control-row">
+                                <div style={{ ...styles.viewToggleRow, margin: 0 }}>
                                     <button 
                                         onClick={() => setLiabilitiesView('card')} 
                                         style={{
@@ -1090,7 +1261,7 @@ export default function NewEraDashboard() {
                                 </div>
 
                                 {liabilitiesView !== 'detail' && (
-                                    <div style={styles.filtersWrapper}>
+                                    <div style={styles.filtersWrapper} className="filters-wrapper">
                                         <div style={{ ...styles.filterItem, flex: 1, minWidth: '160px' }}>
                                             <span style={styles.filterLabel}>Search</span>
                                             <input 
@@ -1131,6 +1302,61 @@ export default function NewEraDashboard() {
                                                 <option value="remaining_asc">Remaining (Low-High)</option>
                                             </select>
                                         </div>
+
+                                        {liabilitiesView === 'table' && (
+                                            <div style={{ position: 'relative' }}>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowColumnSettings(prev => !prev)}
+                                                    style={{
+                                                        ...styles.viewToggleBtn,
+                                                        backgroundColor: showColumnSettings ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                                                        color: showColumnSettings ? '#ffffff' : '#94a3b8',
+                                                        borderColor: showColumnSettings ? '#6366f1' : 'rgba(255,255,255,0.08)',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem',
+                                                        fontSize: '0.8rem',
+                                                        padding: '0.35rem 0.65rem'
+                                                    }}
+                                                    title="Configure table columns"
+                                                >
+                                                    <SlidersHorizontal size={14} />
+                                                    <span>Columns ({liabilityColumns.filter(c => c.visible).length})</span>
+                                                </button>
+
+                                                {showColumnSettings && (
+                                                    <div style={styles.colSettingsPopover}>
+                                                        <div style={styles.colSettingsHeader}>
+                                                            <span style={{ fontWeight: '700', fontSize: '0.85rem', color: '#ffffff' }}>Manage Columns</span>
+                                                            <button type="button" onClick={resetColumns} style={styles.colResetBtn}>Reset</button>
+                                                        </div>
+                                                        <div style={styles.colSettingsList}>
+                                                            {liabilityColumns.map(col => (
+                                                                <label key={col.id} style={styles.colSettingsItem}>
+                                                                    <input 
+                                                                        type="checkbox"
+                                                                        checked={col.visible}
+                                                                        onChange={() => toggleColumnVisibility(col.id)}
+                                                                        style={{ cursor: 'pointer', accentColor: '#6366f1' }}
+                                                                    />
+                                                                    <span style={{ color: col.visible ? '#f8fafc' : '#64748b', fontSize: '0.8rem' }}>
+                                                                        {col.label}
+                                                                    </span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setShowColumnSettings(false)}
+                                                            style={styles.colSettingsDoneBtn}
+                                                        >
+                                                            Done
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1253,8 +1479,8 @@ export default function NewEraDashboard() {
 
                                     {/* 2. Table View */}
                                     {liabilitiesView === 'table' && (
-                                        <div style={styles.tableCardContainer}>
-                                            <div style={{ overflowX: 'auto' }}>
+                                        <div style={styles.tableCardContainer} className="table-card-container">
+                                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
                                                 <table style={styles.customTable}>
                                                     <thead>
                                                         <tr>
@@ -1335,7 +1561,7 @@ export default function NewEraDashboard() {
                                                         })}
                                                         {getFilteredAndSortedLoans().length === 0 && (
                                                             <tr>
-                                                                <td colSpan="9" style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '2rem' }}>
+                                                                <td colSpan="12" style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '2rem' }}>
                                                                     No liabilities found matching filters.
                                                                 </td>
                                                             </tr>
@@ -1620,6 +1846,7 @@ export default function NewEraDashboard() {
                                             <div 
                                                 key={day.dateStr} 
                                                 onClick={() => setSelectedCalendarDay(day.dateStr)}
+                                                className="calendar-day-cell"
                                                 style={{
                                                     ...styles.dayCell,
                                                     borderColor: isSelected ? '#6366f1' : 'rgba(255,255,255,0.05)',
@@ -1627,7 +1854,7 @@ export default function NewEraDashboard() {
                                                 }}
                                             >
                                                 <div style={styles.dayNumLabel}>{day.dayNum}</div>
-                                                <div style={styles.dayContent}>
+                                                <div style={styles.dayContent} className="day-content">
                                                     {repaymentsDue.map(rep => {
                                                         const loan = data.loans.find(l => l.id === rep.loan_id);
                                                         return (
@@ -1646,7 +1873,7 @@ export default function NewEraDashboard() {
                                                     })}
                                                 </div>
                                                 {repaymentsDue.length > 0 && (
-                                                    <div style={styles.mobileDotContainer}>
+                                                    <div style={styles.mobileDotContainer} className="mobile-dot-container">
                                                         {repaymentsDue.map((r, i) => (
                                                             <span 
                                                                 key={r.id} 
@@ -4022,7 +4249,8 @@ const styles = {
     filtersWrapper: {
         display: 'flex',
         gap: '0.75rem',
-        alignItems: 'center'
+        alignItems: 'center',
+        flexWrap: 'wrap'
     },
     filterItem: {
         display: 'flex',
@@ -4061,7 +4289,8 @@ const styles = {
         border: '1px solid rgba(255,255,255,0.06)',
         borderRadius: '1rem',
         padding: '1.25rem',
-        overflow: 'hidden'
+        overflowX: 'auto',
+        boxShadow: '0 10px 20px rgba(0,0,0,0.15)'
     },
     customTable: {
         width: '100%',
@@ -4197,17 +4426,35 @@ if (typeof window !== 'undefined') {
         }
         @media (max-width: 600px) {
             /* Compact day cells on mobile */
-            div[style*="min-height: 80px"] {
+            .calendar-day-cell {
                 min-height: 48px !important;
                 aspect-ratio: 1 !important;
                 align-items: center !important;
                 justify-content: center !important;
             }
-            div[style*="overflow: hidden"] {
+            .calendar-day-cell .day-content {
                 display: none !important;
             }
-            div[style*="display: none"] {
+            .calendar-day-cell .mobile-dot-container {
                 display: flex !important;
+            }
+
+            /* Liabilities table and controls on mobile */
+            .table-card-container {
+                padding: 0.75rem 0.5rem !important;
+                border-radius: 0.75rem !important;
+            }
+            .liabilities-control-row {
+                gap: 0.75rem !important;
+            }
+            .filters-wrapper {
+                flex-wrap: wrap !important;
+                width: 100% !important;
+                gap: 0.5rem !important;
+            }
+            th, td {
+                padding: 0.65rem 0.75rem !important;
+                font-size: 0.8rem !important;
             }
 
             /* Responsive layout overrides */
