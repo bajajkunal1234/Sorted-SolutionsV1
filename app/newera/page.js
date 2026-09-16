@@ -123,6 +123,24 @@ export default function NewEraDashboard() {
     const [liabilityColumns, setLiabilityColumns] = useState(DEFAULT_LIABILITY_COLUMNS);
     const [showColumnSettings, setShowColumnSettings] = useState(false);
     const [tableSort, setTableSort] = useState({ column: 'name', direction: 'asc' });
+    const columnSettingsRef = useRef(null);
+
+    // Close column settings on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (columnSettingsRef.current && !columnSettingsRef.current.contains(e.target)) {
+                setShowColumnSettings(false);
+            }
+        };
+        if (showColumnSettings) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [showColumnSettings]);
 
     // Load saved column preferences
     useEffect(() => {
@@ -1304,7 +1322,7 @@ export default function NewEraDashboard() {
                                         </div>
 
                                         {liabilitiesView === 'table' && (
-                                            <div style={{ position: 'relative' }}>
+                                            <div ref={columnSettingsRef} style={{ position: 'relative' }}>
                                                 <button 
                                                     type="button"
                                                     onClick={() => setShowColumnSettings(prev => !prev)}
@@ -1478,99 +1496,186 @@ export default function NewEraDashboard() {
                                     )}
 
                                     {/* 2. Table View */}
-                                    {liabilitiesView === 'table' && (
-                                        <div style={styles.tableCardContainer} className="table-card-container">
-                                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
-                                                <table style={styles.customTable}>
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Name</th>
-                                                            <th>Lender</th>
-                                                            <th>Mobile</th>
-                                                            <th>Address</th>
-                                                            <th>Category</th>
-                                                            <th>Principal</th>
-                                                            <th>Interest</th>
-                                                            <th>Remaining</th>
-                                                            <th>EMI</th>
-                                                            <th>Repayment Day</th>
-                                                            <th>Statement</th>
-                                                            <th>Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {getFilteredAndSortedLoans().map(loan => {
-                                                            const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-                                                            const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion), 0);
-                                                            const outstanding = Math.max(0, parseFloat(loan.principal_amount) - paidPrincipal);
-                                                            return (
-                                                                <tr key={loan.id}>
-                                                                    <td style={{ fontWeight: '700', color: '#ffffff' }}>{loan.name}</td>
-                                                                    <td>{loan.lender}</td>
-                                                                    <td>{loan.mobile_number || 'N/A'}</td>
-                                                                    <td style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loan.address}>{loan.address || 'N/A'}</td>
-                                                                    <td>
-                                                                        <span style={{
-                                                                            ...styles.statusBadge,
-                                                                            backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                                                                            color: '#818cf8',
-                                                                            borderColor: 'rgba(99, 102, 241, 0.25)',
-                                                                            fontSize: '0.65rem'
-                                                                        }}>{loan.loan_type}</span>
-                                                                    </td>
-                                                                    <td>₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}</td>
-                                                                    <td>{loan.interest_rate_annual}%</td>
-                                                                    <td style={{ color: '#818cf8', fontWeight: '700' }}>₹{outstanding.toLocaleString('en-IN')}</td>
-                                                                    <td>{loan.emi_amount ? `₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : 'N/A'}</td>
-                                                                    <td>Day {loan.repayment_day || 5}</td>
-                                                                    <td>
-                                                                        {loan.attachment_url ? (
-                                                                            <a 
-                                                                                href={loan.attachment_url} 
-                                                                                target="_blank" 
-                                                                                rel="noopener noreferrer" 
-                                                                                style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                                                                                title={loan.attachment_name || 'View Statement'}
-                                                                            >
-                                                                                📄 View
-                                                                            </a>
-                                                                        ) : (
-                                                                            <span style={{ color: '#475569', fontSize: '0.8rem' }}>None</span>
-                                                                        )}
-                                                                    </td>
-                                                                    <td>
-                                                                        <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                                                            <button 
-                                                                                onClick={() => startEditLoan(loan)} 
-                                                                                style={{ ...styles.iconBtn, color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' }}
-                                                                                title="Edit Account"
-                                                                            >
-                                                                                <Edit size={14} />
-                                                                            </button>
-                                                                            <button 
-                                                                                onClick={() => handleDeleteLoan(loan.id)} 
-                                                                                style={{ ...styles.iconBtn, color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-                                                                                title="Delete Account"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
-                                                                        </div>
+                                    {liabilitiesView === 'table' && (() => {
+                                        const visibleColumns = liabilityColumns.filter(c => c.visible);
+                                        const totalTableWidth = visibleColumns.reduce((sum, c) => sum + (c.width || 120), 0);
+                                        const sortedLoans = getFilteredAndSortedLoans();
+
+                                        return (
+                                            <div style={styles.tableCardContainer} className="table-card-container">
+                                                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%' }}>
+                                                    <table style={{ ...styles.customTable, tableLayout: 'fixed', minWidth: `${totalTableWidth}px`, width: '100%' }}>
+                                                        <thead>
+                                                            <tr>
+                                                                {visibleColumns.map(col => {
+                                                                    const isSorted = tableSort.column === col.id;
+                                                                    return (
+                                                                        <th 
+                                                                            key={col.id} 
+                                                                            style={{ 
+                                                                                width: `${col.width}px`, 
+                                                                                minWidth: `${col.width}px`, 
+                                                                                position: 'relative', 
+                                                                                cursor: col.sortable ? 'pointer' : 'default', 
+                                                                                userSelect: 'none' 
+                                                                            }}
+                                                                            onClick={() => col.sortable && handleHeaderSort(col.id)}
+                                                                            title={col.sortable ? `Sort by ${col.label}` : undefined}
+                                                                        >
+                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px', paddingRight: '6px' }}>
+                                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{col.label}</span>
+                                                                                {col.sortable && (
+                                                                                    <span style={{ fontSize: '10px', color: isSorted ? '#818cf8' : 'rgba(255,255,255,0.25)', flexShrink: 0 }}>
+                                                                                        {isSorted ? (tableSort.direction === 'asc' ? '▲' : '▼') : '↕'}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <span 
+                                                                                className="col-resizer" 
+                                                                                onMouseDown={e => handleColumnResizeMouseDown(col.id, e)} 
+                                                                                onTouchStart={e => handleColumnResizeTouchStart(col.id, e)} 
+                                                                                onClick={e => e.stopPropagation()} 
+                                                                            />
+                                                                        </th>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {sortedLoans.map(loan => {
+                                                                const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+                                                                const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
+                                                                const outstanding = Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
+
+                                                                return (
+                                                                    <tr key={loan.id}>
+                                                                        {visibleColumns.map(col => {
+                                                                            switch (col.id) {
+                                                                                case 'name':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, fontWeight: '700', color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loan.name}>
+                                                                                            {loan.name}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'lender':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loan.lender}>
+                                                                                            {loan.lender}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'mobile_number':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            {loan.mobile_number || 'N/A'}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'address':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, maxWidth: `${col.width}px`, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={loan.address}>
+                                                                                            {loan.address || 'N/A'}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'loan_type':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            <span style={{
+                                                                                                ...styles.statusBadge,
+                                                                                                backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                                                                                color: '#818cf8',
+                                                                                                borderColor: 'rgba(99, 102, 241, 0.25)',
+                                                                                                fontSize: '0.65rem'
+                                                                                            }}>{loan.loan_type}</span>
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'principal_amount':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            ₹{parseFloat(loan.principal_amount || 0).toLocaleString('en-IN')}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'interest_rate_annual':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            {loan.interest_rate_annual}%
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'remaining':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, color: '#818cf8', fontWeight: '700' }}>
+                                                                                            ₹{outstanding.toLocaleString('en-IN')}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'emi_amount':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            {loan.emi_amount ? `₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : 'N/A'}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'repayment_day':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            Day {loan.repayment_day || 5}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'attachment_url':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            {loan.attachment_url ? (
+                                                                                                <a 
+                                                                                                    href={loan.attachment_url} 
+                                                                                                    target="_blank" 
+                                                                                                    rel="noopener noreferrer" 
+                                                                                                    style={{ color: '#60a5fa', textDecoration: 'underline', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                                                                                    title={loan.attachment_name || 'View Statement'}
+                                                                                                >
+                                                                                                    📄 View
+                                                                                                </a>
+                                                                                            ) : (
+                                                                                                <span style={{ color: '#475569', fontSize: '0.8rem' }}>None</span>
+                                                                                            )}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'actions':
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                                                                <button 
+                                                                                                    onClick={() => startEditLoan(loan)} 
+                                                                                                    style={{ ...styles.iconBtn, color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' }}
+                                                                                                    title="Edit Account"
+                                                                                                >
+                                                                                                    <Edit size={14} />
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    onClick={() => handleDeleteLoan(loan.id)} 
+                                                                                                    style={{ ...styles.iconBtn, color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                                                                                                    title="Delete Account"
+                                                                                                >
+                                                                                                    <Trash2 size={14} />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    );
+                                                                                default:
+                                                                                    return <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>-</td>;
+                                                                            }
+                                                                        })}
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                            {sortedLoans.length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={visibleColumns.length} style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '2rem' }}>
+                                                                        No liabilities found matching filters.
                                                                     </td>
                                                                 </tr>
-                                                            );
-                                                        })}
-                                                        {getFilteredAndSortedLoans().length === 0 && (
-                                                            <tr>
-                                                                <td colSpan="12" style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '2rem' }}>
-                                                                    No liabilities found matching filters.
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
+                                                            )}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {/* 3. Detail View */}
                                     {liabilitiesView === 'detail' && (
@@ -4284,6 +4389,66 @@ const styles = {
         outline: 'none',
         width: '100%'
     },
+    colSettingsPopover: {
+        position: 'absolute',
+        right: 0,
+        top: '100%',
+        marginTop: '6px',
+        width: '240px',
+        backgroundColor: '#0f172a',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '0.75rem',
+        padding: '0.85rem',
+        zIndex: 999,
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)'
+    },
+    colSettingsHeader: {
+        fontWeight: '700',
+        fontSize: '0.85rem',
+        color: '#ffffff',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '0.6rem',
+        paddingBottom: '0.4rem',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+    },
+    colResetBtn: {
+        background: 'none',
+        border: 'none',
+        color: '#818cf8',
+        fontSize: '0.75rem',
+        cursor: 'pointer',
+        padding: '2px 4px',
+        fontWeight: '600'
+    },
+    colSettingsList: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.4rem',
+        maxHeight: '240px',
+        overflowY: 'auto'
+    },
+    colSettingsItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        cursor: 'pointer',
+        userSelect: 'none',
+        padding: '0.2rem 0'
+    },
+    colSettingsDoneBtn: {
+        marginTop: '0.6rem',
+        width: '100%',
+        padding: '0.4rem 0.75rem',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        backgroundColor: '#6366f1',
+        border: 'none',
+        borderRadius: '0.375rem',
+        color: '#ffffff',
+        cursor: 'pointer'
+    },
     tableCardContainer: {
         background: 'rgba(15, 23, 42, 0.45)',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -4420,6 +4585,19 @@ if (typeof window !== 'undefined') {
             font-size: 0.75rem;
             letter-spacing: 0.05em;
             background-color: rgba(255,255,255,0.01);
+        }
+        .col-resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 7px;
+            cursor: col-resize;
+            user-select: none;
+            z-index: 10;
+        }
+        .col-resizer:hover, .col-resizer:active {
+            background-color: #6366f1 !important;
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
