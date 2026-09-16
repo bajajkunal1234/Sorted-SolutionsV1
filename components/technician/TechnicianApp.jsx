@@ -20,7 +20,7 @@ import TechSupportTab from '@/components/technician/TechSupportTab';
 import TechEmailInbox from '@/components/technician/TechEmailInbox';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
-import { apiCall, syncOfflineQueue, uploadOrQueueFile } from '@/lib/offlineSync';
+import { apiCall, syncOfflineQueue, uploadOrQueueFile, clearOfflineQueue, removeQueueItem } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
 
 const isNativePlatform = () => {
@@ -2991,16 +2991,54 @@ function TechnicianApp() {
                         <Activity size={18} color="#3b82f6" />
                         <span>Sync Center</span>
                     </div>
-                    <span style={{
-                        fontSize: '11px',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: isDeviceOnline ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                        color: isDeviceOnline ? '#10b981' : '#ef4444',
-                        fontWeight: 700
-                    }}>
-                        {isDeviceOnline ? '● Online' : '● Offline Mode'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    if ('serviceWorker' in navigator) {
+                                        const regs = await navigator.serviceWorker.getRegistrations();
+                                        for (const reg of regs) {
+                                            await reg.unregister();
+                                        }
+                                    }
+                                    if ('caches' in window) {
+                                        const keys = await caches.keys();
+                                        for (const key of keys) {
+                                            await caches.delete(key);
+                                        }
+                                    }
+                                } catch (_) {}
+                                window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
+                            }}
+                            title="Force reload latest app version"
+                            style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: '12px',
+                                padding: '3px 8px',
+                                color: 'var(--text-secondary)',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            <RefreshCw size={10} /> Reload App
+                        </button>
+                        <span style={{
+                            fontSize: '11px',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            backgroundColor: isDeviceOnline ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: isDeviceOnline ? '#10b981' : '#ef4444',
+                            fontWeight: 700
+                        }}>
+                            {isDeviceOnline ? '● Online' : '● Offline Mode'}
+                        </span>
+                    </div>
                 </h3>
 
                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)', lineHeight: '1.4' }}>
@@ -3018,13 +3056,36 @@ function TechnicianApp() {
                         fontSize: '11px',
                         display: 'flex',
                         alignItems: 'flex-start',
+                        justifyContent: 'space-between',
                         gap: '8px'
                     }}>
-                        <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <strong>Last Sync Error:</strong>
-                            <div style={{ marginTop: '2px', wordBreak: 'break-all', fontWeight: 500 }}>{syncError}</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+                            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <strong>Last Sync Error:</strong>
+                                <div style={{ marginTop: '2px', wordBreak: 'break-all', fontWeight: 500 }}>{syncError}</div>
+                            </div>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                localStorage.removeItem('offline_sync_error');
+                                setSyncError(null);
+                            }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#ef4444',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                flexShrink: 0
+                            }}
+                            title="Dismiss error message"
+                        >
+                            ✕
+                        </button>
                     </div>
                 )}
 
@@ -3060,39 +3121,65 @@ function TechnicianApp() {
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Pending Changes ({pendingSyncCount})</span>
-                            <button
-                                onClick={async () => {
-                                    if (isSyncing || !isDeviceOnline) return;
-                                    setIsSyncing(true);
-                                    try {
-                                        await syncOfflineQueue();
-                                        // Refresh state after sync attempt
-                                        const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
-                                        setPendingSyncCount(queue.length);
-                                        setSyncItems(queue);
-                                        setSyncError(localStorage.getItem('offline_sync_error'));
-                                    } catch (err) {
-                                        console.warn('Manual sync failed:', err);
-                                        setSyncError(err.message);
-                                    } finally {
-                                        setIsSyncing(false);
-                                    }
-                                }}
-                                disabled={isSyncing || !isDeviceOnline}
-                                className="btn btn-primary"
-                                style={{
-                                    padding: '6px 12px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    height: 'auto',
-                                    backgroundColor: isDeviceOnline ? '#3b82f6' : 'var(--bg-tertiary)',
-                                    color: isDeviceOnline ? 'white' : 'var(--text-tertiary)',
-                                    opacity: (isSyncing || !isDeviceOnline) ? 0.6 : 1,
-                                    cursor: (isSyncing || !isDeviceOnline) ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                {isSyncing ? 'Syncing...' : 'Sync Now'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (window.confirm('Clear all pending offline operations? Any unsynced items will be discarded.')) {
+                                            clearOfflineQueue();
+                                            setPendingSyncCount(0);
+                                            setSyncItems([]);
+                                            setSyncError(null);
+                                        }
+                                    }}
+                                    className="btn"
+                                    style={{
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        height: 'auto',
+                                        backgroundColor: 'rgba(239,68,68,0.1)',
+                                        color: '#ef4444',
+                                        border: '1px solid rgba(239,68,68,0.3)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Clear Queue
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (isSyncing || !isDeviceOnline) return;
+                                        setIsSyncing(true);
+                                        try {
+                                            await syncOfflineQueue();
+                                            const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+                                            setPendingSyncCount(queue.length);
+                                            setSyncItems(queue);
+                                            setSyncError(localStorage.getItem('offline_sync_error'));
+                                        } catch (err) {
+                                            console.warn('Manual sync failed:', err);
+                                            setSyncError(err.message);
+                                        } finally {
+                                            setIsSyncing(false);
+                                        }
+                                    }}
+                                    disabled={isSyncing || !isDeviceOnline}
+                                    className="btn btn-primary"
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        height: 'auto',
+                                        backgroundColor: isDeviceOnline ? '#3b82f6' : 'var(--bg-tertiary)',
+                                        color: isDeviceOnline ? 'white' : 'var(--text-tertiary)',
+                                        opacity: (isSyncing || !isDeviceOnline) ? 0.6 : 1,
+                                        cursor: (isSyncing || !isDeviceOnline) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {isSyncing ? 'Syncing...' : 'Sync Now'}
+                                </button>
+                            </div>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '8px', backgroundColor: 'var(--bg-primary)' }}>
@@ -3104,9 +3191,37 @@ function TechnicianApp() {
                                             <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
                                                 {getQueueItemLabel(item)}
                                             </span>
-                                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>
-                                                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>
+                                                    {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    title="Discard this queued item"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm('Discard this queued item?')) {
+                                                            removeQueueItem(item.id);
+                                                            const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+                                                            setPendingSyncCount(queue.length);
+                                                            setSyncItems(queue);
+                                                            setSyncError(localStorage.getItem('offline_sync_error'));
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        color: '#ef4444',
+                                                        cursor: 'pointer',
+                                                        padding: '2px 4px',
+                                                        fontSize: '13px',
+                                                        fontWeight: 700,
+                                                        lineHeight: 1
+                                                    }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                         </div>
                                         {hasFiles && (
                                             <span style={{ fontSize: '10px', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
