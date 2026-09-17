@@ -9,8 +9,7 @@ import BrandLogos from '@/components/services/BrandLogos'
 import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
-import OtherLocationsSection from '@/components/services/OtherLocationsSection'
-import ServiceFooter from '@/components/services/ServiceFooter'
+import FooterSection from '@/components/homepage/FooterSection'
 import Header from '@/components/common/Header'
 import ServiceSchema from '@/components/services/ServiceSchema'
 import { createServerSupabase } from '@/lib/supabase-server'
@@ -270,7 +269,7 @@ export default async function SubLocationPage({ params }) {
             <Header />
             {sectionOrder.map(renderSection)}
             <ServiceSchema serviceType={`${serviceName} Repair`} locationName={locationName} services={resolvedServices} />
-            <ServiceFooter />
+            <FooterSection />
         </div>
     );
 }

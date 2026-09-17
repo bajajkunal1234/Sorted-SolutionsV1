@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Phone, Mail, MapPin, X } from 'lucide-react';
 import './FooterSection.css';
 
@@ -18,40 +19,81 @@ function FooterSection() {
     return (
         <footer className="footer-section">
             <div className="footer-content">
+                {/* Column 1: Company & Registered Office */}
+                <div className="footer-column company-column">
+                    <h3 className="company-title">Sorted Solutions</h3>
+                    <p className="company-unit-tag">A unit of Perfect Trading Company</p>
+                    <div className="office-address">
+                        <MapPin size={18} className="address-icon" />
+                        <div>
+                            <strong>Registered Address:</strong><br />
+                            A-138, Orchard Corporate Park, Royal Palms, Aarey Milk Colony, Goregaon East, Mumbai, Maharashtra, 400065
+                        </div>
+                    </div>
+                    <div className="registration-details">
+                        <p><strong>Registration / Udyam No:</strong> UDYAM-MH-14-0212678</p>
+                        <p><strong>GSTIN:</strong> 27DJQPB0215Q1ZY</p>
+                    </div>
+                </div>
+
+                {/* Column 2: Quick Links */}
                 <div className="footer-column">
                     <h3>Quick Links</h3>
-                    <a href="/contact">Contact Us</a>
-                    <a href="/terms">Terms & Conditions</a>
-                    <a href="/privacy">Privacy Policy</a>
-                    <a href="/accessibility">Accessibility Statement</a>
+                    <Link href="/contact">Contact Us</Link>
+                    <Link href="/terms">Terms & Conditions</Link>
+                    <Link href="/privacy">Privacy Policy</Link>
+                    <Link href="/accessibility">Accessibility Statement</Link>
                 </div>
 
+                {/* Column 3: Contact Us & Join Our Team */}
                 <div className="footer-column">
-                    <h3>Join Our Team</h3>
-                    <button className="join-button" onClick={() => setShowJoinForm(true)}>
-                        Are You A Technician?
-                    </button>
-                </div>
+                    <h3>Contact Us</h3>
+                    <div className="contact-links-list">
+                        <a 
+                            href="tel:+918928895590" 
+                            className="contact-item"
+                            onClick={() => { 
+                                if (typeof window !== 'undefined') { 
+                                    window.dataLayer = window.dataLayer || []; 
+                                    window.dataLayer.push({ event: 'custom_call_click' }); 
+                                } 
+                            }}
+                        >
+                            <Phone size={16} />
+                            <span>Phone: +91-8928895590</span>
+                        </a>
+                        <a href="mailto:support@sortedsolutions.in" className="contact-item">
+                            <Mail size={16} />
+                            <span>Email: support@sortedsolutions.in</span>
+                        </a>
+                    </div>
 
-                <div className="footer-column">
-                    <h3>Head Office</h3>
-                    <p className="office-address">
-                        <MapPin size={16} />
-                        A138 Orchard Mall, Royal Palms, Goregaon East
-                    </p>
-
+                    <div className="join-team-block">
+                        <h4>Join Our Team</h4>
+                        <button className="join-button" onClick={() => setShowJoinForm(true)}>
+                            Are You A Technician?
+                        </button>
+                    </div>
                 </div>
             </div>
 
+            {/* Brand & Service Disclaimer */}
+            <div className="footer-disclaimer">
+                <p>
+                    <strong>Disclaimer:</strong> Sorted Solutions is an independent doorstep appliance repair service. We are not an authorized service center for, nor are we affiliated with, any specific appliance brands or manufacturers. All product names, logos, and brands are property of their respective owners.
+                </p>
+            </div>
+
+            {/* Bottom Copyright */}
             <div className="footer-bottom">
-                <p>© 2024 Sorted Solutions. All rights reserved.</p>
+                <p>©️ 2026 Perfect Trading Company. All Rights Reserved.</p>
             </div>
 
             {/* Join Form Modal */}
             {showJoinForm && (
                 <div className="modal-overlay" onClick={() => setShowJoinForm(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <button className="modal-close" onClick={() => setShowJoinForm(false)}>
+                        <button className="modal-close" onClick={() => setShowJoinForm(false)} aria-label="Close modal">
                             <X size={24} />
                         </button>
                         <h2>Join Our Team</h2>

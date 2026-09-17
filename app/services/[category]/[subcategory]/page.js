@@ -16,7 +16,7 @@ import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
-import ServiceFooter from '@/components/services/ServiceFooter'
+import FooterSection from '@/components/homepage/FooterSection'
 import ServiceSchema from '@/components/services/ServiceSchema'
 import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
@@ -364,7 +364,7 @@ export default async function SubCategoryPage({ params }) {
             <Header />
             {sectionOrder.map(renderSection)}
             <ServiceSchema serviceType={`${subcategoryName} Repair`} locationName="Mumbai" services={resolvedServices} />
-            <ServiceFooter />
+            <FooterSection />
         </div>
     );
 }

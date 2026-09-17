@@ -13,7 +13,7 @@ import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
-import ServiceFooter from '@/components/services/ServiceFooter'
+import FooterSection from '@/components/homepage/FooterSection'
 import Header from '@/components/common/Header'
 import ServiceSchema from '@/components/services/ServiceSchema'
 
@@ -272,7 +272,7 @@ export default async function LocationPage({ params }) {
             <Header />
             {sectionOrder.map(renderSection)}
             <ServiceSchema serviceType="Appliance Repair" locationName={locationName} services={resolvedServices} />
-            <ServiceFooter />
+            <FooterSection />
         </div>
     );
 }

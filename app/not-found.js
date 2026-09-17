@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Header from '@/components/common/Header'
-import ServiceFooter from '@/components/services/ServiceFooter'
+import FooterSection from '@/components/homepage/FooterSection'
 import CallToBookButton from '@/app/CallToBookButton'
 
 const SERVICES = [
@@ -96,7 +96,7 @@ export default function NotFound() {
                 </div>
             </main>
 
-            <ServiceFooter />
+            <FooterSection />
         </div>
     )
 }
