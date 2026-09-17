@@ -161,6 +161,36 @@ export default function NewEraDashboard() {
         }
     }, []);
 
+    // Dynamic Mobile & Native APK Safe Area Detection (prevents 3-button phone navigation overlap)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const isNative = !!window.Capacitor || 
+                             window.location.protocol === 'capacitor:' || 
+                             /capacitor/i.test(navigator.userAgent) ||
+                             window.matchMedia('(display-mode: standalone)').matches;
+
+            if (isNative) {
+                document.documentElement.classList.add('is-native-app');
+            }
+
+            // Test if env(safe-area-inset-bottom) is natively reported
+            const testDiv = document.createElement('div');
+            testDiv.style.cssText = 'position:fixed;bottom:0;height:env(safe-area-inset-bottom, 0px);visibility:hidden;pointer-events:none;';
+            document.body.appendChild(testDiv);
+            const reportedInset = testDiv.offsetHeight || 0;
+            document.body.removeChild(testDiv);
+
+            if (reportedInset > 0) {
+                document.documentElement.style.setProperty('--safe-bottom', reportedInset + 'px');
+            } else if (isNative && /android/i.test(navigator.userAgent)) {
+                // On Android APK where insets were zeroed out by window layout, apply 48px to clear 3-button navigation
+                document.documentElement.style.setProperty('--safe-bottom', '48px');
+            } else {
+                document.documentElement.style.setProperty('--safe-bottom', '0px');
+            }
+        }
+    }, []);
+
     const saveColumnsConfig = (newCols) => {
         setLiabilityColumns(newCols);
         if (typeof window !== 'undefined') {
@@ -1149,8 +1179,8 @@ export default function NewEraDashboard() {
                                 </div>
                                 <div style={{ marginTop: '1.25rem' }}>
                                     <a 
-                                        href="/sorted-tracker.apk" 
-                                        download="sorted-tracker.apk"
+                                        href="/sorted-tracker-v2.apk" 
+                                        download="sorted-tracker-v2.apk"
                                         style={{
                                             display: 'inline-flex',
                                             alignItems: 'center',
@@ -1168,7 +1198,7 @@ export default function NewEraDashboard() {
                                             boxShadow: '0 4px 12px rgba(99, 102, 241, 0.15)'
                                         }}
                                     >
-                                        📲 Install Android App (APK)
+                                        📲 Install Android App (V2 APK)
                                     </a>
                                 </div>
                             </div>
@@ -3881,7 +3911,7 @@ const styles = {
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'rgba(9, 13, 22, 0.95)',
+        backgroundColor: 'rgba(9, 13, 22, 0.98)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderTop: '1px solid rgba(255,255,255,0.06)',
@@ -3889,8 +3919,12 @@ const styles = {
         justifyContent: 'space-around',
         alignItems: 'center',
         padding: '0.5rem 0',
+        paddingBottom: 'calc(0.5rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 4px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 4px)',
+        boxSizing: 'border-box',
         zIndex: 1000,
-        height: '64px',
+        minHeight: 'calc(64px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))',
         boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.5)'
     },
     navTab: {
@@ -3911,7 +3945,7 @@ const styles = {
         flex: 1
     },
     mainContent: {
-        paddingBottom: '6rem' // spacer for bottom nav bar to prevent content obstruction
+        paddingBottom: 'calc(6.5rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)))' // spacer for bottom nav bar to prevent content obstruction
     },
     tabContentGrid: {
         display: 'grid',
@@ -5321,9 +5355,18 @@ if (typeof window !== 'undefined') {
 
             /* Bottom Nav Bar */
             .bottom-nav-bar {
-                height: 58px !important;
-                padding: 0.25rem 0.1rem !important;
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                height: auto !important;
+                min-height: calc(58px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+                padding-top: 6px !important;
+                padding-bottom: max(var(--safe-bottom, env(safe-area-inset-bottom, 0px)), 12px) !important;
+                padding-left: max(env(safe-area-inset-left, 0px), 4px) !important;
+                padding-right: max(env(safe-area-inset-right, 0px), 4px) !important;
                 box-sizing: border-box !important;
+                z-index: 1000 !important;
             }
             .bottom-nav-bar button {
                 padding: 0.2rem 0.1rem !important;
