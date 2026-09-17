@@ -1061,17 +1061,17 @@ export default function NewEraDashboard() {
     return (
         <div style={styles.dashboardWrapper} className="dashboard-wrapper">
             {/* Header Area */}
-            <header style={styles.header}>
-                <div style={styles.headerInfo}>
-                    <div style={styles.systemBadge}>NEW ERA LIABILITIES</div>
-                    <span style={styles.headerTitle}>System Controller</span>
+            <header style={styles.header} className="dashboard-header">
+                <div style={styles.headerInfo} className="header-info">
+                    <div style={styles.systemBadge} className="system-badge">NEW ERA LIABILITIES</div>
+                    <span style={styles.headerTitle} className="header-title">System Controller</span>
                 </div>
-                <div style={styles.headerActions}>
-                    <div style={styles.userInfo}>
+                <div style={styles.headerActions} className="header-actions">
+                    <div style={styles.userInfo} className="user-info">
                         <UserCheck size={16} color="#6366f1" />
                         <span style={styles.userName}>{activeMember}</span>
                     </div>
-                    <button onClick={handleLogout} style={styles.logoutButton} title="Logout">
+                    <button onClick={handleLogout} style={styles.logoutButton} className="logout-btn" title="Logout">
                         <LogOut size={16} />
                         <span style={styles.logoutText} className="logout-text">Exit Console</span>
                     </button>
@@ -1079,7 +1079,7 @@ export default function NewEraDashboard() {
             </header>
 
             {/* Navigation Tabs */}
-            <nav style={styles.navBar}>
+            <nav style={styles.navBar} className="bottom-nav-bar">
                 <button 
                     onClick={() => setActiveTab('overview')} 
                     style={{ ...styles.navTab, color: activeTab === 'overview' ? '#6366f1' : '#64748b' }}
@@ -1124,25 +1124,25 @@ export default function NewEraDashboard() {
                 {activeTab === 'overview' && (
                     <div style={styles.tabContentSingle}>
                         {/* Glowing Big Counter Section */}
-                        <section style={styles.heroSection}>
+                        <section style={styles.heroSection} className="hero-section">
                             <div style={styles.heroGlow}></div>
                             <div style={styles.heroContent}>
                                 <span style={styles.heroLabel}>TOTAL OUTSTANDING LIABILITY TO PAY</span>
                                 <h1 style={styles.heroNumber} className="hero-number">
                                     ₹{metrics.totalOutstandingToPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </h1>
-                                <div style={styles.heroSubmetrics}>
-                                    <div style={styles.heroSubItem}>
+                                <div style={styles.heroSubmetrics} className="hero-submetrics">
+                                    <div style={styles.heroSubItem} className="hero-sub-item">
                                         <span style={styles.subItemLabel}>Outstanding Principal</span>
                                         <span style={styles.subItemValue}>₹{metrics.outstandingPrincipal.toLocaleString('en-IN')}</span>
                                     </div>
                                     <div style={styles.divider} className="divider"></div>
-                                    <div style={styles.heroSubItem}>
+                                    <div style={styles.heroSubItem} className="hero-sub-item">
                                         <span style={styles.subItemLabel}>Unpaid Interest Due</span>
                                         <span style={styles.subItemValue}>₹{metrics.unpaidInterestDue.toLocaleString('en-IN')}</span>
                                     </div>
                                     <div style={styles.divider} className="divider"></div>
-                                    <div style={styles.heroSubItem}>
+                                    <div style={styles.heroSubItem} className="hero-sub-item">
                                         <span style={styles.subItemLabel}>Total Paid Till Date</span>
                                         <span style={styles.subItemValue}>₹{metrics.totalPayments.toLocaleString('en-IN')}</span>
                                     </div>
@@ -1247,7 +1247,7 @@ export default function NewEraDashboard() {
                 {/* LIABILITIES TAB */}
                 {activeTab === 'liabilities' && (
                     <div style={styles.tabContentSingle}>
-                        <div style={styles.tabHeaderRow}>
+                        <div style={styles.tabHeaderRow} className="tab-header-row">
                             <h2 style={styles.panelTitle}>Active Loans & Accounts Payable</h2>
                             <button onClick={() => { setEditingLoanId(null); setShowAddLoan(true); }} style={styles.primaryActionButton}>
                                 <Plus size={16} /> Add Liability
@@ -1257,7 +1257,7 @@ export default function NewEraDashboard() {
                         {/* Controls: View Toggles, Filter, Sort */}
                         {data.loans.length > 0 && (
                             <div style={styles.liabilitiesControlRow} className="liabilities-control-row">
-                                <div style={{ ...styles.viewToggleRow, margin: 0 }}>
+                                <div style={{ ...styles.viewToggleRow, margin: 0 }} className="view-toggle-row">
                                     <button 
                                         onClick={() => setLiabilitiesView('card')} 
                                         style={{
@@ -1873,13 +1873,14 @@ export default function NewEraDashboard() {
                 {/* SCHEDULES TAB */}
                 {activeTab === 'schedule' && (
                     <div style={styles.tabContentSingle}>
-                        <div style={styles.tabHeaderRow}>
-                            <div style={styles.titleWithFilter}>
+                        <div style={styles.tabHeaderRow} className="tab-header-row">
+                            <div style={styles.titleWithFilter} className="title-with-filter">
                                 <h2 style={styles.panelTitle}>Repayment Schedules</h2>
                                 <select 
                                     value={selectedLoanId} 
                                     onChange={(e) => setSelectedLoanId(e.target.value)}
                                     style={styles.filterDropdown}
+                                    className="filter-dropdown"
                                 >
                                     <option value="all">All Liabilities</option>
                                     {data.loans.map(l => (
@@ -1888,7 +1889,7 @@ export default function NewEraDashboard() {
                                 </select>
                             </div>
 
-                            <div style={styles.tabActions}>
+                            <div style={styles.tabActions} className="tab-actions">
                                 <button onClick={() => setShowImportRepayments(true)} style={styles.secondaryActionButton}>
                                     <FileText size={16} /> Parse PDF / Excel
                                 </button>
@@ -1968,7 +1969,7 @@ export default function NewEraDashboard() {
                         })()}
 
                         {/* Toggle View Type */}
-                        <div style={styles.viewToggleRow}>
+                        <div style={styles.viewToggleRow} className="view-toggle-row">
                             <button 
                                 onClick={() => setScheduleView('calendar')} 
                                 style={{
@@ -1995,8 +1996,8 @@ export default function NewEraDashboard() {
 
                         {/* Calendar View */}
                         {scheduleView === 'calendar' && (
-                            <div style={styles.calendarContainer}>
-                                <div style={styles.calendarNav}>
+                            <div style={styles.calendarContainer} className="calendar-container">
+                                <div style={styles.calendarNav} className="calendar-nav">
                                     <button 
                                         onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
                                         style={styles.calendarNavBtn}
@@ -2004,7 +2005,7 @@ export default function NewEraDashboard() {
                                         &larr; Prev
                                     </button>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                        <h3 style={styles.calendarNavTitle}>
+                                        <h3 style={styles.calendarNavTitle} className="calendar-nav-title">
                                             {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
                                         </h3>
                                         <button 
@@ -2027,9 +2028,9 @@ export default function NewEraDashboard() {
                                     </button>
                                 </div>
 
-                                <div style={styles.calendarGrid}>
+                                <div style={styles.calendarGrid} className="calendar-grid">
                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(w => (
-                                        <div key={w} style={styles.weekdayCell}>{w}</div>
+                                        <div key={w} style={styles.weekdayCell} className="weekday-cell">{w}</div>
                                     ))}
 
                                     {getCalendarDays().map((day, idx) => {
@@ -2074,17 +2075,17 @@ export default function NewEraDashboard() {
                                                 }}
                                             >
                                                 {/* Day Header with Day Number and Daily Totals */}
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', width: '100%' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', width: '100%' }} className="day-cell-top">
                                                     <span style={{
                                                         ...styles.dayNumLabel,
                                                         color: isToday ? '#818cf8' : isSelected ? '#ffffff' : '#f8fafc',
                                                         fontWeight: (isToday || isSelected) ? '800' : '700'
-                                                    }}>
+                                                    }} className="day-cell-num">
                                                         {day.dayNum}
                                                     </span>
 
-                                                    {/* Day Totals Summary Chips */}
-                                                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                                    {/* Day Totals Summary Chips (Desktop only - hidden on mobile to avoid column blowout) */}
+                                                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }} className="day-totals-chips">
                                                         {dayBorrowedTotal > 0 && (
                                                             <span 
                                                                 style={{ 
@@ -2237,14 +2238,14 @@ export default function NewEraDashboard() {
                                     const hasSelectedActivity = selectedDayLoans.length > 0 || selectedDayPayments.length > 0 || selectedDayRepayments.length > 0;
 
                                     return (
-                                        <div style={styles.dayDetailPanel}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
+                                        <div style={styles.dayDetailPanel} className="day-detail-panel">
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }} className="day-detail-header">
                                                 <h4 style={{ ...styles.dayDetailTitle, margin: 0 }}>
                                                     Activity on {new Date(selectedCalendarDay + 'T00:00:00').toLocaleDateString('en-IN', { dateStyle: 'long' })}
                                                 </h4>
 
                                                 {/* Selected Day Totals Summary Chips */}
-                                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }} className="day-detail-chips">
                                                     {selectedDayBorrowedTotal > 0 && (
                                                         <span style={{ 
                                                             backgroundColor: 'rgba(56, 189, 248, 0.15)', 
@@ -2299,7 +2300,7 @@ export default function NewEraDashboard() {
                                                             </div>
                                                             <div style={styles.dayDetailList}>
                                                                 {selectedDayLoans.map(loan => (
-                                                                    <div key={`sel-loan-${loan.id}`} style={{ ...styles.dayDetailItem, borderColor: 'rgba(56, 189, 248, 0.25)', backgroundColor: 'rgba(56, 189, 248, 0.04)' }}>
+                                                                    <div key={`sel-loan-${loan.id}`} className="day-detail-item" style={{ ...styles.dayDetailItem, borderColor: 'rgba(56, 189, 248, 0.25)', backgroundColor: 'rgba(56, 189, 248, 0.04)' }}>
                                                                         <div style={styles.dayDetailItemMain}>
                                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                                                 <strong>{loan.name}</strong>
@@ -2313,12 +2314,12 @@ export default function NewEraDashboard() {
                                                                                 {loan.emi_amount ? ` • EMI: ₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : ''}
                                                                             </span>
                                                                         </div>
-                                                                        <div style={styles.dayDetailItemSide}>
+                                                                        <div style={styles.dayDetailItemSide} className="day-detail-item-side">
                                                                             <strong style={{ fontSize: '1.1rem', color: '#38bdf8' }}>
                                                                                 ₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}
                                                                             </strong>
                                                                             <button 
-                                                                                onClick={() => startEditLoan(loan)}
+                                                                                onClick={() => startEditLoan(loan)} 
                                                                                 style={{ ...styles.payDayBtn, backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
                                                                             >
                                                                                 Edit Account
@@ -2341,7 +2342,7 @@ export default function NewEraDashboard() {
                                                                     const loan = data.loans.find(l => l.id === payment.loan_id);
                                                                     const member = data.members.find(m => m.id === payment.member_id);
                                                                     return (
-                                                                        <div key={`sel-pay-${payment.id}`} style={{ ...styles.dayDetailItem, borderColor: 'rgba(52, 211, 153, 0.25)', backgroundColor: 'rgba(52, 211, 153, 0.04)' }}>
+                                                                        <div key={`sel-pay-${payment.id}`} className="day-detail-item" style={{ ...styles.dayDetailItem, borderColor: 'rgba(52, 211, 153, 0.25)', backgroundColor: 'rgba(52, 211, 153, 0.04)' }}>
                                                                             <div style={styles.dayDetailItemMain}>
                                                                                 <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
                                                                                 <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
@@ -2355,7 +2356,7 @@ export default function NewEraDashboard() {
                                                                                     </span>
                                                                                 )}
                                                                             </div>
-                                                                            <div style={styles.dayDetailItemSide}>
+                                                                            <div style={styles.dayDetailItemSide} className="day-detail-item-side">
                                                                                 <strong style={{ fontSize: '1.1rem', color: '#34d399' }}>
                                                                                     ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
                                                                                 </strong>
@@ -2383,7 +2384,7 @@ export default function NewEraDashboard() {
                                                                 {selectedDayRepayments.map(repayment => {
                                                                     const loan = data.loans.find(l => l.id === repayment.loan_id);
                                                                     return (
-                                                                        <div key={repayment.id} style={styles.dayDetailItem}>
+                                                                        <div key={repayment.id} style={styles.dayDetailItem} className="day-detail-item">
                                                                             <div style={styles.dayDetailItemMain}>
                                                                                 <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
                                                                                 <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
@@ -2391,7 +2392,7 @@ export default function NewEraDashboard() {
                                                                                 </span>
                                                                                 {repayment.notes && <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontStyle: 'italic', marginTop: '0.15rem' }}>Notes: {repayment.notes}</span>}
                                                                             </div>
-                                                                            <div style={styles.dayDetailItemSide}>
+                                                                            <div style={styles.dayDetailItemSide} className="day-detail-item-side">
                                                                                 <strong style={{ fontSize: '1.1rem', color: '#f59e0b' }}>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</strong>
                                                                                 <div style={styles.dayDetailBtnRow}>
                                                                                     <span style={{
@@ -2582,7 +2583,7 @@ export default function NewEraDashboard() {
                 {/* PAYMENTS LOG TAB */}
                 {activeTab === 'payments' && (
                     <div style={styles.tabContentSingle}>
-                        <div style={styles.tabHeaderRow}>
+                        <div style={styles.tabHeaderRow} className="tab-header-row">
                             <h2 style={styles.panelTitle}>Payment History Logs</h2>
                             <button onClick={() => {
                                 if (data.loans.length === 0) {
@@ -2603,8 +2604,8 @@ export default function NewEraDashboard() {
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }}>
-                            <div style={styles.viewToggleGroup}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '0.5rem' }} className="payments-control-row">
+                            <div style={styles.viewToggleGroup} className="view-toggle-row">
                                 <button 
                                     onClick={() => setPaymentsView('table')} 
                                     style={{
@@ -2635,8 +2636,8 @@ export default function NewEraDashboard() {
                                 </button>
                             </div>
 
-                            <div style={styles.filtersWrapper}>
-                                <div style={{ ...styles.filterItem, flex: 1, minWidth: '200px' }}>
+                            <div style={styles.filtersWrapper} className="filters-wrapper">
+                                <div style={{ ...styles.filterItem, flex: 1, minWidth: '200px' }} className="filter-item">
                                     <span style={styles.filterLabel}>Search</span>
                                     <input 
                                         type="text" 
@@ -2829,14 +2830,14 @@ export default function NewEraDashboard() {
                 {/* INTERACTIONS TAB */}
                 {activeTab === 'interactions' && (
                     <div style={styles.tabContentSingle}>
-                        <div style={styles.tabHeaderRow}>
+                        <div style={styles.tabHeaderRow} className="tab-header-row">
                             <h2 style={styles.panelTitle}>System Activity Logs</h2>
                             <button onClick={fetchDashboardData} style={styles.secondaryActionButton}>
                                 Refresh Log
                             </button>
                         </div>
 
-                        <div style={styles.scheduleTableWrapper}>
+                        <div style={styles.scheduleTableWrapper} className="schedule-table-wrapper">
                             {data.interactions.length === 0 ? (
                                 <div style={styles.bigEmptyState}>
                                     <ClipboardList size={48} color="#475569" style={{ marginBottom: '1rem' }} />
@@ -3525,7 +3526,7 @@ export default function NewEraDashboard() {
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }} className="form-grid">
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Category</label>
                                                     <select 
@@ -3552,7 +3553,7 @@ export default function NewEraDashboard() {
                                                     />
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }} className="form-grid">
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Liability Account Name</label>
                                                     <input 
@@ -3573,7 +3574,7 @@ export default function NewEraDashboard() {
                                                     />
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }} className="form-grid">
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Lender Mobile Number — Mandatory</label>
                                                     <input 
@@ -3594,7 +3595,7 @@ export default function NewEraDashboard() {
                                                     />
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }} className="form-grid-three">
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Principal Amount</label>
                                                     <input 
@@ -3609,7 +3610,7 @@ export default function NewEraDashboard() {
                                                     <label style={styles.formLabel}>Annual Interest (%)</label>
                                                     <input 
                                                         type="number" 
-                                                        step="0.01"
+                                                        step="0.01" 
                                                         value={newLoanForm.interest_rate_annual} 
                                                         onChange={e => setNewLoanForm(prev => ({ ...prev, interest_rate_annual: e.target.value }))}
                                                         style={styles.formInput} 
@@ -3620,8 +3621,8 @@ export default function NewEraDashboard() {
                                                     <label style={styles.formLabel}>Repayment Day (1-31)</label>
                                                     <input 
                                                         type="number" 
-                                                        min="1"
-                                                        max="31"
+                                                        min="1" 
+                                                        max="31" 
                                                         value={newLoanForm.repayment_day} 
                                                         onChange={e => setNewLoanForm(prev => ({ ...prev, repayment_day: e.target.value }))}
                                                         style={styles.formInput} 
@@ -3629,7 +3630,7 @@ export default function NewEraDashboard() {
                                                     />
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }} className="form-grid">
                                                 <div style={styles.formGroup}>
                                                     <label style={styles.formLabel}>Tenure (Months)</label>
                                                     <input 
@@ -5029,59 +5030,312 @@ if (typeof window !== 'undefined') {
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Mobile Viewport & Tracker Layout Overrides */
         @media (max-width: 600px) {
-            /* Compact day cells on mobile */
+            html, body {
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
+            }
+            .dashboard-wrapper {
+                padding: 0.75rem 0.5rem 6.5rem 0.5rem !important;
+                overflow-x: hidden !important;
+                max-width: 100vw !important;
+                box-sizing: border-box !important;
+            }
+
+            /* Dashboard Header */
+            .dashboard-header {
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                padding-bottom: 0.75rem !important;
+            }
+            .system-badge {
+                font-size: 0.62rem !important;
+            }
+            .header-title {
+                font-size: 1rem !important;
+            }
+            .header-actions {
+                gap: 0.4rem !important;
+            }
+            .user-info {
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.75rem !important;
+            }
+            .logout-text { display: none !important; }
+
+            /* Overview Tab */
+            .hero-section {
+                padding: 1.25rem 0.75rem !important;
+                border-radius: 1rem !important;
+            }
+            .hero-number {
+                font-size: 1.5rem !important;
+                word-break: break-word !important;
+            }
+            .hero-submetrics {
+                flex-direction: column !important;
+                gap: 0.6rem !important;
+                align-items: center !important;
+                width: 100% !important;
+            }
+            .hero-sub-item {
+                align-items: center !important;
+                text-align: center !important;
+            }
+            .divider { display: none !important; }
+
+            /* Tab Header & Action Controls */
+            .tab-header-row {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.75rem !important;
+            }
+            .title-with-filter {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.4rem !important;
+                width: 100% !important;
+            }
+            .filter-dropdown {
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .tab-actions {
+                width: 100% !important;
+                display: flex !important;
+                gap: 0.5rem !important;
+            }
+            .tab-actions button {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 0.45rem 0.6rem !important;
+                font-size: 0.8rem !important;
+            }
+
+            /* View Toggles */
+            .view-toggle-row {
+                width: 100% !important;
+                display: flex !important;
+                gap: 0.35rem !important;
+            }
+            .view-toggle-row button {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 0.35rem 0.5rem !important;
+                font-size: 0.75rem !important;
+            }
+
+            /* Schedules Tab - Top Summary Cards */
+            .schedule-summary-cards {
+                grid-template-columns: 1fr !important;
+                gap: 0.65rem !important;
+                width: 100% !important;
+            }
+
+            /* Schedules Tab - CALENDAR GRID & CELLS */
+            .calendar-container {
+                padding: 0.65rem 0.35rem !important;
+                border-radius: 0.75rem !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
+            .calendar-nav {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                gap: 0.25rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+            .calendar-nav-title {
+                font-size: 0.9rem !important;
+                font-weight: 800 !important;
+            }
+            .calendar-nav button {
+                padding: 0.25rem 0.45rem !important;
+                font-size: 0.75rem !important;
+            }
+            .calendar-grid {
+                display: grid !important;
+                grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+                gap: 2px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
+            }
+            .weekday-cell {
+                font-size: 0.65rem !important;
+                font-weight: 800 !important;
+                padding: 0.25rem 0 !important;
+                text-align: center !important;
+                letter-spacing: 0 !important;
+            }
+            .empty-day-cell {
+                border-radius: 0.25rem !important;
+                min-height: 38px !important;
+            }
             .calendar-day-cell {
-                min-height: 48px !important;
+                min-height: 40px !important;
+                max-height: 52px !important;
                 aspect-ratio: 1 !important;
+                padding: 2px 1px !important;
+                display: flex !important;
+                flex-direction: column !important;
                 align-items: center !important;
                 justify-content: center !important;
+                gap: 1px !important;
+                overflow: hidden !important;
+                min-width: 0 !important;
+                border-radius: 0.35rem !important;
+                box-sizing: border-box !important;
+            }
+            .calendar-day-cell .day-cell-top {
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                width: 100% !important;
+            }
+            .calendar-day-cell .day-cell-num {
+                font-size: 0.75rem !important;
+                line-height: 1 !important;
+                text-align: center !important;
+            }
+            /* HIDE TEXT PILLS INSIDE CALENDAR CELLS ON MOBILE TO PREVENT EXPANSION */
+            .calendar-day-cell .day-totals-chips {
+                display: none !important;
             }
             .calendar-day-cell .day-content {
                 display: none !important;
             }
+            /* SHOW INDICATOR DOTS INSTEAD */
             .calendar-day-cell .mobile-dot-container {
                 display: flex !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 2px !important;
+                margin-top: 2px !important;
+                max-width: 100% !important;
+                overflow: hidden !important;
+            }
+            .mobile-dot {
+                width: 4px !important;
+                height: 4px !important;
+                border-radius: 50% !important;
+                flex-shrink: 0 !important;
             }
 
-            /* Schedule summary cards on mobile */
-            .schedule-summary-cards {
-                grid-template-columns: 1fr !important;
-                gap: 0.75rem !important;
+            /* Schedules Tab - Selected Day Detail Panel */
+            .day-detail-panel {
+                margin-top: 0.75rem !important;
+                padding-top: 0.75rem !important;
+            }
+            .day-detail-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.4rem !important;
+                margin-bottom: 0.75rem !important;
+            }
+            .day-detail-chips {
+                width: 100% !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                gap: 0.3rem !important;
+            }
+            .day-detail-item {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.5rem !important;
+                padding: 0.65rem 0.75rem !important;
+            }
+            .day-detail-item-side {
+                width: 100% !important;
+                display: flex !important;
+                flex-direction: row !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                border-top: 1px solid rgba(255, 255, 255, 0.04) !important;
+                padding-top: 0.4rem !important;
             }
 
-            /* Liabilities table and controls on mobile */
-            .table-card-container {
-                padding: 0.75rem 0.5rem !important;
-                border-radius: 0.75rem !important;
-            }
-            .liabilities-control-row {
-                gap: 0.75rem !important;
+            /* Liabilities & Payments Controls */
+            .liabilities-control-row, .payments-control-row {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.6rem !important;
             }
             .filters-wrapper {
-                flex-wrap: wrap !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
                 width: 100% !important;
-                gap: 0.5rem !important;
+                gap: 0.4rem !important;
             }
-            th, td {
-                padding: 0.65rem 0.75rem !important;
-                font-size: 0.8rem !important;
+            .filter-item {
+                width: 100% !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.35rem !important;
+            }
+            .filter-item input, .filter-item select {
+                flex: 1 !important;
+                width: 100% !important;
             }
 
-            /* Responsive layout overrides */
-            .logout-text { display: none !important; }
-            .hero-number { font-size: 1.8rem !important; }
-            .divider { display: none !important; }
+            /* Tables Across All Tabs */
+            .table-card-container, .schedule-table-wrapper {
+                padding: 0.5rem 0.35rem !important;
+                border-radius: 0.75rem !important;
+                width: 100% !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            th, td {
+                padding: 0.55rem 0.65rem !important;
+                font-size: 0.75rem !important;
+            }
+
+            /* Form & Modal Grids */
+            .modal-overlay {
+                padding: 0.5rem !important;
+            }
+            .modal-content {
+                width: 100% !important;
+                max-height: 94vh !important;
+                border-radius: 1rem !important;
+            }
+            .modal-header {
+                padding: 0.85rem 1rem !important;
+            }
+            .modal-form {
+                padding: 0.85rem 1rem !important;
+                gap: 0.75rem !important;
+            }
             .form-grid { grid-template-columns: 1fr !important; }
             .form-grid-three { grid-template-columns: 1fr !important; }
             .breakdown-grid { grid-template-columns: 1fr !important; }
             .allocation-row-grid { grid-template-columns: 1fr !important; }
 
-            /* Add padding to the wrapper on mobile to prevent overlaps */
-            .dashboard-wrapper {
-                padding: 1rem 0.75rem 6.5rem 0.75rem !important;
+            /* Bottom Nav Bar */
+            .bottom-nav-bar {
+                height: 58px !important;
+                padding: 0.25rem 0.1rem !important;
+                box-sizing: border-box !important;
+            }
+            .bottom-nav-bar button {
+                padding: 0.2rem 0.1rem !important;
+                font-size: 0.65rem !important;
+                gap: 0.15rem !important;
+            }
+            .bottom-nav-bar button svg {
+                width: 18px !important;
+                height: 18px !important;
             }
         }
+
         @media (max-width: 800px) {
             .tab-content-grid { grid-template-columns: 1fr !important; }
             .overview-grid { grid-template-columns: 1fr !important; }
