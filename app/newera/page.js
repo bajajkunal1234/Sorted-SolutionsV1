@@ -547,6 +547,26 @@ export default function NewEraDashboard() {
         }
     };
 
+    const normalizeDateStr = (d) => {
+        if (!d) return '';
+        return typeof d === 'string' ? d.split('T')[0] : '';
+    };
+
+    const formatShortIndian = (num) => {
+        if (!num) return '0';
+        const val = Math.abs(num);
+        if (val >= 10000000) {
+            return (num / 10000000).toFixed(val % 10000000 === 0 ? 0 : 1) + 'Cr';
+        }
+        if (val >= 100000) {
+            return (num / 100000).toFixed(val % 100000 === 0 ? 0 : 1) + 'L';
+        }
+        if (val >= 1000) {
+            return (num / 1000).toFixed(val % 1000 === 0 ? 0 : 0) + 'k';
+        }
+        return Math.round(num).toString();
+    };
+
     const getCalendarDays = () => {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
@@ -1885,6 +1905,68 @@ export default function NewEraDashboard() {
                             </div>
                         </div>
 
+                        {/* Monthly Summary Cards: Total Borrowed & Total Paid in Current Month */}
+                        {(() => {
+                            const monthYearStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                            const currentMonthLoans = data.loans.filter(l => 
+                                (selectedLoanId === 'all' || l.id === selectedLoanId) &&
+                                normalizeDateStr(l.start_date).startsWith(monthYearStr)
+                            );
+                            const totalBorrowedInMonth = currentMonthLoans.reduce((sum, l) => sum + parseFloat(l.principal_amount || 0), 0);
+
+                            const currentMonthPayments = data.payments.filter(p => 
+                                (selectedLoanId === 'all' || p.loan_id === selectedLoanId) &&
+                                normalizeDateStr(p.payment_date).startsWith(monthYearStr)
+                            );
+                            const totalPaidInMonth = currentMonthPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+                            return (
+                                <div style={styles.scheduleSummaryCards} className="schedule-summary-cards">
+                                    <div style={styles.scheduleSummaryCard}>
+                                        <div style={styles.scheduleSummaryCardTop}>
+                                            <div>
+                                                <span style={styles.scheduleSummaryLabel}>
+                                                    Total Borrowed ({currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' })})
+                                                </span>
+                                                <div style={{ ...styles.scheduleSummaryValue, color: '#38bdf8' }}>
+                                                    ₹{totalBorrowedInMonth.toLocaleString('en-IN')}
+                                                </div>
+                                            </div>
+                                            <div style={{ ...styles.scheduleSummaryIconWrapper, backgroundColor: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.25)' }}>
+                                                <ArrowUpRight size={22} />
+                                            </div>
+                                        </div>
+                                        <div style={styles.scheduleSummarySubtext}>
+                                            {currentMonthLoans.length === 0 
+                                                ? 'No new liabilities taken this month' 
+                                                : `${currentMonthLoans.length} new liabilit${currentMonthLoans.length === 1 ? 'y' : 'ies'} taken`}
+                                        </div>
+                                    </div>
+
+                                    <div style={styles.scheduleSummaryCard}>
+                                        <div style={styles.scheduleSummaryCardTop}>
+                                            <div>
+                                                <span style={styles.scheduleSummaryLabel}>
+                                                    Total Paid ({currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' })})
+                                                </span>
+                                                <div style={{ ...styles.scheduleSummaryValue, color: '#34d399' }}>
+                                                    ₹{totalPaidInMonth.toLocaleString('en-IN')}
+                                                </div>
+                                            </div>
+                                            <div style={{ ...styles.scheduleSummaryIconWrapper, backgroundColor: 'rgba(52, 211, 153, 0.12)', color: '#34d399', borderColor: 'rgba(52, 211, 153, 0.25)' }}>
+                                                <TrendingDown size={22} />
+                                            </div>
+                                        </div>
+                                        <div style={styles.scheduleSummarySubtext}>
+                                            {currentMonthPayments.length === 0 
+                                                ? 'No payments recorded this month' 
+                                                : `${currentMonthPayments.length} payment${currentMonthPayments.length === 1 ? '' : 's'} logged`}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* Toggle View Type */}
                         <div style={styles.viewToggleRow}>
                             <button 
@@ -1921,9 +2003,22 @@ export default function NewEraDashboard() {
                                     >
                                         &larr; Prev
                                     </button>
-                                    <h3 style={styles.calendarNavTitle}>
-                                        {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
-                                    </h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        <h3 style={styles.calendarNavTitle}>
+                                            {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
+                                        </h3>
+                                        <button 
+                                            onClick={() => {
+                                                const now = new Date();
+                                                setCurrentMonth(now);
+                                                setSelectedCalendarDay(now.toISOString().split('T')[0]);
+                                            }} 
+                                            style={{ ...styles.calendarNavBtn, fontSize: '0.75rem', padding: '0.2rem 0.55rem', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}
+                                            title="Jump to current month"
+                                        >
+                                            Today
+                                        </button>
+                                    </div>
                                     <button 
                                         onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
                                         style={styles.calendarNavBtn}
@@ -1940,36 +2035,142 @@ export default function NewEraDashboard() {
                                     {getCalendarDays().map((day, idx) => {
                                         if (!day) return <div key={`empty-${idx}`} style={styles.emptyDayCell}></div>;
 
+                                        const dateStr = day.dateStr;
+                                        const isSelected = selectedCalendarDay === dateStr;
+                                        const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                                        // 1. Borrowed on this day (new liabilities)
+                                        const dayLoans = data.loans.filter(l => 
+                                            normalizeDateStr(l.start_date) === dateStr && 
+                                            (selectedLoanId === 'all' || l.id === selectedLoanId)
+                                        );
+                                        const dayBorrowedTotal = dayLoans.reduce((sum, l) => sum + parseFloat(l.principal_amount || 0), 0);
+
+                                        // 2. Payments made on this day
+                                        const dayPayments = data.payments.filter(p => 
+                                            normalizeDateStr(p.payment_date) === dateStr && 
+                                            (selectedLoanId === 'all' || p.loan_id === selectedLoanId)
+                                        );
+                                        const dayPaidTotal = dayPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+                                        // 3. Scheduled Repayments due on this day
                                         const repaymentsDue = data.repayments.filter(r => 
-                                            r.due_date === day.dateStr && 
+                                            normalizeDateStr(r.due_date) === dateStr && 
                                             (selectedLoanId === 'all' || r.loan_id === selectedLoanId)
                                         );
+                                        const dayDueTotal = repaymentsDue.reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
 
-                                        const isSelected = selectedCalendarDay === day.dateStr;
+                                        const hasActivity = dayLoans.length > 0 || dayPayments.length > 0 || repaymentsDue.length > 0;
 
                                         return (
                                             <div 
-                                                key={day.dateStr} 
-                                                onClick={() => setSelectedCalendarDay(day.dateStr)}
+                                                key={dateStr} 
+                                                onClick={() => setSelectedCalendarDay(dateStr)}
                                                 className="calendar-day-cell"
                                                 style={{
                                                     ...styles.dayCell,
-                                                    borderColor: isSelected ? '#6366f1' : 'rgba(255,255,255,0.05)',
-                                                    background: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'rgba(15, 23, 42, 0.25)'
+                                                    borderColor: isSelected ? '#6366f1' : isToday ? 'rgba(99, 102, 241, 0.4)' : hasActivity ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+                                                    background: isSelected ? 'rgba(99, 102, 241, 0.12)' : isToday ? 'rgba(99, 102, 241, 0.04)' : 'rgba(15, 23, 42, 0.35)'
                                                 }}
                                             >
-                                                <div style={styles.dayNumLabel}>{day.dayNum}</div>
+                                                {/* Day Header with Day Number and Daily Totals */}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', width: '100%' }}>
+                                                    <span style={{
+                                                        ...styles.dayNumLabel,
+                                                        color: isToday ? '#818cf8' : isSelected ? '#ffffff' : '#f8fafc',
+                                                        fontWeight: (isToday || isSelected) ? '800' : '700'
+                                                    }}>
+                                                        {day.dayNum}
+                                                    </span>
+
+                                                    {/* Day Totals Summary Chips */}
+                                                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                                                        {dayBorrowedTotal > 0 && (
+                                                            <span 
+                                                                style={{ 
+                                                                    fontSize: '0.6rem', 
+                                                                    fontWeight: '800', 
+                                                                    color: '#38bdf8', 
+                                                                    backgroundColor: 'rgba(56, 189, 248, 0.16)', 
+                                                                    padding: '1px 3px', 
+                                                                    borderRadius: '3px',
+                                                                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                                                                    whiteSpace: 'nowrap'
+                                                                }} 
+                                                                title={`Total Borrowed on ${dateStr}: ₹${dayBorrowedTotal.toLocaleString('en-IN')}`}
+                                                            >
+                                                                +₹{formatShortIndian(dayBorrowedTotal)}
+                                                            </span>
+                                                        )}
+                                                        {dayPaidTotal > 0 && (
+                                                            <span 
+                                                                style={{ 
+                                                                    fontSize: '0.6rem', 
+                                                                    fontWeight: '800', 
+                                                                    color: '#34d399', 
+                                                                    backgroundColor: 'rgba(52, 211, 153, 0.16)', 
+                                                                    padding: '1px 3px', 
+                                                                    borderRadius: '3px',
+                                                                    border: '1px solid rgba(52, 211, 153, 0.3)',
+                                                                    whiteSpace: 'nowrap'
+                                                                }} 
+                                                                title={`Total Paid on ${dateStr}: ₹${dayPaidTotal.toLocaleString('en-IN')}`}
+                                                            >
+                                                                ✓₹{formatShortIndian(dayPaidTotal)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Desktop Items Content */}
                                                 <div style={styles.dayContent} className="day-content">
+                                                    {/* 1. New Liabilities Borrowed */}
+                                                    {dayLoans.map(loan => (
+                                                        <div 
+                                                            key={`loan-${loan.id}`} 
+                                                            style={{
+                                                                ...styles.miniRepaymentCard,
+                                                                borderColor: 'rgba(56, 189, 248, 0.4)',
+                                                                backgroundColor: 'rgba(56, 189, 248, 0.12)'
+                                                            }}
+                                                            title={`Borrowed: ${loan.name} (${loan.lender}) - ₹${parseFloat(loan.principal_amount).toLocaleString('en-IN')}`}
+                                                        >
+                                                            <div style={{ ...styles.miniRepName, color: '#38bdf8' }}>+ {loan.name}</div>
+                                                            <div style={{ ...styles.miniRepAmt, color: '#bae6fd' }}>₹{Math.round(loan.principal_amount).toLocaleString('en-IN')}</div>
+                                                        </div>
+                                                    ))}
+
+                                                    {/* 2. Payments Made */}
+                                                    {dayPayments.map(payment => {
+                                                        const loan = data.loans.find(l => l.id === payment.loan_id);
+                                                        return (
+                                                            <div 
+                                                                key={`payment-${payment.id}`} 
+                                                                style={{
+                                                                    ...styles.miniRepaymentCard,
+                                                                    borderColor: 'rgba(52, 211, 153, 0.4)',
+                                                                    backgroundColor: 'rgba(52, 211, 153, 0.12)'
+                                                                }}
+                                                                title={`Paid: ₹${parseFloat(payment.amount).toLocaleString('en-IN')} (${loan ? loan.name : 'Unknown'})`}
+                                                            >
+                                                                <div style={{ ...styles.miniRepName, color: '#34d399' }}>✓ {loan ? loan.name : 'Payment'}</div>
+                                                                <div style={{ ...styles.miniRepAmt, color: '#a7f3d0' }}>₹{Math.round(payment.amount).toLocaleString('en-IN')}</div>
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* 3. Scheduled Repayments Due */}
                                                     {repaymentsDue.map(rep => {
                                                         const loan = data.loans.find(l => l.id === rep.loan_id);
                                                         return (
                                                             <div 
-                                                                key={rep.id} 
+                                                                key={`rep-${rep.id}`} 
                                                                 style={{
                                                                     ...styles.miniRepaymentCard,
                                                                     borderColor: rep.status === 'paid' ? '#10b981' : rep.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
                                                                     backgroundColor: rep.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : rep.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)'
                                                                 }}
+                                                                title={`Due: ${loan ? loan.name : 'Vendor'} - ₹${parseFloat(rep.expected_amount).toLocaleString('en-IN')} (${rep.status.toUpperCase()})`}
                                                             >
                                                                 <div style={styles.miniRepName}>{loan ? loan.name : 'Vendor'}</div>
                                                                 <div style={styles.miniRepAmt}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</div>
@@ -1977,15 +2178,32 @@ export default function NewEraDashboard() {
                                                         );
                                                     })}
                                                 </div>
-                                                {repaymentsDue.length > 0 && (
+
+                                                {/* Mobile Dots Container */}
+                                                {hasActivity && (
                                                     <div style={styles.mobileDotContainer} className="mobile-dot-container">
-                                                        {repaymentsDue.map((r, i) => (
+                                                        {dayLoans.map(l => (
                                                             <span 
-                                                                key={r.id} 
+                                                                key={`dot-loan-${l.id}`} 
+                                                                style={{ ...styles.mobileDot, backgroundColor: '#38bdf8' }}
+                                                                title={`Borrowed: ₹${parseFloat(l.principal_amount).toLocaleString('en-IN')}`}
+                                                            />
+                                                        ))}
+                                                        {dayPayments.map(p => (
+                                                            <span 
+                                                                key={`dot-pay-${p.id}`} 
+                                                                style={{ ...styles.mobileDot, backgroundColor: '#34d399' }}
+                                                                title={`Paid: ₹${parseFloat(p.amount).toLocaleString('en-IN')}`}
+                                                            />
+                                                        ))}
+                                                        {repaymentsDue.map(r => (
+                                                            <span 
+                                                                key={`dot-rep-${r.id}`} 
                                                                 style={{
                                                                     ...styles.mobileDot,
                                                                     backgroundColor: r.status === 'paid' ? '#10b981' : r.status === 'partially_paid' ? '#f59e0b' : '#ef4444'
                                                                 }}
+                                                                title={`Due: ₹${parseFloat(r.expected_amount).toLocaleString('en-IN')}`}
                                                             />
                                                         ))}
                                                     </div>
@@ -1995,101 +2213,260 @@ export default function NewEraDashboard() {
                                     })}
                                 </div>
 
-                                <div style={styles.dayDetailPanel}>
-                                    <h4 style={styles.dayDetailTitle}>
-                                        Due on {new Date(selectedCalendarDay).toLocaleDateString('en-IN', { dateStyle: 'long' })}
-                                    </h4>
-                                    {data.repayments.filter(r => 
-                                        r.due_date === selectedCalendarDay && 
-                                        (selectedLoanId === 'all' || r.loan_id === selectedLoanId)
-                                    ).length === 0 ? (
-                                        <div style={styles.emptyDayDetails}>No scheduled repayments due on this day.</div>
-                                    ) : (
-                                        <div style={styles.dayDetailList}>
-                                            {data.repayments
-                                                .filter(r => r.due_date === selectedCalendarDay && (selectedLoanId === 'all' || r.loan_id === selectedLoanId))
-                                                .map(repayment => {
-                                                    const loan = data.loans.find(l => l.id === repayment.loan_id);
-                                                    return (
-                                                        <div key={repayment.id} style={styles.dayDetailItem}>
-                                                            <div style={styles.dayDetailItemMain}>
-                                                                <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
-                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                                                                    Installment #{repayment.installment_number || 'Custom'} • Principal: ₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')} • Interest: ₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}
-                                                                </span>
-                                                                {repayment.notes && <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontStyle: 'italic', marginTop: '0.15rem' }}>Notes: {repayment.notes}</span>}
+                                {/* Day Detail Panel */}
+                                {(() => {
+                                    const selectedDateStr = selectedCalendarDay;
+                                    const selectedDayLoans = data.loans.filter(l => 
+                                        (selectedLoanId === 'all' || l.id === selectedLoanId) &&
+                                        normalizeDateStr(l.start_date) === selectedDateStr
+                                    );
+                                    const selectedDayBorrowedTotal = selectedDayLoans.reduce((sum, l) => sum + parseFloat(l.principal_amount || 0), 0);
+
+                                    const selectedDayPayments = data.payments.filter(p => 
+                                        (selectedLoanId === 'all' || p.loan_id === selectedLoanId) &&
+                                        normalizeDateStr(p.payment_date) === selectedDateStr
+                                    );
+                                    const selectedDayPaidTotal = selectedDayPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+                                    const selectedDayRepayments = data.repayments.filter(r => 
+                                        (selectedLoanId === 'all' || r.loan_id === selectedLoanId) &&
+                                        normalizeDateStr(r.due_date) === selectedDateStr
+                                    );
+                                    const selectedDayDueTotal = selectedDayRepayments.reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
+
+                                    const hasSelectedActivity = selectedDayLoans.length > 0 || selectedDayPayments.length > 0 || selectedDayRepayments.length > 0;
+
+                                    return (
+                                        <div style={styles.dayDetailPanel}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1rem' }}>
+                                                <h4 style={{ ...styles.dayDetailTitle, margin: 0 }}>
+                                                    Activity on {new Date(selectedCalendarDay + 'T00:00:00').toLocaleDateString('en-IN', { dateStyle: 'long' })}
+                                                </h4>
+
+                                                {/* Selected Day Totals Summary Chips */}
+                                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                    {selectedDayBorrowedTotal > 0 && (
+                                                        <span style={{ 
+                                                            backgroundColor: 'rgba(56, 189, 248, 0.15)', 
+                                                            color: '#38bdf8', 
+                                                            border: '1px solid rgba(56, 189, 248, 0.3)', 
+                                                            padding: '0.2rem 0.6rem', 
+                                                            borderRadius: '0.375rem', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: '700' 
+                                                        }}>
+                                                            Borrowed: ₹{selectedDayBorrowedTotal.toLocaleString('en-IN')}
+                                                        </span>
+                                                    )}
+                                                    {selectedDayPaidTotal > 0 && (
+                                                        <span style={{ 
+                                                            backgroundColor: 'rgba(52, 211, 153, 0.15)', 
+                                                            color: '#34d399', 
+                                                            border: '1px solid rgba(52, 211, 153, 0.3)', 
+                                                            padding: '0.2rem 0.6rem', 
+                                                            borderRadius: '0.375rem', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: '700' 
+                                                        }}>
+                                                            Paid: ₹{selectedDayPaidTotal.toLocaleString('en-IN')}
+                                                        </span>
+                                                    )}
+                                                    {selectedDayDueTotal > 0 && (
+                                                        <span style={{ 
+                                                            backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+                                                            color: '#f87171', 
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)', 
+                                                            padding: '0.2rem 0.6rem', 
+                                                            borderRadius: '0.375rem', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: '700' 
+                                                        }}>
+                                                            Due: ₹{selectedDayDueTotal.toLocaleString('en-IN')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {!hasSelectedActivity ? (
+                                                <div style={styles.emptyDayDetails}>No borrowings, payments, or scheduled repayments on this day.</div>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                                    {/* Section 1: New Liabilities Borrowed */}
+                                                    {selectedDayLoans.length > 0 && (
+                                                        <div>
+                                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                <ArrowUpRight size={14} /> New Liabilities Borrowed (Day Total: ₹{selectedDayBorrowedTotal.toLocaleString('en-IN')})
                                                             </div>
-                                                            <div style={styles.dayDetailItemSide}>
-                                                                <strong style={{ fontSize: '1.1rem', color: '#f59e0b' }}>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</strong>
-                                                                <div style={styles.dayDetailBtnRow}>
-                                                                    <span style={{
-                                                                        ...styles.statusBadge,
-                                                                        backgroundColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                                                        color: repayment.status === 'paid' ? '#10b981' : repayment.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
-                                                                        borderColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)',
-                                                                        padding: '0.1rem 0.35rem',
-                                                                        fontSize: '0.65rem'
-                                                                    }}>
-                                                                        {repayment.status.toUpperCase()}
-                                                                    </span>
-                                                                    {repayment.status !== 'paid' && (
-                                                                        <>
+                                                            <div style={styles.dayDetailList}>
+                                                                {selectedDayLoans.map(loan => (
+                                                                    <div key={`sel-loan-${loan.id}`} style={{ ...styles.dayDetailItem, borderColor: 'rgba(56, 189, 248, 0.25)', backgroundColor: 'rgba(56, 189, 248, 0.04)' }}>
+                                                                        <div style={styles.dayDetailItemMain}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                                <strong>{loan.name}</strong>
+                                                                                <span style={{ ...styles.statusBadge, backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', fontSize: '0.65rem' }}>
+                                                                                    {loan.loan_type}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                                                Lender: <strong>{loan.lender}</strong> • Interest: {loan.interest_rate_annual}% p.a.
+                                                                                {loan.tenure_months ? ` • Tenure: ${loan.tenure_months} mos` : ''}
+                                                                                {loan.emi_amount ? ` • EMI: ₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : ''}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={styles.dayDetailItemSide}>
+                                                                            <strong style={{ fontSize: '1.1rem', color: '#38bdf8' }}>
+                                                                                ₹{parseFloat(loan.principal_amount).toLocaleString('en-IN')}
+                                                                            </strong>
                                                                             <button 
-                                                                                onClick={() => {
-                                                                                    const activeM = data.members.find(m => m.name === activeMember);
-                                                                                    setPaymentForm({
-                                                                                        loan_id: repayment.loan_id,
-                                                                                        repayment_id: repayment.id,
-                                                                                        member_id: activeM ? activeM.id : '',
-                                                                                        payment_date: new Date().toISOString().split('T')[0],
-                                                                                        amount: repayment.expected_amount,
-                                                                                        principal_portion: repayment.expected_principal,
-                                                                                        interest_portion: repayment.expected_interest,
-                                                                                        source_of_income: 'Business',
-                                                                                        notes: `Repayment of installment #${repayment.installment_number}`
-                                                                                    });
-                                                                                    setShowAddPayment(true);
-                                                                                }} 
-                                                                                style={styles.payDayBtn}
+                                                                                onClick={() => startEditLoan(loan)}
+                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
                                                                             >
-                                                                                Log Pay
+                                                                                Edit Account
                                                                             </button>
-                                                                            <button 
-                                                                                onClick={() => {
-                                                                                    setEditingRepaymentId(repayment.id);
-                                                                                    setRepaymentForm({
-                                                                                        loan_id: repayment.loan_id,
-                                                                                        due_date: repayment.due_date,
-                                                                                        installment_number: repayment.installment_number || '',
-                                                                                        expected_amount: repayment.expected_amount,
-                                                                                        expected_principal: repayment.expected_principal,
-                                                                                        expected_interest: repayment.expected_interest,
-                                                                                        notes: repayment.notes || ''
-                                                                                    });
-                                                                                    setShowAddRepayment(true);
-                                                                                }}
-                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
-                                                                                title="Edit Installment"
-                                                                            >
-                                                                                Edit
-                                                                            </button>
-                                                                            <button 
-                                                                                onClick={() => handleDeleteRepayment(repayment.id)}
-                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                                                                                title="Delete Installment"
-                                                                            >
-                                                                                Delete
-                                                                            </button>
-                                                                        </>
-                                                                    )}
-                                                                </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+                                                    )}
+
+                                                    {/* Section 2: Payments Recorded */}
+                                                    {selectedDayPayments.length > 0 && (
+                                                        <div>
+                                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                <CheckCircle size={14} /> Payments Recorded (Day Total: ₹{selectedDayPaidTotal.toLocaleString('en-IN')})
+                                                            </div>
+                                                            <div style={styles.dayDetailList}>
+                                                                {selectedDayPayments.map(payment => {
+                                                                    const loan = data.loans.find(l => l.id === payment.loan_id);
+                                                                    const member = data.members.find(m => m.id === payment.member_id);
+                                                                    return (
+                                                                        <div key={`sel-pay-${payment.id}`} style={{ ...styles.dayDetailItem, borderColor: 'rgba(52, 211, 153, 0.25)', backgroundColor: 'rgba(52, 211, 153, 0.04)' }}>
+                                                                            <div style={styles.dayDetailItemMain}>
+                                                                                <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
+                                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                                                    Paid by: <strong>{member ? member.name : 'Unknown'}</strong> via {payment.source_of_income}
+                                                                                    {payment.principal_portion ? ` • Principal: ₹${parseFloat(payment.principal_portion).toLocaleString('en-IN')}` : ''}
+                                                                                    {payment.interest_portion ? ` • Interest: ₹${parseFloat(payment.interest_portion).toLocaleString('en-IN')}` : ''}
+                                                                                </span>
+                                                                                {payment.notes && (
+                                                                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', marginTop: '0.15rem' }}>
+                                                                                        Notes: {payment.notes}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <div style={styles.dayDetailItemSide}>
+                                                                                <strong style={{ fontSize: '1.1rem', color: '#34d399' }}>
+                                                                                    ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
+                                                                                </strong>
+                                                                                <button 
+                                                                                    onClick={() => handleDeletePayment(payment.id)}
+                                                                                    style={{ ...styles.payDayBtn, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                                                                >
+                                                                                    Delete Log
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Section 3: Scheduled Repayments Due */}
+                                                    {selectedDayRepayments.length > 0 && (
+                                                        <div>
+                                                            <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                                                <Calendar size={14} /> Scheduled Repayments Due (Day Total: ₹{selectedDayDueTotal.toLocaleString('en-IN')})
+                                                            </div>
+                                                            <div style={styles.dayDetailList}>
+                                                                {selectedDayRepayments.map(repayment => {
+                                                                    const loan = data.loans.find(l => l.id === repayment.loan_id);
+                                                                    return (
+                                                                        <div key={repayment.id} style={styles.dayDetailItem}>
+                                                                            <div style={styles.dayDetailItemMain}>
+                                                                                <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
+                                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                                                    Installment #{repayment.installment_number || 'Custom'} • Principal: ₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')} • Interest: ₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}
+                                                                                </span>
+                                                                                {repayment.notes && <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontStyle: 'italic', marginTop: '0.15rem' }}>Notes: {repayment.notes}</span>}
+                                                                            </div>
+                                                                            <div style={styles.dayDetailItemSide}>
+                                                                                <strong style={{ fontSize: '1.1rem', color: '#f59e0b' }}>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</strong>
+                                                                                <div style={styles.dayDetailBtnRow}>
+                                                                                    <span style={{
+                                                                                        ...styles.statusBadge,
+                                                                                        backgroundColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                                                        color: repayment.status === 'paid' ? '#10b981' : repayment.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
+                                                                                        borderColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+                                                                                        padding: '0.1rem 0.35rem',
+                                                                                        fontSize: '0.65rem'
+                                                                                    }}>
+                                                                                        {repayment.status.toUpperCase()}
+                                                                                    </span>
+                                                                                    {repayment.status !== 'paid' && (
+                                                                                        <>
+                                                                                            <button 
+                                                                                                onClick={() => {
+                                                                                                    const activeM = data.members.find(m => m.name === activeMember);
+                                                                                                    setPaymentForm({
+                                                                                                        loan_id: repayment.loan_id,
+                                                                                                        repayment_id: repayment.id,
+                                                                                                        member_id: activeM ? activeM.id : '',
+                                                                                                        payment_date: new Date().toISOString().split('T')[0],
+                                                                                                        amount: repayment.expected_amount,
+                                                                                                        principal_portion: repayment.expected_principal,
+                                                                                                        interest_portion: repayment.expected_interest,
+                                                                                                        source_of_income: 'Business',
+                                                                                                        notes: `Repayment of installment #${repayment.installment_number}`
+                                                                                                    });
+                                                                                                    setShowAddPayment(true);
+                                                                                                }} 
+                                                                                                style={styles.payDayBtn}
+                                                                                            >
+                                                                                                Log Pay
+                                                                                            </button>
+                                                                                            <button 
+                                                                                                onClick={() => {
+                                                                                                    setEditingRepaymentId(repayment.id);
+                                                                                                    setRepaymentForm({
+                                                                                                        loan_id: repayment.loan_id,
+                                                                                                        due_date: repayment.due_date,
+                                                                                                        installment_number: repayment.installment_number || '',
+                                                                                                        expected_amount: repayment.expected_amount,
+                                                                                                        expected_principal: repayment.expected_principal,
+                                                                                                        expected_interest: repayment.expected_interest,
+                                                                                                        notes: repayment.notes || ''
+                                                                                                    });
+                                                                                                    setShowAddRepayment(true);
+                                                                                                }}
+                                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                                                                                title="Edit Installment"
+                                                                                            >
+                                                                                                Edit
+                                                                                            </button>
+                                                                                            <button 
+                                                                                                onClick={() => handleDeleteRepayment(repayment.id)}
+                                                                                                style={{ ...styles.payDayBtn, backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                                                                                                title="Delete Installment"
+                                                                                            >
+                                                                                                Delete
+                                                                                            </button>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
+                                    );
+                                })()}
                             </div>
                         )}
 
@@ -4159,6 +4536,56 @@ const styles = {
         fontWeight: '700',
         display: 'inline-block'
     },
+    scheduleSummaryCards: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '1rem',
+        marginBottom: '1.25rem'
+    },
+    scheduleSummaryCard: {
+        background: 'rgba(15, 23, 42, 0.45)',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        borderRadius: '1rem',
+        padding: '1.25rem',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+    },
+    scheduleSummaryCardTop: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '0.75rem',
+        marginBottom: '0.5rem'
+    },
+    scheduleSummaryLabel: {
+        fontSize: '0.75rem',
+        color: '#94a3b8',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+    },
+    scheduleSummaryValue: {
+        fontSize: '1.6rem',
+        fontWeight: '800',
+        marginTop: '0.25rem',
+        letterSpacing: '-0.02em'
+    },
+    scheduleSummaryIconWrapper: {
+        width: '42px',
+        height: '42px',
+        borderRadius: '0.75rem',
+        border: '1px solid',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+    },
+    scheduleSummarySubtext: {
+        fontSize: '0.8rem',
+        color: '#64748b'
+    },
     viewToggleRow: {
         display: 'flex',
         gap: '0.5rem',
@@ -4229,16 +4656,16 @@ const styles = {
         borderRadius: '0.5rem'
     },
     dayCell: {
-        aspectRatio: '1',
-        minHeight: '80px',
-        padding: '0.4rem',
+        minHeight: '95px',
+        padding: '0.45rem',
         borderRadius: '0.5rem',
         border: '1px solid',
         cursor: 'pointer',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start',
+        gap: '0.25rem',
         transition: 'all 0.2s'
     },
     dayNumLabel: {
@@ -4615,6 +5042,12 @@ if (typeof window !== 'undefined') {
             }
             .calendar-day-cell .mobile-dot-container {
                 display: flex !important;
+            }
+
+            /* Schedule summary cards on mobile */
+            .schedule-summary-cards {
+                grid-template-columns: 1fr !important;
+                gap: 0.75rem !important;
             }
 
             /* Liabilities table and controls on mobile */
