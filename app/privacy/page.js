@@ -1,6 +1,6 @@
 export const metadata = {
     title: 'Privacy Policy | Sorted Solutions',
-    description: 'Learn how Sorted Solutions collects, uses, and protects your personal data when you use our appliance repair services.',
+    description: 'Learn how Sorted Solutions (Perfect Trading Company) collects, uses, and protects your personal data when you use our doorstep appliance repair services in Mumbai.',
     alternates: { canonical: '/privacy' },
 };
 
@@ -18,73 +18,62 @@ export default function PrivacyPage() {
                 <h1 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.5px' }}>Privacy Policy</h1>
                 <p style={{ color: 'var(--text-secondary,#94a3b8)', marginBottom: '48px', fontSize: '14px' }}>Effective Date: {EFFECTIVE_DATE}</p>
 
-                <Section title="1. Who We Are">
-                    Sorted Solutions is a home appliance repair service operating in Mumbai, Maharashtra, India. Our website is <strong>sortedsolutions.in</strong> and we can be reached at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a>.
+                <Section title="1. Introduction">
+                    Welcome to Sorted Solutions, a trade name operated by our legally registered entity, Perfect Trading Company. We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website (<a href="https://sortedsolutions.in" style={{ color: '#818cf8' }}>sortedsolutions.in</a>), book our services, or interact with us.
                 </Section>
 
                 <Section title="2. Information We Collect">
-                    When you use our booking service, we collect:
-                    <ul>
-                        <li><strong>Personal details:</strong> Name, phone number, email address</li>
-                        <li><strong>Address information:</strong> Your service address and pincode</li>
-                        <li><strong>Appliance details:</strong> Type, brand, and the issue you're reporting</li>
-                        <li><strong>Booking history:</strong> Past service requests and technician visits</li>
-                        <li><strong>Usage data:</strong> Pages visited, booking steps completed (via Google Analytics)</li>
+                    <p>To provide our doorstep appliance repair services, we may collect the following types of personal information:</p>
+                    <ul style={{ marginTop: '10px' }}>
+                        <li><strong>Contact Information:</strong> Your name, phone number, email address, and complete physical address/location for technician dispatch.</li>
+                        <li><strong>Service Details:</strong> Information regarding your appliances, repair history, and the specific issues you report.</li>
+                        <li><strong>Device and Usage Data:</strong> When you visit our website, we may automatically collect standard log data such as your IP address, browser type, operating system, and pages visited, which helps us improve our website experience.</li>
                     </ul>
-                    We do <strong>not</strong> collect payment card details. Payments are made directly to the technician via cash or UPI.
                 </Section>
 
                 <Section title="3. How We Use Your Information">
-                    <ul>
-                        <li>To schedule and fulfil your appliance repair booking</li>
-                        <li>To send you booking confirmations and service updates via WhatsApp/SMS/email</li>
-                        <li>To assign the most suitable technician in your area</li>
-                        <li>To follow up on service quality and warranty claims</li>
-                        <li>To improve our services using anonymised analytics data</li>
+                    <p>We use the information we collect strictly to operate our business and provide you with high-quality service. Specifically, we use your data to:</p>
+                    <ul style={{ marginTop: '10px' }}>
+                        <li>Schedule and dispatch technicians to your location.</li>
+                        <li>Provide cost estimates, invoices, and process payments.</li>
+                        <li>Communicate with you regarding your booking, delays, or service updates.</li>
+                        <li>Honor our 30-day service warranty and itemized parts warranties.</li>
+                        <li>Respond to your customer support inquiries.</li>
                     </ul>
                 </Section>
 
                 <Section title="4. How We Share Your Information">
-                    <ul>
-                        <li><strong>Technicians:</strong> We share your name, phone, and address with the assigned technician only to complete your booking.</li>
-                        <li><strong>Service providers:</strong> We use tools like Google Analytics and Supabase (database hosting) that process data on our behalf under strict data processing agreements.</li>
-                        <li>We <strong>never sell</strong> your personal data to third parties for marketing purposes.</li>
+                    <p>We value your trust. We do not sell, rent, or trade your personal information to third parties. We only share your data in the following limited circumstances:</p>
+                    <ul style={{ marginTop: '10px' }}>
+                        <li><strong>With Our Technicians:</strong> Your name, address, and phone number are shared with our internally managed field service technicians solely to fulfill your requested repair job.</li>
+                        <li><strong>For Legal Compliance:</strong> We may disclose your information if required to do so by law, government request, or to protect the rights, property, and safety of Perfect Trading Company, our employees, or the public.</li>
                     </ul>
                 </Section>
 
-                <Section title="5. Data Retention">
-                    We retain your booking data for up to <strong>3 years</strong> for warranty tracking and service history purposes. You may request deletion of your account and data at any time by contacting us.
+                <Section title="5. Data Security">
+                    We implement reasonable administrative and technical security measures to protect your personal information from unauthorized access, alteration, or disclosure. While we strive to protect your data, no method of transmission over the internet is 100% secure, and we cannot guarantee absolute security.
                 </Section>
 
-                <Section title="6. Your Rights">
-                    You have the right to:
-                    <ul>
-                        <li>Access the personal data we hold about you</li>
-                        <li>Correct inaccurate information</li>
-                        <li>Request deletion of your data</li>
-                        <li>Opt out of marketing communications at any time</li>
-                    </ul>
-                    To exercise any of these rights, email us at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a>.
+                <Section title="6. Cookies and Tracking">
+                    Our website may use cookies and similar tracking technologies to enhance user experience and analyze website traffic. You can choose to disable cookies through your browser settings, though this may affect how certain features of our website function.
                 </Section>
 
-                <Section title="7. Cookies & Analytics">
-                    Our website uses cookies and Google Analytics to understand how visitors use the site. This data is anonymised and used only to improve user experience. You can disable cookies in your browser settings at any time.
+                <Section title="7. Third-Party Links">
+                    Our website may contain links to third-party websites. We are not responsible for the privacy practices or the content of those external sites. We encourage you to read the privacy policies of any website you visit.
                 </Section>
 
-                <Section title="8. Security">
-                    We use industry-standard security practices to protect your data, including encrypted database storage (Supabase) and HTTPS across all pages. However, no method of internet transmission is 100% secure and we cannot guarantee absolute security.
+                <Section title="8. Changes to This Privacy Policy">
+                    We reserve the right to update this Privacy Policy at any time. Any changes will be posted on this page with an updated "Effective Date." Your continued use of our services after any modifications indicates your acceptance of the new terms.
                 </Section>
 
-                <Section title="9. Third-Party Links">
-                    Our website may contain links to third-party sites (e.g. WhatsApp, Google Maps). We are not responsible for the privacy practices of those sites.
-                </Section>
-
-                <Section title="10. Changes to This Policy">
-                    We may update this Privacy Policy from time to time. The effective date at the top of this page reflects the latest revision. Continued use of our services after changes constitutes acceptance.
-                </Section>
-
-                <Section title="11. Contact">
-                    For any privacy concerns, contact us at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a> or call <a href="tel:+918928895590" style={{ color: '#6366f1' }}>+91 89288 95590</a>.
+                <Section title="9. Contact Us">
+                    <p>If you have any questions or concerns about this Privacy Policy or how we handle your data, please contact us at:</p>
+                    <div style={{ marginTop: '14px', lineHeight: 1.8 }}>
+                        <p><strong>Legal Firm Name:</strong> Perfect Trading Company (Operating as Sorted Solutions)</p>
+                        <p><strong>Email:</strong> <a href="mailto:support@sortedsolutions.in" style={{ color: '#818cf8' }}>support@sortedsolutions.in</a></p>
+                        <p><strong>Phone:</strong> <a href="tel:+918928895590" style={{ color: '#818cf8' }}>+91 89288 95590</a></p>
+                        <p><strong>Registered Address:</strong> A-138, Orchard Corporate Park, Royal Palms, Aarey Milk Colony, Goregaon East, Mumbai, Maharashtra 400065</p>
+                    </div>
                 </Section>
             </div>
             <FooterSection />
