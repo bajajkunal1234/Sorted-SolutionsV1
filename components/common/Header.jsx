@@ -129,16 +129,16 @@ const Header = () => {
                     <div className="site-header__actions">
                         <ThemeToggle />
 
-                        {/* ── Legal Dropdown (T&C on mobile, Terms & Conditions on desktop) ── */}
+                        {/* ── Legal Dropdown (T&C on mobile, Terms, Cancellations & Warranty on desktop) ── */}
                         <div className="header-legal-dropdown" ref={legalDropdownRef}>
                             <div className={`header-split-btn ${legalDropdownOpen ? 'open' : ''}`}>
                                 <Link
                                     href="/terms"
                                     className="header-split-link"
-                                    title="Terms & Conditions"
+                                    title="Terms, Cancellations & Warranty"
                                     onClick={() => setLegalDropdownOpen(false)}
                                 >
-                                    <span className="legal-label-desktop">Terms & Conditions</span>
+                                    <span className="legal-label-desktop">Terms, Cancellations & Warranty</span>
                                     <span className="legal-label-mobile">T&C</span>
                                 </Link>
                                 <button
@@ -165,7 +165,7 @@ const Header = () => {
                                         onClick={() => setLegalDropdownOpen(false)}
                                     >
                                         <span className="header-dropdown__dot" />
-                                        Terms & Conditions
+                                        Terms, Cancellations & Warranty
                                     </Link>
                                     <Link
                                         href="/contact"
@@ -173,7 +173,7 @@ const Header = () => {
                                         onClick={() => setLegalDropdownOpen(false)}
                                     >
                                         <span className="header-dropdown__dot" />
-                                        Contact Us
+                                        About Us / Contact Us
                                     </Link>
                                     <Link
                                         href="/privacy"
@@ -234,10 +234,10 @@ const Header = () => {
                     <hr className="header-mobile-divider" />
                     <p className="header-mobile-section">Information & Legal</p>
                     <Link href="/terms" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
-                        Terms & Conditions
+                        Terms, Cancellations & Warranty
                     </Link>
                     <Link href="/contact" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
-                        Contact Us
+                        About Us / Contact Us
                     </Link>
                     <Link href="/privacy" className="header-mobile-link" onClick={() => setMobileOpen(false)}>
                         Privacy Policy

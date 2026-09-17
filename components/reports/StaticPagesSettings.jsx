@@ -256,7 +256,7 @@ Phone: +91 XXXXXXXXXX</p>
     const getTabLabel = (tab) => {
         const labels = {
             contact: 'Contact Us',
-            terms: 'Terms & Conditions',
+            terms: 'Terms, Cancellations & Warranty',
             privacy: 'Privacy Policy',
             accessibility: 'Accessibility Statement'
         };

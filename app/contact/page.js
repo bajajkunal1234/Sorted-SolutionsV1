@@ -1,12 +1,12 @@
 // Server component — keeps metadata export, delegates tracked links to ContactLinks.jsx
-import { Mail, Clock, MapPin } from 'lucide-react';
+import { Mail, Clock, MapPin, Building2, ShieldCheck, Award } from 'lucide-react';
 import { PhoneCard, WhatsAppCard } from './ContactLinks';
 import Header from '@/components/common/Header';
 import FooterSection from '@/components/homepage/FooterSection';
 
 export const metadata = {
-    title: 'Contact Us | Sorted Solutions',
-    description: 'Get in touch with Sorted Solutions for appliance repair services in Mumbai. Call, WhatsApp, or email us.',
+    title: 'About Us / Contact Us | Sorted Solutions',
+    description: 'Learn about Sorted Solutions (A unit of Perfect Trading Company) and get in touch with our team for doorstep appliance repair in Mumbai.',
     alternates: { canonical: '/contact' },
 };
 
@@ -16,18 +16,18 @@ export default function ContactPage() {
             <Header />
             <div style={{ maxWidth: '900px', margin: '0 auto', padding: '60px 24px' }}>
 
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-                    <h1 style={{ fontSize: 'clamp(32px,5vw,52px)', fontWeight: 800, marginBottom: '16px', letterSpacing: '-1px' }}>
-                        Get In Touch
+                {/* Header / Intro */}
+                <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+                    <h1 style={{ fontSize: 'clamp(30px,5vw,48px)', fontWeight: 800, marginBottom: '16px', letterSpacing: '-1px' }}>
+                        About Us / Contact Us
                     </h1>
-                    <p style={{ fontSize: '18px', color: 'var(--text-secondary,#94a3b8)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.7 }}>
-                        Have a question or need to book a repair? We're available 7 days a week across Mumbai.
+                    <p style={{ fontSize: '16px', color: 'var(--text-secondary,#94a3b8)', maxWidth: '760px', margin: '0 auto', lineHeight: 1.8 }}>
+                        Welcome to Sorted Solutions. We provide fast, reliable, and professional doorstep home appliance repair services across Mumbai. Whether it is routine maintenance for household appliances like microwaves, refrigerators, and washing machines, or comprehensive Annual Maintenance Contracts (AMCs) for commercial clients, our focus is on delivering prompt and effective solutions.
                     </p>
                 </div>
 
                 {/* Contact Cards Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '20px', marginBottom: '48px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '20px', marginBottom: '40px' }}>
 
                     {/* Phone — client component for GTM tracking */}
                     <PhoneCard />
@@ -53,6 +53,92 @@ export default function ContactPage() {
                         <p style={cardMeta}>8:00 AM – 8:00 PM</p>
                     </div>
 
+                </div>
+
+                {/* Section: Our Legal Identity and Transparency */}
+                <div style={sectionCardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <div style={iconWrap('#6366f1')}><Building2 size={22} color="#fff" /></div>
+                        <div>
+                            <h2 style={sectionTitleStyle}>Our Legal Identity and Transparency</h2>
+                            <p style={sectionTextStyle}>
+                                We believe in complete operational transparency for our customers. Sorted Solutions is the consumer-facing brand and official trade name operated by our legally registered entity, Perfect Trading Company. All invoicing, billing, and official business operations for Sorted Solutions are conducted under Perfect Trading Company.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section: Independent Service Provider */}
+                <div style={sectionCardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <div style={iconWrap('#f59e0b')}><ShieldCheck size={22} color="#fff" /></div>
+                        <div>
+                            <h2 style={sectionTitleStyle}>Independent Service Provider</h2>
+                            <p style={sectionTextStyle}>
+                                Sorted Solutions operates strictly as an independent service and repair network. We possess the technical expertise to repair a wide variety of appliance brands; however, we are not affiliated with, endorsed by, or acting as an official authorized service center for any specific appliance manufacturer. Any brand names, trademarks, or logos mentioned on our website are purely for descriptive purposes and belong to their respective owners.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section: Our Commitment to Quality */}
+                <div style={sectionCardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <div style={iconWrap('#10b981')}><Award size={22} color="#fff" /></div>
+                        <div>
+                            <h2 style={sectionTitleStyle}>Our Commitment to Quality</h2>
+                            <p style={sectionTextStyle}>
+                                We stand by the qualifications of our technicians and the quality of our work. To give our customers peace of mind, we provide a standard 30-day service warranty on our labor, alongside transparent, itemized warranties on any spare parts replaced during the repair process. Detailed diagnostic visiting fees and service terms are always communicated upfront before any work begins.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section: Registered Business Details */}
+                <div style={{
+                    background: 'var(--bg-secondary,#1a1a2e)',
+                    border: '1.5px solid var(--border-primary,#2d2d3a)',
+                    borderRadius: '16px',
+                    padding: '32px',
+                    marginBottom: '32px'
+                }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary,#fff)', marginBottom: '8px' }}>
+                        Registered Business Details
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary,#94a3b8)', fontSize: '14px', marginBottom: '24px' }}>
+                        For any legal, billing, or operational inquiries, please refer to our verified business information below:
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: '16px' }}>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>Legal Firm Name:</span>
+                            <strong style={infoValueStyle}>Perfect Trading Company</strong>
+                        </div>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>Operating Brand Name:</span>
+                            <strong style={infoValueStyle}>Sorted Solutions</strong>
+                        </div>
+                        <div style={{ ...infoItemStyle, gridColumn: '1 / -1' }}>
+                            <span style={infoLabelStyle}>Registered Office Address:</span>
+                            <strong style={infoValueStyle}>A-138, Orchard Corporate Park, Royal Palms, Aarey Milk Colony, Goregaon East, Mumbai, Maharashtra, 400065</strong>
+                        </div>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>Registration / Udyam No:</span>
+                            <strong style={infoValueStyle}>UDYAM-MH-14-0212678</strong>
+                        </div>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>GSTIN:</span>
+                            <strong style={infoValueStyle}>27DJQPB0215Q1ZY</strong>
+                        </div>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>Phone:</span>
+                            <a href="tel:+918928895590" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'none' }}>+91-8928895590</a>
+                        </div>
+                        <div style={infoItemStyle}>
+                            <span style={infoLabelStyle}>Email:</span>
+                            <a href="mailto:support@sortedsolutions.in" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'none' }}>support@sortedsolutions.in</a>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Service Area */}
@@ -104,9 +190,54 @@ const cardStyle = {
 const iconWrap = (bg) => ({
     width: '44px', height: '44px', borderRadius: '12px',
     background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    marginBottom: '16px',
+    marginBottom: '16px', flexShrink: 0
 });
 
 const cardTitle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-tertiary,#6b7280)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' };
 const cardValue = { fontSize: '16px', fontWeight: 700, color: 'var(--text-primary,#fff)', marginBottom: '4px' };
 const cardMeta  = { fontSize: '13px', color: 'var(--text-secondary,#94a3b8)' };
+
+const sectionCardStyle = {
+    background: 'var(--bg-secondary,#1a1a2e)',
+    border: '1.5px solid var(--border-primary,#2d2d3a)',
+    borderRadius: '16px',
+    padding: '28px',
+    marginBottom: '24px'
+};
+
+const sectionTitleStyle = {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: 'var(--text-primary,#fff)',
+    marginBottom: '8px'
+};
+
+const sectionTextStyle = {
+    color: 'var(--text-secondary,#94a3b8)',
+    lineHeight: 1.75,
+    fontSize: '15px'
+};
+
+const infoItemStyle = {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid var(--border-primary,#2d2d3a)',
+    borderRadius: '10px',
+    padding: '12px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+};
+
+const infoLabelStyle = {
+    fontSize: '12px',
+    color: 'var(--text-tertiary,#6b7280)',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em'
+};
+
+const infoValueStyle = {
+    fontSize: '14px',
+    color: 'var(--text-primary,#fff)',
+    lineHeight: 1.5
+};

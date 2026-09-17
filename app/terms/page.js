@@ -1,6 +1,6 @@
 export const metadata = {
-    title: 'Terms & Conditions | Sorted Solutions',
-    description: 'Read the Terms & Conditions for using Sorted Solutions appliance repair services in Mumbai.',
+    title: 'Terms, Cancellations & Warranty | Sorted Solutions',
+    description: 'Read the Terms, Cancellations & Warranty for using Sorted Solutions appliance repair services in Mumbai.',
     alternates: { canonical: '/terms' },
 };
 
@@ -15,15 +15,17 @@ export default function TermsPage() {
             <Header />
             <div style={{ maxWidth: '800px', margin: '0 auto', padding: '60px 24px' }}>
 
-                <h1 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.5px' }}>Terms & Conditions</h1>
+                <h1 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.5px' }}>Terms, Cancellations & Warranty</h1>
                 <p style={{ color: 'var(--text-secondary,#94a3b8)', marginBottom: '48px', fontSize: '14px' }}>Effective Date: {EFFECTIVE_DATE}</p>
 
                 <Section title="1. Acceptance of Terms">
-                    By booking a service through Sorted Solutions (website, app, or phone), you agree to be bound by these Terms & Conditions. If you do not agree, please do not use our services.
+                    By booking a service through Sorted Solutions (a trade name operated by our legally registered entity, Perfect Trading Company), you agree to be bound by these Terms & Conditions. If you do not agree, please do not use our services. All billing, invoicing, and official business operations are executed under Perfect Trading Company.
                 </Section>
 
-                <Section title="2. Services Offered">
-                    Sorted Solutions provides home appliance repair, maintenance, installation, and related services for appliances including Air Conditioners, Refrigerators, Washing Machines, Microwaves, Ovens, Water Purifiers, and HOB/Gas Stoves in Mumbai and surrounding areas.
+                <Section title="2. Services Offered & Independent Status">
+                    <p>Sorted Solutions provides home appliance repair, maintenance, installation, and commercial Annual Maintenance Contracts (AMCs) for appliances including Air Conditioners, Refrigerators, Washing Machines, Microwaves, Ovens, Water Purifiers, and HOB/Gas Stoves in Mumbai and surrounding areas.</p>
+                    <p style={{ marginTop: '12px' }}><strong>Service Capacity & Qualifications:</strong> All services are fulfilled by our internally managed network of dedicated field service technicians.</p>
+                    <p style={{ marginTop: '12px' }}><strong>Independent Provider:</strong> We are a strictly independent service provider. We are not an authorized service center for, nor are we affiliated with or endorsed by, any specific appliance manufacturer or brand.</p>
                 </Section>
 
                 <Section title="3. Booking & Appointments">
@@ -46,10 +48,10 @@ export default function TermsPage() {
 
                 <Section title="5. Warranty on Repairs">
                     <ul>
-                        <li>All repairs carried out by Sorted Solutions come with a <strong>30-day service warranty</strong>.</li>
+                        <li>All repairs carried out by Sorted Solutions come with a 30-day service warranty.</li>
                         <li>This warranty covers the specific issue repaired and does not extend to new or unrelated problems.</li>
                         <li>The warranty is void if the appliance is tampered with by a third party after our repair.</li>
-                        <li>Spare parts carry the manufacturer's warranty where applicable.</li>
+                        <li>Spare parts carry independent, itemized warranties based on the manufacturer's terms or the specific part replaced, which will be detailed on your final invoice.</li>
                     </ul>
                 </Section>
 
@@ -81,8 +83,9 @@ export default function TermsPage() {
                     Sorted Solutions reserves the right to update these Terms at any time. Continued use of our services after changes constitutes acceptance of the updated terms. The effective date at the top of this page will reflect the latest revision.
                 </Section>
 
-                <Section title="11. Contact">
-                    For any questions about these Terms, contact us at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a> or call <a href="tel:+918928895590" style={{ color: '#6366f1' }}>+91 89288 95590</a>.
+                <Section title="11. Contact & Registered Address">
+                    <p>For any questions about these Terms, contact us at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a> or call <a href="tel:+918928895590" style={{ color: '#6366f1' }}>+91 89288 95590</a>.</p>
+                    <p style={{ marginTop: '12px' }}><strong>Registered Address:</strong> A-138, Orchard Business Park, Royal Palms, Aarey Colony, Goregaon East, Mumbai 400065</p>
                 </Section>
             </div>
             <FooterSection />

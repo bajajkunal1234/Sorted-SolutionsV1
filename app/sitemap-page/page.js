@@ -21,8 +21,8 @@ export const metadata = {
 const STATIC_LINKS = [
     { label: 'Home',                  url: '/' },
     { label: 'Book a Repair',         url: '/booking' },
-    { label: 'Contact Us',            url: '/contact' },
-    { label: 'Terms & Conditions',    url: '/terms' },
+    { label: 'About Us / Contact Us', url: '/contact' },
+    { label: 'Terms, Cancellations & Warranty', url: '/terms' },
     { label: 'Privacy Policy',        url: '/privacy' },
     { label: 'Accessibility',         url: '/accessibility' },
 ];

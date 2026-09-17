@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react';
 import {
@@ -624,7 +624,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
         { id: 'why-choose-us', label: 'Global Why Choose Us', icon: Award, description: 'Edit the "Why Choose Us" section content', color: '#ec4899' },
         { id: 'testimonials', label: 'Customer Testimonials', icon: MessageCircle, description: 'Manage customer reviews and testimonials', color: '#14b8a6' },
         { id: 'brand-logos', label: 'Global Brand Logos Library', icon: ImageIcon, description: 'Manage logos for all appliance brands', color: '#8b5cf6' },
-        { id: 'terms-conditions', label: 'Terms & Conditions', icon: FileText, description: 'Edit Terms & Conditions page content', color: '#64748b' },
+        { id: 'terms-conditions', label: 'Terms, Cancellations & Warranty', icon: FileText, description: 'Edit Terms, Cancellations & Warranty page content', color: '#64748b' },
         { id: 'privacy-policy', label: 'Privacy Policy', icon: Shield, description: 'Edit Privacy Policy page content', color: '#0ea5e9' },
         { id: 'accessibility', label: 'Accessibility Statement', icon: Eye, description: 'Edit Accessibility Statement page content', color: '#a855f7' },
         { id: 'faqs', label: 'Global FAQ Settings', icon: HelpCircle, description: 'Manage frequently asked questions (Global Library)', color: '#f97316' }

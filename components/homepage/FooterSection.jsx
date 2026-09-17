@@ -39,8 +39,8 @@ function FooterSection() {
                 {/* Column 2: Quick Links */}
                 <div className="footer-column">
                     <h3>Quick Links</h3>
-                    <Link href="/contact">Contact Us</Link>
-                    <Link href="/terms">Terms & Conditions</Link>
+                    <Link href="/contact">About Us / Contact Us</Link>
+                    <Link href="/terms">Terms, Cancellations & Warranty</Link>
                     <Link href="/privacy">Privacy Policy</Link>
                     <Link href="/accessibility">Accessibility Statement</Link>
                 </div>
