@@ -70,8 +70,8 @@ function MobileHomepage({ initialBookingData }) {
             "areaServed": ["Mumbai", "Andheri", "Dadar", "Ghatkopar", "Goregaon", "Kurla", "Parel"],
             "aggregateRating": {
                 "@type": "AggregateRating",
-                "ratingValue": "4.8",
-                "reviewCount": "500"
+                "ratingValue": "4.6",
+                "reviewCount": "100"
             }
         });
         document.head.appendChild(script);
@@ -104,14 +104,14 @@ function MobileHomepage({ initialBookingData }) {
 
                     {/* H2 - Secondary Keywords */}
                     <h2 className="hero-subtitle">
-                        Same Day Service | Transparent Pricing | 500+ Happy Customers
+                        Same Day Service | Transparent Pricing | 100+ Happy Customers
                     </h2>
 
                     {/* Trust Badges */}
                     <div className="trust-badges">
                         <div className="trust-badge">
                             <CheckCircle size={20} />
-                            <span>Licensed Technicians</span>
+                            <span>Verified Technicians</span>
                         </div>
                         <div className="trust-badge">
                             <Shield size={20} />
@@ -133,14 +133,14 @@ function MobileHomepage({ initialBookingData }) {
                 <div className="trust-stat">
                     <TrendingUp size={24} />
                     <div>
-                        <strong>500+</strong>
+                        <strong>100+</strong>
                         <span>Repairs Completed</span>
                     </div>
                 </div>
                 <div className="trust-stat">
                     <Star size={24} />
                     <div>
-                        <strong>4.8★</strong>
+                        <strong>4.6★</strong>
                         <span>Customer Rating</span>
                     </div>
                 </div>

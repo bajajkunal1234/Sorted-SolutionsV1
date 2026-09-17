@@ -13,8 +13,8 @@ function WhyChooseUsSection({
             title: title,
             subtitle: subtitle,
             stats: [
-                { value: '50K+', label: 'Happy Customers', icon: '👥' },
-                { value: '4.8★', label: 'Rating', icon: '⭐' },
+                { value: '100+', label: 'Happy Customers', icon: '👥' },
+                { value: '4.6★', label: 'Rating', icon: '⭐' },
                 { value: '90 Days', label: 'Warranty', icon: '🛡️' },
                 { value: '2 Hours', label: 'Response', icon: '⚡' }
             ]
@@ -23,7 +23,7 @@ function WhyChooseUsSection({
             {
                 id: 'service',
                 title: 'Premium Service',
-                features: ['On-time Guarantee', 'Certified Techs', 'Quality Parts'],
+                features: ['On-time Guarantee', 'Verified Techs', 'Quality Parts'],
                 icon: '⭐',
                 color: '#8b5cf6',
                 size: 'large'

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Loader2, ExternalLink, Eye, EyeOff, Star, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, Eye, EyeOff, Star, Plus, Trash2, Edit2, Save, X, ListPlus } from 'lucide-react';
 
 function CustomerTestimonialsSettings() {
     const [reviews, setReviews] = useState([]);        // All reviews (Google + manual)
@@ -31,9 +31,12 @@ function CustomerTestimonialsSettings() {
         minRating: 4,
     });
 
-    // ─── Manual Add form ───────────────────────────────────────────────
+    // ─── Manual & Bulk Add forms ──────────────────────────────────────
     const [showAddForm, setShowAddForm] = useState(false);
     const [newReview, setNewReview] = useState({ customerName: '', location: '', rating: 5, review: '', service: '' });
+    const [showBulkAddForm, setShowBulkAddForm] = useState(false);
+    const [bulkText, setBulkText] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     // ─── Load ─────────────────────────────────────────────────────────
     const fetchData = async () => {
@@ -199,6 +202,91 @@ function CustomerTestimonialsSettings() {
         }
     };
 
+    // ─── Bulk add reviews ────────────────────────────────────────────
+    const handleBulkAdd = async () => {
+        if (!bulkText.trim()) return;
+        setBulkLoading(true);
+        try {
+            const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+            const parsedReviews = [];
+
+            for (const line of lines) {
+                if (line.includes('|')) {
+                    const parts = line.split('|').map(p => p.trim());
+                    if (parts.length >= 3) {
+                        const [name, ratingStr, text, location, service] = parts;
+                        const rating = parseInt(ratingStr) || 5;
+                        if (name && text) {
+                            parsedReviews.push({
+                                customer_name: name,
+                                rating: rating >= 1 && rating <= 5 ? rating : 5,
+                                review_text: text,
+                                location: location || 'Mumbai',
+                                service_type: service || null,
+                                date: new Date().toISOString().split('T')[0],
+                                source: 'Manual Entry',
+                                show_on_website: true,
+                                is_verified: true,
+                            });
+                        }
+                    } else if (parts.length === 2) {
+                        const [name, text] = parts;
+                        if (name && text) {
+                            parsedReviews.push({
+                                customer_name: name,
+                                rating: 5,
+                                review_text: text,
+                                location: 'Mumbai',
+                                date: new Date().toISOString().split('T')[0],
+                                source: 'Manual Entry',
+                                show_on_website: true,
+                                is_verified: true,
+                            });
+                        }
+                    }
+                } else if (line.includes(' - ')) {
+                    const [name, text] = line.split(' - ').map(p => p.trim());
+                    if (name && text) {
+                        parsedReviews.push({
+                            customer_name: name,
+                            rating: 5,
+                            review_text: text,
+                            location: 'Mumbai',
+                            date: new Date().toISOString().split('T')[0],
+                            source: 'Manual Entry',
+                            show_on_website: true,
+                            is_verified: true,
+                        });
+                    }
+                }
+            }
+
+            if (parsedReviews.length === 0) {
+                alert('No valid reviews found. Please use the format:\nCustomer Name | 5 | Review text\nor\nCustomer Name | Review text');
+                setBulkLoading(false);
+                return;
+            }
+
+            for (const review of parsedReviews) {
+                await fetch('/api/settings/testimonials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(review),
+                });
+            }
+
+            setBulkText('');
+            setShowBulkAddForm(false);
+            await fetchData();
+            alert(`✓ Successfully added ${parsedReviews.length} reviews!`);
+        } catch (e) {
+            console.error('Bulk add error:', e);
+            alert('Failed to add reviews: ' + e.message);
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     // ─── Save connection settings ─────────────────────────────────────
     const handleSaveSettings = async () => {
         setSaving(true);
@@ -354,15 +442,49 @@ function CustomerTestimonialsSettings() {
                                 {visibleCount} of {reviews.length} review{reviews.length !== 1 ? 's' : ''} visible on website
                             </p>
                         </div>
-                        <button
-                            onClick={() => setShowAddForm(v => !v)}
-                            className="btn btn-secondary"
-                            style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
-                        >
-                            <Plus size={16} />
-                            Add Manually
-                        </button>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                            <button
+                                onClick={() => { setShowBulkAddForm(v => !v); setShowAddForm(false); }}
+                                className="btn btn-secondary"
+                                style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+                            >
+                                <ListPlus size={16} />
+                                Bulk Add
+                            </button>
+                            <button
+                                onClick={() => { setShowAddForm(v => !v); setShowBulkAddForm(false); }}
+                                className="btn btn-secondary"
+                                style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+                            >
+                                <Plus size={16} />
+                                Add Manually
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Bulk add form */}
+                    {showBulkAddForm && (
+                        <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)', border: '1px solid var(--border-primary)' }}>
+                            <h5 style={{ margin: '0 0 var(--spacing-xs)', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Bulk Add Reviews</h5>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                                Paste multiple reviews below (one review per line). Format: <code>Customer Name | 5 | Review text | Mumbai</code> or <code>Customer Name | Review text</code>
+                            </p>
+                            <textarea
+                                placeholder={`Aarav Mehta | 5 | Quick AC repair, technician arrived in 30 mins | Mumbai\nRohan Gupta | 5 | Best service for washing machine repair | Andheri\nSunil Verma | Great work fixing our refrigerator on the same day`}
+                                value={bulkText}
+                                onChange={e => setBulkText(e.target.value)}
+                                rows={6}
+                                style={{ width: '100%', padding: 'var(--spacing-sm)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', fontFamily: 'monospace', resize: 'vertical', marginBottom: 'var(--spacing-sm)' }}
+                            />
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                <button onClick={handleBulkAdd} className="btn btn-primary" disabled={bulkLoading || !bulkText.trim()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {bulkLoading ? <Loader2 size={14} className="spin" /> : <ListPlus size={14} />}
+                                    Import All
+                                </button>
+                                <button onClick={() => setShowBulkAddForm(false)} className="btn btn-secondary"><X size={14} /> Cancel</button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Manual add form */}
                     {showAddForm && (

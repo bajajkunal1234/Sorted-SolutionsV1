@@ -23,9 +23,10 @@ export default function HomepageBrandLogosSection() {
     // However, if the admin explicitly cleared all logos (config.selectedBrandIds === []), 
     // we still pass that down so BrandLogos can return null and hide the section.
 
-    // If we haven't loaded the config yet, we can either hide it or show a loading state. 
-    // Showing nothing until config loads prevents layout layout shifts of wrong text.
-    if (loading) return null;
+    // If not visible or enabled, hide section completely
+    if (config && (config.visible === false || config.enabled === false)) {
+        return null;
+    }
 
     const title = config?.title || "Brands We Serve";
     const subtitle = (config?.subtitle && config.subtitle !== "Trusted by leading appliance manufacturers") ? config.subtitle : "";

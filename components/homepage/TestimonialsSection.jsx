@@ -12,14 +12,14 @@ function TestimonialsSection() {
     useEffect(() => {
         const fetchTestimonials = async () => {
             try {
-                const res = await fetch('/api/settings/testimonials');
+                const res = await fetch('/api/settings/testimonials?public=true');
                 const data = await res.json();
-                if (data.success && data.data?.length > 0) {
-                    setTestimonials(data.data.filter(t => t.is_active).map(t => ({
+                if (data.success && data.data && data.data.length > 0) {
+                    setTestimonials(data.data.map(t => ({
                         id: t.id,
-                        name: t.customer_name,
-                        rating: t.rating,
-                        text: t.review_text
+                        name: t.customer_name || t.name,
+                        rating: Number(t.rating) || 5,
+                        text: t.review_text || t.text
                     })));
                 }
             } catch (error) {
