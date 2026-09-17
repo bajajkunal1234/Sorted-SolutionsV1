@@ -32,7 +32,12 @@ export async function generateMetadata() {
         title: `${companyName} - Expert Appliance Repair Services`,
         description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
         icons: {
-            icon: '/favicon.png',
+            icon: [
+                { url: '/favicon-light.png', media: '(prefers-color-scheme: light)' },
+                { url: '/favicon-dark.png', media: '(prefers-color-scheme: dark)' },
+                { url: '/favicon.png' },
+            ],
+            shortcut: '/favicon.ico',
             apple: '/icons/icon-192x192.png',
         },
         manifest: '/manifest.json',
@@ -73,6 +78,10 @@ export default function RootLayout({ children }) {
                                 try {
                                     const theme = localStorage.getItem('theme') || 'dark';
                                     document.documentElement.setAttribute('data-theme', theme);
+                                    var el = document.querySelector('link[rel="icon"]:not([media])');
+                                    if (el) {
+                                        el.href = theme === 'light' ? '/favicon-light.png' : '/favicon-dark.png';
+                                    }
                                 } catch (e) {}
                             })();
                         `,

@@ -5,6 +5,11 @@ export const metadata = {
     title: 'Sorted Solutions – Admin',
     description: 'Sorted Solutions admin management portal',
     manifest: '/manifest-admin.json',
+    icons: {
+        icon: '/favicon-charcoal.png',
+        shortcut: '/favicon.ico',
+        apple: '/icons/icon-192x192.png',
+    },
     appleWebApp: {
         capable: true,
         statusBarStyle: 'black-translucent',

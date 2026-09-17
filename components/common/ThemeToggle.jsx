@@ -19,6 +19,14 @@ export default function ThemeToggle() {
         setTheme(newTheme)
         document.documentElement.setAttribute('data-theme', newTheme)
         localStorage.setItem('theme', newTheme)
+
+        // Dynamically update active favicon
+        try {
+            const iconEl = document.querySelector('link[rel="icon"]:not([media])')
+            if (iconEl) {
+                iconEl.href = newTheme === 'light' ? '/favicon-light.png' : '/favicon-dark.png'
+            }
+        } catch (e) {}
     }
 
     return (
