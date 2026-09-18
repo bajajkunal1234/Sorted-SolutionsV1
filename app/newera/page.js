@@ -2013,7 +2013,7 @@ export default function NewEraDashboard() {
                                     ))}
 
                                     {getCalendarDays().map((day, idx) => {
-                                        if (!day) return <div key={`empty-${idx}`} style={styles.emptyDayCell}></div>;
+                                        if (!day) return <div key={`empty-${idx}`} style={styles.emptyDayCell} className="empty-day-cell"></div>;
 
                                         const dateStr = day.dateStr;
                                         const isSelected = selectedCalendarDay === dateStr;
@@ -2054,7 +2054,7 @@ export default function NewEraDashboard() {
                                                 }}
                                             >
                                                 {/* Day Header with Day Number and Daily Totals */}
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', width: '100%' }} className="day-cell-top">
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px', width: '100%', minWidth: 0, overflow: 'hidden' }} className="day-cell-top">
                                                     <span style={{
                                                         ...styles.dayNumLabel,
                                                         color: isToday ? '#818cf8' : isSelected ? '#ffffff' : '#f8fafc',
@@ -2064,18 +2064,21 @@ export default function NewEraDashboard() {
                                                     </span>
 
                                                     {/* Day Totals Summary Chips (Desktop only - hidden on mobile to avoid column blowout) */}
-                                                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }} className="day-totals-chips">
+                                                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0, maxWidth: 'calc(100% - 22px)', justifyContent: 'flex-end', overflow: 'hidden' }} className="day-totals-chips">
                                                         {dayBorrowedTotal > 0 && (
                                                             <span 
                                                                 style={{ 
-                                                                    fontSize: '0.6rem', 
+                                                                    fontSize: '0.58rem', 
                                                                     fontWeight: '800', 
                                                                     color: '#38bdf8', 
                                                                     backgroundColor: 'rgba(56, 189, 248, 0.16)', 
                                                                     padding: '1px 3px', 
                                                                     borderRadius: '3px',
                                                                     border: '1px solid rgba(56, 189, 248, 0.3)',
-                                                                    whiteSpace: 'nowrap'
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    maxWidth: '100%'
                                                                 }} 
                                                                 title={`Total Borrowed on ${dateStr}: ₹${dayBorrowedTotal.toLocaleString('en-IN')}`}
                                                             >
@@ -2085,14 +2088,17 @@ export default function NewEraDashboard() {
                                                         {dayPaidTotal > 0 && (
                                                             <span 
                                                                 style={{ 
-                                                                    fontSize: '0.6rem', 
+                                                                    fontSize: '0.58rem', 
                                                                     fontWeight: '800', 
                                                                     color: '#34d399', 
                                                                     backgroundColor: 'rgba(52, 211, 153, 0.16)', 
                                                                     padding: '1px 3px', 
                                                                     borderRadius: '3px',
                                                                     border: '1px solid rgba(52, 211, 153, 0.3)',
-                                                                    whiteSpace: 'nowrap'
+                                                                    whiteSpace: 'nowrap',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    maxWidth: '100%'
                                                                 }} 
                                                                 title={`Total Paid on ${dateStr}: ₹${dayPaidTotal.toLocaleString('en-IN')}`}
                                                             >
@@ -2108,6 +2114,7 @@ export default function NewEraDashboard() {
                                                     {dayLoans.map(loan => (
                                                         <div 
                                                             key={`loan-${loan.id}`} 
+                                                            className="mini-rep-card"
                                                             style={{
                                                                 ...styles.miniRepaymentCard,
                                                                 borderColor: 'rgba(56, 189, 248, 0.4)',
@@ -2115,8 +2122,8 @@ export default function NewEraDashboard() {
                                                             }}
                                                             title={`Borrowed: ${loan.name} (${loan.lender}) - ₹${parseFloat(loan.principal_amount).toLocaleString('en-IN')}`}
                                                         >
-                                                            <div style={{ ...styles.miniRepName, color: '#38bdf8' }}>+ {loan.name}</div>
-                                                            <div style={{ ...styles.miniRepAmt, color: '#bae6fd' }}>₹{Math.round(loan.principal_amount).toLocaleString('en-IN')}</div>
+                                                            <div className="mini-rep-name" style={{ ...styles.miniRepName, color: '#38bdf8' }}>+ {loan.name}</div>
+                                                            <div className="mini-rep-amt" style={{ ...styles.miniRepAmt, color: '#bae6fd' }}>₹{Math.round(loan.principal_amount).toLocaleString('en-IN')}</div>
                                                         </div>
                                                     ))}
 
@@ -2126,6 +2133,7 @@ export default function NewEraDashboard() {
                                                         return (
                                                             <div 
                                                                 key={`payment-${payment.id}`} 
+                                                                className="mini-rep-card"
                                                                 style={{
                                                                     ...styles.miniRepaymentCard,
                                                                     borderColor: 'rgba(52, 211, 153, 0.4)',
@@ -2133,8 +2141,8 @@ export default function NewEraDashboard() {
                                                                 }}
                                                                 title={`Paid: ₹${parseFloat(payment.amount).toLocaleString('en-IN')} (${loan ? loan.name : 'Unknown'})`}
                                                             >
-                                                                <div style={{ ...styles.miniRepName, color: '#34d399' }}>✓ {loan ? loan.name : 'Payment'}</div>
-                                                                <div style={{ ...styles.miniRepAmt, color: '#a7f3d0' }}>₹{Math.round(payment.amount).toLocaleString('en-IN')}</div>
+                                                                <div className="mini-rep-name" style={{ ...styles.miniRepName, color: '#34d399' }}>✓ {loan ? loan.name : 'Payment'}</div>
+                                                                <div className="mini-rep-amt" style={{ ...styles.miniRepAmt, color: '#a7f3d0' }}>₹{Math.round(payment.amount).toLocaleString('en-IN')}</div>
                                                             </div>
                                                         );
                                                     })}
@@ -2145,6 +2153,7 @@ export default function NewEraDashboard() {
                                                         return (
                                                             <div 
                                                                 key={`rep-${rep.id}`} 
+                                                                className="mini-rep-card"
                                                                 style={{
                                                                     ...styles.miniRepaymentCard,
                                                                     borderColor: rep.status === 'paid' ? '#10b981' : rep.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
@@ -2152,8 +2161,8 @@ export default function NewEraDashboard() {
                                                                 }}
                                                                 title={`Due: ${loan ? loan.name : 'Vendor'} - ₹${parseFloat(rep.expected_amount).toLocaleString('en-IN')} (${rep.status.toUpperCase()})`}
                                                             >
-                                                                <div style={styles.miniRepName}>{loan ? loan.name : 'Vendor'}</div>
-                                                                <div style={styles.miniRepAmt}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</div>
+                                                                <div className="mini-rep-name" style={styles.miniRepName}>{loan ? loan.name : 'Vendor'}</div>
+                                                                <div className="mini-rep-amt" style={styles.miniRepAmt}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</div>
                                                             </div>
                                                         );
                                                     })}
@@ -4595,7 +4604,11 @@ const styles = {
         padding: '1.25rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem'
+        gap: '1rem',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
     },
     calendarNav: {
         display: 'flex',
@@ -4621,9 +4634,11 @@ const styles = {
     },
     calendarGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
+        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
         gap: '0.5rem',
-        width: '100%'
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box'
     },
     weekdayCell: {
         textAlign: 'center',
@@ -4632,15 +4647,22 @@ const styles = {
         color: '#94a3b8',
         padding: '0.5rem 0',
         textTransform: 'uppercase',
-        letterSpacing: '0.05em'
+        letterSpacing: '0.05em',
+        minWidth: 0,
+        overflow: 'hidden'
     },
     emptyDayCell: {
-        background: 'transparent',
-        aspectRatio: '1',
-        borderRadius: '0.5rem'
+        background: 'rgba(255, 255, 255, 0.01)',
+        minHeight: '95px',
+        minWidth: 0,
+        borderRadius: '0.5rem',
+        border: '1px dashed rgba(255, 255, 255, 0.03)',
+        boxSizing: 'border-box'
     },
     dayCell: {
         minHeight: '95px',
+        minWidth: 0,
+        maxWidth: '100%',
         padding: '0.45rem',
         borderRadius: '0.5rem',
         border: '1px solid',
@@ -4650,39 +4672,63 @@ const styles = {
         flexDirection: 'column',
         justifyContent: 'flex-start',
         gap: '0.25rem',
-        transition: 'all 0.2s'
+        transition: 'all 0.2s',
+        overflow: 'hidden',
+        boxSizing: 'border-box'
     },
     dayNumLabel: {
         fontSize: '0.85rem',
         fontWeight: '700',
-        color: '#f8fafc'
+        color: '#f8fafc',
+        flexShrink: 0
     },
     dayContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.2rem',
-        overflow: 'hidden',
+        gap: '0.25rem',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         marginTop: '0.25rem',
-        flex: 1
+        flex: 1,
+        minWidth: 0,
+        width: '100%',
+        maxHeight: '190px',
+        boxSizing: 'border-box'
     },
     miniRepaymentCard: {
-        padding: '0.15rem 0.3rem',
+        padding: '0.2rem 0.35rem',
         borderRadius: '0.25rem',
         fontSize: '0.65rem',
         fontWeight: '700',
         border: '1px solid',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
-        textOverflow: 'ellipsis'
+        textOverflow: 'ellipsis',
+        minWidth: 0,
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        display: 'block'
     },
     miniRepName: {
         color: '#ffffff',
         opacity: 0.9,
-        fontWeight: '800'
+        fontWeight: '800',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
+        maxWidth: '100%',
+        display: 'block'
     },
     miniRepAmt: {
         fontSize: '0.6rem',
-        opacity: 0.8
+        opacity: 0.8,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
+        maxWidth: '100%',
+        display: 'block'
     },
     mobileDotContainer: {
         display: 'none',
@@ -5012,6 +5058,76 @@ if (typeof window !== 'undefined') {
         }
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        /* Calendar Grid Global Layout (ensures equal 1/7 column widths on all screens) */
+        .calendar-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+        .calendar-grid {
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .weekday-cell {
+            min-width: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            text-align: center !important;
+        }
+        .empty-day-cell {
+            min-width: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .calendar-day-cell {
+            min-width: 0 !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+        .calendar-day-cell .day-cell-top {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+        .calendar-day-cell .day-totals-chips {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+        }
+        .calendar-day-cell .day-content {
+            min-width: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+        }
+        .calendar-day-cell .mini-rep-card {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            display: block !important;
+        }
+        .calendar-day-cell .mini-rep-name,
+        .calendar-day-cell .mini-rep-amt {
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            display: block !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
         }
 
         /* Mobile Viewport & Tracker Layout Overrides */
