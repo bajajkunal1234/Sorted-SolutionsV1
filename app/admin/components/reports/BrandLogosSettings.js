@@ -40,11 +40,11 @@ function ToggleSwitch({ checked, onChange, disabled, loading }) {
                 width: 46,
                 height: 24,
                 borderRadius: 999,
-                backgroundColor: checked ? '#10b981' : '#cbd5e1',
-                border: 'none',
+                backgroundColor: checked ? '#10b981' : 'var(--bg-tertiary, #334155)',
+                border: checked ? '1px solid #10b981' : '1px solid var(--border-secondary, #475569)',
                 cursor: disabled || loading ? 'not-allowed' : 'pointer',
                 opacity: disabled ? 0.6 : 1,
-                transition: 'background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 padding: 0,
                 outline: 'none',
                 flexShrink: 0
@@ -332,17 +332,17 @@ function BrandLogosSettings() {
     const getTypeBadge = (type) => {
         switch (type) {
             case 'homepage':
-                return { label: 'Homepage', bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' };
+                return { label: 'Homepage', bg: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: 'rgba(59, 130, 246, 0.35)' };
             case 'category':
-                return { label: 'Main Category', bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' };
+                return { label: 'Main Category', bg: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.35)' };
             case 'subcategory':
-                return { label: 'Subcategory', bg: '#eef2ff', color: '#4338ca', border: '#c7d2fe' };
+                return { label: 'Subcategory', bg: 'rgba(99, 102, 241, 0.15)', color: '#a5b4fc', border: 'rgba(99, 102, 241, 0.35)' };
             case 'location':
-                return { label: 'Location Area', bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' };
+                return { label: 'Location Area', bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: 'rgba(16, 185, 129, 0.35)' };
             case 'sublocation':
-                return { label: 'Sublocation', bg: '#ecfeff', color: '#0e7490', border: '#a5f3fc' };
+                return { label: 'Sublocation', bg: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8', border: 'rgba(14, 165, 233, 0.35)' };
             default:
-                return { label: type, bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' };
+                return { label: type, bg: 'var(--bg-tertiary)', color: 'var(--text-secondary)', border: 'var(--border-primary)' };
         }
     };
 
@@ -394,8 +394,9 @@ function BrandLogosSettings() {
                             fontSize: 12,
                             padding: '4px 10px',
                             borderRadius: 999,
-                            backgroundColor: '#f1f5f9',
-                            color: '#475569',
+                            backgroundColor: 'var(--bg-elevated)',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-primary)',
                             fontWeight: 600
                         }}>
                             {brands.length} Brands Loaded
@@ -404,8 +405,9 @@ function BrandLogosSettings() {
                             fontSize: 12,
                             padding: '4px 10px',
                             borderRadius: 999,
-                            backgroundColor: stats.hiddenCount > 0 ? '#fef3c7' : '#ecfdf5',
-                            color: stats.hiddenCount > 0 ? '#b45309' : '#047857',
+                            backgroundColor: stats.hiddenCount > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            color: stats.hiddenCount > 0 ? '#f59e0b' : '#10b981',
+                            border: stats.hiddenCount > 0 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
                             fontWeight: 600
                         }}>
                             {stats.visibleCount}/{stats.total} Pages Active
@@ -434,7 +436,7 @@ function BrandLogosSettings() {
                         cursor: 'pointer',
                         fontWeight: 600,
                         fontSize: 14,
-                        color: activeTab === 'logos' ? 'var(--color-primary)' : 'var(--text-secondary)',
+                        color: activeTab === 'logos' ? 'var(--color-primary-light, #818cf8)' : 'var(--text-secondary)',
                         borderBottom: activeTab === 'logos' ? '3px solid var(--color-primary)' : '3px solid transparent',
                         marginBottom: -2,
                         transition: 'all 0.15s ease'
@@ -446,8 +448,8 @@ function BrandLogosSettings() {
                         fontSize: 11,
                         padding: '2px 8px',
                         borderRadius: 12,
-                        backgroundColor: activeTab === 'logos' ? 'var(--color-primary)' : '#e2e8f0',
-                        color: activeTab === 'logos' ? '#fff' : '#475569',
+                        backgroundColor: activeTab === 'logos' ? 'var(--color-primary)' : 'var(--bg-tertiary)',
+                        color: activeTab === 'logos' ? '#ffffff' : 'var(--text-secondary)',
                         fontWeight: 700
                     }}>
                         {brands.length}
@@ -467,7 +469,7 @@ function BrandLogosSettings() {
                         cursor: 'pointer',
                         fontWeight: 600,
                         fontSize: 14,
-                        color: activeTab === 'visibility' ? 'var(--color-primary)' : 'var(--text-secondary)',
+                        color: activeTab === 'visibility' ? 'var(--color-primary-light, #818cf8)' : 'var(--text-secondary)',
                         borderBottom: activeTab === 'visibility' ? '3px solid var(--color-primary)' : '3px solid transparent',
                         marginBottom: -2,
                         transition: 'all 0.15s ease'
@@ -479,8 +481,8 @@ function BrandLogosSettings() {
                         fontSize: 11,
                         padding: '2px 8px',
                         borderRadius: 12,
-                        backgroundColor: activeTab === 'visibility' ? '#10b981' : '#e2e8f0',
-                        color: activeTab === 'visibility' ? '#fff' : '#475569',
+                        backgroundColor: activeTab === 'visibility' ? '#10b981' : 'var(--bg-tertiary)',
+                        color: activeTab === 'visibility' ? '#ffffff' : 'var(--text-secondary)',
                         fontWeight: 700
                     }}>
                         {stats.total || 91} Pages
@@ -497,8 +499,8 @@ function BrandLogosSettings() {
                     <div style={{
                         padding: '12px 16px',
                         borderRadius: 'var(--radius-md)',
-                        backgroundColor: '#f8fafc',
-                        border: '1px solid #e2e8f0',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
                         marginBottom: 'var(--spacing-md)',
                         display: 'flex',
                         alignItems: 'center',
@@ -732,22 +734,22 @@ function BrandLogosSettings() {
             {activeTab === 'visibility' && (
                 <div>
                     {/* Summary Card */}
-                    <div className="card" style={{ padding: '16px 20px', marginBottom: 16, backgroundColor: '#ffffff', border: '1px solid var(--border-primary)' }}>
+                    <div className="card" style={{ padding: '16px 20px', marginBottom: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
                                 <div>
                                     <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Pages</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.total}</div>
+                                    <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.total}</div>
                                 </div>
                                 <div style={{ height: 32, width: 1, backgroundColor: 'var(--border-primary)' }} />
                                 <div>
-                                    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#059669', fontWeight: 600 }}>Brands Visible</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, color: '#10b981' }}>{stats.visibleCount}</div>
+                                    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10b981', fontWeight: 600 }}>Brands Visible</div>
+                                    <div style={{ fontSize: 24, fontWeight: 700, color: '#10b981' }}>{stats.visibleCount}</div>
                                 </div>
                                 <div style={{ height: 32, width: 1, backgroundColor: 'var(--border-primary)' }} />
                                 <div>
-                                    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#dc2626', fontWeight: 600 }}>Brands Hidden</div>
-                                    <div style={{ fontSize: 22, fontWeight: 700, color: '#ef4444' }}>{stats.hiddenCount}</div>
+                                    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ef4444', fontWeight: 600 }}>Brands Hidden</div>
+                                    <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>{stats.hiddenCount}</div>
                                 </div>
                             </div>
 
@@ -776,8 +778,9 @@ function BrandLogosSettings() {
                                         gap: 6,
                                         fontSize: 13,
                                         padding: '8px 12px',
-                                        color: '#059669',
-                                        borderColor: '#a7f3d0'
+                                        color: '#34d399',
+                                        borderColor: 'rgba(16, 185, 129, 0.4)',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.1)'
                                     }}
                                 >
                                     <Eye size={14} />
@@ -795,8 +798,9 @@ function BrandLogosSettings() {
                                         gap: 6,
                                         fontSize: 13,
                                         padding: '8px 12px',
-                                        color: '#dc2626',
-                                        borderColor: '#fecaca'
+                                        color: '#f87171',
+                                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.1)'
                                     }}
                                 >
                                     <EyeOff size={14} />
@@ -833,14 +837,14 @@ function BrandLogosSettings() {
                                     type="button"
                                     onClick={() => setPagesFilter(tab.id)}
                                     style={{
-                                        padding: '6px 14px',
+                                        padding: '7px 14px',
                                         borderRadius: 20,
                                         fontSize: 13,
                                         fontWeight: pagesFilter === tab.id ? 700 : 500,
                                         border: '1px solid',
                                         borderColor: pagesFilter === tab.id ? 'var(--color-primary)' : 'var(--border-primary)',
-                                        backgroundColor: pagesFilter === tab.id ? 'var(--color-primary)' : '#ffffff',
-                                        color: pagesFilter === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                                        backgroundColor: pagesFilter === tab.id ? 'var(--color-primary)' : 'var(--bg-elevated)',
+                                        color: pagesFilter === tab.id ? '#ffffff' : 'var(--text-primary)',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -852,10 +856,10 @@ function BrandLogosSettings() {
                                     <span>{tab.label}</span>
                                     <span style={{
                                         fontSize: 11,
-                                        padding: '1px 6px',
+                                        padding: '1px 7px',
                                         borderRadius: 10,
-                                        backgroundColor: pagesFilter === tab.id ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
-                                        color: pagesFilter === tab.id ? '#ffffff' : '#64748b'
+                                        backgroundColor: pagesFilter === tab.id ? 'rgba(255,255,255,0.25)' : 'var(--bg-tertiary)',
+                                        color: pagesFilter === tab.id ? '#ffffff' : 'var(--text-secondary)'
                                     }}>
                                         {tab.count}
                                     </span>
@@ -878,11 +882,12 @@ function BrandLogosSettings() {
                                     onChange={e => setSearchQuery(e.target.value)}
                                     style={{
                                         width: '100%',
-                                        padding: '9px 12px 9px 36px',
+                                        padding: '10px 12px 10px 36px',
                                         border: '1px solid var(--border-primary)',
                                         borderRadius: 'var(--radius-md)',
                                         fontSize: 13,
-                                        backgroundColor: '#ffffff',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-primary)',
                                         boxSizing: 'border-box'
                                     }}
                                 />
@@ -919,14 +924,16 @@ function BrandLogosSettings() {
                                         type="button"
                                         onClick={() => setStatusFilter(s.id)}
                                         style={{
-                                            padding: '8px 12px',
+                                            padding: '8px 14px',
                                             borderRadius: 'var(--radius-md)',
                                             fontSize: 12,
-                                            fontWeight: statusFilter === s.id ? 600 : 400,
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: statusFilter === s.id ? '#f1f5f9' : '#ffffff',
-                                            color: statusFilter === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                            cursor: 'pointer'
+                                            fontWeight: statusFilter === s.id ? 600 : 500,
+                                            border: '1px solid',
+                                            borderColor: statusFilter === s.id ? 'var(--color-primary)' : 'var(--border-primary)',
+                                            backgroundColor: statusFilter === s.id ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-elevated)',
+                                            color: statusFilter === s.id ? 'var(--color-primary-light, #818cf8)' : 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
                                         }}
                                     >
                                         {s.label}
@@ -938,7 +945,7 @@ function BrandLogosSettings() {
 
                     {/* Loading State */}
                     {loadingPages ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 60, backgroundColor: '#fff', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 60, backgroundColor: 'var(--bg-elevated)', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
                             <Loader2 className="animate-spin" size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
                             <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading pages and visibility states...</span>
                         </div>
@@ -984,9 +991,9 @@ function BrandLogosSettings() {
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
                                             gap: 16,
-                                            backgroundColor: page.visible ? '#ffffff' : '#fcfcfc',
-                                            border: page.visible ? '1px solid var(--border-primary)' : '1px dashed #cbd5e1',
-                                            opacity: page.visible ? 1 : 0.85,
+                                            backgroundColor: page.visible ? 'var(--bg-elevated)' : 'var(--bg-secondary)',
+                                            border: page.visible ? '1px solid var(--border-primary)' : '1px dashed var(--border-secondary)',
+                                            opacity: page.visible ? 1 : 0.75,
                                             transition: 'all 0.15s ease'
                                         }}
                                     >
@@ -1025,7 +1032,7 @@ function BrandLogosSettings() {
                                                         rel="noopener noreferrer"
                                                         style={{
                                                             fontSize: 12,
-                                                            color: 'var(--color-primary)',
+                                                            color: 'var(--color-primary-light, #818cf8)',
                                                             textDecoration: 'none',
                                                             display: 'inline-flex',
                                                             alignItems: 'center',
@@ -1042,7 +1049,7 @@ function BrandLogosSettings() {
 
                                                 <span style={{
                                                     fontSize: 11,
-                                                    color: page.visible ? '#059669' : '#dc2626',
+                                                    color: page.visible ? '#10b981' : '#ef4444',
                                                     fontWeight: 600,
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
@@ -1068,7 +1075,7 @@ function BrandLogosSettings() {
                                             <span style={{
                                                 fontSize: 12,
                                                 fontWeight: 600,
-                                                color: page.visible ? '#059669' : '#94a3b8'
+                                                color: page.visible ? '#10b981' : 'var(--text-tertiary)'
                                             }}>
                                                 {page.visible ? 'Visible' : 'Hidden'}
                                             </span>
