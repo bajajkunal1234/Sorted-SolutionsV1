@@ -56,7 +56,7 @@ export async function GET(request) {
         if (error) throw error
 
         if (data && data.length > 0) {
-            const propertyIds = data.map(j => j.property_id).filter(Boolean);
+            const propertyIds = data.map(j => j.property_id || (j.property && typeof j.property === 'object' && j.property.id)).filter(Boolean);
             if (propertyIds.length > 0) {
                 const { data: propertiesList } = await supabase
                     .from('properties')
@@ -69,10 +69,12 @@ export async function GET(request) {
                         propMap[p.id] = p;
                     });
                     data.forEach(j => {
-                        if (j.property_id && propMap[j.property_id]) {
-                            const dbProp = propMap[j.property_id];
+                        const propId = j.property_id || (j.property && typeof j.property === 'object' && j.property.id);
+                        if (propId && propMap[propId]) {
+                            const dbProp = propMap[propId];
                             j.property = {
                                 ...(j.property || {}),
+                                ...dbProp,
                                 latitude: dbProp.latitude || j.property?.latitude || null,
                                 longitude: dbProp.longitude || j.property?.longitude || null,
                                 location_verified_by: dbProp.location_verified_by || j.property?.location_verified_by || null,

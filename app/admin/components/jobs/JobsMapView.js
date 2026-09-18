@@ -6,6 +6,20 @@ import L from 'leaflet';
 import { User, Briefcase, Calendar, Loader2, Phone, Map } from 'lucide-react';
 import { techniciansAPI } from '@/lib/adminAPI';
 import { generateInitialsAvatar } from '@/lib/utils/accountHelpers';
+import { getCoordinatesForLocality, MUMBAI_LOCALITY_COORDS } from '@/lib/data/mumbaiLocalities';
+
+// Helper to determine if a job is a new booking request / enquiry needing admin attention
+export function isNewBookingRequest(job) {
+    if (!job) return false;
+    const status = String(job.status || '').toLowerCase().trim();
+    return (
+        status === 'new_job_request' ||
+        status === 'booking_request' ||
+        status === 'enquiry' ||
+        status === 'new' ||
+        job.is_booking_request === true
+    );
+}
 
 // Robust helper to resolve coordinates from a job object or its linked property/customer properties
 function getJobCoordinates(job) {
@@ -80,6 +94,68 @@ function getJobCoordinates(job) {
         }
     }
 
+    // 4. Coordinates from job.notes (booking requests store address in notes JSON)
+    let notesObj = null;
+    if (job.notes) {
+        if (typeof job.notes === 'object') notesObj = job.notes;
+        else if (typeof job.notes === 'string') {
+            try { notesObj = JSON.parse(job.notes); } catch (e) {}
+        }
+    }
+    if (notesObj) {
+        const custAddr = notesObj.customer?.address || notesObj.address;
+        if (custAddr) {
+            if (custAddr.lat && custAddr.lng) return { lat: Number(custAddr.lat), lng: Number(custAddr.lng) };
+            if (custAddr.latitude && custAddr.longitude) return { lat: Number(custAddr.latitude), lng: Number(custAddr.longitude) };
+            if (custAddr.locality) {
+                const c = getCoordinatesForLocality(custAddr.locality);
+                if (c) return c;
+            }
+            if (custAddr.pincode) {
+                const c = getCoordinatesForLocality(custAddr.pincode);
+                if (c) return c;
+            }
+            if (custAddr.street) {
+                const c = getCoordinatesForLocality(custAddr.street);
+                if (c) return c;
+            }
+        }
+        if (notesObj.locality) {
+            const c = getCoordinatesForLocality(notesObj.locality);
+            if (c) return c;
+        }
+    }
+
+    // 5. Fallback from job.property locality / pincode / address text
+    if (prop) {
+        if (prop.locality) {
+            const c = getCoordinatesForLocality(prop.locality);
+            if (c) return c;
+        }
+        if (prop.pincode) {
+            const c = getCoordinatesForLocality(prop.pincode);
+            if (c) return c;
+        }
+        if (prop.address) {
+            const c = getCoordinatesForLocality(prop.address);
+            if (c) return c;
+        }
+    }
+
+    // 6. Direct locality / pincode / address fields on job
+    if (job.locality) {
+        const c = getCoordinatesForLocality(job.locality);
+        if (c) return c;
+    }
+    if (job.pincode) {
+        const c = getCoordinatesForLocality(job.pincode);
+        if (c) return c;
+    }
+    if (job.address) {
+        const c = getCoordinatesForLocality(job.address);
+        if (c) return c;
+    }
+
     return null;
 }
 
@@ -111,6 +187,29 @@ function createThinPinIcon(color, strokeColor = '#ffffff') {
         iconSize: [20, 28],
         iconAnchor: [10, 28],
         popupAnchor: [0, -28]
+    });
+}
+
+// Helper to create glowing, blinking yellow map pin icon with radar pulse for new booking requests
+function createBlinkingYellowPinIcon() {
+    return L.divIcon({
+        className: 'custom-blinking-yellow-marker',
+        html: `
+        <div class="blinking-pin-wrapper">
+            <div class="blinking-radar-ring"></div>
+            <div class="blinking-radar-ring delay-1"></div>
+            <div class="blinking-pin-body">
+                <svg width="26" height="36" viewBox="0 0 24 34" fill="none" style="filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.95)) drop-shadow(0 2px 5px rgba(0,0,0,0.6));">
+                    <path d="M12 1C6.03 1 1.2 5.83 1.2 11.8c0 8.1 10.8 20.4 10.8 20.4s10.8-12.3 10.8-20.4C22.8 5.83 17.97 1 12 1z" fill="#facc15" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
+                    <circle cx="12" cy="11.5" r="5.2" fill="#1e293b"/>
+                    <path d="M12 8.8v3.2M12 14.3h.01" stroke="#facc15" stroke-width="2.2" stroke-linecap="round"/>
+                </svg>
+                <div class="blinking-badge">NEW</div>
+            </div>
+        </div>`,
+        iconSize: [36, 44],
+        iconAnchor: [18, 40],
+        popupAnchor: [0, -38]
     });
 }
 
@@ -323,35 +422,34 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
 
     // Helper to build customer markers based on selected customization
     const getCustomerIcon = (job, groupJobs = []) => {
+        // Priority 1: If this property has any new booking request / enquiry, ALWAYS show blinking yellow marker
+        const hasNewBooking = (groupJobs.length > 0 && groupJobs.some(isNewBookingRequest)) || isNewBookingRequest(job);
+        if (hasNewBooking) {
+            return createBlinkingYellowPinIcon();
+        }
+
         const name = job?.customer?.name || job?.customer_name || 'Customer';
         const img = job?.customer?.accountImage;
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
         const avatar = generateInitialsAvatar(name);
 
         if (custMarkerType === 'thin') {
-            let color = '#3b82f6'; // Default blue (active & assigned)
+            let color = '#3b82f6'; // Default blue (active & open jobs)
             
             if (groupJobs.length > 0) {
                 const allClosed = groupJobs.every(j => j.status === 'closed' || j.status === 'cancelled');
-                const anyUnassignedActive = groupJobs.some(j => 
-                    (j.status !== 'closed' && j.status !== 'cancelled') && 
-                    (!j.technician_id || j.status === 'new_job_request' || j.status === 'booking_request')
-                );
-                
                 if (allClosed) {
-                    color = '#10b981'; // Green
-                } else if (anyUnassignedActive) {
-                    color = '#ef4444'; // Red
+                    color = '#10b981'; // Green: Completed / Closed
+                } else {
+                    color = '#3b82f6'; // Blue: Open / Active Job
                 }
             } else if (job) {
                 const status = job.status;
                 const isClosedOrCancelled = status === 'closed' || status === 'cancelled';
-                const isUnassigned = !job.technician_id || status === 'new_job_request' || status === 'booking_request';
-                
                 if (isClosedOrCancelled) {
                     color = '#10b981';
-                } else if (isUnassigned) {
-                    color = '#ef4444';
+                } else {
+                    color = '#3b82f6';
                 }
             }
             return createThinPinIcon(color);
@@ -834,13 +932,38 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             if (!coords) return;
             const propId = job.property_id || job.property?.id || `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
             if (!groups[propId]) {
+                let customerName = job.customer_name || job.customer?.name;
+                let notesObj = null;
+                if (typeof job.notes === 'object') notesObj = job.notes;
+                else if (typeof job.notes === 'string') {
+                    try { notesObj = JSON.parse(job.notes); } catch (e) {}
+                }
+                if (!customerName && notesObj?.customer?.name) {
+                    customerName = notesObj.customer.name;
+                }
+                if (!customerName) {
+                    customerName = 'Customer';
+                }
+
+                let displayProperty = job.property;
+                if (!displayProperty && notesObj?.customer?.address) {
+                    const a = notesObj.customer.address;
+                    displayProperty = {
+                        flat_number: a.flat || a.flat_number || '',
+                        building_name: a.building || a.building_name || '',
+                        address: [a.street, a.landmark, a.locality, a.pincode].filter(Boolean).join(', '),
+                        locality: a.locality || '',
+                        pincode: a.pincode || ''
+                    };
+                }
+
                 groups[propId] = {
                     id: propId,
                     lat: coords.lat,
                     lng: coords.lng,
-                    property: job.property,
-                    customer: job.customer,
-                    customerName: job.customer_name || job.customer?.name || 'Customer',
+                    property: displayProperty,
+                    customer: job.customer || notesObj?.customer || null,
+                    customerName: customerName,
                     jobs: []
                 };
             }
@@ -875,8 +998,77 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
 
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-            {/* Global dark styling overrides for Leaflet popups */}
+            {/* Global dark styling overrides for Leaflet popups & Blinking Yellow Markers */}
             <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes pin-radar-pulse {
+                    0% {
+                        transform: scale(0.6);
+                        opacity: 0.95;
+                    }
+                    100% {
+                        transform: scale(2.5);
+                        opacity: 0;
+                    }
+                }
+                @keyframes pin-yellow-bounce {
+                    0%, 100% {
+                        transform: translateY(0) scale(1);
+                    }
+                    50% {
+                        transform: translateY(-5px) scale(1.08);
+                    }
+                }
+                .custom-blinking-yellow-marker {
+                    background: transparent !important;
+                    border: none !important;
+                }
+                .blinking-pin-wrapper {
+                    position: relative;
+                    width: 36px;
+                    height: 44px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .blinking-radar-ring {
+                    position: absolute;
+                    bottom: 2px;
+                    left: 50%;
+                    margin-left: -16px;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    background-color: rgba(250, 204, 21, 0.55);
+                    animation: pin-radar-pulse 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+                    pointer-events: none;
+                    z-index: 1;
+                }
+                .blinking-radar-ring.delay-1 {
+                    animation-delay: 0.85s;
+                }
+                .blinking-pin-body {
+                    position: relative;
+                    z-index: 2;
+                    animation: pin-yellow-bounce 1.6s ease-in-out infinite;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .blinking-badge {
+                    position: absolute;
+                    top: -6px;
+                    right: -8px;
+                    background: #ef4444;
+                    color: #ffffff;
+                    font-size: 8px;
+                    font-weight: 900;
+                    padding: 1px 4px;
+                    border-radius: 6px;
+                    border: 1px solid #ffffff;
+                    letter-spacing: 0.5px;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+                    pointer-events: none;
+                }
                 .leaflet-popup-content-wrapper, .leaflet-popup-tip {
                     background: #1e293b !important;
                     color: #f8fafc !important;
@@ -966,6 +1158,30 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
 
                             <Popup maxWidth={320} onClose={() => setActiveRoute(null)}>
                                 <div style={{ minWidth: '270px', color: '#f8fafc', fontFamily: 'inherit', maxHeight: '340px', overflowY: 'auto' }}>
+                                    {/* Alert banner if this marker contains a new booking request */}
+                                    {propertyJobs.some(isNewBookingRequest) && (
+                                        <div style={{
+                                            backgroundColor: 'rgba(234, 179, 8, 0.18)',
+                                            border: '1px solid #facc15',
+                                            borderRadius: '6px',
+                                            padding: '6px 8px',
+                                            marginBottom: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px'
+                                        }}>
+                                            <span style={{ fontSize: '16px' }}>⚡</span>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 800, color: '#facc15', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                    New Booking Request
+                                                </div>
+                                                <div style={{ fontSize: '9px', color: '#fef08a' }}>
+                                                    Needs Attention & Technician Assignment
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Property Header */}
                                     <div style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px', marginBottom: '8px' }}>
                                         <h4 style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', margin: 0 }}>{customerName}</h4>
@@ -974,6 +1190,14 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                                                 📍 {[group.property.flat_number, group.property.building_name, group.property.address].filter(Boolean).join(', ')}
                                             </p>
                                         )}
+                                        {(() => {
+                                            const phone = group.customer?.phone || representativeJob.customer_phone || (typeof representativeJob.notes === 'object' && representativeJob.notes?.customer?.phone);
+                                            return phone ? (
+                                                <p style={{ fontSize: '10px', color: '#38bdf8', margin: '3px 0 0' }}>
+                                                    📞 {phone}
+                                                </p>
+                                            ) : null;
+                                        })()}
                                     </div>
 
                                     {/* Jobs List at Property */}
@@ -1022,10 +1246,17 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                             <span style={{
                                                                 fontSize: '9px',
-                                                                padding: '1px 5px',
+                                                                padding: '1px 6px',
                                                                 borderRadius: '10px',
-                                                                backgroundColor: isAssigned ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
-                                                                color: isAssigned ? '#10b981' : '#ef4444',
+                                                                backgroundColor: isNewBookingRequest(job)
+                                                                    ? 'rgba(250, 204, 21, 0.22)'
+                                                                    : isAssigned ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)',
+                                                                color: isNewBookingRequest(job)
+                                                                    ? '#facc15'
+                                                                    : isAssigned ? '#10b981' : '#38bdf8',
+                                                                border: isNewBookingRequest(job)
+                                                                    ? '1px solid rgba(250, 204, 21, 0.5)'
+                                                                    : 'none',
                                                                 fontWeight: 700,
                                                                 textTransform: 'capitalize'
                                                             }}>{job.status.replace(/_/g, ' ')}</span>
@@ -1401,15 +1632,15 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                     }}>
                         {/* Customers */}
                         <div>
-                            <strong style={{ color: '#38bdf8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Customers / Properties</strong>
+                            <strong style={{ color: '#38bdf8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Jobs / Customer Properties</strong>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#3b82f6', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
-                                    <span>Blue: Active / Assigned Job</span>
+                                    <div style={{ width: '11px', height: '15px', backgroundColor: '#facc15', borderRadius: '50% 50% 50% 0', transform: 'rotate(-45deg)', border: '1.5px solid #ffffff', boxShadow: '0 0 6px rgba(250, 204, 21, 0.9)' }}></div>
+                                    <span><strong style={{ color: '#facc15' }}>Blinking Yellow:</strong> New Booking Request (Needs Attention)</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#ef4444', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
-                                    <span>Red: Active / Unassigned (Action Needed)</span>
+                                    <div style={{ width: '10px', height: '14px', backgroundColor: '#3b82f6', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
+                                    <span>Blue: Open / Active Job</span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ width: '10px', height: '14px', backgroundColor: '#10b981', clipPath: 'polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%)' }}></div>
