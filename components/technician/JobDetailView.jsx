@@ -539,6 +539,41 @@ const computeVisitsFromInteractions = (interactions = []) => {
     });
 };
 
+export const getCurrentVisitNumber = (job) => {
+    if (!job) return 1;
+    const interactions = job.interactions || [];
+    const beforePhotosCount = interactions.filter(i => i.type === 'before-photos-uploaded').length;
+    
+    // Check computed visits from interactions
+    const visits = computeVisitsFromInteractions(interactions);
+    const totalVisitsCount = visits.length;
+
+    let num = beforePhotosCount + 1;
+    if (totalVisitsCount > 0) {
+        num = Math.max(num, totalVisitsCount);
+    }
+
+    if (['parts_ordered', 'work_in_progress'].includes(job.status)) {
+        num = Math.max(2, num);
+    }
+
+    const arrivedTime = job.arrived_at ? new Date(job.arrived_at).getTime() : 0;
+    const isPast12Hours = arrivedTime > 0 && (Date.now() - arrivedTime >= 12 * 3600 * 1000);
+    if (isPast12Hours) {
+        num = Math.max(2, num);
+    }
+
+    const maxRecordedVisitNum = interactions.reduce((max, i) => {
+        const vNum = i.metadata?.visit_number || i.visit_number;
+        return vNum ? Math.max(max, Number(vNum)) : max;
+    }, 0);
+    if (maxRecordedVisitNum > 0) {
+        num = Math.max(num, maxRecordedVisitNum + 1);
+    }
+
+    return num;
+};
+
 export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true, shouldHideAddress = false }) {
     const [activeTab, setActiveTab] = useState('actions');
     const [editedJob, _setEditedJob] = useState(job);
@@ -1095,25 +1130,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
     const computedVisits = computeVisitsFromInteractions(editedJob.interactions || []).reverse();
     const latestEndedVisit = computedVisits.find(v => v.endTime !== null);
 
-    const latestArrivalPhotoInt = (editedJob.interactions || [])
-        .filter(i => i.type === 'before-photos-uploaded')
-        .sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0))[0];
-
     const arrivedTime = editedJob.arrived_at ? new Date(editedJob.arrived_at).getTime() : 0;
-    const photoTime = latestArrivalPhotoInt ? new Date(latestArrivalPhotoInt.timestamp || latestArrivalPhotoInt.created_at).getTime() : 0;
-    const beforePhotosCount = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length;
-    const arrivedButNoPhotos = arrivedTime > 0 && 
-                               (arrivedTime > photoTime + 2000) && 
-                               editedJob.interactions !== undefined && 
-                               beforePhotosCount === 0;
-    const isCurrentlyOnVisit = arrivedTime > 0 && (new Date().getTime() - arrivedTime < 12 * 3600 * 1000);
-
-    useEffect(() => {
-        if (arrivedButNoPhotos && !showLocationVerifyModal && editedJob.status !== 'closed' && editedJob.status !== 'cancelled') {
-            setLocationVerifyStep('before_photos');
-            setShowLocationVerifyModal(true);
-        }
-    }, [arrivedButNoPhotos, showLocationVerifyModal, editedJob.status]);
+    const isCurrentlyOnVisit = arrivedTime > 0 && (new Date().getTime() - arrivedTime < 12 * 3600 * 1000) && editedJob.status !== 'parts_ordered';
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -1930,108 +1948,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     };
 
-    const handleMarkArrived = () => {
+    const handleMarkArrived = async () => {
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const vNum = getCurrentVisitNumber(editedJob);
         
-        // Subsequent visit path: bypass modal, update arrived_at instantly, sync in background
-        if (beforePhotosCount > 0) {
-            setMarkingArrival(true);
-            const now = new Date().toISOString();
-            
-            const locallyCheckedInJob = {
-                ...editedJob,
-                arrived_at: now
-            };
-            setEditedJob(locallyCheckedInJob);
-            if (onJobUpdate) {
-                onJobUpdate(locallyCheckedInJob);
-            }
+        setMarkingArrival(true);
 
-            (async () => {
-                try {
-                    const coords = await getCoordsWithTimeout(1500);
-                    const lat = coords?.latitude || null;
-                    const lng = coords?.longitude || null;
-                    
-                    const finalLat = lat || editedJob.location?.lat || null;
-                    const finalLng = lng || editedJob.location?.lng || null;
-                    try {
-                        localStorage.setItem('active_visit_check_in', JSON.stringify({
-                            jobId: job.id,
-                            jobNumber: job.job_number,
-                            customerName: editedJob.customerName || editedJob.customer_name || '',
-                            locality: editedJob.locality || '',
-                            appliance: editedJob.product?.name || editedJob.appliance || '',
-                            applianceType: editedJob.product?.type || editedJob.category || '',
-                            defect: editedJob.defect || editedJob.issue || '',
-                            lat: finalLat,
-                            lng: finalLng,
-                            time: now
-                        }));
-                    } catch (e) {
-                        console.warn('Failed to save subsequent check-in coordinates to localStorage:', e);
-                    }
-                    
-                    const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            action: 'mark_arrived', 
-                            updated_by_name: techName,
-                            latitude: lat,
-                            longitude: lng
-                        })
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.job) {
-                            setEditedJob(data.job);
-                            if (onJobUpdate) onJobUpdate(data.job);
-                        }
-                    }
-                } catch (err) {
-                    console.warn('[Offline] Failed to sync subsequent arrival in background:', err);
-                } finally {
-                    setMarkingArrival(false);
-                }
-            })();
+        // Fetch arrival coordinates
+        try {
+            const coords = await getCoordsWithTimeout(1500);
+            const lat = coords?.latitude || null;
+            const lng = coords?.longitude || null;
+            arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
+        } catch (e) {
+            console.warn('GPS coords fetch failed on arrival:', e);
+        }
+
+        const isPinVerified = !!(editedJob._raw_property?.location_verified_at || editedJob.property?.location_verified_at);
+
+        // Prompt Pin Check only if it is Visit 1 AND location hasn't been verified yet
+        if (vNum === 1 && !isPinVerified) {
+            const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
+            const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
+            setVerifyLat(existingLat);
+            setVerifyLng(existingLng);
+            setLocationVerifyStep('ask');
+            setShowLocationVerifyModal(true);
+            setMarkingArrival(false);
             return;
         }
 
-        // Visit 1 path: Instantly open the location verification check-in modal
-        const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
-        const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
-        setVerifyLat(existingLat);
-        setVerifyLng(existingLng);
-        setLocationVerifyStep('ask');
+        // For Visit 2+ (or if location is already verified), open Check-in Photos directly for this visit!
+        setLocationVerifyStep('before_photos');
         setShowLocationVerifyModal(true);
+        setMarkingArrival(false);
 
-        // Perform the actual check-in API call and location recording asynchronously in the background
-        (async () => {
-            try {
-                const coords = await getCoordsWithTimeout(1500);
-                const lat = coords?.latitude || null;
-                const lng = coords?.longitude || null;
-                arrivalCoordsRef.current = (lat && lng) ? { lat, lng } : null;
-
-                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        action: 'mark_arrived', 
-                        updated_by_name: techName,
-                        latitude: lat,
-                        longitude: lng
-                    })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
-                }
-            } catch (err) {
-                console.warn('[Offline] Failed to sync arrival in background:', err);
-            }
-        })();
+        // Auto trigger camera for convenience
+        setTimeout(() => {
+            beforePhotosInputRef.current?.click();
+        }, 200);
     };
 
     const handleCallCustomerClick = async () => {
@@ -2178,15 +2133,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }).catch(() => {});
         }
 
-        if (beforePhotosCount > 0) {
-            setShowLocationVerifyModal(false);
-        } else {
-            // Transition to before photos step and open camera
-            setLocationVerifyStep('before_photos');
-            setTimeout(() => {
-                beforePhotosInputRef.current?.click();
-            }, 150);
-        }
+        // Transition to before photos step and open camera
+        setLocationVerifyStep('before_photos');
+        setTimeout(() => {
+            beforePhotosInputRef.current?.click();
+        }, 150);
     };
 
     // Called when tech confirms updated pin location (No → update path)
@@ -2260,15 +2211,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }
         })();
 
-        if (beforePhotosCount > 0) {
-            setShowLocationVerifyModal(false);
-        } else {
-            // Transition to before photos step and open camera
-            setLocationVerifyStep('before_photos');
-            setTimeout(() => {
-                beforePhotosInputRef.current?.click();
-            }, 150);
-        }
+        // Transition to before photos step and open camera
+        setLocationVerifyStep('before_photos');
+        setTimeout(() => {
+            beforePhotosInputRef.current?.click();
+        }, 150);
     };
 
     const compressImage = (file) => {
@@ -2347,31 +2294,35 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             const localPreviewUrls = photosToProcess.map(p => p.url).filter(Boolean);
 
             // Calculate visit number dynamically
-            const nextVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
+            const vNum = getCurrentVisitNumber(editedJob);
 
             const descText = beforePhotosDescription.trim() 
-                ? `Before Photos uploaded for Visit #${nextVisitNum}.\nNote: ${beforePhotosDescription.trim()}`
-                : `Before Photos uploaded for Visit #${nextVisitNum}.`;
+                ? `Before Photos uploaded for Visit #${vNum}.\nNote: ${beforePhotosDescription.trim()}`
+                : `Before Photos uploaded for Visit #${vNum}.`;
 
             const pending = pendingArrivedDataRef.current;
-            const newStatus = editedJob.status === 'scheduled' ? 'diagnosing_quoting' : editedJob.status;
+            const newStatus = 
+                editedJob.status === 'scheduled' ? 'diagnosing_quoting' : 
+                editedJob.status === 'parts_ordered' ? 'work_in_progress' : 
+                editedJob.status;
             
             // Close the location verification modal and transition UI instantly!
             setShowLocationVerifyModal(false);
             setBeforePhotos([]);
             setBeforePhotosDescription('');
 
+            const now = new Date().toISOString();
             setEditedJob(prev => ({
                 ...prev,
-                arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                arrived_at: pending?.arrivedAt || now,
                 status: newStatus,
                 interactions: [
                     {
                         type: 'before-photos-uploaded',
                         performed_by_name: techName,
                         description: descText,
-                        timestamp: new Date().toISOString(),
-                        metadata: { attachments: localPreviewUrls, visit_number: nextVisitNum }
+                        timestamp: now,
+                        metadata: { attachments: localPreviewUrls, visit_number: vNum }
                     },
                     ...(prev.interactions || [])
                 ]
@@ -2431,7 +2382,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             category: 'job',
                             description: descText,
                             user_name: techName,
-                            metadata: { attachments: finalUrls, visit_number: nextVisitNum }
+                            metadata: { attachments: finalUrls, visit_number: vNum }
                         })
                     });
 
@@ -2440,7 +2391,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             status: newStatus,
-                            arrived_at: pending?.arrivedAt || new Date().toISOString(),
+                            arrived_at: pending?.arrivedAt || now,
                             updated_by_name: techName
                         })
                     });
@@ -3311,8 +3262,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                             {/* Start Job / Mark as Arrived / On Way Banner Section */}
                             {(() => {
                                 const isCurrentlyOnWay = editedJob.on_way_at && (!editedJob.arrived_at || new Date(editedJob.on_way_at) > new Date(editedJob.arrived_at));
-                                const dbVisitNum = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length + 1;
-                                const nextVisitNum = ['parts_ordered', 'work_in_progress'].includes(editedJob.status) ? Math.max(2, dbVisitNum) : dbVisitNum;
+                                const currentVisitNum = getCurrentVisitNumber(editedJob);
                                 
                                 const showHeadOutSection = editedJob.status !== 'closed' && 
                                                            editedJob.status !== 'cancelled' && 
@@ -3335,7 +3285,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                         {showHeadOutSection && !isCurrentlyOnWay && (
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                     Ready to Head Out? (Visit {nextVisitNum})
+                                                     Ready to Head Out? (Visit {currentVisitNum})
                                                 </h3>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
                                                      Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
@@ -3355,7 +3305,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                   {
                                                                       type: 'on-way',
                                                                       performed_by_name: techName,
-                                                                      description: `Technician is on the way (Visit #${nextVisitNum})`,
+                                                                      description: `Technician is on the way (Visit #${currentVisitNum})`,
                                                                       timestamp: nowStr
                                                                   },
                                                                   ...(prev.interactions || [])
@@ -3387,7 +3337,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                       }}
                                                     disabled={loading}
                                                 >
-                                                     Start Job & Share Location (Visit {nextVisitNum})
+                                                     Start Job & Share Location (Visit {currentVisitNum})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn"
+                                                    style={{ width: '100%', marginTop: '8px', padding: '11px 12px', fontSize: '13px', fontWeight: 700, color: '#c084fc', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                                                    onClick={handleMarkArrived}
+                                                    disabled={markingArrival}
+                                                >
+                                                    <MapPin size={15} /> Already at Location? Mark as Arrived (Visit {currentVisitNum})
                                                 </button>
                                             </div>
                                         )}
@@ -3397,7 +3356,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                             <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #8b5cf6' }}>
                                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <MapPin size={18} color="#8b5cf6" />
-                                                    At Customer Location? (Visit {nextVisitNum})
+                                                    At Customer Location? (Visit {currentVisitNum})
                                                 </h3>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
                                                     Tap when you reach the customer — location verification and check-in photos will be required.
@@ -3408,7 +3367,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                     disabled={markingArrival}
                                                     style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', whiteSpace: 'normal' }}
                                                 >
-                                                    {markingArrival ? ' Recording...' : `Mark as Arrived (Visit ${nextVisitNum})`}
+                                                    {markingArrival ? ' Recording...' : `Mark as Arrived (Visit ${currentVisitNum})`}
                                                 </button>
                                             </div>
                                         )}
@@ -4353,14 +4312,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                         {locationVerifyStep === 'ask' && (
                             <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <MapPin size={20} color="#38bdf8" />
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <MapPin size={20} color="#38bdf8" />
+                                        </div>
+                                        <div>
+                                            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Pin Location Check</h3>
+                                            <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>You've arrived ✓ — quick check before we proceed</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Pin Location Check</h3>
-                                        <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>You've arrived ✓ — quick check before we proceed</p>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLocationVerifyModal(false)}
+                                        style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', cursor: 'pointer' }}
+                                    >
+                                        <X size={16} />
+                                    </button>
                                 </div>
 
                                 <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px 16px', margin: '16px 0' }}>
@@ -4490,22 +4458,32 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
 
                         {locationVerifyStep === 'before_photos' && (
                             <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <Camera size={20} color="#38bdf8" />
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <Camera size={20} color="#38bdf8" />
+                                        </div>
+                                        <div>
+                                            <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>📸 Product Check-in</h3>
+                                            <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Capture product condition before starting work</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>📸 Product Check-in</h3>
-                                        <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Capture product condition before starting work</p>
-                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowLocationVerifyModal(false);
+                                            setBeforePhotos([]);
+                                            setBeforePhotosDescription('');
+                                        }}
+                                        style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', cursor: 'pointer' }}
+                                    >
+                                        <X size={16} />
+                                    </button>
                                 </div>
 
                                 <div style={{ marginBottom: 16 }}>
                                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#cbd5e1', marginBottom: 8 }}>
-                                        Product / Defect Photos for Visit #{(() => {
-                                            const count = (editedJob.interactions || []).filter(i => i.type === 'before-photos-uploaded').length;
-                                            return count + 1;
-                                        })()} * (Minimum 1 photo required)
+                                        Product / Defect Photos for Visit #{getCurrentVisitNumber(editedJob)} * (Minimum 1 photo required)
                                     </label>
                                     
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -4584,7 +4562,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                     {beforePhotosLoading ? (
                                         <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Submitting...</>
                                     ) : (
-                                        <><CheckCircle size={16} /> Complete Check-in & Start Diagnosis</>
+                                        <><CheckCircle size={16} /> {getCurrentVisitNumber(editedJob) > 1 ? 'Complete Check-in & Start Work' : 'Complete Check-in & Start Diagnosis'}</>
                                     )}
                                 </button>
                             </>
