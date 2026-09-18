@@ -1,10 +1,10 @@
-import pdf from 'pdf-parse';
+import * as pdfParseMod from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function parseAmortizationText(text) {
+export function parseAmortizationText(text) {
     const lines = text.split('\n');
     const installments = [];
     
@@ -14,13 +14,41 @@ function parseAmortizationText(text) {
     let instNumber = 1;
 
     for (let line of lines) {
-        const dateMatch = line.match(dateRegex);
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Specific high-fidelity check for Axis Finance format:
+        // DD/MM/YYYY opening emi principal interest closing ... instNo
+        const axisMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/);
+        if (axisMatch) {
+            const day = axisMatch[1];
+            const month = axisMatch[2];
+            const year = axisMatch[3];
+            const emi = parseFloat(axisMatch[5]);
+            const principal = parseFloat(axisMatch[6]);
+            const interest = parseFloat(axisMatch[7]);
+
+            const instMatch = trimmed.match(/(\d+)\s*$/);
+            const instNo = instMatch ? parseInt(instMatch[1]) : instNumber;
+
+            installments.push({
+                due_date: `${year}-${month}-${day}`,
+                installment_number: instNo,
+                expected_amount: emi,
+                expected_principal: principal,
+                expected_interest: interest
+            });
+            instNumber = instNo + 1;
+            continue;
+        }
+
+        const dateMatch = trimmed.match(dateRegex);
         if (!dateMatch) continue;
 
         const dateStr = dateMatch[0];
         
         // Clean line numbers and keep numbers only
-        const lineWithoutDate = line.replace(dateStr, ' ');
+        const lineWithoutDate = trimmed.replace(dateStr, ' ');
         
         // Extract all numbers (integers or decimals)
         const numberMatches = lineWithoutDate.match(/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/g);
@@ -71,7 +99,7 @@ function parseAmortizationText(text) {
         }
 
         // Validate values
-        if (emi <= 0 || principal <= 0) continue;
+        if (emi <= 0 || (principal <= 0 && interest <= 0)) continue;
 
         // Parse date string to standard YYYY-MM-DD
         let formattedDate = null;
@@ -108,6 +136,33 @@ function parseAmortizationText(text) {
     return installments;
 }
 
+export async function extractTextFromBuffer(buffer, filename) {
+    const fn = (filename || '').toLowerCase();
+    if (fn.endsWith('.pdf')) {
+        const PDFParseClass = pdfParseMod.PDFParse || (pdfParseMod.default && pdfParseMod.default.PDFParse);
+        if (PDFParseClass) {
+            const parser = new PDFParseClass({ data: buffer });
+            const textObj = await parser.getText();
+            return textObj.pages ? textObj.pages.map(p => p.text).join('\n') : (textObj.text || '');
+        } else if (typeof pdfParseMod.default === 'function') {
+            const res = await pdfParseMod.default(buffer);
+            return res.text || '';
+        } else if (typeof pdfParseMod === 'function') {
+            const res = await pdfParseMod(buffer);
+            return res.text || '';
+        }
+        throw new Error('No compatible PDF parser found');
+    } else if (fn.endsWith('.xlsx') || fn.endsWith('.xls') || fn.endsWith('.csv')) {
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const textLines = jsonData.map(row => row.join(' '));
+        return textLines.join('\n');
+    }
+    return '';
+}
+
 export async function POST(request) {
     try {
         const formData = await request.formData();
@@ -120,24 +175,17 @@ export async function POST(request) {
         const filename = file.name.toLowerCase();
 
         let extractedText = '';
-        let installments = [];
+        try {
+            extractedText = await extractTextFromBuffer(buffer, filename);
+        } catch (parseErr) {
+            return NextResponse.json({ success: false, error: 'Failed to read file: ' + parseErr.message }, { status: 400 });
+        }
 
-        if (filename.endsWith('.pdf')) {
-            const pdfData = await pdf(buffer);
-            extractedText = pdfData.text;
-            installments = parseAmortizationText(extractedText);
-        } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || filename.endsWith('.csv')) {
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            
-            const textLines = jsonData.map(row => row.join(' '));
-            extractedText = textLines.join('\n');
-            installments = parseAmortizationText(extractedText);
-        } else {
+        if (!extractedText) {
             return NextResponse.json({ success: false, error: 'Unsupported file type. Please upload a PDF or Excel/CSV file.' }, { status: 400 });
         }
+
+        const installments = parseAmortizationText(extractedText);
 
         if (installments.length === 0) {
             return NextResponse.json({ 

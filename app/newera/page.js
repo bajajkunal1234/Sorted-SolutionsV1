@@ -327,6 +327,13 @@ export default function NewEraDashboard() {
         setShowAddLoan(true);
     };
 
+    const getLoanRemaining = (loan) => {
+        if (!loan) return 0;
+        const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
+        const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
+        return Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
+    };
+
     const getFilteredAndSortedLoans = () => {
         let list = [...data.loans];
 
@@ -345,11 +352,7 @@ export default function NewEraDashboard() {
             list = list.filter(l => l.loan_type === liabilityFilterType);
         }
 
-        const getRemaining = (loan) => {
-            const loanPayments = data.payments.filter(p => p.loan_id === loan.id);
-            const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
-            return Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
-        };
+        const getRemaining = getLoanRemaining;
 
         if (liabilitiesView === 'table' && tableSort.column) {
             const dir = tableSort.direction === 'asc' ? 1 : -1;
@@ -458,6 +461,8 @@ export default function NewEraDashboard() {
         source_of_income: 'Business',
         notes: ''
     });
+
+    const [autoBreakdownBadge, setAutoBreakdownBadge] = useState({ text: '', type: '' });
 
     // Excel import state
     const [excelImport, setExcelImport] = useState({
@@ -695,41 +700,155 @@ export default function NewEraDashboard() {
 
     const metrics = getAggregatedMetrics();
 
+    // Helper to calculate interest and principal breakdown based on statements or interest rates
+    const calculatePaymentSplit = (loanId, paymentDate, amountInput, repaymentIdInput) => {
+        const loan = data.loans.find(l => l.id === loanId);
+        if (!loan) {
+            return {
+                repayment_id: '',
+                amount: amountInput || '',
+                principal_portion: amountInput || '',
+                interest_portion: '0',
+                badgeText: '',
+                badgeType: ''
+            };
+        }
+
+        // Check if there are schedule repayments for this loan
+        const loanRepayments = data.repayments.filter(r => r.loan_id === loanId);
+        let matchedRepayment = null;
+
+        if (repaymentIdInput) {
+            matchedRepayment = loanRepayments.find(r => r.id === repaymentIdInput);
+        } else if (paymentDate && loanRepayments.length > 0) {
+            // Find repayment matching the month & year of paymentDate
+            const pMonth = paymentDate.slice(0, 7); // 'YYYY-MM'
+            // First prefer unpaid matching that month
+            matchedRepayment = loanRepayments.find(r => r.due_date && r.due_date.slice(0, 7) === pMonth && r.status !== 'paid');
+            // If none unpaid matching month, try any matching month
+            if (!matchedRepayment) {
+                matchedRepayment = loanRepayments.find(r => r.due_date && r.due_date.slice(0, 7) === pMonth);
+            }
+            // If still none, find nearest unpaid installment
+            if (!matchedRepayment) {
+                const upcoming = loanRepayments.filter(r => r.status !== 'paid');
+                if (upcoming.length > 0) {
+                    matchedRepayment = upcoming[0];
+                }
+            }
+        }
+
+        const effectiveRepaymentId = matchedRepayment ? matchedRepayment.id : (repaymentIdInput || '');
+        const amountNum = (amountInput !== undefined && amountInput !== '') 
+            ? parseFloat(amountInput) 
+            : (matchedRepayment 
+                ? parseFloat(matchedRepayment.expected_amount) 
+                : (loan.emi_amount ? parseFloat(loan.emi_amount) : 0));
+        
+        const effectiveAmount = isNaN(amountNum) || amountNum <= 0
+            ? (amountInput !== undefined ? amountInput : '') 
+            : (amountInput !== undefined && amountInput !== '' ? amountInput : (Number.isInteger(amountNum) ? String(amountNum) : amountNum.toFixed(2)));
+
+        // Case 1: Matched with a schedule installment (e.g. Axis Finance statement)
+        if (matchedRepayment) {
+            const expTotal = parseFloat(matchedRepayment.expected_amount || 0);
+            const expInterest = parseFloat(matchedRepayment.expected_interest || 0);
+            const expPrincipal = parseFloat(matchedRepayment.expected_principal || 0);
+
+            let prin = 0;
+            let intr = 0;
+
+            if (isNaN(amountNum) || amountNum <= 0) {
+                prin = '';
+                intr = '';
+            } else if (Math.abs(amountNum - expTotal) < 0.01) {
+                prin = expPrincipal;
+                intr = expInterest;
+            } else if (amountNum >= expInterest) {
+                intr = expInterest;
+                prin = amountNum - intr;
+            } else {
+                intr = amountNum;
+                prin = 0;
+            }
+
+            const formattedPrin = prin !== '' ? (Number.isInteger(prin) ? String(prin) : prin.toFixed(2)) : '';
+            const formattedIntr = intr !== '' ? (Number.isInteger(intr) ? String(intr) : intr.toFixed(2)) : '';
+            const instLabel = matchedRepayment.installment_number ? `Inst #${matchedRepayment.installment_number}` : 'Installment';
+
+            return {
+                repayment_id: matchedRepayment.id,
+                amount: effectiveAmount,
+                principal_portion: formattedPrin,
+                interest_portion: formattedIntr,
+                badgeText: `Auto-read from Statement Schedule: ${instLabel} (Due ${matchedRepayment.due_date}) — Interest ₹${Math.round(expInterest).toLocaleString('en-IN')}, Principal ₹${Math.round(expPrincipal).toLocaleString('en-IN')}`,
+                badgeType: 'schedule'
+            };
+        }
+
+        // Case 2: No schedule installment, but loan has annual interest rate
+        const annualRate = parseFloat(loan.interest_rate_annual || 0);
+        if (annualRate > 0) {
+            const remainingPrincipal = getLoanRemaining(loan);
+            const principalBase = remainingPrincipal > 0 ? remainingPrincipal : parseFloat(loan.principal_amount || 0);
+            const monthlyInterest = Math.round((principalBase * (annualRate / 100)) / 12);
+
+            let prin = 0;
+            let intr = 0;
+
+            if (isNaN(amountNum) || amountNum <= 0) {
+                prin = '';
+                intr = '';
+            } else if (amountNum >= monthlyInterest) {
+                intr = monthlyInterest;
+                prin = amountNum - intr;
+            } else {
+                intr = amountNum;
+                prin = 0;
+            }
+
+            const formattedPrin = prin !== '' ? (Number.isInteger(prin) ? String(prin) : prin.toFixed(2)) : '';
+            const formattedIntr = intr !== '' ? (Number.isInteger(intr) ? String(intr) : intr.toFixed(2)) : '';
+
+            return {
+                repayment_id: '',
+                amount: effectiveAmount,
+                principal_portion: formattedPrin,
+                interest_portion: formattedIntr,
+                badgeText: `Auto-calculated: ${annualRate}% p.a. on ₹${Math.round(principalBase).toLocaleString('en-IN')} balance = ₹${monthlyInterest.toLocaleString('en-IN')} interest`,
+                badgeType: 'formula'
+            };
+        }
+
+        // Case 3: 0% interest
+        const formattedPrin = (!isNaN(amountNum) && amountNum > 0) ? (Number.isInteger(amountNum) ? String(amountNum) : amountNum.toFixed(2)) : '';
+        return {
+            repayment_id: '',
+            amount: effectiveAmount,
+            principal_portion: formattedPrin,
+            interest_portion: '0',
+            badgeText: '0% Interest liability — 100% allocated to principal',
+            badgeType: 'zero'
+        };
+    };
+
     // Auto calculate payment split when amount is changed
-    const handlePaymentAmountChange = (amountVal, loanId, repaymentId) => {
+    const handlePaymentAmountChange = (amountVal, loanId, repaymentId, paymentDate) => {
         const amt = parseFloat(amountVal || 0);
         if (amt <= 0) {
             setPaymentForm(prev => ({ ...prev, amount: amountVal, principal_portion: '', interest_portion: '' }));
+            setAutoBreakdownBadge({ text: '', type: '' });
             return;
         }
 
-        const loan = data.loans.find(l => l.id === loanId);
-        if (!loan) {
-            setPaymentForm(prev => ({ ...prev, amount: amountVal, principal_portion: amountVal, interest_portion: 0 }));
-            return;
-        }
-
-        // If linked to schedule item, fetch that item to check expected portions
-        const scheduleItem = data.repayments.find(r => r.id === repaymentId);
-        if (scheduleItem) {
-            const expectedInt = parseFloat(scheduleItem.expected_interest);
-            const expectedTotal = parseFloat(scheduleItem.expected_amount);
-            
-            if (amt >= expectedTotal) {
-                // Paid full or excess
-                const intPortion = expectedInt;
-                const prinPortion = amt - intPortion;
-                setPaymentForm(prev => ({ ...prev, amount: amountVal, principal_portion: prinPortion.toFixed(2), interest_portion: intPortion.toFixed(2) }));
-            } else {
-                // Partial payment - pay interest portion first
-                const intPortion = Math.min(expectedInt, amt);
-                const prinPortion = amt - intPortion;
-                setPaymentForm(prev => ({ ...prev, amount: amountVal, principal_portion: prinPortion.toFixed(2), interest_portion: intPortion.toFixed(2) }));
-            }
-        } else {
-            // Default to 100% principal unless specified
-            setPaymentForm(prev => ({ ...prev, amount: amountVal, principal_portion: amountVal, interest_portion: 0 }));
-        }
+        const split = calculatePaymentSplit(loanId, paymentDate || paymentForm.payment_date, amountVal, repaymentId);
+        setPaymentForm(prev => ({
+            ...prev,
+            amount: amountVal,
+            principal_portion: split.principal_portion,
+            interest_portion: split.interest_portion
+        }));
+        setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
     };
 
     // Form handlers
@@ -850,6 +969,7 @@ export default function NewEraDashboard() {
             const result = await res.json();
             if (result.success) {
                 setShowAddPayment(false);
+                setAutoBreakdownBadge({ text: '', type: '' });
                 // Keep same member and date as default, reset other fields
                 setPaymentForm(prev => ({
                     ...prev,
@@ -2398,16 +2518,21 @@ export default function NewEraDashboard() {
                                                                                             <button 
                                                                                                 onClick={() => {
                                                                                                     const activeM = data.members.find(m => m.name === activeMember);
+                                                                                                    const instLabel = repayment.installment_number ? `Inst #${repayment.installment_number}` : 'Installment';
                                                                                                     setPaymentForm({
                                                                                                         loan_id: repayment.loan_id,
                                                                                                         repayment_id: repayment.id,
                                                                                                         member_id: activeM ? activeM.id : '',
                                                                                                         payment_date: new Date().toISOString().split('T')[0],
-                                                                                                        amount: repayment.expected_amount,
-                                                                                                        principal_portion: repayment.expected_principal,
-                                                                                                        interest_portion: repayment.expected_interest,
+                                                                                                        amount: String(repayment.expected_amount),
+                                                                                                        principal_portion: String(repayment.expected_principal),
+                                                                                                        interest_portion: String(repayment.expected_interest),
                                                                                                         source_of_income: 'Business',
                                                                                                         notes: `Repayment of installment #${repayment.installment_number}`
+                                                                                                    });
+                                                                                                    setAutoBreakdownBadge({
+                                                                                                        text: `Auto-read from Statement Schedule: ${instLabel} (Due ${repayment.due_date}) — Interest ₹${Math.round(parseFloat(repayment.expected_interest)).toLocaleString('en-IN')}, Principal ₹${Math.round(parseFloat(repayment.expected_principal)).toLocaleString('en-IN')}`,
+                                                                                                        type: 'schedule'
                                                                                                     });
                                                                                                     setShowAddPayment(true);
                                                                                                 }} 
@@ -2512,16 +2637,21 @@ export default function NewEraDashboard() {
                                                                 <button 
                                                                     onClick={() => {
                                                                         const activeM = data.members.find(m => m.name === activeMember);
+                                                                        const instLabel = repayment.installment_number ? `Inst #${repayment.installment_number}` : 'Installment';
                                                                         setPaymentForm({
                                                                             loan_id: repayment.loan_id,
                                                                             repayment_id: repayment.id,
                                                                             member_id: activeM ? activeM.id : '',
                                                                             payment_date: new Date().toISOString().split('T')[0],
-                                                                            amount: repayment.expected_amount,
-                                                                            principal_portion: repayment.expected_principal,
-                                                                            interest_portion: repayment.expected_interest,
+                                                                            amount: String(repayment.expected_amount),
+                                                                            principal_portion: String(repayment.expected_principal),
+                                                                            interest_portion: String(repayment.expected_interest),
                                                                             source_of_income: 'Business',
                                                                             notes: `Repayment of installment #${repayment.installment_number}`
+                                                                        });
+                                                                        setAutoBreakdownBadge({
+                                                                            text: `Auto-read from Statement Schedule: ${instLabel} (Due ${repayment.due_date}) — Interest ₹${Math.round(parseFloat(repayment.expected_interest)).toLocaleString('en-IN')}, Principal ₹${Math.round(parseFloat(repayment.expected_principal)).toLocaleString('en-IN')}`,
+                                                                            type: 'schedule'
                                                                         });
                                                                         setShowAddPayment(true);
                                                                     }} 
@@ -2580,12 +2710,20 @@ export default function NewEraDashboard() {
                                 }
                                 const firstLoan = data.loans[0];
                                 const activeM = data.members.find(m => m.name === activeMember);
-                                setPaymentForm(prev => ({
-                                    ...prev,
+                                const today = new Date().toISOString().split('T')[0];
+                                const split = calculatePaymentSplit(firstLoan.id, today, '', '');
+                                setPaymentForm({
                                     loan_id: firstLoan.id,
+                                    repayment_id: split.repayment_id,
                                     member_id: activeM ? activeM.id : '',
-                                    repayment_id: ''
-                                }));
+                                    payment_date: today,
+                                    amount: split.amount,
+                                    principal_portion: split.principal_portion,
+                                    interest_portion: split.interest_portion,
+                                    source_of_income: 'Business',
+                                    notes: ''
+                                });
+                                setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
                                 setShowAddPayment(true);
                             }} style={styles.primaryActionButton}>
                                 <Plus size={16} /> Log Repayment Entry
@@ -3151,14 +3289,32 @@ export default function NewEraDashboard() {
                                 <label style={styles.formLabel}>Expected Due Amount</label>
                                 <input 
                                     type="number" 
+                                    step="any"
                                     value={repaymentForm.expected_amount} 
                                     onChange={e => {
                                         const val = e.target.value;
+                                        const loan = data.loans.find(l => l.id === repaymentForm.loan_id);
+                                        let prin = '';
+                                        let intr = '';
+                                        if (val) {
+                                            const amtNum = parseFloat(val);
+                                            const rate = loan ? parseFloat(loan.interest_rate_annual || 0) : 0;
+                                            if (rate > 0) {
+                                                const rem = getLoanRemaining(loan) || parseFloat(loan.principal_amount || 0);
+                                                const mIntr = Math.round((rem * (rate / 100)) / 12);
+                                                const iPart = Math.min(amtNum, mIntr);
+                                                intr = String(iPart);
+                                                prin = String(Math.max(0, amtNum - iPart));
+                                            } else {
+                                                prin = String(amtNum);
+                                                intr = '0';
+                                            }
+                                        }
                                         setRepaymentForm(prev => ({
                                             ...prev,
                                             expected_amount: val,
-                                            expected_principal: val, // auto set principal
-                                            expected_interest: 0    // auto set interest
+                                            expected_principal: prin,
+                                            expected_interest: intr
                                         }));
                                     }}
                                     placeholder="₹"
@@ -3252,7 +3408,10 @@ export default function NewEraDashboard() {
                     <div style={styles.modalContent} style={{ ...styles.modalContent, maxWidth: '480px' }}>
                         <div style={styles.modalHeader}>
                             <h3 style={styles.modalTitle}>Log Repayment Entry</h3>
-                            <button onClick={() => setShowAddPayment(false)} style={styles.closeModalBtn}>×</button>
+                            <button onClick={() => {
+                                setShowAddPayment(false);
+                                setAutoBreakdownBadge({ text: '', type: '' });
+                            }} style={styles.closeModalBtn}>×</button>
                         </div>
                         <form onSubmit={submitLogPayment} style={styles.modalForm}>
                             <div style={styles.formGroup}>
@@ -3261,7 +3420,16 @@ export default function NewEraDashboard() {
                                     value={paymentForm.loan_id} 
                                     onChange={e => {
                                         const lid = e.target.value;
-                                        setPaymentForm(prev => ({ ...prev, loan_id: lid, repayment_id: '' }));
+                                        const split = calculatePaymentSplit(lid, paymentForm.payment_date, '', '');
+                                        setPaymentForm(prev => ({ 
+                                            ...prev, 
+                                            loan_id: lid, 
+                                            repayment_id: split.repayment_id,
+                                            amount: split.amount,
+                                            principal_portion: split.principal_portion,
+                                            interest_portion: split.interest_portion
+                                        }));
+                                        setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
                                     }}
                                     style={styles.formSelect}
                                     required
@@ -3279,19 +3447,32 @@ export default function NewEraDashboard() {
                                     value={paymentForm.repayment_id} 
                                     onChange={e => {
                                         const repId = e.target.value;
-                                        const repItem = data.repayments.find(r => r.id === repId);
-                                        if (repItem) {
-                                            setPaymentForm(prev => ({ ...prev, repayment_id: repId }));
-                                            handlePaymentAmountChange(repItem.expected_amount, paymentForm.loan_id, repId);
+                                        if (repId) {
+                                            const split = calculatePaymentSplit(paymentForm.loan_id, paymentForm.payment_date, '', repId);
+                                            setPaymentForm(prev => ({ 
+                                                ...prev, 
+                                                repayment_id: repId,
+                                                amount: split.amount,
+                                                principal_portion: split.principal_portion,
+                                                interest_portion: split.interest_portion
+                                            }));
+                                            setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
                                         } else {
-                                            setPaymentForm(prev => ({ ...prev, repayment_id: repId }));
+                                            const split = calculatePaymentSplit(paymentForm.loan_id, paymentForm.payment_date, paymentForm.amount, '');
+                                            setPaymentForm(prev => ({ 
+                                                ...prev, 
+                                                repayment_id: '',
+                                                principal_portion: split.principal_portion,
+                                                interest_portion: split.interest_portion
+                                            }));
+                                            setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
                                         }
                                     }}
                                     style={styles.formSelect}
                                 >
                                     <option value="">-- Direct Payment (Not Linked) --</option>
                                     {data.repayments
-                                        .filter(r => r.loan_id === paymentForm.loan_id && r.status !== 'paid')
+                                        .filter(r => r.loan_id === paymentForm.loan_id && (r.status !== 'paid' || r.id === paymentForm.repayment_id))
                                         .map(r => (
                                             <option key={r.id} value={r.id}>
                                                 Due {r.due_date} — Inst #{r.installment_number || 'Custom'} (₹{parseFloat(r.expected_amount).toLocaleString('en-IN')})
@@ -3319,7 +3500,19 @@ export default function NewEraDashboard() {
                                 <input 
                                     type="date" 
                                     value={paymentForm.payment_date} 
-                                    onChange={e => setPaymentForm(prev => ({ ...prev, payment_date: e.target.value }))}
+                                    onChange={e => {
+                                        const newDate = e.target.value;
+                                        const split = calculatePaymentSplit(paymentForm.loan_id, newDate, paymentForm.amount, '');
+                                        setPaymentForm(prev => ({ 
+                                            ...prev, 
+                                            payment_date: newDate,
+                                            repayment_id: split.repayment_id,
+                                            amount: split.amount || prev.amount,
+                                            principal_portion: split.principal_portion,
+                                            interest_portion: split.interest_portion
+                                        }));
+                                        setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
+                                    }}
                                     style={styles.formInput} 
                                     required 
                                 />
@@ -3329,8 +3522,9 @@ export default function NewEraDashboard() {
                                 <label style={styles.formLabel}>Amount Paid</label>
                                 <input 
                                     type="number" 
+                                    step="any"
                                     value={paymentForm.amount} 
-                                    onChange={e => handlePaymentAmountChange(e.target.value, paymentForm.loan_id, paymentForm.repayment_id)}
+                                    onChange={e => handlePaymentAmountChange(e.target.value, paymentForm.loan_id, paymentForm.repayment_id, paymentForm.payment_date)}
                                     placeholder="₹"
                                     style={styles.formInput} 
                                     required 
@@ -3342,6 +3536,7 @@ export default function NewEraDashboard() {
                                     <label style={styles.formLabel}>Principal Component</label>
                                     <input 
                                         type="number" 
+                                        step="any"
                                         value={paymentForm.principal_portion} 
                                         onChange={e => setPaymentForm(prev => ({ ...prev, principal_portion: e.target.value }))}
                                         style={styles.formInput} 
@@ -3352,6 +3547,7 @@ export default function NewEraDashboard() {
                                     <label style={styles.formLabel}>Interest Component</label>
                                     <input 
                                         type="number" 
+                                        step="any"
                                         value={paymentForm.interest_portion} 
                                         onChange={e => setPaymentForm(prev => ({ ...prev, interest_portion: e.target.value }))}
                                         style={styles.formInput} 
@@ -3359,6 +3555,40 @@ export default function NewEraDashboard() {
                                     />
                                 </div>
                             </div>
+
+                            {autoBreakdownBadge?.text && (
+                                <div style={{
+                                    marginTop: '-0.25rem',
+                                    marginBottom: '0.85rem',
+                                    padding: '0.5rem 0.75rem',
+                                    borderRadius: '0.375rem',
+                                    fontSize: '0.78rem',
+                                    lineHeight: '1.35',
+                                    backgroundColor: autoBreakdownBadge.type === 'schedule' 
+                                        ? 'rgba(16, 185, 129, 0.12)' 
+                                        : autoBreakdownBadge.type === 'formula' 
+                                        ? 'rgba(59, 130, 246, 0.12)' 
+                                        : 'rgba(148, 163, 184, 0.12)',
+                                    border: `1px solid ${
+                                        autoBreakdownBadge.type === 'schedule' 
+                                            ? 'rgba(16, 185, 129, 0.3)' 
+                                            : autoBreakdownBadge.type === 'formula' 
+                                            ? 'rgba(59, 130, 246, 0.3)' 
+                                            : 'rgba(148, 163, 184, 0.25)'
+                                    }`,
+                                    color: autoBreakdownBadge.type === 'schedule' 
+                                        ? '#34d399' 
+                                        : autoBreakdownBadge.type === 'formula' 
+                                        ? '#60a5fa' 
+                                        : '#94a3b8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem'
+                                }}>
+                                    <span style={{ fontSize: '0.9rem' }}>{autoBreakdownBadge.type === 'schedule' ? '📄' : autoBreakdownBadge.type === 'formula' ? '⚡' : 'ℹ️'}</span>
+                                    <span>{autoBreakdownBadge.text}</span>
+                                </div>
+                            )}
 
                             <div style={styles.formGroup}>
                                 <label style={styles.formLabel}>Source of Income</label>
