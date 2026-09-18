@@ -1,5 +1,6 @@
-import { supabase } from '@/lib/supabase';
+import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,9 @@ function formatPageMetadata(pageId, pageType, heroSettings = null) {
 
 export async function GET() {
     try {
+        const supabase = createServerSupabase();
+        if (!supabase) throw new Error('Database connection missing');
+
         const [pagesRes, hpRes] = await Promise.all([
             supabase
                 .from('page_settings')
@@ -146,6 +150,9 @@ export async function GET() {
 
 export async function POST(request) {
     try {
+        const supabase = createServerSupabase();
+        if (!supabase) throw new Error('Database connection missing');
+
         const body = await request.json();
         const { pageId, pageType, visible } = body;
 
@@ -158,7 +165,7 @@ export async function POST(request) {
                     .eq('section_id', 'homepage-brand-logos')
                     .maybeSingle();
 
-                 const existingCfg = hpExisting?.config || hpExisting?.extra_config || {};
+                const existingCfg = hpExisting?.config || hpExisting?.extra_config || {};
                 await supabase
                     .from('website_section_configs')
                     .upsert({
@@ -180,13 +187,24 @@ export async function POST(request) {
                 const { data: matchedPages, error: matchErr } = await query;
                 if (matchErr) throw matchErr;
 
-                for (const p of (matchedPages || [])) {
-                    const newSv = { ...(p.section_visibility || {}), brands: !!visible };
-                    await supabase
-                        .from('page_settings')
-                        .update({ section_visibility: newSv })
-                        .eq('page_id', p.page_id);
+                const pagesToUpdate = matchedPages || [];
+                const batchSize = 10;
+                for (let i = 0; i < pagesToUpdate.length; i += batchSize) {
+                    const chunk = pagesToUpdate.slice(i, i + batchSize);
+                    await Promise.all(chunk.map(p => {
+                        const newSv = { ...(p.section_visibility || {}), brands: !!visible };
+                        return supabase
+                            .from('page_settings')
+                            .update({ section_visibility: newSv, updated_at: new Date().toISOString() })
+                            .eq('page_id', p.page_id);
+                    }));
                 }
+            }
+
+            try {
+                revalidatePath('/', 'layout');
+            } catch (revErr) {
+                console.warn('[brands-visibility] revalidatePath error:', revErr.message);
             }
 
             return NextResponse.json({ success: true, message: `Updated visibility for ${pageType} to ${visible}` });
@@ -217,6 +235,13 @@ export async function POST(request) {
                 }, { onConflict: 'section_id' });
 
             if (hpErr) throw hpErr;
+
+            try {
+                revalidatePath('/', 'layout');
+            } catch (revErr) {
+                console.warn('[brands-visibility] revalidatePath error:', revErr.message);
+            }
+
             return NextResponse.json({ success: true, pageId, visible: !!visible });
         }
 
@@ -235,10 +260,16 @@ export async function POST(request) {
 
         const { error: updateErr } = await supabase
             .from('page_settings')
-            .update({ section_visibility: updatedVisibility })
+            .update({ section_visibility: updatedVisibility, updated_at: new Date().toISOString() })
             .eq('page_id', pageId);
 
         if (updateErr) throw updateErr;
+
+        try {
+            revalidatePath('/', 'layout');
+        } catch (revErr) {
+            console.warn('[brands-visibility] revalidatePath error:', revErr.message);
+        }
 
         return NextResponse.json({ success: true, pageId, visible: !!visible });
     } catch (error) {
