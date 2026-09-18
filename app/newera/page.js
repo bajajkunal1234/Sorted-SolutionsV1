@@ -161,7 +161,7 @@ export default function NewEraDashboard() {
         }
     }, []);
 
-    // Dynamic Mobile & Native APK Safe Area Detection (prevents 3-button phone navigation overlap)
+    // Dynamic Mobile & Native APK Safe Area Detection (prevents top notification bar and bottom 3-button phone navigation overlap)
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const isNative = !!window.Capacitor || 
@@ -187,6 +187,22 @@ export default function NewEraDashboard() {
                 document.documentElement.style.setProperty('--safe-bottom', '48px');
             } else {
                 document.documentElement.style.setProperty('--safe-bottom', '0px');
+            }
+
+            // Test if env(safe-area-inset-top) is natively reported
+            const testTopDiv = document.createElement('div');
+            testTopDiv.style.cssText = 'position:fixed;top:0;height:env(safe-area-inset-top, 0px);visibility:hidden;pointer-events:none;';
+            document.body.appendChild(testTopDiv);
+            const reportedTopInset = testTopDiv.offsetHeight || 0;
+            document.body.removeChild(testTopDiv);
+
+            if (reportedTopInset > 0) {
+                document.documentElement.style.setProperty('--safe-top', reportedTopInset + 'px');
+            } else if (isNative && /android/i.test(navigator.userAgent)) {
+                // On Android APK where insets were zeroed out by window layout, apply 38px to clear top notification/status bar
+                document.documentElement.style.setProperty('--safe-top', '38px');
+            } else {
+                document.documentElement.style.setProperty('--safe-top', '0px');
             }
         }
     }, []);
@@ -3756,7 +3772,7 @@ const styles = {
     },
     dashboardWrapper: {
         minHeight: '100vh',
-        padding: '2rem 1.5rem',
+        padding: 'calc(max(var(--safe-top, env(safe-area-inset-top, 0px)), 0px) + 1.5rem) 1.5rem calc(6.5rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) 1.5rem',
         maxWidth: '1200px',
         margin: '0 auto',
         display: 'flex',
@@ -5072,10 +5088,17 @@ if (typeof window !== 'undefined') {
                 max-width: 100vw !important;
             }
             .dashboard-wrapper {
-                padding: 0.75rem 0.5rem 6.5rem 0.5rem !important;
+                padding-top: calc(max(var(--safe-top, 0px), env(safe-area-inset-top, 0px)) + 0.85rem) !important;
+                padding-bottom: calc(6.5rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+                padding-left: max(env(safe-area-inset-left, 0px), 0.5rem) !important;
+                padding-right: max(env(safe-area-inset-right, 0px), 0.5rem) !important;
                 overflow-x: hidden !important;
                 max-width: 100vw !important;
                 box-sizing: border-box !important;
+            }
+
+            .is-native-app .dashboard-wrapper {
+                padding-top: calc(max(var(--safe-top, 38px), env(safe-area-inset-top, 38px)) + 0.85rem) !important;
             }
 
             /* Dashboard Header */
