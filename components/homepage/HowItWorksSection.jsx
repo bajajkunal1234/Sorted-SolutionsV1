@@ -30,7 +30,7 @@ function HowItWorksSection({
         {
             id: 3,
             title: 'Expert Fix',
-            description: 'Certified technicians diagnose and repair using genuine parts with transparent pricing',
+            description: 'Verified technicians diagnose and repair using genuine parts with transparent pricing',
             icon: '🔧',
             color: '#f59e0b',
             image: '⚡',

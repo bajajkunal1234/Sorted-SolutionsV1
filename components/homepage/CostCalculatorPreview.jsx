@@ -56,7 +56,7 @@ function CostCalculatorPreview() {
                     {/* Trust Line */}
                     <div className="trust-line">
                         <TrendingDown size={16} />
-                        <span>Verified by 500+ customers | No surprise charges</span>
+                        <span>Verified by 100+ customers | No surprise charges</span>
                     </div>
                 </div>
 

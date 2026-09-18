@@ -28,7 +28,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
     const [prefilledIssueName, setPrefilledIssueName] = useState(null);
     const [settings, setSettings] = useState(initialData || {
         title: 'Book A Technician Now',
-        subtitle: 'Get same day service | Transparent pricing | Licensed technicians',
+        subtitle: 'Get same day service | Transparent pricing | Verified technicians',
         categories: []
     });
     const [loading, setLoading] = useState(!initialData);

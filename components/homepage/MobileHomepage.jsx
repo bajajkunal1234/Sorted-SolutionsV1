@@ -27,17 +27,17 @@ function MobileHomepage({ initialBookingData }) {
         // Meta description
         const metaDescription = document.querySelector('meta[name="description"]');
         if (metaDescription) {
-            metaDescription.setAttribute('content', 'Expert appliance repair in Mumbai. AC, washing machine, refrigerator service with transparent pricing. Same day service available. Licensed technicians. Book now! ☎ +91-8928895590');
+            metaDescription.setAttribute('content', 'Expert appliance repair in Mumbai. AC, washing machine, refrigerator service with transparent pricing. Same day service available. Verified technicians. Book now! ☎ +91-8928895590');
         } else {
             const meta = document.createElement('meta');
             meta.name = 'description';
-            meta.content = 'Expert appliance repair in Mumbai. AC, washing machine, refrigerator service with transparent pricing. Same day service available. Licensed technicians. Book now! ☎ +91-8928895590';
+            meta.content = 'Expert appliance repair in Mumbai. AC, washing machine, refrigerator service with transparent pricing. Same day service available. Verified technicians. Book now! ☎ +91-8928895590';
             document.head.appendChild(meta);
         }
 
         // Keywords
         const metaKeywords = document.querySelector('meta[name="keywords"]');
-        const keywords = 'AC repair Mumbai, washing machine repair, refrigerator service, appliance repair near me, same day repair, transparent pricing, genuine spare parts, licensed technicians, Andheri, Dadar, Ghatkopar';
+        const keywords = 'AC repair Mumbai, washing machine repair, refrigerator service, appliance repair near me, same day repair, transparent pricing, genuine spare parts, verified technicians, Andheri, Dadar, Ghatkopar';
         if (metaKeywords) {
             metaKeywords.setAttribute('content', keywords);
         } else {
