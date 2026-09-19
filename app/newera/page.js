@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { 
     Coins, 
@@ -43,6 +43,11 @@ const DEFAULT_LIABILITY_COLUMNS = [
     { id: 'repayment_day', label: 'Repayment Day', width: 130, visible: true, sortable: true },
     { id: 'attachment_url', label: 'Statement', width: 110, visible: true, sortable: false },
     { id: 'actions', label: 'Actions', width: 100, visible: true, sortable: false }
+];
+
+const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
 export default function NewEraDashboard() {
@@ -111,6 +116,68 @@ export default function NewEraDashboard() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().toISOString().split('T')[0]);
     const [scheduleView, setScheduleView] = useState('calendar'); // 'calendar' or 'list'
+
+    const todayDateObj = new Date();
+    const isCurrentMonth = 
+        currentMonth.getFullYear() === todayDateObj.getFullYear() && 
+        currentMonth.getMonth() === todayDateObj.getMonth();
+
+    const handleMonthChange = (newDate) => {
+        setCurrentMonth(newDate);
+        const today = new Date();
+        if (newDate.getFullYear() === today.getFullYear() && newDate.getMonth() === today.getMonth()) {
+            setSelectedCalendarDay(today.toISOString().split('T')[0]);
+        } else {
+            const y = newDate.getFullYear();
+            const m = String(newDate.getMonth() + 1).padStart(2, '0');
+            setSelectedCalendarDay(`${y}-${m}-01`);
+        }
+    };
+
+    const availableYears = useMemo(() => {
+        let minYear = 2020;
+        let maxYear = 2045;
+        const currentYear = currentMonth ? currentMonth.getFullYear() : 2026;
+        const thisYear = new Date().getFullYear();
+        if (currentYear < minYear) minYear = currentYear;
+        if (currentYear > maxYear) maxYear = currentYear;
+        if (thisYear < minYear) minYear = thisYear;
+        if (thisYear > maxYear) maxYear = thisYear;
+
+        (data?.loans || []).forEach(l => {
+            if (l.start_date) {
+                const y = parseInt(String(l.start_date).slice(0, 4), 10);
+                if (!isNaN(y)) {
+                    if (y < minYear) minYear = y;
+                    if (y > maxYear) maxYear = y;
+                }
+            }
+        });
+        (data?.repayments || []).forEach(r => {
+            if (r.due_date) {
+                const y = parseInt(String(r.due_date).slice(0, 4), 10);
+                if (!isNaN(y)) {
+                    if (y < minYear) minYear = y;
+                    if (y > maxYear) maxYear = y;
+                }
+            }
+        });
+        (data?.payments || []).forEach(p => {
+            if (p.payment_date) {
+                const y = parseInt(String(p.payment_date).slice(0, 4), 10);
+                if (!isNaN(y)) {
+                    if (y < minYear) minYear = y;
+                    if (y > maxYear) maxYear = y;
+                }
+            }
+        });
+
+        const years = [];
+        for (let y = minYear; y <= maxYear; y++) {
+            years.push(y);
+        }
+        return years;
+    }, [data?.loans, data?.repayments, data?.payments, currentMonth]);
 
     // Liabilities View States
     const [editingLoanId, setEditingLoanId] = useState(null);
@@ -2091,6 +2158,21 @@ export default function NewEraDashboard() {
                             >
                                 <List size={14} /> List View
                             </button>
+                            {!isCurrentMonth && (
+                                <button
+                                    onClick={() => handleMonthChange(new Date())}
+                                    style={{
+                                        ...styles.viewToggleBtn,
+                                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                        color: '#a5b4fc',
+                                        borderColor: 'rgba(99, 102, 241, 0.4)',
+                                        marginLeft: 'auto'
+                                    }}
+                                    title="Jump back to current month"
+                                >
+                                    ↺ Return to Today ({todayDateObj.toLocaleString('default', { month: 'short', year: 'numeric' })})
+                                </button>
+                            )}
                         </div>
 
                         {/* Calendar View */}
@@ -2098,30 +2180,64 @@ export default function NewEraDashboard() {
                             <div style={styles.calendarContainer} className="calendar-container">
                                 <div style={styles.calendarNav} className="calendar-nav">
                                     <button 
-                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
+                                        onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
                                         style={styles.calendarNavBtn}
+                                        className="calendar-nav-btn"
+                                        title="Previous Month"
                                     >
                                         &larr; Prev
                                     </button>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                        <h3 style={styles.calendarNavTitle} className="calendar-nav-title">
-                                            {currentMonth.toLocaleString('default', { month: 'long' })} {currentMonth.getFullYear()}
-                                        </h3>
-                                        <button 
-                                            onClick={() => {
-                                                const now = new Date();
-                                                setCurrentMonth(now);
-                                                setSelectedCalendarDay(now.toISOString().split('T')[0]);
-                                            }} 
-                                            style={{ ...styles.calendarNavBtn, fontSize: '0.75rem', padding: '0.2rem 0.55rem', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}
-                                            title="Jump to current month"
+
+                                    <div style={styles.calendarNavCenter} className="calendar-nav-center">
+                                        {/* Month Selector */}
+                                        <select
+                                            value={currentMonth.getMonth()}
+                                            onChange={(e) => handleMonthChange(new Date(currentMonth.getFullYear(), parseInt(e.target.value, 10), 1))}
+                                            style={styles.calendarSelect}
+                                            className="calendar-month-select"
+                                            aria-label="Select Month"
                                         >
-                                            Today
+                                            {MONTH_NAMES.map((name, idx) => (
+                                                <option key={name} value={idx} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
+                                                    {name}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {/* Year Selector */}
+                                        <select
+                                            value={currentMonth.getFullYear()}
+                                            onChange={(e) => handleMonthChange(new Date(parseInt(e.target.value, 10), currentMonth.getMonth(), 1))}
+                                            style={styles.calendarSelect}
+                                            className="calendar-year-select"
+                                            aria-label="Select Year"
+                                        >
+                                            {availableYears.map(yr => (
+                                                <option key={yr} value={yr} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
+                                                    {yr}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        {/* Quick Today Button */}
+                                        <button 
+                                            onClick={() => handleMonthChange(new Date())} 
+                                            style={{
+                                                ...styles.calendarNavBtn,
+                                                ...(isCurrentMonth ? styles.calendarTodayActive : styles.calendarTodayHighlight)
+                                            }}
+                                            className="calendar-today-btn"
+                                            title="Jump to Current Month (Today)"
+                                        >
+                                            {isCurrentMonth ? '● Today' : '↺ Today'}
                                         </button>
                                     </div>
+
                                     <button 
-                                        onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
+                                        onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
                                         style={styles.calendarNavBtn}
+                                        className="calendar-nav-btn"
+                                        title="Next Month"
                                     >
                                         Next &rarr;
                                     </button>
@@ -4844,7 +4960,42 @@ const styles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '0.5rem'
+        marginBottom: '0.75rem',
+        gap: '0.5rem',
+        flexWrap: 'wrap'
+    },
+    calendarNavCenter: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        justifyContent: 'center',
+        flexWrap: 'wrap'
+    },
+    calendarSelect: {
+        background: 'rgba(15, 23, 42, 0.75)',
+        border: '1px solid rgba(255, 255, 255, 0.14)',
+        color: '#ffffff',
+        padding: '0.35rem 0.65rem',
+        borderRadius: '0.375rem',
+        fontSize: '0.9rem',
+        fontWeight: '700',
+        outline: 'none',
+        cursor: 'pointer',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+    },
+    calendarTodayHighlight: {
+        background: 'rgba(99, 102, 241, 0.25)',
+        border: '1px solid rgba(99, 102, 241, 0.5)',
+        color: '#a5b4fc',
+        fontWeight: '700',
+        padding: '0.35rem 0.65rem'
+    },
+    calendarTodayActive: {
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        color: '#94a3b8',
+        fontWeight: '500',
+        padding: '0.35rem 0.65rem'
     },
     calendarNavBtn: {
         background: 'rgba(255, 255, 255, 0.05)',
@@ -5486,6 +5637,22 @@ if (typeof window !== 'undefined') {
                 align-items: center !important;
                 gap: 0.25rem !important;
                 margin-bottom: 0.5rem !important;
+                flex-wrap: wrap !important;
+            }
+            .calendar-nav-center {
+                display: flex !important;
+                align-items: center !important;
+                gap: 0.25rem !important;
+                justify-content: center !important;
+                flex-wrap: wrap !important;
+            }
+            .calendar-month-select, .calendar-year-select {
+                padding: 0.25rem 0.35rem !important;
+                font-size: 0.75rem !important;
+            }
+            .calendar-today-btn {
+                padding: 0.25rem 0.45rem !important;
+                font-size: 0.72rem !important;
             }
             .calendar-nav-title {
                 font-size: 0.9rem !important;
