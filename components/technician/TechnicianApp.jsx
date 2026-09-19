@@ -768,15 +768,11 @@ function TechnicianApp() {
     const fetchSuppliers = async () => {
         try {
             setSuppliersLoading(true);
-            const { data, error } = await supabase
-                .from('accounts')
-                .select('id, name, mobile, phone, address')
-                .eq('under', 'spare-parts-suppliers')
-                .neq('status', 'archived')
-                .order('name', { ascending: true });
-            
-            if (error) throw error;
-            setSuppliers(data || []);
+            const res = await apiCall('/api/admin/accounts?type=supplier&purpose=dropdown');
+            if (res && res.ok) {
+                const json = await res.json();
+                setSuppliers(json.data || []);
+            }
         } catch (err) {
             console.error('Error fetching suppliers:', err);
         } finally {
@@ -1478,14 +1474,11 @@ function TechnicianApp() {
     const fetchScheduledJobs = async () => {
         if (!technicianId) return;
         try {
-            const { data, error } = await supabase
-                .from('jobs')
-                .select('id')
-                .eq('technician_id', technicianId)
-                .eq('status', 'scheduled');
-            
-            if (error) throw error;
-            setScheduledJobsCount(data ? data.length : 0);
+            const res = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&status=scheduled`);
+            if (res && res.ok) {
+                const json = await res.json();
+                setScheduledJobsCount(json.data ? json.data.length : 0);
+            }
         } catch (err) {
             console.error('Error fetching scheduled jobs count:', err);
         }
@@ -1495,14 +1488,11 @@ function TechnicianApp() {
         if (!technicianId) return;
         try {
             setPurchaseRequestsLoading(true);
-            const { data, error } = await supabase
-                .from('purchase_invoices')
-                .select('*')
-                .eq('po_reference', technicianId)
-                .order('date', { ascending: false });
-            
-            if (error) throw error;
-            setPurchaseRequests(data || []);
+            const res = await apiCall(`/api/admin/transactions?type=purchase&po_reference=${technicianId}`);
+            if (res && res.ok) {
+                const json = await res.json();
+                setPurchaseRequests(json.data || []);
+            }
         } catch (err) {
             console.error('Error fetching purchase requests:', err);
         } finally {

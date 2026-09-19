@@ -1361,24 +1361,24 @@ export default function NewEraDashboard() {
                         <section style={styles.heroSection} className="hero-section">
                             <div style={styles.heroGlow}></div>
                             <div style={styles.heroContent}>
-                                <span style={styles.heroLabel}>TOTAL OUTSTANDING LIABILITY TO PAY</span>
+                                <span style={styles.heroLabel}>OUTSTANDING PRINCIPAL AMOUNT</span>
                                 <h1 style={styles.heroNumber} className="hero-number">
-                                    ₹{metrics.totalOutstandingToPay.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    ₹{metrics.outstandingPrincipal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </h1>
                                 <div style={styles.heroSubmetrics} className="hero-submetrics">
                                     <div style={styles.heroSubItem} className="hero-sub-item">
-                                        <span style={styles.subItemLabel}>Outstanding Principal</span>
-                                        <span style={styles.subItemValue}>₹{metrics.outstandingPrincipal.toLocaleString('en-IN')}</span>
+                                        <span style={styles.subItemLabel}>Total Outstanding to Pay</span>
+                                        <span style={styles.subItemValue}>₹{Math.round(metrics.totalOutstandingToPay).toLocaleString('en-IN')}</span>
                                     </div>
                                     <div style={styles.divider} className="divider"></div>
                                     <div style={styles.heroSubItem} className="hero-sub-item">
                                         <span style={styles.subItemLabel}>Unpaid Interest Due</span>
-                                        <span style={styles.subItemValue}>₹{metrics.unpaidInterestDue.toLocaleString('en-IN')}</span>
+                                        <span style={styles.subItemValue}>₹{Math.round(metrics.unpaidInterestDue).toLocaleString('en-IN')}</span>
                                     </div>
                                     <div style={styles.divider} className="divider"></div>
                                     <div style={styles.heroSubItem} className="hero-sub-item">
                                         <span style={styles.subItemLabel}>Total Paid Till Date</span>
-                                        <span style={styles.subItemValue}>₹{metrics.totalPayments.toLocaleString('en-IN')}</span>
+                                        <span style={styles.subItemValue}>₹{Math.round(metrics.totalPayments).toLocaleString('en-IN')}</span>
                                     </div>
                                 </div>
                                 <div style={{ marginTop: '1.25rem' }}>

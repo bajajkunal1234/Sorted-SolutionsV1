@@ -202,8 +202,9 @@ export async function GET(request) {
         if (customerId) query = query.eq('account_id', customerId)
         if (accountId) query = query.eq('account_id', accountId)
         if (startDate) query = query.gte('date', startDate)
-        if (endDate) query = query.lte('date', endDate)
         if (jobId) query = query.eq('job_id', jobId)
+        const poReference = searchParams.get('po_reference')
+        if (poReference) query = query.eq('po_reference', poReference)
 
         const includeArchived = searchParams.get('include_archived') === '1' || searchParams.get('include_archived') === 'true';
         if (!includeArchived && type !== 'receipt' && type !== 'payment') {

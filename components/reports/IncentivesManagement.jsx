@@ -292,7 +292,6 @@ function IncentivesManagement() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const { supabase } = await import('@/lib/supabase');
 
             const [techsData, paramsData] = await Promise.all([
                 techniciansAPI.getAll(),
@@ -327,40 +326,15 @@ function IncentivesManagement() {
                 const monthStart = `${activeMonth}-01`;
                 const monthEnd = new Date(yr, mo, 0).toISOString().split('T')[0];
 
-                const historyStartObj = new Date(yr, mo - 4, 1);
-                const historyStart = `${historyStartObj.getFullYear()}-${String(historyStartObj.getMonth() + 1).padStart(2, '0')}-01`;
+                const incRes = await fetch(`/api/admin/reports/incentives?month=${activeMonth}`);
+                const incJson = await incRes.json();
+                const incData = incJson.data || {};
 
-                const { data: allJobs } = await supabase
-                    .from('jobs')
-                    .select('id, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name')
-                    .gte('scheduled_date', historyStart)
-                    .lte('scheduled_date', monthEnd);
-
-                const { data: allInvoices } = await supabase
-                    .from('sales_invoices')
-                    .select('id, total_amount, date, job_id, technician_id, technician_name, status, account_id')
-                    .gte('date', historyStart)
-                    .lte('date', monthEnd)
-                    .neq('status', 'cancelled');
-
-                const { data: allQuotations } = await supabase
-                    .from('quotations')
-                    .select('id, status, date, technician_id, job_id')
-                    .gte('date', historyStart)
-                    .lte('date', monthEnd)
-                    .neq('status', 'cancelled');
-
-                const { data: paidVouchers } = await supabase
-                    .from('payment_vouchers')
-                    .select('account_id, amount, notes, date')
-                    .ilike('notes', '%Incentive%');
-
-                const { data: finalizedData } = await supabase
-                    .from('website_settings')
-                    .select('value')
-                    .eq('key', `incentives-finalized-${activeMonth}`)
-                    .single();
-                setIsFinalized(!!finalizedData?.value);
+                const allJobs = incData.allJobs || [];
+                const allInvoices = incData.allInvoices || [];
+                const allQuotations = incData.allQuotations || [];
+                const paidVouchers = incData.paidVouchers || [];
+                setIsFinalized(!!incData.isFinalized);
 
                 const processedTechs = techsData.map(tech => {
                     const currentMetrics = calculateMetricsForMonth(
