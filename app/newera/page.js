@@ -116,6 +116,7 @@ export default function NewEraDashboard() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date().toISOString().split('T')[0]);
     const [scheduleView, setScheduleView] = useState('calendar'); // 'calendar' or 'list'
+    const [listScopeFilter, setListScopeFilter] = useState('all'); // 'all', 'month', 'unpaid'
 
     const todayDateObj = new Date();
     const isCurrentMonth = 
@@ -2134,113 +2135,127 @@ export default function NewEraDashboard() {
                             );
                         })()}
 
-                        {/* Toggle View Type */}
+                        {/* Toggle View Type & Shared Month Navigator */}
                         <div style={styles.viewToggleRow} className="view-toggle-row">
-                            <button 
-                                onClick={() => setScheduleView('calendar')} 
-                                style={{
-                                    ...styles.viewToggleBtn,
-                                    backgroundColor: scheduleView === 'calendar' ? '#6366f1' : 'transparent',
-                                    color: scheduleView === 'calendar' ? '#ffffff' : '#94a3b8',
-                                    borderColor: scheduleView === 'calendar' ? '#6366f1' : 'rgba(255,255,255,0.08)'
-                                }}
-                            >
-                                <Calendar size={14} /> Calendar View
-                            </button>
-                            <button 
-                                onClick={() => setScheduleView('list')} 
-                                style={{
-                                    ...styles.viewToggleBtn,
-                                    backgroundColor: scheduleView === 'list' ? '#6366f1' : 'transparent',
-                                    color: scheduleView === 'list' ? '#ffffff' : '#94a3b8',
-                                    borderColor: scheduleView === 'list' ? '#6366f1' : 'rgba(255,255,255,0.08)'
-                                }}
-                            >
-                                <List size={14} /> List View
-                            </button>
-                            {!isCurrentMonth && (
-                                <button
-                                    onClick={() => handleMonthChange(new Date())}
+                            <div style={styles.viewToggleBtnGroup} className="view-toggle-btn-group">
+                                <button 
+                                    onClick={() => setScheduleView('calendar')} 
                                     style={{
                                         ...styles.viewToggleBtn,
-                                        backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                                        color: '#a5b4fc',
-                                        borderColor: 'rgba(99, 102, 241, 0.4)',
-                                        marginLeft: 'auto'
+                                        backgroundColor: scheduleView === 'calendar' ? '#6366f1' : 'transparent',
+                                        color: scheduleView === 'calendar' ? '#ffffff' : '#94a3b8',
+                                        borderColor: scheduleView === 'calendar' ? '#6366f1' : 'rgba(255,255,255,0.08)'
                                     }}
-                                    title="Jump back to current month"
+                                    className="view-toggle-btn"
                                 >
-                                    ↺ Return to Today ({todayDateObj.toLocaleString('default', { month: 'short', year: 'numeric' })})
+                                    <Calendar size={14} /> Calendar View
                                 </button>
+                                <button 
+                                    onClick={() => setScheduleView('list')} 
+                                    style={{
+                                        ...styles.viewToggleBtn,
+                                        backgroundColor: scheduleView === 'list' ? '#6366f1' : 'transparent',
+                                        color: scheduleView === 'list' ? '#ffffff' : '#94a3b8',
+                                        borderColor: scheduleView === 'list' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                    }}
+                                    className="view-toggle-btn"
+                                >
+                                    <List size={14} /> List View
+                                </button>
+                            </div>
+
+                            {/* Month & Year Navigation (Accessible in BOTH Calendar and List View) */}
+                            <div style={styles.calendarNavCenter} className="calendar-nav-center">
+                                <button 
+                                    onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
+                                    style={styles.calendarNavBtn}
+                                    className="calendar-nav-btn"
+                                    title="Previous Month"
+                                >
+                                    &larr; Prev
+                                </button>
+
+                                {/* Month Selector */}
+                                <select
+                                    value={currentMonth.getMonth()}
+                                    onChange={(e) => handleMonthChange(new Date(currentMonth.getFullYear(), parseInt(e.target.value, 10), 1))}
+                                    style={styles.calendarSelect}
+                                    className="calendar-month-select"
+                                    aria-label="Select Month"
+                                >
+                                    {MONTH_NAMES.map((name, idx) => (
+                                        <option key={name} value={idx} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
+                                            {name}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Year Selector */}
+                                <select
+                                    value={currentMonth.getFullYear()}
+                                    onChange={(e) => handleMonthChange(new Date(parseInt(e.target.value, 10), currentMonth.getMonth(), 1))}
+                                    style={styles.calendarSelect}
+                                    className="calendar-year-select"
+                                    aria-label="Select Year"
+                                >
+                                    {availableYears.map(yr => (
+                                        <option key={yr} value={yr} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
+                                            {yr}
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Quick Today Button */}
+                                <button 
+                                    onClick={() => handleMonthChange(new Date())} 
+                                    style={{
+                                        ...styles.calendarNavBtn,
+                                        ...(isCurrentMonth ? styles.calendarTodayActive : styles.calendarTodayHighlight)
+                                    }}
+                                    className="calendar-today-btn"
+                                    title="Jump to Current Month (Today)"
+                                >
+                                    {isCurrentMonth ? '● Today' : '↺ Today'}
+                                </button>
+
+                                <button 
+                                    onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
+                                    style={styles.calendarNavBtn}
+                                    className="calendar-nav-btn"
+                                    title="Next Month"
+                                >
+                                    Next &rarr;
+                                </button>
+                            </div>
+
+                            {/* In List View: Scope Filter (Month Only vs All Months) */}
+                            {scheduleView === 'list' && (
+                                <div style={styles.listScopeWrapper} className="list-scope-wrapper">
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '600', whiteSpace: 'nowrap' }}>Show:</span>
+                                    <select
+                                        value={listScopeFilter}
+                                        onChange={(e) => setListScopeFilter(e.target.value)}
+                                        style={styles.filterDropdownSmall}
+                                        className="filter-dropdown-small"
+                                    >
+                                        <option value="all">All Months (Entire Schedule)</option>
+                                        <option value="month">{currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' })} Only</option>
+                                        <option value="unpaid">All Unpaid Only</option>
+                                    </select>
+                                </div>
                             )}
                         </div>
 
                         {/* Calendar View */}
                         {scheduleView === 'calendar' && (
                             <div style={styles.calendarContainer} className="calendar-container">
-                                <div style={styles.calendarNav} className="calendar-nav">
-                                    <button 
-                                        onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} 
-                                        style={styles.calendarNavBtn}
-                                        className="calendar-nav-btn"
-                                        title="Previous Month"
-                                    >
-                                        &larr; Prev
-                                    </button>
-
-                                    <div style={styles.calendarNavCenter} className="calendar-nav-center">
-                                        {/* Month Selector */}
-                                        <select
-                                            value={currentMonth.getMonth()}
-                                            onChange={(e) => handleMonthChange(new Date(currentMonth.getFullYear(), parseInt(e.target.value, 10), 1))}
-                                            style={styles.calendarSelect}
-                                            className="calendar-month-select"
-                                            aria-label="Select Month"
-                                        >
-                                            {MONTH_NAMES.map((name, idx) => (
-                                                <option key={name} value={idx} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-                                                    {name}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Year Selector */}
-                                        <select
-                                            value={currentMonth.getFullYear()}
-                                            onChange={(e) => handleMonthChange(new Date(parseInt(e.target.value, 10), currentMonth.getMonth(), 1))}
-                                            style={styles.calendarSelect}
-                                            className="calendar-year-select"
-                                            aria-label="Select Year"
-                                        >
-                                            {availableYears.map(yr => (
-                                                <option key={yr} value={yr} style={{ backgroundColor: '#0f172a', color: '#ffffff' }}>
-                                                    {yr}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        {/* Quick Today Button */}
-                                        <button 
-                                            onClick={() => handleMonthChange(new Date())} 
-                                            style={{
-                                                ...styles.calendarNavBtn,
-                                                ...(isCurrentMonth ? styles.calendarTodayActive : styles.calendarTodayHighlight)
-                                            }}
-                                            className="calendar-today-btn"
-                                            title="Jump to Current Month (Today)"
-                                        >
-                                            {isCurrentMonth ? '● Today' : '↺ Today'}
-                                        </button>
-                                    </div>
-
-                                    <button 
-                                        onClick={() => handleMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} 
-                                        style={styles.calendarNavBtn}
-                                        className="calendar-nav-btn"
-                                        title="Next Month"
-                                    >
-                                        Next &rarr;
-                                    </button>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }} className="calendar-grid-header">
+                                    <h3 style={styles.calendarNavTitle} className="calendar-nav-title">
+                                        {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                    </h3>
+                                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                        Click any date to inspect details
+                                    </span>
                                 </div>
 
                                 <div style={styles.calendarGrid} className="calendar-grid">
@@ -2703,114 +2718,144 @@ export default function NewEraDashboard() {
                         {/* Repayments Schedule List (Rendered when scheduleView is 'list') */}
                         {scheduleView === 'list' && (
                             <div style={styles.scheduleTableWrapper}>
-                            {data.repayments.filter(r => selectedLoanId === 'all' || r.loan_id === selectedLoanId).length === 0 ? (
-                                <div style={styles.bigEmptyState}>
-                                    <Calendar size={48} color="#475569" style={{ marginBottom: '1rem' }} />
-                                    <h3>No Scheduled Repayments</h3>
-                                    <p>Add manual installments on-the-go or upload a bank amortization sheet via Excel import.</p>
-                                </div>
-                            ) : (
-                                <table style={styles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th>Liability</th>
-                                            <th>Due Date</th>
-                                            <th>Installment #</th>
-                                            <th>Expected Amount</th>
-                                            <th>Principal Portion</th>
-                                            <th>Interest Portion</th>
-                                            <th>Status</th>
-                                            <th>Notes</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {data.repayments
-                                            .filter(r => selectedLoanId === 'all' || r.loan_id === selectedLoanId)
-                                            .map(repayment => {
-                                                const loan = data.loans.find(l => l.id === repayment.loan_id);
-                                                return (
-                                                    <tr key={repayment.id}>
-                                                        <td><strong>{loan ? loan.name : 'Unknown'}</strong></td>
-                                                        <td>{repayment.due_date}</td>
-                                                        <td>{repayment.installment_number || 'Custom'}</td>
-                                                        <td>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</td>
-                                                        <td>₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')}</td>
-                                                        <td>₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}</td>
-                                                        <td>
-                                                            <span style={{
-                                                                ...styles.statusBadge,
-                                                                backgroundColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                                                color: repayment.status === 'paid' ? '#10b981' : repayment.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
-                                                                borderColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
-                                                            }}>
-                                                                {repayment.status.replace('_', ' ').toUpperCase()}
-                                                            </span>
-                                                        </td>
-                                                        <td><span style={styles.tableNotes}>{repayment.notes || '—'}</span></td>
-                                                        <td>
-                                                            <div style={styles.tableActionsRow}>
-                                                                <button 
-                                                                    onClick={() => {
-                                                                        const activeM = data.members.find(m => m.name === activeMember);
-                                                                        const instLabel = repayment.installment_number ? `Inst #${repayment.installment_number}` : 'Installment';
-                                                                        setPaymentForm({
-                                                                            loan_id: repayment.loan_id,
-                                                                            repayment_id: repayment.id,
-                                                                            member_id: activeM ? activeM.id : '',
-                                                                            payment_date: new Date().toISOString().split('T')[0],
-                                                                            amount: String(repayment.expected_amount),
-                                                                            principal_portion: String(repayment.expected_principal),
-                                                                            interest_portion: String(repayment.expected_interest),
-                                                                            source_of_income: 'Business',
-                                                                            notes: `Repayment of installment #${repayment.installment_number}`
-                                                                        });
-                                                                        setAutoBreakdownBadge({
-                                                                            text: `Auto-read from Statement Schedule: ${instLabel} (Due ${repayment.due_date}) — Interest ₹${Math.round(parseFloat(repayment.expected_interest)).toLocaleString('en-IN')}, Principal ₹${Math.round(parseFloat(repayment.expected_principal)).toLocaleString('en-IN')}`,
-                                                                            type: 'schedule'
-                                                                        });
-                                                                        setShowAddPayment(true);
-                                                                    }} 
-                                                                    style={styles.payScheduleBtn} 
-                                                                    disabled={repayment.status === 'paid'}
-                                                                >
-                                                                    Log Pay
-                                                                </button>
-                                                                {repayment.status !== 'paid' && (
+                                {(() => {
+                                    const monthYearPrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+                                    const displayedRepayments = data.repayments.filter(r => {
+                                        if (selectedLoanId !== 'all' && r.loan_id !== selectedLoanId) return false;
+                                        if (listScopeFilter === 'month') {
+                                            return normalizeDateStr(r.due_date).startsWith(monthYearPrefix);
+                                        }
+                                        if (listScopeFilter === 'unpaid') {
+                                            return r.status !== 'paid';
+                                        }
+                                        return true;
+                                    });
+
+                                    if (displayedRepayments.length === 0) {
+                                        return (
+                                            <div style={styles.bigEmptyState}>
+                                                <Calendar size={48} color="#475569" style={{ marginBottom: '1rem' }} />
+                                                <h3>No Scheduled Repayments Found</h3>
+                                                <p>
+                                                    {listScopeFilter === 'month' 
+                                                        ? `No installments due in ${currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })} for ${selectedLoanId === 'all' ? 'any liability' : 'this liability'}.`
+                                                        : listScopeFilter === 'unpaid'
+                                                            ? 'All installments for this selection are paid.'
+                                                            : 'No scheduled repayments logged yet.'}
+                                                </p>
+                                                {listScopeFilter !== 'all' && (
+                                                    <button 
+                                                        onClick={() => setListScopeFilter('all')} 
+                                                        style={{ ...styles.primaryActionButton, marginTop: '1rem' }}
+                                                    >
+                                                        Show All Months (Entire Schedule)
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <table style={styles.table}>
+                                            <thead>
+                                                <tr>
+                                                    <th>Liability</th>
+                                                    <th>Due Date</th>
+                                                    <th>Installment #</th>
+                                                    <th>Expected Amount</th>
+                                                    <th>Principal Portion</th>
+                                                    <th>Interest Portion</th>
+                                                    <th>Status</th>
+                                                    <th>Notes</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {displayedRepayments.map(repayment => {
+                                                    const loan = data.loans.find(l => l.id === repayment.loan_id);
+                                                    return (
+                                                        <tr key={repayment.id}>
+                                                            <td><strong>{loan ? loan.name : 'Unknown'}</strong></td>
+                                                            <td>{repayment.due_date}</td>
+                                                            <td>{repayment.installment_number || 'Custom'}</td>
+                                                            <td>₹{parseFloat(repayment.expected_amount).toLocaleString('en-IN')}</td>
+                                                            <td>₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')}</td>
+                                                            <td>₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}</td>
+                                                            <td>
+                                                                <span style={{
+                                                                    ...styles.statusBadge,
+                                                                    backgroundColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.15)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                                                    color: repayment.status === 'paid' ? '#10b981' : repayment.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
+                                                                    borderColor: repayment.status === 'paid' ? 'rgba(16, 185, 129, 0.3)' : repayment.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                                                                }}>
+                                                                    {repayment.status.replace('_', ' ').toUpperCase()}
+                                                                </span>
+                                                            </td>
+                                                            <td><span style={styles.tableNotes}>{repayment.notes || '—'}</span></td>
+                                                            <td>
+                                                                <div style={styles.tableActionsRow}>
                                                                     <button 
                                                                         onClick={() => {
-                                                                            setEditingRepaymentId(repayment.id);
-                                                                            setRepaymentForm({
+                                                                            const activeM = data.members.find(m => m.name === activeMember);
+                                                                            const instLabel = repayment.installment_number ? `Inst #${repayment.installment_number}` : 'Installment';
+                                                                            setPaymentForm({
                                                                                 loan_id: repayment.loan_id,
-                                                                                due_date: repayment.due_date,
-                                                                                installment_number: repayment.installment_number || '',
-                                                                                expected_amount: repayment.expected_amount,
-                                                                                expected_principal: repayment.expected_principal,
-                                                                                expected_interest: repayment.expected_interest,
-                                                                                notes: repayment.notes || ''
+                                                                                repayment_id: repayment.id,
+                                                                                member_id: activeM ? activeM.id : '',
+                                                                                payment_date: new Date().toISOString().split('T')[0],
+                                                                                amount: String(repayment.expected_amount),
+                                                                                principal_portion: String(repayment.expected_principal),
+                                                                                interest_portion: String(repayment.expected_interest),
+                                                                                source_of_income: 'Business',
+                                                                                notes: `Repayment of installment #${repayment.installment_number}`
                                                                             });
-                                                                            setShowAddRepayment(true);
+                                                                            setAutoBreakdownBadge({
+                                                                                text: `Auto-read from Statement Schedule: ${instLabel} (Due ${repayment.due_date}) — Interest ₹${Math.round(parseFloat(repayment.expected_interest)).toLocaleString('en-IN')}, Principal ₹${Math.round(parseFloat(repayment.expected_principal)).toLocaleString('en-IN')}`,
+                                                                                type: 'schedule'
+                                                                            });
+                                                                            setShowAddPayment(true);
                                                                         }} 
-                                                                        style={{ ...styles.payScheduleBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                                                        style={styles.payScheduleBtn} 
+                                                                        disabled={repayment.status === 'paid'}
                                                                     >
-                                                                        Edit
+                                                                        Log Pay
                                                                     </button>
-                                                                )}
-                                                                {repayment.status !== 'paid' && (
-                                                                    <button onClick={() => handleDeleteRepayment(repayment.id)} style={styles.deleteRowBtn}>
-                                                                        <Trash2 size={14} />
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    )}
+                                                                    {repayment.status !== 'paid' && (
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                setEditingRepaymentId(repayment.id);
+                                                                                setRepaymentForm({
+                                                                                    loan_id: repayment.loan_id,
+                                                                                    due_date: repayment.due_date,
+                                                                                    installment_number: repayment.installment_number || '',
+                                                                                    expected_amount: repayment.expected_amount,
+                                                                                    expected_principal: repayment.expected_principal,
+                                                                                    expected_interest: repayment.expected_interest,
+                                                                                    notes: repayment.notes || ''
+                                                                                });
+                                                                                setShowAddRepayment(true);
+                                                                            }} 
+                                                                            style={{ ...styles.payScheduleBtn, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                    )}
+                                                                    {repayment.status !== 'paid' && (
+                                                                        <button onClick={() => handleDeleteRepayment(repayment.id)} style={styles.deleteRowBtn}>
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    );
+                                })()}
+                            </div>
+                        )}
                 </div>
             )}
 
@@ -4927,9 +4972,22 @@ const styles = {
     },
     viewToggleRow: {
         display: 'flex',
-        gap: '0.5rem',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '0.75rem',
         marginTop: '-0.5rem',
-        marginBottom: '1rem'
+        marginBottom: '1rem',
+        flexWrap: 'wrap'
+    },
+    viewToggleBtnGroup: {
+        display: 'flex',
+        gap: '0.4rem',
+        alignItems: 'center'
+    },
+    listScopeWrapper: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.45rem'
     },
     viewToggleBtn: {
         padding: '0.4rem 0.75rem',
@@ -5602,17 +5660,32 @@ if (typeof window !== 'undefined') {
                 font-size: 0.8rem !important;
             }
 
-            /* View Toggles */
+            /* View Toggles & Schedule Controls */
             .view-toggle-row {
                 width: 100% !important;
                 display: flex !important;
+                flex-direction: column !important;
+                gap: 0.5rem !important;
+            }
+            .view-toggle-btn-group {
+                display: flex !important;
+                width: 100% !important;
                 gap: 0.35rem !important;
             }
-            .view-toggle-row button {
+            .view-toggle-btn-group .view-toggle-btn {
                 flex: 1 !important;
                 justify-content: center !important;
                 padding: 0.35rem 0.5rem !important;
                 font-size: 0.75rem !important;
+            }
+            .list-scope-wrapper {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                width: 100% !important;
+            }
+            .list-scope-wrapper select {
+                flex: 1 !important;
             }
 
             /* Schedules Tab - Top Summary Cards */
