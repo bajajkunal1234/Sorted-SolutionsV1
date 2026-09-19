@@ -2289,7 +2289,7 @@ export default function NewEraDashboard() {
                                             normalizeDateStr(r.due_date) === dateStr && 
                                             (selectedLoanId === 'all' || r.loan_id === selectedLoanId)
                                         );
-                                        const dayDueTotal = repaymentsDue.reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
+                                        const dayDueTotal = repaymentsDue.filter(r => r.status !== 'paid').reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
 
                                         const hasActivity = dayLoans.length > 0 || dayPayments.length > 0 || repaymentsDue.length > 0;
 
@@ -2400,6 +2400,10 @@ export default function NewEraDashboard() {
 
                                                     {/* 3. Scheduled Repayments Due */}
                                                     {repaymentsDue.map(rep => {
+                                                        const isPaid = rep.status === 'paid';
+                                                        const isAlreadyPaidOnSameDay = isPaid && dayPayments.some(p => p.repayment_id === rep.id || p.loan_id === rep.loan_id);
+                                                        if (isAlreadyPaidOnSameDay) return null;
+
                                                         const loan = data.loans.find(l => l.id === rep.loan_id);
                                                         return (
                                                             <div 
@@ -2410,9 +2414,9 @@ export default function NewEraDashboard() {
                                                                     borderColor: rep.status === 'paid' ? '#10b981' : rep.status === 'partially_paid' ? '#f59e0b' : '#ef4444',
                                                                     backgroundColor: rep.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : rep.status === 'partially_paid' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)'
                                                                 }}
-                                                                title={`Due: ${loan ? loan.name : 'Vendor'} - ₹${parseFloat(rep.expected_amount).toLocaleString('en-IN')} (${rep.status.toUpperCase()})`}
+                                                                title={`${isPaid ? 'Paid' : 'Due'}: ${loan ? loan.name : 'Vendor'} - ₹${parseFloat(rep.expected_amount).toLocaleString('en-IN')} (${rep.status.toUpperCase()})`}
                                                             >
-                                                                <div className="mini-rep-name" style={styles.miniRepName}>{loan ? loan.name : 'Vendor'}</div>
+                                                                <div className="mini-rep-name" style={styles.miniRepName}>{isPaid ? '✓ ' : ''}{loan ? loan.name : 'Vendor'}</div>
                                                                 <div className="mini-rep-amt" style={styles.miniRepAmt}>₹{Math.round(rep.expected_amount).toLocaleString('en-IN')}</div>
                                                             </div>
                                                         );
@@ -2436,7 +2440,7 @@ export default function NewEraDashboard() {
                                                                 title={`Paid: ₹${parseFloat(p.amount).toLocaleString('en-IN')}`}
                                                             />
                                                         ))}
-                                                        {repaymentsDue.map(r => (
+                                                        {repaymentsDue.filter(r => !(r.status === 'paid' && dayPayments.some(p => p.repayment_id === r.id || p.loan_id === r.loan_id))).map(r => (
                                                             <span 
                                                                 key={`dot-rep-${r.id}`} 
                                                                 style={{
@@ -2472,7 +2476,7 @@ export default function NewEraDashboard() {
                                         (selectedLoanId === 'all' || r.loan_id === selectedLoanId) &&
                                         normalizeDateStr(r.due_date) === selectedDateStr
                                     );
-                                    const selectedDayDueTotal = selectedDayRepayments.reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
+                                    const selectedDayDueTotal = selectedDayRepayments.filter(r => r.status !== 'paid').reduce((sum, r) => sum + parseFloat(r.expected_amount || 0), 0);
 
                                     const hasSelectedActivity = selectedDayLoans.length > 0 || selectedDayPayments.length > 0 || selectedDayRepayments.length > 0;
 
@@ -2617,7 +2621,7 @@ export default function NewEraDashboard() {
                                                     {selectedDayRepayments.length > 0 && (
                                                         <div>
                                                             <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                                                                <Calendar size={14} /> Scheduled Repayments Due (Day Total: ₹{selectedDayDueTotal.toLocaleString('en-IN')})
+                                                                <Calendar size={14} /> Scheduled Repayments {selectedDayDueTotal > 0 ? `Due (Day Due: ₹${selectedDayDueTotal.toLocaleString('en-IN')})` : `(All Paid)`}
                                                             </div>
                                                             <div style={styles.dayDetailList}>
                                                                 {selectedDayRepayments.map(repayment => {

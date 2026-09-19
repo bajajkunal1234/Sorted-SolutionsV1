@@ -463,21 +463,61 @@ export async function POST(request) {
                         });
                     }
 
-                    const { error: insErr } = await supabase
+                    const { data: insertedReps, error: insErr } = await supabase
                         .from('newera_repayments')
-                        .insert(repaymentsToInsert);
+                        .insert(repaymentsToInsert)
+                        .select();
                     error = insErr;
 
-                    if (!error) {
+                    if (!error && insertedReps && insertedReps.length > 0) {
+                        // Auto-reconcile with any existing unlinked payments for this loan
+                        const { data: unlinkedPays } = await supabase
+                            .from('newera_payments')
+                            .select('*')
+                            .eq('loan_id', loan_id)
+                            .is('repayment_id', null);
+
+                        if (unlinkedPays && unlinkedPays.length > 0) {
+                            for (const r of insertedReps) {
+                                const rMonth = r.due_date ? r.due_date.slice(0, 7) : '';
+                                const matchPay = unlinkedPays.find(p => p.payment_date === r.due_date) ||
+                                                 unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                                if (matchPay) {
+                                    await supabase.from('newera_payments').update({ repayment_id: r.id }).eq('id', matchPay.id);
+                                    const isFull = parseFloat(matchPay.amount) >= parseFloat(r.expected_amount);
+                                    await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', r.id);
+                                }
+                            }
+                        }
+
                         await logInteraction(supabase, session.member_name, 'create_repayment', `Added recurring manual schedule installments of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} monthly for ${count} months for "${loanName}"`);
                     }
                 } else {
-                    const { error: insErr } = await supabase
+                    const { data: insertedRep, error: insErr } = await supabase
                         .from('newera_repayments')
-                        .insert(repaymentRow);
+                        .insert(repaymentRow)
+                        .select()
+                        .maybeSingle();
                     error = insErr;
 
-                    if (!error) {
+                    if (!error && insertedRep) {
+                        const { data: unlinkedPays } = await supabase
+                            .from('newera_payments')
+                            .select('*')
+                            .eq('loan_id', loan_id)
+                            .is('repayment_id', null);
+
+                        if (unlinkedPays && unlinkedPays.length > 0) {
+                            const rMonth = insertedRep.due_date ? insertedRep.due_date.slice(0, 7) : '';
+                            const matchPay = unlinkedPays.find(p => p.payment_date === insertedRep.due_date) ||
+                                             unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                            if (matchPay) {
+                                await supabase.from('newera_payments').update({ repayment_id: insertedRep.id }).eq('id', matchPay.id);
+                                const isFull = parseFloat(matchPay.amount) >= parseFloat(insertedRep.expected_amount);
+                                await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', insertedRep.id);
+                            }
+                        }
+
                         await logInteraction(supabase, session.member_name, 'create_repayment', `Added manual schedule installment of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} due on ${due_date} for "${loanName}"`);
                     }
                 }
@@ -528,8 +568,29 @@ export async function POST(request) {
                 notes: r.notes || null
             }));
 
-            const { error } = await supabase.from('newera_repayments').insert(repaymentsToInsert);
-            if (error) throw error;
+            const { data: insertedRows, error: insErr } = await supabase.from('newera_repayments').insert(repaymentsToInsert).select();
+            if (insErr) throw insErr;
+
+            if (insertedRows && insertedRows.length > 0) {
+                const { data: unlinkedPays } = await supabase
+                    .from('newera_payments')
+                    .select('*')
+                    .eq('loan_id', loanId)
+                    .is('repayment_id', null);
+
+                if (unlinkedPays && unlinkedPays.length > 0) {
+                    for (const r of insertedRows) {
+                        const rMonth = r.due_date ? r.due_date.slice(0, 7) : '';
+                        const matchPay = unlinkedPays.find(p => p.payment_date === r.due_date) ||
+                                         unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                        if (matchPay) {
+                            await supabase.from('newera_payments').update({ repayment_id: r.id }).eq('id', matchPay.id);
+                            const isFull = parseFloat(matchPay.amount) >= parseFloat(r.expected_amount);
+                            await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', r.id);
+                        }
+                    }
+                }
+            }
 
             await logInteraction(supabase, session.member_name, 'bulk_import_repayments', `Bulk imported ${rows.length} schedule installments via Excel for liability "${loanName}"`);
 
@@ -546,12 +607,38 @@ export async function POST(request) {
             const { data: member } = await supabase.from('newera_members').select('name').eq('id', member_id).maybeSingle();
             const memberName = member ? member.name : 'Unknown';
 
+            let effectiveRepaymentId = repayment_id || null;
+
+            // Auto-reconciliation: If repayment_id not passed, match with unpaid installment
+            if (!effectiveRepaymentId && loan_id && payment_date) {
+                const pMonth = payment_date.slice(0, 7); // 'YYYY-MM'
+                const { data: candidateReps } = await supabase
+                    .from('newera_repayments')
+                    .select('id, expected_amount, due_date, status')
+                    .eq('loan_id', loan_id)
+                    .neq('status', 'paid')
+                    .order('due_date', { ascending: true });
+
+                if (candidateReps && candidateReps.length > 0) {
+                    let match = candidateReps.find(r => r.due_date === payment_date);
+                    if (!match) {
+                        match = candidateReps.find(r => r.due_date && r.due_date.startsWith(pMonth));
+                    }
+                    if (!match) {
+                        match = candidateReps.find(r => Math.abs(parseFloat(r.expected_amount) - parseFloat(amount)) < 1);
+                    }
+                    if (match) {
+                        effectiveRepaymentId = match.id;
+                    }
+                }
+            }
+
             // Insert payment log
             const { data: payment, error: payError } = await supabase
                 .from('newera_payments')
                 .insert({
                     loan_id,
-                    repayment_id: repayment_id || null,
+                    repayment_id: effectiveRepaymentId,
                     member_id: parseInt(member_id),
                     payment_date,
                     amount: parseFloat(amount),
@@ -566,17 +653,17 @@ export async function POST(request) {
             if (payError) throw payError;
 
             // If linked to a repayment schedule item, let's update that schedule item status
-            if (repayment_id) {
+            if (effectiveRepaymentId) {
                 // Fetch all payments for this schedule item
                 const { data: siblingPayments } = await supabase
                     .from('newera_payments')
                     .select('amount')
-                    .eq('repayment_id', repayment_id);
+                    .eq('repayment_id', effectiveRepaymentId);
 
                 const { data: repaymentItem } = await supabase
                     .from('newera_repayments')
                     .select('expected_amount')
-                    .eq('id', repayment_id)
+                    .eq('id', effectiveRepaymentId)
                     .single();
 
                 if (repaymentItem) {
@@ -591,7 +678,7 @@ export async function POST(request) {
                     await supabase
                         .from('newera_repayments')
                         .update({ status: newStatus })
-                        .eq('id', repayment_id);
+                        .eq('id', effectiveRepaymentId);
                 }
             }
 
