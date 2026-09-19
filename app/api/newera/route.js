@@ -1,6 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
-import { parseAmortizationText, extractTextFromBuffer } from './parse-schedule/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,48 +20,6 @@ async function getSession(request, supabase) {
 
     if (error || !session) return null;
     return session;
-}
-
-// Helper to auto-parse attached statement into repayments schedule
-async function syncScheduleFromAttachment(supabase, loanId, attachmentUrl) {
-    if (!attachmentUrl) return false;
-    try {
-        const res = await fetch(attachmentUrl);
-        if (!res.ok) return false;
-        const buffer = Buffer.from(await res.arrayBuffer());
-        const extractedText = await extractTextFromBuffer(buffer, attachmentUrl);
-        if (!extractedText) return false;
-        const installments = parseAmortizationText(extractedText);
-        if (!installments || installments.length === 0) return false;
-
-        // Delete unpaid installments
-        await supabase
-            .from('newera_repayments')
-            .delete()
-            .eq('loan_id', loanId)
-            .eq('status', 'unpaid');
-
-        // Insert parsed installments
-        const repaymentsToInsert = installments.map((inst, index) => ({
-            loan_id: loanId,
-            due_date: inst.due_date,
-            installment_number: inst.installment_number || (index + 1),
-            expected_amount: parseFloat(inst.expected_amount),
-            expected_principal: parseFloat(inst.expected_principal),
-            expected_interest: parseFloat(inst.expected_interest),
-            status: 'unpaid'
-        }));
-
-        const batchSize = 100;
-        for (let i = 0; i < repaymentsToInsert.length; i += batchSize) {
-            const batch = repaymentsToInsert.slice(i, i + batchSize);
-            await supabase.from('newera_repayments').insert(batch);
-        }
-        return true;
-    } catch (err) {
-        console.error('[syncScheduleFromAttachment-error]:', err);
-        return false;
-    }
 }
 
 // Helper to log audit actions
@@ -267,14 +224,8 @@ export async function POST(request) {
                 if (allocError) throw allocError;
             }
 
-            // If statement is attached, attempt to parse statement first
-            let statementSynced = false;
-            if (attachment_url) {
-                statementSynced = await syncScheduleFromAttachment(supabase, loan.id, attachment_url);
-            }
-
-            // Automatically generate schedule if tenure is provided and no statement schedule was imported
-            if (!statementSynced && tenure_months && emi_amount && parseFloat(emi_amount) > 0) {
+            // Automatically generate schedule if tenure is provided
+            if (tenure_months && emi_amount && parseFloat(emi_amount) > 0) {
                 const repayments = [];
                 let balance = parseFloat(principal_amount);
                 const monthlyRate = (parseFloat(interest_rate_annual) / 100) / 12;
@@ -774,23 +725,6 @@ export async function POST(request) {
             await logInteraction(supabase, session.member_name, 'bulk_import_repayments', `Imported ${installments.length} installments via document parser for "${loanName}"`);
 
             return NextResponse.json({ success: true, loanId: finalLoanId });
-        }
-
-        // 13. Sync Schedule from Attached Statement
-        if (action === 'sync_attachment_schedule') {
-            const { loanId } = body;
-            const { data: targetLoan } = await supabase.from('newera_loans').select('*').eq('id', loanId).maybeSingle();
-            if (!targetLoan || !targetLoan.attachment_url) {
-                return NextResponse.json({ success: false, error: 'No attached statement found for this liability' }, { status: 400 });
-            }
-
-            const ok = await syncScheduleFromAttachment(supabase, targetLoan.id, targetLoan.attachment_url);
-            if (!ok) {
-                return NextResponse.json({ success: false, error: 'Failed to extract schedule rows from statement' }, { status: 422 });
-            }
-
-            await logInteraction(supabase, session.member_name, 'sync_attachment_schedule', `Synced repayment schedule from statement for "${targetLoan.name}"`);
-            return NextResponse.json({ success: true });
         }
 
         return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });

@@ -3,6 +3,7 @@ const nextConfig = {
     reactStrictMode: true,
     experimental: {
         instrumentationHook: true,
+        serverComponentsExternalPackages: ['pdf-parse'],
     },
     async redirects() {
         return [

@@ -1,4 +1,3 @@
-import * as pdfParseMod from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { NextResponse } from 'next/server';
 
@@ -139,6 +138,7 @@ export function parseAmortizationText(text) {
 export async function extractTextFromBuffer(buffer, filename) {
     const fn = (filename || '').toLowerCase();
     if (fn.endsWith('.pdf')) {
+        const pdfParseMod = await import('pdf-parse');
         const PDFParseClass = pdfParseMod.PDFParse || (pdfParseMod.default && pdfParseMod.default.PDFParse);
         if (PDFParseClass) {
             const parser = new PDFParseClass({ data: buffer });
