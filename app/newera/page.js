@@ -182,7 +182,7 @@ export default function NewEraDashboard() {
 
     // Liabilities View States
     const [editingLoanId, setEditingLoanId] = useState(null);
-    const [liabilitiesView, setLiabilitiesView] = useState('card'); // 'card', 'table', 'detail'
+    const [liabilitiesView, setLiabilitiesView] = useState('table'); // 'table', 'card', 'detail'
     const [selectedDetailLoanId, setSelectedDetailLoanId] = useState('');
     const [liabilityFilterType, setLiabilityFilterType] = useState('all');
     const [liabilitySortBy, setLiabilitySortBy] = useState('name_asc');
@@ -1426,17 +1426,6 @@ export default function NewEraDashboard() {
                             <div style={styles.liabilitiesControlRow} className="liabilities-control-row">
                                 <div style={{ ...styles.viewToggleRow, margin: 0 }} className="view-toggle-row">
                                     <button 
-                                        onClick={() => setLiabilitiesView('card')} 
-                                        style={{
-                                            ...styles.viewToggleBtn,
-                                            backgroundColor: liabilitiesView === 'card' ? '#6366f1' : 'transparent',
-                                            color: liabilitiesView === 'card' ? '#ffffff' : '#94a3b8',
-                                            borderColor: liabilitiesView === 'card' ? '#6366f1' : 'rgba(255,255,255,0.08)'
-                                        }}
-                                    >
-                                        <LayoutGrid size={14} /> Cards
-                                    </button>
-                                    <button 
                                         onClick={() => setLiabilitiesView('table')} 
                                         style={{
                                             ...styles.viewToggleBtn,
@@ -1446,6 +1435,17 @@ export default function NewEraDashboard() {
                                         }}
                                     >
                                         <Table size={14} /> Table
+                                    </button>
+                                    <button 
+                                        onClick={() => setLiabilitiesView('card')} 
+                                        style={{
+                                            ...styles.viewToggleBtn,
+                                            backgroundColor: liabilitiesView === 'card' ? '#6366f1' : 'transparent',
+                                            color: liabilitiesView === 'card' ? '#ffffff' : '#94a3b8',
+                                            borderColor: liabilitiesView === 'card' ? '#6366f1' : 'rgba(255,255,255,0.08)'
+                                        }}
+                                    >
+                                        <LayoutGrid size={14} /> Cards
                                     </button>
                                     <button 
                                         onClick={() => {
