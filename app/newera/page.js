@@ -185,6 +185,7 @@ export default function NewEraDashboard() {
     const [liabilitiesView, setLiabilitiesView] = useState('table'); // 'table', 'card', 'detail'
     const [selectedDetailLoanId, setSelectedDetailLoanId] = useState('');
     const [liabilityFilterType, setLiabilityFilterType] = useState('all');
+    const [liabilityRemainingFilter, setLiabilityRemainingFilter] = useState('outstanding'); // 'outstanding' (default: > 0), 'all', 'settled' (=== 0)
     const [liabilitySortBy, setLiabilitySortBy] = useState('name_asc');
 
     // Dynamic Columns & Sorting for Liabilities Table
@@ -421,6 +422,13 @@ export default function NewEraDashboard() {
         }
 
         const getRemaining = getLoanRemaining;
+
+        // Filter by remaining balance: default 'outstanding' hides settled (<= 0) liabilities
+        if (liabilityRemainingFilter === 'outstanding') {
+            list = list.filter(l => getRemaining(l) > 0.01);
+        } else if (liabilityRemainingFilter === 'settled') {
+            list = list.filter(l => getRemaining(l) <= 0.01);
+        }
 
         if (liabilitiesView === 'table' && tableSort.column) {
             const dir = tableSort.direction === 'asc' ? 1 : -1;
@@ -1476,6 +1484,18 @@ export default function NewEraDashboard() {
                                                 onChange={e => setLiabilitySearchQuery(e.target.value)}
                                                 style={styles.filterInput}
                                             />
+                                        </div>
+                                        <div style={styles.filterItem}>
+                                            <span style={styles.filterLabel}>Balance</span>
+                                            <select 
+                                                value={liabilityRemainingFilter} 
+                                                onChange={e => setLiabilityRemainingFilter(e.target.value)}
+                                                style={styles.filterDropdownSmall}
+                                            >
+                                                <option value="outstanding">Outstanding ({(data?.loans || []).filter(l => getLoanRemaining(l) > 0.01).length})</option>
+                                                <option value="all">All ({(data?.loans || []).length})</option>
+                                                <option value="settled">Settled ({(data?.loans || []).filter(l => getLoanRemaining(l) <= 0.01).length})</option>
+                                            </select>
                                         </div>
                                         <div style={styles.filterItem}>
                                             <span style={styles.filterLabel}>Type</span>
