@@ -480,12 +480,14 @@ export async function POST(request) {
                         if (unlinkedPays && unlinkedPays.length > 0) {
                             for (const r of insertedReps) {
                                 const rMonth = r.due_date ? r.due_date.slice(0, 7) : '';
-                                const matchPay = unlinkedPays.find(p => p.payment_date === r.due_date) ||
-                                                 unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                                const expectedAmt = parseFloat(r.expected_amount);
+                                const matchPay = unlinkedPays.find(p => 
+                                    Math.abs(parseFloat(p.amount) - expectedAmt) < 1 &&
+                                    (p.payment_date === r.due_date || (p.payment_date && p.payment_date.startsWith(rMonth)))
+                                );
                                 if (matchPay) {
                                     await supabase.from('newera_payments').update({ repayment_id: r.id }).eq('id', matchPay.id);
-                                    const isFull = parseFloat(matchPay.amount) >= parseFloat(r.expected_amount);
-                                    await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', r.id);
+                                    await supabase.from('newera_repayments').update({ status: 'paid' }).eq('id', r.id);
                                 }
                             }
                         }
@@ -509,12 +511,14 @@ export async function POST(request) {
 
                         if (unlinkedPays && unlinkedPays.length > 0) {
                             const rMonth = insertedRep.due_date ? insertedRep.due_date.slice(0, 7) : '';
-                            const matchPay = unlinkedPays.find(p => p.payment_date === insertedRep.due_date) ||
-                                             unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                            const expectedAmt = parseFloat(insertedRep.expected_amount);
+                            const matchPay = unlinkedPays.find(p => 
+                                Math.abs(parseFloat(p.amount) - expectedAmt) < 1 &&
+                                (p.payment_date === insertedRep.due_date || (p.payment_date && p.payment_date.startsWith(rMonth)))
+                            );
                             if (matchPay) {
                                 await supabase.from('newera_payments').update({ repayment_id: insertedRep.id }).eq('id', matchPay.id);
-                                const isFull = parseFloat(matchPay.amount) >= parseFloat(insertedRep.expected_amount);
-                                await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', insertedRep.id);
+                                await supabase.from('newera_repayments').update({ status: 'paid' }).eq('id', insertedRep.id);
                             }
                         }
 
@@ -581,12 +585,14 @@ export async function POST(request) {
                 if (unlinkedPays && unlinkedPays.length > 0) {
                     for (const r of insertedRows) {
                         const rMonth = r.due_date ? r.due_date.slice(0, 7) : '';
-                        const matchPay = unlinkedPays.find(p => p.payment_date === r.due_date) ||
-                                         unlinkedPays.find(p => p.payment_date && p.payment_date.startsWith(rMonth));
+                        const expectedAmt = parseFloat(r.expected_amount);
+                        const matchPay = unlinkedPays.find(p => 
+                            Math.abs(parseFloat(p.amount) - expectedAmt) < 1 &&
+                            (p.payment_date === r.due_date || (p.payment_date && p.payment_date.startsWith(rMonth)))
+                        );
                         if (matchPay) {
                             await supabase.from('newera_payments').update({ repayment_id: r.id }).eq('id', matchPay.id);
-                            const isFull = parseFloat(matchPay.amount) >= parseFloat(r.expected_amount);
-                            await supabase.from('newera_repayments').update({ status: isFull ? 'paid' : 'partially_paid' }).eq('id', r.id);
+                            await supabase.from('newera_repayments').update({ status: 'paid' }).eq('id', r.id);
                         }
                     }
                 }
@@ -610,8 +616,10 @@ export async function POST(request) {
             let effectiveRepaymentId = repayment_id || null;
 
             // Auto-reconciliation: If repayment_id not passed, match with unpaid installment
-            if (!effectiveRepaymentId && loan_id && payment_date) {
+            // STRICT REQUIREMENT: Payment amount MUST match expected installment amount
+            if (!effectiveRepaymentId && loan_id && payment_date && amount) {
                 const pMonth = payment_date.slice(0, 7); // 'YYYY-MM'
+                const payAmt = parseFloat(amount);
                 const { data: candidateReps } = await supabase
                     .from('newera_repayments')
                     .select('id, expected_amount, due_date, status')
@@ -620,12 +628,15 @@ export async function POST(request) {
                     .order('due_date', { ascending: true });
 
                 if (candidateReps && candidateReps.length > 0) {
-                    let match = candidateReps.find(r => r.due_date === payment_date);
+                    // Priority 1: Exact date and matching amount
+                    let match = candidateReps.find(r => 
+                        r.due_date === payment_date && Math.abs(parseFloat(r.expected_amount) - payAmt) < 1
+                    );
+                    // Priority 2: Same month and matching amount
                     if (!match) {
-                        match = candidateReps.find(r => r.due_date && r.due_date.startsWith(pMonth));
-                    }
-                    if (!match) {
-                        match = candidateReps.find(r => Math.abs(parseFloat(r.expected_amount) - parseFloat(amount)) < 1);
+                        match = candidateReps.find(r => 
+                            r.due_date && r.due_date.startsWith(pMonth) && Math.abs(parseFloat(r.expected_amount) - payAmt) < 1
+                        );
                     }
                     if (match) {
                         effectiveRepaymentId = match.id;
