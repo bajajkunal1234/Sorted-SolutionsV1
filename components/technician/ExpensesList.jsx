@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { apiCall, uploadOrQueueFile, isOnline, removeQueueItem } from '@/lib/offlineSync';
+import { apiCall, uploadOrQueueFile, isOnline, removeQueueItem, compressImageClient } from '@/lib/offlineSync';
 
 const getLocalDateString = () => {
     const d = new Date();
@@ -197,13 +197,21 @@ export default function ExpensesList({ technicianId }) {
         setUploading(true);
         setError(null);
         try {
-            const safeFileName = file.name ? file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+            // Compress large phone camera photos (10-20MB) to ~100KB for fast direct uploads & offline storage
+            let fileToUpload = file;
+            try {
+                fileToUpload = await compressImageClient(file);
+            } catch (compErr) {
+                console.warn('[Expenses] Compression error, proceeding with original file:', compErr);
+            }
+
+            const safeFileName = fileToUpload.name ? fileToUpload.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
 
             // If online, attempt direct upload first so receipt gets a permanent Supabase URL right away
             if (isOnline()) {
                 try {
                     const uploadData = new FormData();
-                    uploadData.append('file', file, safeFileName);
+                    uploadData.append('file', fileToUpload, safeFileName);
                     const uploadRes = await fetch('/api/upload', {
                         method: 'POST',
                         body: uploadData
@@ -221,7 +229,7 @@ export default function ExpensesList({ technicianId }) {
                 }
             }
 
-            const url = await uploadOrQueueFile(file, safeFileName);
+            const url = await uploadOrQueueFile(fileToUpload, safeFileName);
             if (url) {
                 setReceiptUrl(url);
             } else {
@@ -322,7 +330,8 @@ export default function ExpensesList({ technicianId }) {
                     description: formData.description,
                     receipt: receiptUrl,
                     latitude: coords?.latitude || null,
-                    longitude: coords?.longitude || null
+                    longitude: coords?.longitude || null,
+                    client_submitted_at: new Date().toISOString()
                 })
             });
             const data = await response.json();
@@ -700,23 +709,29 @@ export default function ExpensesList({ technicianId }) {
                                                     {expense.description && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>{expense.description}</div>}
                                                     {expense.receipt && (
                                                         <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                                                            <a href={expense.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                                                                <img 
-                                                                    src={expense.receipt} 
-                                                                    alt="Receipt Thumbnail" 
-                                                                    onError={(e) => {
-                                                                        e.currentTarget.style.display = 'none';
-                                                                    }}
-                                                                    style={{ 
-                                                                        maxHeight: '50px', 
-                                                                        borderRadius: 'var(--radius-md)', 
-                                                                        border: '1px solid var(--border-primary)',
-                                                                        backgroundColor: '#fff',
-                                                                        padding: '2px',
-                                                                        cursor: 'pointer'
-                                                                    }} 
-                                                                />
-                                                            </a>
+                                                            {expense.receipt.includes('/offline-file-placeholder') ? (
+                                                                <span style={{ fontSize: '11px', color: '#6366f1', display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(99,102,241,0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                                                                    📷 Receipt attached (ready to sync)
+                                                                </span>
+                                                            ) : (
+                                                                <a href={expense.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                                    <img 
+                                                                        src={expense.receipt} 
+                                                                        alt="Receipt Thumbnail" 
+                                                                        onError={(e) => {
+                                                                            e.currentTarget.style.display = 'none';
+                                                                        }}
+                                                                        style={{ 
+                                                                            maxHeight: '50px', 
+                                                                            borderRadius: 'var(--radius-md)', 
+                                                                            border: '1px solid var(--border-primary)',
+                                                                            backgroundColor: '#fff',
+                                                                            padding: '2px',
+                                                                            cursor: 'pointer'
+                                                                        }} 
+                                                                    />
+                                                                </a>
+                                                            )}
                                                         </div>
                                                     )}
                                                     {expense.admin_notes && expense.status === 'rejected' && (

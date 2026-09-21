@@ -96,9 +96,20 @@ export async function POST(request) {
         // Validate date: must not be future-dated and must be within the last 48 hours (in local India timezone UTC+5:30)
         const rawDate = expenseData.date || new Date().toISOString().split('T')[0];
         const expenseDate = rawDate.split('T')[0];
-        const d = new Date();
+
+        // Reference time for submission: if queued offline, check client_submitted_at
+        let refTimestamp = Date.now();
+        if (expenseData.client_submitted_at) {
+            const clientTime = new Date(expenseData.client_submitted_at).getTime();
+            // Valid if not in the future (with 5 min leeway for clock skew) and within last 30 days
+            if (!isNaN(clientTime) && clientTime <= (Date.now() + 5 * 60 * 1000) && clientTime >= (Date.now() - 30 * 24 * 60 * 60 * 1000)) {
+                refTimestamp = clientTime;
+            }
+        }
+
+        const d = new Date(refTimestamp);
         const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-        const nd = new Date(utc + (3600000 * 5.5)); // Current time in IST
+        const nd = new Date(utc + (3600000 * 5.5)); // Reference time in IST
         const todayStr = nd.toISOString().split('T')[0];
 
         // 48 hours (2 days) window in IST
@@ -121,14 +132,21 @@ export async function POST(request) {
 
         // Insert expense
         const nowIso = new Date().toISOString();
+        const submittedDateIso = (refTimestamp !== Date.now()) 
+            ? new Date(refTimestamp).toISOString() 
+            : nowIso;
+
+        // Exclude ephemeral client fields from DB payload
+        const { client_submitted_at, ...dbPayload } = expenseData;
+
         const { data: expense, error } = await supabase
             .from('expenses')
             .insert({
-                ...expenseData,
+                ...dbPayload,
                 status: 'pending',
                 date: expenseDate,
-                submitted_date: nowIso,
-                created_at: nowIso
+                submitted_date: submittedDateIso,
+                created_at: submittedDateIso
             })
             .select()
             .single()
