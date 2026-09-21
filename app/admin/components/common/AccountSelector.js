@@ -104,10 +104,24 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
         setDropdownSearch('');
     };
 
-    const filteredDropdownAccounts = accounts.filter(acc =>
-        acc.name?.toLowerCase().includes(dropdownSearch.toLowerCase()) ||
-        acc.group?.toLowerCase().includes(dropdownSearch.toLowerCase())
-    );
+    const filteredDropdownAccounts = accounts.filter(acc => {
+        if (!dropdownSearch) return true;
+        const s = dropdownSearch.toLowerCase().trim();
+        const sDig = s.replace(/\D/g, '');
+        const s10 = sDig.length >= 10 ? sDig.slice(-10) : sDig;
+
+        if (acc.name?.toLowerCase().includes(s)) return true;
+        if (acc.group?.toLowerCase().includes(s)) return true;
+        if (acc.sku?.toLowerCase().includes(s)) return true;
+
+        if (sDig.length >= 3) {
+            const phones = [acc.mobile, acc.phone, acc.alternate_mobile].filter(Boolean).map(p => String(p).replace(/\D/g, ''));
+            if (phones.some(p => p.includes(sDig) || (s10.length >= 6 && p.endsWith(s10)))) {
+                return true;
+            }
+        }
+        return false;
+    });
 
     return (
         <div style={{ position: 'relative' }}>

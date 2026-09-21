@@ -34,7 +34,7 @@ export async function GET(request) {
             .from('expenses')
             .select('*')
             .eq('technician_id', technicianId)
-            .eq('status', 'approved')
+            .in('status', ['approved', 'approved and paid'])
 
         if (expError) {
             console.error('Error fetching expenses for ledger:', expError)

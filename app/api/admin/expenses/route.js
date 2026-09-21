@@ -14,7 +14,13 @@ export async function GET(request) {
             .order('created_at', { ascending: false })
 
         if (technicianId) query = query.eq('technician_id', technicianId)
-        if (status && status !== 'all') query = query.eq('status', status)
+        if (status && status !== 'all') {
+            if (status === 'approved') {
+                query = query.in('status', ['approved', 'approved and paid'])
+            } else {
+                query = query.eq('status', status)
+            }
+        }
 
         const { data, error } = await query
         if (error) throw error

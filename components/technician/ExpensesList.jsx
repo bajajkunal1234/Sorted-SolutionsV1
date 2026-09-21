@@ -3,10 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { apiCall, uploadOrQueueFile } from '@/lib/offlineSync';
+import { apiCall, uploadOrQueueFile, isOnline, removeQueueItem } from '@/lib/offlineSync';
 
 const getLocalDateString = () => {
     const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getMin48HoursDateString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 2); // 48 hours / 2 days ago
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -82,13 +91,71 @@ export default function ExpensesList({ technicianId }) {
         }
     }, [technicianId, viewSegment]);
 
+    useEffect(() => {
+        const handleSync = () => {
+            if (viewSegment === 'claims' && technicianId) {
+                fetchExpenses();
+            }
+        };
+        window.addEventListener('offline-queue-changed', handleSync);
+        window.addEventListener('offline-sync-complete', handleSync);
+        return () => {
+            window.removeEventListener('offline-queue-changed', handleSync);
+            window.removeEventListener('offline-sync-complete', handleSync);
+        };
+    }, [technicianId, viewSegment]);
+
     const fetchExpenses = async () => {
         try {
             setLoading(true);
             const response = await apiCall(`/api/technician/expenses?technicianId=${technicianId}`);
             if (!response.ok) throw new Error('Failed to fetch expenses');
             const data = await response.json();
-            setExpenses(data.expenses || []);
+            const serverExpenses = data.expenses || [];
+
+            // Read pending expenses from offline_sync_queue so they don't disappear on refresh/tab switch
+            let pendingQueued = [];
+            try {
+                if (typeof window !== 'undefined') {
+                    const qStr = localStorage.getItem('offline_sync_queue');
+                    if (qStr) {
+                        const q = JSON.parse(qStr);
+                        pendingQueued = q
+                            .filter(item => item.url?.includes('/api/technician/expenses') && item.method === 'POST')
+                            .map(item => {
+                                try {
+                                    const body = typeof item.body === 'string' ? JSON.parse(item.body) : item.body;
+                                    if (body && body.technician_id === technicianId) {
+                                        return {
+                                            id: `queued-${item.id}`,
+                                            queue_id: item.id,
+                                            technician_id: body.technician_id,
+                                            technician_name: body.technician_name,
+                                            date: body.date,
+                                            category: body.category,
+                                            amount: body.amount,
+                                            description: body.description,
+                                            receipt: body.receipt,
+                                            status: 'pending',
+                                            is_queued: true,
+                                            created_at: new Date(item.timestamp || Date.now()).toISOString()
+                                        };
+                                    }
+                                } catch(e) {}
+                                return null;
+                            })
+                            .filter(Boolean);
+                    }
+                }
+            } catch (e) {}
+
+            // Deduplicate: If server already processed it, don't show the duplicate queued item
+            const merged = [
+                ...pendingQueued.filter(pq => !serverExpenses.some(se => se.date?.split('T')[0] === pq.date && se.category === pq.category && Math.abs(parseFloat(se.amount) - parseFloat(pq.amount)) < 0.01)),
+                ...serverExpenses
+            ];
+
+            setExpenses(merged);
             setError(null);
         } catch (err) {
             setError('Failed to load expenses');
@@ -131,6 +198,29 @@ export default function ExpensesList({ technicianId }) {
         setError(null);
         try {
             const safeFileName = file.name ? file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+
+            // If online, attempt direct upload first so receipt gets a permanent Supabase URL right away
+            if (isOnline()) {
+                try {
+                    const uploadData = new FormData();
+                    uploadData.append('file', file, safeFileName);
+                    const uploadRes = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: uploadData
+                    });
+                    if (uploadRes.ok) {
+                        const resJson = await uploadRes.json();
+                        if (resJson.success && resJson.url) {
+                            setReceiptUrl(resJson.url);
+                            setUploading(false);
+                            return;
+                        }
+                    }
+                } catch (netErr) {
+                    console.warn('[Expenses] Direct upload failed, falling back to offline queue:', netErr);
+                }
+            }
+
             const url = await uploadOrQueueFile(file, safeFileName);
             if (url) {
                 setReceiptUrl(url);
@@ -147,11 +237,21 @@ export default function ExpensesList({ technicianId }) {
         }
     };
 
-    const handleDeleteExpense = async (expenseId) => {
+    const handleDeleteExpense = async (expenseId, queueId) => {
         if (!window.confirm('Are you sure you want to delete this expense request?')) return;
         
         setError(null);
         try {
+            if (queueId || (typeof expenseId === 'string' && (expenseId.startsWith('queued-') || expenseId.startsWith('temp-')))) {
+                const targetQId = queueId || (typeof expenseId === 'string' && expenseId.startsWith('queued-') ? expenseId.replace('queued-', '') : null);
+                if (targetQId) {
+                    removeQueueItem(targetQId);
+                }
+                setExpenses(prev => prev.filter(e => e.id !== expenseId));
+                alert('✅ Expense request removed.');
+                return;
+            }
+
             const res = await apiCall(`/api/technician/expenses?id=${expenseId}&technicianId=${technicianId}`, {
                 method: 'DELETE'
             });
@@ -182,8 +282,14 @@ export default function ExpensesList({ technicianId }) {
         }
 
         const todayStr = getLocalDateString();
-        if (formData.date < todayStr) {
-            setError('Back-dated expenses are not allowed. Please select today or a future date.');
+        const min48hStr = getMin48HoursDateString();
+
+        if (formData.date > todayStr) {
+            setError('Future-dated expenses are not allowed. Please select today or a date within the last 48 hours.');
+            return;
+        }
+        if (formData.date < min48hStr) {
+            setError('Expenses must be submitted within 48 hours of receipt date.');
             return;
         }
 
@@ -234,6 +340,7 @@ export default function ExpensesList({ technicianId }) {
                     description: formData.description,
                     receipt: receiptPhoto || receiptUrl,
                     status: 'pending',
+                    is_queued: true,
                     created_at: new Date().toISOString()
                 };
             }
@@ -270,7 +377,14 @@ export default function ExpensesList({ technicianId }) {
         return cat || { name: catId, color: '#6b7280', daily_limit: 0 };
     };
 
-    const getStatusBadge = (status) => {
+    const getStatusBadge = (status, isQueued) => {
+        if (isQueued) {
+            return (
+                <span style={{ display:'inline-flex', alignItems:'center', gap:'3px', padding:'2px 7px', borderRadius:'9999px', fontSize:'10px', fontWeight:600, backgroundColor:'#e0e7ff', color:'#4338ca' }}>
+                    <Clock size={11} /> Syncing...
+                </span>
+            );
+        }
         const map = {
             pending:  { icon: <Clock size={11} />, label: 'Pending',  bg: '#fef3c7', color: '#d97706' },
             approved: { icon: <CheckCircle size={11} />, label: 'Approved', bg: '#d1fae5', color: '#059669' },
@@ -360,11 +474,15 @@ export default function ExpensesList({ technicianId }) {
                             <form onSubmit={handleSubmit} style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
                                 <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Date</label>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                            <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: 0 }}>Receipt Date</label>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Within last 48 hours</span>
+                                        </div>
                                         <input 
                                             type="date" 
                                             value={formData.date} 
-                                            min={getLocalDateString()}
+                                            max={getLocalDateString()}
+                                            min={getMin48HoursDateString()}
                                             onChange={e => setFormData({ ...formData, date: e.target.value })} 
                                             className="form-input" 
                                             style={{ width: '100%' }} 
@@ -556,11 +674,11 @@ export default function ExpensesList({ technicianId }) {
                                                                 📍 Location
                                                             </a>
                                                         )}
-                                                        {getStatusBadge(expense.status || 'pending')}
-                                                        {expense.status === 'pending' && (
+                                                        {getStatusBadge(expense.status || 'pending', expense.is_queued)}
+                                                        {(expense.status === 'pending' || expense.is_queued) && (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => handleDeleteExpense(expense.id)}
+                                                                onClick={() => handleDeleteExpense(expense.id, expense.queue_id)}
                                                                 style={{
                                                                     background: 'none',
                                                                     border: 'none',
@@ -586,6 +704,9 @@ export default function ExpensesList({ technicianId }) {
                                                                 <img 
                                                                     src={expense.receipt} 
                                                                     alt="Receipt Thumbnail" 
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                    }}
                                                                     style={{ 
                                                                         maxHeight: '50px', 
                                                                         borderRadius: 'var(--radius-md)', 

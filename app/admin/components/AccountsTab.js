@@ -470,6 +470,29 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         }
     }, [customerToOpen, ledgers, onCustomerOpened]);
 
+    // Debounced DB search fallback to guarantee any existing customer in DB is found
+    useEffect(() => {
+        if (activeTab !== 'accounts' || !searchTerm || searchTerm.trim().length < 3) return;
+        const timer = setTimeout(async () => {
+            try {
+                const results = await accountsAPI.getAll('all', true, searchTerm.trim());
+                if (Array.isArray(results) && results.length > 0) {
+                    setLedgers(prev => {
+                        const existingIds = new Set(prev.map(a => a.id));
+                        const toAdd = results.filter(a => !existingIds.has(a.id));
+                        if (toAdd.length > 0) {
+                            return [...prev, ...toAdd];
+                        }
+                        return prev;
+                    });
+                }
+            } catch (e) {
+                console.error('Accounts server search fallback error:', e);
+            }
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [searchTerm, activeTab]);
+
     const tabConfig = {
         accounts:   { label: 'Accounts',   searchPlaceholder: 'Search Ledgers...',          createButtonText: 'Create Account',          formType: 'new-account' },
         sales:      { label: 'Sales',       searchPlaceholder: 'Search Sales Invoices...',   createButtonText: 'Create Sales Invoice',     formType: 'sales-invoice' },
@@ -786,13 +809,44 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
     const filteredLedgers = activeTab === 'accounts' ? (() => {
         let data = ledgers;
         if (searchTerm) {
-            const s = searchTerm.toLowerCase();
+            const s = searchTerm.toLowerCase().trim();
             const sDig = s.replace(/\D/g, '');
+            const s10 = sDig.length >= 10 ? sDig.slice(-10) : sDig;
+
             data = data.filter(l => {
-                const phoneStr = (l.mobile || l.phone || '').toLowerCase();
-                const pDig = phoneStr.replace(/\D/g, '');
-                const pMatch = phoneStr.includes(s) || (sDig && pDig.includes(sDig));
-                return l.name.toLowerCase().includes(s) || l.sku?.toLowerCase().includes(s) || pMatch;
+                if (l.name && l.name.toLowerCase().includes(s)) return true;
+                if (l.sku && l.sku.toLowerCase().includes(s)) return true;
+                if (l.email && l.email.toLowerCase().includes(s)) return true;
+                if (l.contact_person && l.contact_person.toLowerCase().includes(s)) return true;
+                if (l.gstin && l.gstin.toLowerCase().includes(s)) return true;
+                if (typeof l.address === 'string' && l.address.toLowerCase().includes(s)) return true;
+                if (typeof l.billing_address === 'string' && l.billing_address.toLowerCase().includes(s)) return true;
+
+                // Collect all phone representations on this account
+                const rawPhones = [
+                    l.mobile,
+                    l.phone,
+                    l.alternate_mobile,
+                    ...(Array.isArray(l.properties) ? l.properties.flatMap(p => [p.contactPhone, p.phone, p.mobile]) : [])
+                ].filter(Boolean);
+
+                // Substring match on raw phone string (handles formatted numbers like "+91-96641 34278")
+                if (rawPhones.some(p => String(p).toLowerCase().includes(s))) return true;
+
+                // Normalized digit matching (handles raw user inputs like "9664134278" or "09664134278")
+                if (sDig.length >= 3) {
+                    const cleanPhones = rawPhones.map(p => String(p).replace(/\D/g, '')).filter(Boolean);
+                    if (cleanPhones.some(p => {
+                        if (p.includes(sDig)) return true;
+                        const p10 = p.length >= 10 ? p.slice(-10) : p;
+                        if (s10.length >= 6 && (p10.includes(s10) || s10.includes(p10))) return true;
+                        return false;
+                    })) {
+                        return true;
+                    }
+                }
+
+                return false;
             });
         }
         data = applyAccTags(data, activeTags);
@@ -801,9 +855,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             if (sortBy === 'balance_asc')  return (a.closing_balance||a.closingBalance||0) - (b.closing_balance||b.closingBalance||0);
             if (sortBy === 'jobs')         return (b.jobs_done||b.jobsDone||0) - (a.jobs_done||a.jobsDone||0);
             if (sortBy === 'opening_desc') return (b.opening_balance||b.openingBalance||0) - (a.opening_balance||a.openingBalance||0);
-            if (sortBy === 'name_desc')    return b.name.localeCompare(a.name);
+            if (sortBy === 'name_desc')    return (b.name || '').localeCompare(a.name || '');
             if (sortBy === 'updated_desc') return new Date(b.updated_at||0) - new Date(a.updated_at||0);
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         });
     })() : [];
 

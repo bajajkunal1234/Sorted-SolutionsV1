@@ -31,9 +31,47 @@ function AutocompleteSearch({
     // Filter suggestions based on input value
     const filteredSuggestions = suggestions.filter(item => {
         if (!value) return false;
-        const val = typeof item === 'string' ? item : (item[searchKey] || '');
-        return val.toLowerCase().includes(value.toLowerCase());
-    }).slice(0, 10); // Limit to 10 suggestions
+        if (typeof item === 'string') {
+            return item.toLowerCase().includes(value.toLowerCase());
+        }
+
+        const vLower = value.toLowerCase().trim();
+        const vDigits = vLower.replace(/\D/g, '');
+        const vLast10 = vDigits.length >= 10 ? vDigits.slice(-10) : vDigits;
+
+        // 1. Primary searchKey match
+        const val = (item[searchKey] || '').toString();
+        if (val.toLowerCase().includes(vLower)) return true;
+
+        // 2. If search input has digits (e.g. phone number or formatted phone)
+        if (vDigits.length >= 3) {
+            // Check digits in the searchKey value itself (e.g. displayText formatted with phone)
+            const valDigits = val.replace(/\D/g, '');
+            if (valDigits.includes(vDigits)) return true;
+            if (vDigits.length >= 6 && valDigits.includes(vLast10)) return true;
+            if (vLast10.length >= 6 && valDigits.endsWith(vLast10)) return true;
+
+            // Check item phone properties directly
+            const itemPhones = [
+                item.mobile,
+                item.phone,
+                item.alternate_mobile,
+                ...(Array.isArray(item.properties) ? item.properties.flatMap(p => [p.contactPhone, p.phone, p.mobile]) : [])
+            ].filter(Boolean).map(p => String(p).replace(/\D/g, ''));
+
+            if (itemPhones.some(p => p.includes(vDigits) || (vDigits.length >= 6 && p.includes(vLast10)) || (vLast10.length >= 6 && p.endsWith(vLast10)))) {
+                return true;
+            }
+        }
+
+        // 3. Fallback common field matching on object items
+        if (item.name && item.name.toLowerCase().includes(vLower)) return true;
+        if (item.sku && String(item.sku).toLowerCase().includes(vLower)) return true;
+        if (item.email && String(item.email).toLowerCase().includes(vLower)) return true;
+        if (item.contact_person && String(item.contact_person).toLowerCase().includes(vLower)) return true;
+
+        return false;
+    }).slice(0, 15); // Show top 15 suggestions
 
     // Handle outside clicks to close dropdown
     useEffect(() => {

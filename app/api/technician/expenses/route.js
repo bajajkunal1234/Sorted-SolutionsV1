@@ -35,6 +35,7 @@ export async function GET(request) {
             .select('*')
             .eq('technician_id', technicianId)
             .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
 
         // Filter by date range if provided
         if (startDate) {
@@ -92,28 +93,42 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
-        // Validate date is not past-dated (in local India timezone UTC+5:30)
-        const expenseDate = expenseData.date || new Date().toISOString().split('T')[0];
+        // Validate date: must not be future-dated and must be within the last 48 hours (in local India timezone UTC+5:30)
+        const rawDate = expenseData.date || new Date().toISOString().split('T')[0];
+        const expenseDate = rawDate.split('T')[0];
         const d = new Date();
         const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-        const nd = new Date(utc + (3600000 * 5.5));
+        const nd = new Date(utc + (3600000 * 5.5)); // Current time in IST
         const todayStr = nd.toISOString().split('T')[0];
 
-        if (expenseDate < todayStr) {
+        // 48 hours (2 days) window in IST
+        const limit48h = new Date(nd.getTime() - (2 * 24 * 60 * 60 * 1000));
+        const limit48hStr = limit48h.toISOString().split('T')[0];
+
+        if (expenseDate > todayStr) {
             return NextResponse.json(
-                { error: 'Back-dated expenses are not allowed. Please select today or a future date.' },
+                { error: 'Future-dated expenses are not allowed. Please select today or a date within the last 48 hours.' },
                 { status: 400 }
-            )
+            );
+        }
+
+        if (expenseDate < limit48hStr) {
+            return NextResponse.json(
+                { error: 'Expenses must be submitted within 48 hours of receipt date.' },
+                { status: 400 }
+            );
         }
 
         // Insert expense
+        const nowIso = new Date().toISOString();
         const { data: expense, error } = await supabase
             .from('expenses')
             .insert({
                 ...expenseData,
                 status: 'pending',
-                date: expenseData.date || new Date().toISOString().split('T')[0],
-                created_at: new Date().toISOString()
+                date: expenseDate,
+                submitted_date: nowIso,
+                created_at: nowIso
             })
             .select()
             .single()

@@ -6,6 +6,69 @@ import { cleanPhone10, trackLeadAttribution } from '@/lib/lead-tracker'
 
 export const dynamic = 'force-dynamic'
 
+// Helper to build robust search conditions across account fields
+function buildAccountSearchConditions(search) {
+    if (!search) return null;
+    const cleanSearch = search.replace(/[(),]/g, ' ').trim();
+    if (!cleanSearch) return null;
+
+    const digits = cleanSearch.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
+    const conditions = new Set();
+    conditions.add(`name.ilike.%${cleanSearch}%`);
+    conditions.add(`sku.ilike.%${cleanSearch}%`);
+    conditions.add(`email.ilike.%${cleanSearch}%`);
+    conditions.add(`contact_person.ilike.%${cleanSearch}%`);
+    conditions.add(`mobile.ilike.%${cleanSearch}%`);
+    conditions.add(`phone.ilike.%${cleanSearch}%`);
+    conditions.add(`alternate_mobile.ilike.%${cleanSearch}%`);
+
+    if (digits.length >= 3) {
+        conditions.add(`mobile.ilike.%${digits}%`);
+        conditions.add(`phone.ilike.%${digits}%`);
+        conditions.add(`alternate_mobile.ilike.%${digits}%`);
+    }
+    if (last10 && last10.length >= 6) {
+        conditions.add(`mobile.ilike.%${last10}%`);
+        conditions.add(`phone.ilike.%${last10}%`);
+        conditions.add(`alternate_mobile.ilike.%${last10}%`);
+    }
+
+    return Array.from(conditions).join(',');
+}
+
+async function fetchAllRows(queryBuilder, limit = null) {
+    if (limit) {
+        const { data, error } = await queryBuilder.limit(limit);
+        if (error) throw error;
+        return data || [];
+    }
+
+    const CHUNK_SIZE = 1000;
+    let allData = [];
+    let page = 0;
+    let keepFetching = true;
+
+    while (keepFetching) {
+        const from = page * CHUNK_SIZE;
+        const to = from + CHUNK_SIZE - 1;
+        const { data, error } = await queryBuilder.range(from, to);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allData.push(...data);
+            if (data.length < CHUNK_SIZE) {
+                keepFetching = false;
+            } else {
+                page++;
+            }
+        } else {
+            keepFetching = false;
+        }
+    }
+    return allData;
+}
+
 // GET - Fetch all accounts
 export async function GET(request) {
     try {
@@ -13,6 +76,9 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type')
         const id = searchParams.get('id')
+        const search = (searchParams.get('search') || '').trim()
+        const limitParam = searchParams.get('limit')
+        const limit = limitParam ? parseInt(limitParam, 10) : (search ? 500 : null)
 
         if (id) {
             const { data, error } = await supabase
@@ -38,8 +104,8 @@ export async function GET(request) {
                 .from('accounts')
                 .select('id, name, mobile, phone, type, under, gst_applicable, tax_rate')
                 .neq('status', 'archived')
-                .order('name', { ascending: true })
-                .limit(1000);
+                .order('name', { ascending: true });
+
             if (type && type !== 'all') {
                 if (type === 'customer') {
                     dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%');
@@ -49,16 +115,22 @@ export async function GET(request) {
                     dropdownQuery = dropdownQuery.eq('type', type);
                 }
             }
-            const { data: dropData, error: dropErr } = await dropdownQuery;
-            if (dropErr) throw dropErr;
+
+            if (search) {
+                const sCond = buildAccountSearchConditions(search);
+                if (sCond) {
+                    dropdownQuery = dropdownQuery.or(sCond);
+                }
+            }
+
+            const dropData = await fetchAllRows(dropdownQuery, limit);
             return NextResponse.json({ success: true, data: dropData });
         }
 
         let query = supabase
             .from('accounts')
             .select('*, jobs:jobs(count), customers:customers(password_hash, image_url)')
-            .order('name', { ascending: true })
-            .limit(1000)
+            .order('name', { ascending: true });
 
         if (type && type !== 'all') {
             if (type === 'customer') {
@@ -79,9 +151,14 @@ export async function GET(request) {
             query = query.neq('status', 'archived');
         }
 
-        const { data, error } = await query
+        if (search) {
+            const sCond = buildAccountSearchConditions(search);
+            if (sCond) {
+                query = query.or(sCond);
+            }
+        }
 
-        if (error) throw error
+        const data = await fetchAllRows(query, limit);
 
         const enrichedData = data.map(account => {
             const customerData = account.customers && account.customers[0];
