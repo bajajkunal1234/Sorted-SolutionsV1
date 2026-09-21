@@ -122,6 +122,41 @@ export async function POST(request) {
             Object.entries(body).filter(([k]) => ALLOWED_POST.includes(k))
         );
 
+        // ── 1. Duplicate & Anti-Bounce Guard ────────────────────────────────
+        // If the client retries (e.g. mobile network timeout or offline sync queue),
+        // check if an active job was already created for this customer, appliance,
+        // and date within the last 10 minutes.
+        if (insertData.customer_id && !body.force_duplicate) {
+            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+            let dupQuery = supabase
+                .from('jobs')
+                .select('*')
+                .eq('customer_id', insertData.customer_id)
+                .gte('created_at', tenMinutesAgo)
+                .neq('status', 'cancelled');
+
+            const applianceOrCat = insertData.appliance || insertData.category;
+            if (applianceOrCat) {
+                dupQuery = dupQuery.eq('appliance', applianceOrCat);
+            }
+            if (insertData.scheduled_date) {
+                dupQuery = dupQuery.eq('scheduled_date', insertData.scheduled_date);
+            }
+
+            const { data: existingJobs } = await dupQuery.order('created_at', { ascending: false }).limit(1);
+
+            if (existingJobs && existingJobs.length > 0) {
+                const existing = existingJobs[0];
+                console.warn(`[jobs POST] Duplicate prevented for customer ${insertData.customer_id} (${existing.job_number}). Returning existing job.`);
+                return NextResponse.json({
+                    success: true,
+                    data: existing,
+                    duplicate_prevented: true,
+                    message: `Job ${existing.job_number} already created recently. Duplicate prevented.`
+                });
+            }
+        }
+
         const { data, error } = await supabase
             .from('jobs')
             .insert([insertData])
