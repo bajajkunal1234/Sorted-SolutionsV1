@@ -5,17 +5,35 @@ import { FileText, Calendar, User, Receipt, CreditCard, Tag, Send, Loader2, Tras
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
 // ─── Status badge ────────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
+function StatusBadge({ status, item }) {
+    let displayStatus = status;
+    if (item) {
+        const total = parseFloat(item.total_amount || item.amount || 0);
+        const paid = parseFloat(item.paid_amount || 0);
+        if (total > 0 && paid >= total) {
+            displayStatus = 'Paid';
+        } else if (paid > 0) {
+            displayStatus = 'Partial';
+        } else if (status?.toLowerCase() === 'finalized' || status?.toLowerCase() === 'unpaid') {
+            displayStatus = 'Unpaid';
+        }
+    }
+
+    const key = (displayStatus || '').toLowerCase();
     const colorMap = {
-        Paid: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
-        Pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
-        Overdue: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
-        Draft: { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
-        Sent: { bg: 'rgba(99,102,241,0.15)', color: '#6366f1' },
-        Accepted: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
-        Declined: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+        paid: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
+        partial: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+        unpaid: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+        pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+        overdue: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+        draft: { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
+        sent: { bg: 'rgba(99,102,241,0.15)', color: '#6366f1' },
+        accepted: { bg: 'rgba(16,185,129,0.15)', color: '#10b981' },
+        declined: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444' },
+        pending_verification: { bg: 'rgba(245,158,11,0.15)', color: '#d97706' },
     };
-    const style = colorMap[status] || { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' };
+    const style = colorMap[key] || { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' };
+    const formatted = displayStatus ? (displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).replace('_', ' ')) : '—';
     return (
         <span style={{
             padding: '2px 10px',
@@ -27,7 +45,7 @@ function StatusBadge({ status }) {
             letterSpacing: '0.02em',
             flexShrink: 0,
         }}>
-            {status || '—'}
+            {formatted}
         </span>
     );
 }
@@ -189,7 +207,7 @@ function TransactionsCardView({ items, activeTab, groupBy, onItemClick, onDelete
                                             {item.date || '—'}
                                         </div>
                                     </div>
-                                    {!isVoucherTab && item.status && <StatusBadge status={item.status} />}
+                                    {!isVoucherTab && item.status && <StatusBadge status={item.status} item={item} />}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onDelete?.(item); }}
                                         style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', padding: '6px', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}

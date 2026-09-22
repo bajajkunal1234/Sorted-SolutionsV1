@@ -310,7 +310,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             items: combinedItems,
             ...totals,
             __formType: 'sales',
-            status: 'finalized'
+            status: action === 'draft' ? 'draft' : (existingInvoice?.status && existingInvoice.status !== 'finalized' ? existingInvoice.status : 'unpaid')
         };
 
         // Remove UI-only fields before saving

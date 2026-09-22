@@ -7,6 +7,7 @@ import { formatCurrency } from '../../utils/accountingHelpers';
 const STATUS_COLORS = {
     paid:     { bg: 'rgba(16,185,129,0.12)', fg: '#10b981' },
     partial:  { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' },
+    unpaid:   { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444' },
     pending:  { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' },
     overdue:  { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444' },
     accepted: { bg: 'rgba(16,185,129,0.12)', fg: '#10b981' },
@@ -53,6 +54,13 @@ function getStatus(item, tab) {
         return item.payment_mode || item.paymentMethod || item.status || '';
     }
     if (tab === 'accounts') return item.type || '';
+    if (tab === 'sales' || tab === 'purchases') {
+        const total = parseFloat(item.total_amount || item.amount || 0);
+        const paid = parseFloat(item.paid_amount || 0);
+        if (total > 0 && paid >= total) return 'paid';
+        if (paid > 0) return 'partial';
+        if (item.status === 'finalized') return 'unpaid';
+    }
     return item.status || '';
 }
 

@@ -7,6 +7,7 @@ import { formatCurrency } from '../../utils/accountingHelpers';
 const STATUS_COLORS = {
     paid:     { bg: 'rgba(16,185,129,0.12)', fg: '#10b981' },
     partial:  { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' },
+    unpaid:   { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444' },
     pending:  { bg: 'rgba(245,158,11,0.12)', fg: '#f59e0b' },
     overdue:  { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444' },
     accepted: { bg: 'rgba(16,185,129,0.12)', fg: '#10b981' },
@@ -24,7 +25,7 @@ function getColumns(tab) {
     switch (tab) {
         case 'sales':
         case 'purchases':
-            return ['pending', 'partial', 'paid', 'overdue'];
+            return ['unpaid', 'partial', 'paid', 'overdue'];
         case 'quotations':
             return ['draft', 'sent', 'accepted', 'rejected'];
         case 'receipts':
@@ -40,9 +41,17 @@ function getColumns(tab) {
 function getItemGroup(item, tab) {
     switch (tab) {
         case 'sales':
-        case 'purchases':
+        case 'purchases': {
+            const total = parseFloat(item.total_amount || item.amount || 0);
+            const paid = parseFloat(item.paid_amount || 0);
+            if (total > 0 && paid >= total) return 'paid';
+            if (paid > 0) return 'partial';
+            const s = (item.status || 'unpaid').toLowerCase();
+            if (s === 'finalized' || s === 'pending') return 'unpaid';
+            return s;
+        }
         case 'quotations':
-            return (item.status || 'pending').toLowerCase();
+            return (item.status || 'draft').toLowerCase();
         case 'receipts':
         case 'payments':
             return item.payment_mode || item.paymentMethod || 'Other';
@@ -99,8 +108,15 @@ function KanbanCard({ item, tab, onClick }) {
     const title    = getItemTitle(item, tab);
     const subtitle = getItemSubtitle(item, tab);
     const amount   = getItemAmount(item, tab);
-    const status   = item.status || '';
-    const ss       = statusStyle(status);
+    let effectiveStatus = item.status || '';
+    if (tab === 'sales' || tab === 'purchases') {
+        const total = parseFloat(item.total_amount || item.amount || 0);
+        const paid = parseFloat(item.paid_amount || 0);
+        if (total > 0 && paid >= total) effectiveStatus = 'paid';
+        else if (paid > 0) effectiveStatus = 'partial';
+        else if (effectiveStatus?.toLowerCase() === 'finalized') effectiveStatus = 'unpaid';
+    }
+    const ss       = statusStyle(effectiveStatus);
     const date     = item.date ? new Date(item.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '';
     const isAccount = tab === 'accounts';
     const isPos = amount >= 0;
@@ -140,7 +156,7 @@ function KanbanCard({ item, tab, onClick }) {
                         </>
                     ) : formatCurrency(amount)}
                 </span>
-                {status && (
+                {effectiveStatus && (
                     <span style={{
                         padding: '2px 6px',
                         borderRadius: '4px',
@@ -150,7 +166,7 @@ function KanbanCard({ item, tab, onClick }) {
                         color: ss.fg,
                         textTransform: 'capitalize'
                     }}>
-                        {status}
+                        {effectiveStatus}
                     </span>
                 )}
             </div>

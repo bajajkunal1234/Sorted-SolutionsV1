@@ -1260,10 +1260,37 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
 
     const chkStyle = { width: '16px', height: '16px', cursor: 'pointer', accentColor: '#6366f1', flexShrink: 0 };
 
-    const renderStatusBadge = (status) => {
-        const colorMap = { Paid: ['rgba(16,185,129,.15)', '#10b981'], Pending: ['rgba(245,158,11,.15)', '#f59e0b'], Overdue: ['rgba(239,68,68,.15)', '#ef4444'], Draft: ['rgba(148,163,184,.15)', '#94a3b8'], Sent: ['rgba(99,102,241,.15)', '#6366f1'], Accepted: ['rgba(16,185,129,.15)', '#10b981'], Declined: ['rgba(239,68,68,.15)', '#ef4444'] };
-        const [bg, c] = colorMap[status] || ['var(--bg-secondary)', 'var(--text-secondary)'];
-        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || '—'}</span>;
+    const renderStatusBadge = (status, item) => {
+        let displayStatus = status;
+        if (item && (activeTab === 'sales' || activeTab === 'purchases')) {
+            const total = parseFloat(item.total_amount || item.amount || 0);
+            const paid = parseFloat(item.paid_amount || 0);
+            if (total > 0 && paid >= total) {
+                displayStatus = 'Paid';
+            } else if (paid > 0) {
+                displayStatus = 'Partial';
+            } else if (status?.toLowerCase() === 'finalized' || status?.toLowerCase() === 'unpaid') {
+                displayStatus = 'Unpaid';
+            }
+        }
+
+        const key = (displayStatus || '').toLowerCase();
+        const colorMap = {
+            paid: ['rgba(16,185,129,.15)', '#10b981'],
+            partial: ['rgba(245,158,11,.15)', '#f59e0b'],
+            unpaid: ['rgba(239,68,68,.15)', '#ef4444'],
+            pending: ['rgba(245,158,11,.15)', '#f59e0b'],
+            overdue: ['rgba(239,68,68,.15)', '#ef4444'],
+            draft: ['rgba(148,163,184,.15)', '#94a3b8'],
+            sent: ['rgba(99,102,241,.15)', '#6366f1'],
+            accepted: ['rgba(16,185,129,.15)', '#10b981'],
+            declined: ['rgba(239,68,68,.15)', '#ef4444'],
+            cancelled: ['rgba(239,68,68,.15)', '#ef4444'],
+            pending_verification: ['rgba(245,158,11,.15)', '#d97706'],
+        };
+        const [bg, c] = colorMap[key] || ['var(--bg-secondary)', 'var(--text-secondary)'];
+        const formattedText = displayStatus ? (displayStatus.charAt(0).toUpperCase() + displayStatus.slice(1).replace('_', ' ')) : '—';
+        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{formattedText}</span>;
     };
 
     const getExportData = () => {
@@ -1794,7 +1821,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                                     if (isVoucher) {
                                                         return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td>;
                                                     }
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{renderStatusBadge(item.status)}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{renderStatusBadge(item.status, item)}</td>;
                                                 }
                                                 case 'created_by': {
                                                     const isTech = item.technician_name || item.jobs?.technician_name;

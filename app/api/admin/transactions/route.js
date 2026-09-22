@@ -422,6 +422,74 @@ export async function POST(request) {
             }
         }
 
+        // ── Auto-reconciliation for Sales Invoices (match existing receipts for job_id) ──
+        if (type === 'sales' && data.job_id) {
+            try {
+                const { data: jobReceipts } = await supabase
+                    .from('receipt_vouchers')
+                    .select('id, amount, status')
+                    .eq('job_id', data.job_id)
+                    .neq('status', 'cancelled');
+
+                if (jobReceipts && jobReceipts.length > 0) {
+                    const clearedReceipts = jobReceipts.filter(r => r.status === 'cleared');
+                    const totalCleared = clearedReceipts.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
+                    // Insert allocation records
+                    for (const r of jobReceipts) {
+                        await supabase.from('receipt_voucher_allocations').insert({
+                            receipt_voucher_id: r.id,
+                            invoice_id: data.id,
+                            amount_applied: parseFloat(r.amount) || 0
+                        }).catch(() => {});
+                    }
+
+                    const invTotal = parseFloat(data.total_amount) || 0;
+                    const newStatus = totalCleared >= invTotal && invTotal > 0 ? 'paid' : (totalCleared > 0 ? 'partial' : (data.status || 'unpaid'));
+
+                    await supabase.from('sales_invoices')
+                        .update({ paid_amount: totalCleared, status: newStatus })
+                        .eq('id', data.id);
+
+                    data.paid_amount = totalCleared;
+                    data.status = newStatus;
+                }
+            } catch (autoAllocErr) {
+                console.error('[AUTO-ALLOCATION SALES POST ERROR]:', autoAllocErr);
+            }
+        }
+
+        // ── Auto-reconciliation for Receipts (match existing invoice for job_id if no manual allocations) ──
+        if (type === 'receipt' && data.job_id && allocations.length === 0) {
+            try {
+                const { data: linkedInv } = await supabase
+                    .from('sales_invoices')
+                    .select('id, paid_amount, total_amount, status')
+                    .eq('job_id', data.job_id)
+                    .neq('status', 'cancelled')
+                    .maybeSingle();
+
+                if (linkedInv) {
+                    const recAmt = parseFloat(data.amount) || 0;
+                    await supabase.from('receipt_voucher_allocations').insert({
+                        receipt_voucher_id: data.id,
+                        invoice_id: linkedInv.id,
+                        amount_applied: recAmt
+                    }).catch(() => {});
+
+                    if (data.status === 'cleared') {
+                        const newPaid = (parseFloat(linkedInv.paid_amount) || 0) + recAmt;
+                        const newStatus = newPaid >= (parseFloat(linkedInv.total_amount) || 0) ? 'paid' : 'partial';
+                        await supabase.from('sales_invoices')
+                            .update({ paid_amount: newPaid, status: newStatus })
+                            .eq('id', linkedInv.id);
+                    }
+                }
+            } catch (autoRecAllocErr) {
+                console.error('[AUTO-ALLOCATION RECEIPT POST ERROR]:', autoRecAllocErr);
+            }
+        }
+
         // Log interaction
         const info = createdInteractionMap[type];
         if (info) {
@@ -575,7 +643,7 @@ export async function PUT(request) {
                         
                     if (invData) {
                         const reversedPaid = Math.max(0, (parseFloat(invData.paid_amount) || 0) - parseFloat(oldAlloc.amount_applied));
-                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'draft');
+                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'unpaid');
                         await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
                     }
                 }
@@ -611,6 +679,95 @@ export async function PUT(request) {
                         await supabase.from(invoiceTable).update({ paid_amount: newPaid, status: newStatus }).eq('id', invId);
                     }
                 }
+            }
+        }
+
+        // ── Auto-reconciliation for Receipts on status update (e.g. Admin Verification) ──
+        if (type === 'receipt' && allocations.length === 0) {
+            try {
+                if (data.status === 'cleared') {
+                    // Check if an allocation already exists for this receipt
+                    let { data: existingAllocs } = await supabase
+                        .from('receipt_voucher_allocations')
+                        .select('invoice_id, amount_applied')
+                        .eq('receipt_voucher_id', data.id);
+
+                    // If no allocation exists, match with sales invoice by job_id
+                    if ((!existingAllocs || existingAllocs.length === 0) && data.job_id) {
+                        const { data: invByJob } = await supabase
+                            .from('sales_invoices')
+                            .select('id, paid_amount, total_amount')
+                            .eq('job_id', data.job_id)
+                            .neq('status', 'cancelled')
+                            .maybeSingle();
+
+                        if (invByJob) {
+                            const recAmt = parseFloat(data.amount) || 0;
+                            await supabase.from('receipt_voucher_allocations').insert({
+                                receipt_voucher_id: data.id,
+                                invoice_id: invByJob.id,
+                                amount_applied: recAmt
+                            }).catch(() => {});
+                            existingAllocs = [{ invoice_id: invByJob.id, amount_applied: recAmt }];
+                        }
+                    }
+
+                    // Recalculate paid_amount and status for all allocated invoices
+                    if (existingAllocs && existingAllocs.length > 0) {
+                        for (const alloc of existingAllocs) {
+                            const { data: allClearedAllocs } = await supabase
+                                .from('receipt_voucher_allocations')
+                                .select('amount_applied, receipt_vouchers!inner(status)')
+                                .eq('invoice_id', alloc.invoice_id)
+                                .eq('receipt_vouchers.status', 'cleared');
+
+                            const totalPaid = (allClearedAllocs || []).reduce((s, a) => s + (parseFloat(a.amount_applied) || 0), 0);
+                            const { data: currentInv } = await supabase
+                                .from('sales_invoices')
+                                .select('total_amount')
+                                .eq('id', alloc.invoice_id)
+                                .single();
+
+                            if (currentInv) {
+                                const invTotal = parseFloat(currentInv.total_amount) || 0;
+                                const newStatus = totalPaid >= invTotal && invTotal > 0 ? 'paid' : (totalPaid > 0 ? 'partial' : 'unpaid');
+                                await supabase.from('sales_invoices').update({ paid_amount: totalPaid, status: newStatus }).eq('id', alloc.invoice_id);
+                            }
+                        }
+                    }
+                } else if (data.status === 'rejected' || data.status === 'cancelled') {
+                    // Receipt rejected/cancelled: recompute without this receipt
+                    const { data: existingAllocs } = await supabase
+                        .from('receipt_voucher_allocations')
+                        .select('invoice_id, amount_applied')
+                        .eq('receipt_voucher_id', data.id);
+
+                    if (existingAllocs && existingAllocs.length > 0) {
+                        for (const alloc of existingAllocs) {
+                            const { data: allClearedAllocs } = await supabase
+                                .from('receipt_voucher_allocations')
+                                .select('amount_applied, receipt_vouchers!inner(status)')
+                                .eq('invoice_id', alloc.invoice_id)
+                                .eq('receipt_vouchers.status', 'cleared')
+                                .neq('receipt_voucher_id', data.id);
+
+                            const totalPaid = (allClearedAllocs || []).reduce((s, a) => s + (parseFloat(a.amount_applied) || 0), 0);
+                            const { data: currentInv } = await supabase
+                                .from('sales_invoices')
+                                .select('total_amount')
+                                .eq('id', alloc.invoice_id)
+                                .single();
+
+                            if (currentInv) {
+                                const invTotal = parseFloat(currentInv.total_amount) || 0;
+                                const newStatus = totalPaid >= invTotal && invTotal > 0 ? 'paid' : (totalPaid > 0 ? 'partial' : 'unpaid');
+                                await supabase.from('sales_invoices').update({ paid_amount: totalPaid, status: newStatus }).eq('id', alloc.invoice_id);
+                            }
+                        }
+                    }
+                }
+            } catch (autoReconcileErr) {
+                console.error('[AUTO-RECONCILIATION PUT ERROR]:', autoReconcileErr);
             }
         }
 
@@ -732,7 +889,7 @@ export async function DELETE(request) {
                         
                     if (invData) {
                         const reversedPaid = Math.max(0, (parseFloat(invData.paid_amount) || 0) - parseFloat(oldAlloc.amount_applied));
-                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'draft');
+                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'unpaid');
                         await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
                     }
                 }
