@@ -25,9 +25,14 @@ const DashboardQuickInsights = dynamic(() => import('./components/DashboardQuick
     loading: () => <div style={{ height: 200, borderRadius: 14, background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>📊 Loading insights dashboard...</div>
 })
 
+const StorePOSModal = dynamic(() => import('./components/pos/StorePOSModal'), {
+    ssr: false
+})
+
 export default function AdminApp() {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState('dashboard')
+    const [showPOSModal, setShowPOSModal] = useState(false)
     const [customerToOpen, setCustomerToOpen] = useState(null)
     const [jobToOpen, setJobToOpen] = useState(null)
     const [reportsSectionToOpen, setReportsSectionToOpen] = useState(null)
@@ -126,6 +131,9 @@ export default function AdminApp() {
             setReportsSubSectionToOpen('leads-tracker');
             setActiveTab('reports');
         }
+        window.openPOSModal = () => {
+            setShowPOSModal(true);
+        }
         window.openCreatePaymentForm = () => {
             setAccountsFormToOpen('payment-voucher');
             setAccountsSubTabToOpen('payments');
@@ -159,6 +167,7 @@ export default function AdminApp() {
             setActiveTab('jobs');
         }
         return () => {
+            delete window.openPOSModal
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
             delete window.openTechnicianManagement
@@ -356,6 +365,14 @@ export default function AdminApp() {
                     )
                 })}
             </nav>
+
+            {/* Store POS Modal */}
+            {showPOSModal && (
+                <StorePOSModal
+                    isOpen={showPOSModal}
+                    onClose={() => setShowPOSModal(false)}
+                />
+            )}
         </div>
     );
 }

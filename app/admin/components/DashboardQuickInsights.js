@@ -14,7 +14,8 @@ import {
     Map, 
     Plus, 
     AlertCircle, 
-    Loader2 
+    Loader2,
+    Store
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
@@ -497,6 +498,59 @@ export default function DashboardQuickInsights() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         <button
+                            onClick={() => window.openPOSModal && window.openPOSModal()}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                padding: '8px 10px',
+                                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(234, 88, 12, 0.12))',
+                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                borderRadius: 8,
+                                color: '#fbbf24',
+                                fontSize: 10,
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                letterSpacing: '0.04em'
+                            }}
+                            className="dashboard-action-btn"
+                        >
+                            <Store size={13} />
+                            <span>POS</span>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                if (window.openJobsSavedView) {
+                                    window.openJobsSavedView('Kunal View', 'map');
+                                } else if (window.openJobsMapWithFilter) {
+                                    window.openJobsMapWithFilter(data.kunalActiveTags);
+                                }
+                            }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                padding: '8px 10px',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                borderRadius: 8,
+                                color: '#38bdf8',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                            }}
+                            className="dashboard-action-btn"
+                        >
+                            <Map size={12} />
+                            <span>KUNAL MAP VIEW</span>
+                        </button>
+
+                        <button
                             onClick={() => window.openCreatePaymentForm && window.openCreatePaymentForm()}
                             style={{
                                 display: 'flex',
@@ -540,36 +594,6 @@ export default function DashboardQuickInsights() {
                         >
                             <Plus size={12} />
                             <span>CREATE PURCHASE</span>
-                        </button>
-
-                        <button
-                            onClick={() => {
-                                if (window.openJobsSavedView) {
-                                    window.openJobsSavedView('Kunal View', 'map');
-                                } else if (window.openJobsMapWithFilter) {
-                                    window.openJobsMapWithFilter(data.kunalActiveTags);
-                                }
-                            }}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 6,
-                                padding: '8px 10px',
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                border: '1px solid rgba(56, 189, 248, 0.25)',
-                                borderRadius: 8,
-                                color: '#38bdf8',
-                                fontSize: 10,
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s',
-                                gridColumn: 'span 2'
-                            }}
-                            className="dashboard-action-btn"
-                        >
-                            <Map size={12} />
-                            <span>KUNAL MAP VIEW</span>
                         </button>
                     </div>
                 </div>
