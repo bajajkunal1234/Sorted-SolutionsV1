@@ -126,12 +126,17 @@ export default function RootLayout({ children }) {
                                             reader.readAsDataURL(blob);
                                         });
 
-                                        const { Plugins } = window.Capacitor;
-                                        if (Plugins && Plugins.GPSBridgePlugin) {
-                                            await Plugins.GPSBridgePlugin.shareBase64({
+                                        const Plugins = window.Capacitor.Plugins || {};
+                                        let gpsBridge = Plugins.GPSBridgePlugin;
+                                        if (!gpsBridge && window.Capacitor.registerPlugin) {
+                                            gpsBridge = window.Capacitor.registerPlugin('GPSBridgePlugin');
+                                        }
+
+                                        if (gpsBridge && gpsBridge.shareBase64) {
+                                            await gpsBridge.shareBase64({
                                                 base64: dataUrl,
                                                 filename: filename,
-                                                mimeType: blob.type
+                                                mimeType: blob.type || 'application/pdf'
                                             });
                                             return true;
                                         }

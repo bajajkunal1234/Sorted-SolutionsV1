@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, MessageCircle, Copy, Check, Download } from 'lucide-react';
+import { X, MessageCircle, Copy, Check, Share2, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 /**
@@ -303,35 +303,76 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
         }
     };
 
-    const handleWhatsAppShare = async (e) => {
-        if (e) e.preventDefault();
+    // Native phone sharecard trigger with high-fidelity PDF attachment
+    const handleShare = async () => {
         setGeneratingPdf(true);
-
         try {
             const pdfData = await generateInvoicePDF(false);
-            if (!pdfData) {
-                window.open(waUrl, '_blank');
-                return;
-            }
+            if (!pdfData) return;
 
             const { blob, filename } = pdfData;
-            const pdfFile = new File([blob], filename, { type: 'application/pdf' });
 
-            // Check if Web Share API is supported and can share the PDF file
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-                try {
-                    await navigator.share({
-                        files: [pdfFile],
-                        title: isInvoice ? `Invoice ${docNum}` : `Quotation ${docNum}`,
-                        text: message
+            // 1. Native Capacitor App (Android APK) — trigger native GPSBridgePlugin share card
+            if (typeof window !== 'undefined' && window.triggerNativeShare) {
+                const handled = await window.triggerNativeShare(blob, filename);
+                if (handled) return;
+            }
+
+            // Direct Capacitor fallback
+            if (typeof window !== 'undefined' && window.Capacitor) {
+                const Plugins = window.Capacitor.Plugins || {};
+                let gpsBridge = Plugins.GPSBridgePlugin;
+                if (!gpsBridge && window.Capacitor.registerPlugin) {
+                    gpsBridge = window.Capacitor.registerPlugin('GPSBridgePlugin');
+                }
+                if (gpsBridge && gpsBridge.shareBase64) {
+                    const reader = new FileReader();
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
                     });
-                    return; // Success share
-                } catch (shareErr) {
-                    console.log('Web Share API sharing cancelled or failed, running fallback:', shareErr);
+                    await gpsBridge.shareBase64({
+                        base64: dataUrl,
+                        filename: filename,
+                        mimeType: 'application/pdf'
+                    });
+                    return;
                 }
             }
 
-            // Fallback: download PDF and redirect to WhatsApp URL
+            // 2. Web Share API (Android Chrome, iOS Safari, PWA)
+            const pdfFile = new File([blob], filename, { type: 'application/pdf' });
+            if (typeof navigator !== 'undefined' && navigator.share) {
+                if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                    try {
+                        await navigator.share({
+                            files: [pdfFile],
+                            title: isInvoice ? `Invoice ${docNum}` : `Quotation ${docNum}`,
+                            text: message
+                        });
+                        return;
+                    } catch (shareErr) {
+                        if (shareErr.name === 'AbortError') return; // User closed share card
+                        console.warn('Web Share file sharing failed, falling back to link/text:', shareErr);
+                    }
+                }
+
+                // Text/URL Web Share fallback
+                try {
+                    await navigator.share({
+                        title: isInvoice ? `Invoice ${docNum}` : `Quotation ${docNum}`,
+                        text: message,
+                        url: trackingUrl
+                    });
+                    return;
+                } catch (shareErr) {
+                    if (shareErr.name === 'AbortError') return;
+                    console.warn('Web Share text fallback failed:', shareErr);
+                }
+            }
+
+            // 3. Fallback for desktop browsers without Web Share: download PDF file
             const downloadUrl = URL.createObjectURL(blob);
             const a = window.document.createElement('a');
             a.href = downloadUrl;
@@ -340,16 +381,25 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             a.click();
             window.document.body.removeChild(a);
             URL.revokeObjectURL(downloadUrl);
-
-            // Notify user of manual action needed
-            alert(`PDF downloaded successfully as ${filename}.\n\nWhatsApp will open now. Please select the customer and attach this PDF file to the chat manually.`);
-
-            window.open(waUrl, '_blank');
         } catch (err) {
-            console.error('Error sharing PDF on WhatsApp:', err);
-            window.open(waUrl, '_blank');
+            console.error('Error sharing document:', err);
+            alert('Failed to share document: ' + err.message);
         } finally {
             setGeneratingPdf(false);
+        }
+    };
+
+    const handleWhatsAppShare = (e) => {
+        if (e) e.preventDefault();
+        try {
+            if (typeof window !== 'undefined' && window.Capacitor) {
+                window.open(waUrl, '_system');
+                return;
+            }
+            window.open(waUrl, '_blank');
+        } catch (err) {
+            console.error('Error opening WhatsApp:', err);
+            window.open(waUrl, '_blank');
         }
     };
 
@@ -469,19 +519,22 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                     </button>
                     
                     <button
-                        onClick={() => generateInvoicePDF(true)}
+                        onClick={handleShare}
                         disabled={generatingPdf}
                         style={{
                             flex: 1, padding: '14px', borderRadius: 14,
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                            color: '#94a3b8',
+                            background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)',
+                            color: '#38bdf8',
                             fontSize: 14, fontWeight: 700, cursor: generatingPdf ? 'not-allowed' : 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                             transition: 'all 0.2s'
                         }}
                     >
-                        <Download size={18} />
-                        PDF
+                        {generatingPdf ? (
+                            <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Sharing...</>
+                        ) : (
+                            <><Share2 size={18} /> Share</>
+                        )}
                     </button>
 
                     <button
@@ -497,7 +550,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                         }}
                     >
                         <MessageCircle size={18} />
-                        {generatingPdf ? 'Generating...' : 'Send via WhatsApp'}
+                        Send via WhatsApp
                     </button>
                 </div>
 
