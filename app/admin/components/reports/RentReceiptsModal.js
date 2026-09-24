@@ -619,17 +619,17 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                                         )}
                                                         {!isAlreadyInThisSlot && !isFullyLinked && isMatch && (
                                                             <span style={{ fontSize: 10, color: '#10b981', border: '1px solid #10b981', backgroundColor: '#10b98115', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
-                                                                Amount Match
+                                                                Exact Match ({fmtAmt(needed)})
                                                             </span>
                                                         )}
                                                         {!isAlreadyInThisSlot && !isFullyLinked && isOverNeeded && (
                                                             <span style={{ fontSize: 10, color: '#10b981', border: '1px solid #10b981', backgroundColor: '#10b98115', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                                                                ₹{leftToLink.toLocaleString()} left to link
+                                                                Covers {fmtAmt(needed)} • {fmtAmt(leftToLink)} left after link
                                                             </span>
                                                         )}
                                                         {!isAlreadyInThisSlot && !isFullyLinked && isPartial && (
                                                             <span style={{ fontSize: 10, color: '#f59e0b', border: '1px solid #f59e0b', backgroundColor: '#f59e0b15', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
-                                                                Partial (₹{availableToLink.toLocaleString()})
+                                                                Partially covers ({fmtAmt(availableToLink)} of {fmtAmt(needed)})
                                                             </span>
                                                         )}
                                                     </div>
@@ -641,9 +641,13 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                                     <div style={{ fontWeight: 700, fontSize: 15, color: isFullyLinked ? 'var(--text-tertiary)' : ((isMatch || isOverNeeded) ? '#10b981' : (isPartial ? '#f59e0b' : 'var(--text-primary)')) }}>
                                                         {fmtAmt(r.amount)}
                                                     </div>
-                                                    {consumedByOtherSlots > 0 && (
+                                                    {consumedByOtherSlots === 0 ? (
+                                                        <div style={{ fontSize: 10, color: '#10b981', marginTop: 2, fontWeight: 500 }}>
+                                                            100% available (unlinked)
+                                                        </div>
+                                                    ) : (
                                                         <div style={{ fontSize: 10, color: isFullyLinked ? '#ef4444' : 'var(--text-secondary)', marginTop: 2 }}>
-                                                            {isFullyLinked ? 'All allocated' : `${fmtAmt(availableToLink)} available`}
+                                                            {isFullyLinked ? `All ${fmtAmt(r.amount)} allocated` : `${fmtAmt(consumedByOtherSlots)} in other slots • ${fmtAmt(availableToLink)} left`}
                                                         </div>
                                                     )}
                                                 </div>
