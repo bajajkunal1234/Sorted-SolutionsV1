@@ -534,6 +534,7 @@ function AMCTab() {
                                 customer_id: data.customerId,
                                 customer_name: data.customerName || data.accounts?.name || '',
                                 installation_address_id: data.property?.id ? String(data.property.id) : null,
+                                property: data.property || null,
                                 plan_id: data.planId,
                                 plan_name: data.planName || plans.find(p => p.id === data.planId)?.name || '',
                                 product_brand: data.productBrand,

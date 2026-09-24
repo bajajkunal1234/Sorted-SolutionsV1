@@ -109,6 +109,87 @@ export async function GET(request) {
     }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveInstallationAddressId(addressId, customerId, propertyObj = null) {
+    if (!addressId && !propertyObj) return null;
+
+    if (addressId && UUID_REGEX.test(addressId)) {
+        return addressId;
+    }
+
+    const isInline = (typeof addressId === 'string' && addressId.startsWith('inline:')) || propertyObj?._source === 'inline';
+    if (isInline || propertyObj) {
+        try {
+            let flat_number = propertyObj?.flat_number || '';
+            let building_name = propertyObj?.building_name || '';
+            let address = propertyObj?.address || '';
+            let locality = propertyObj?.locality || '';
+            let pincode = propertyObj?.pincode || '';
+
+            if (typeof addressId === 'string' && addressId.startsWith('inline:')) {
+                const parts = addressId.slice(7).split('|');
+                flat_number = flat_number || parts[0] || '';
+                building_name = building_name || parts[1] || '';
+                address = address || parts[2] || '';
+                locality = locality || parts[3] || '';
+                pincode = pincode || parts[4] || '';
+            }
+
+            flat_number = (flat_number || '').trim();
+            building_name = (building_name || '').trim();
+            address = (address || '').trim();
+            locality = (locality || '').trim();
+            pincode = (pincode || '').trim();
+
+            if (!address && !building_name && !locality) {
+                return null;
+            }
+
+            let query = supabase.from('properties').select('id');
+            if (pincode) query = query.eq('pincode', pincode);
+            if (flat_number) query = query.eq('flat_number', flat_number);
+            if (building_name) query = query.ilike('building_name', `%${building_name}%`);
+
+            const { data: existing } = await query.limit(1);
+            if (existing && existing.length > 0) {
+                return existing[0].id;
+            }
+
+            const { data: newProp, error: propErr } = await supabase
+                .from('properties')
+                .insert({
+                    flat_number: flat_number || null,
+                    building_name: building_name || null,
+                    address: address || locality || building_name || 'Mumbai',
+                    locality: locality || null,
+                    city: 'Mumbai',
+                    pincode: pincode || null,
+                    property_type: 'residential',
+                    created_by: 'AMC Setup',
+                })
+                .select('id')
+                .single();
+
+            if (!propErr && newProp?.id) {
+                if (customerId && UUID_REGEX.test(customerId)) {
+                    await supabase.from('customer_properties').insert({
+                        account_id: customerId,
+                        property_id: newProp.id,
+                        linked_at: new Date().toISOString(),
+                        is_active: true
+                    }).then(() => {}).catch(() => {});
+                }
+                return newProp.id;
+            }
+        } catch (err) {
+            console.warn('[amc/resolveInstallationAddressId] Failed to resolve inline address:', err.message);
+        }
+    }
+
+    return null;
+}
+
 // POST - Create or manage AMCs/plans
 export async function POST(request) {
     try {
@@ -120,6 +201,11 @@ export async function POST(request) {
 
         // Use body directly for insert
         let insertBody = { ...body };
+
+        if (type === 'amc') {
+            insertBody.installation_address_id = await resolveInstallationAddressId(insertBody.installation_address_id, insertBody.customer_id, insertBody.property);
+            delete insertBody.property;
+        }
 
         const { data, error } = await supabase
             .from(tableName)
@@ -152,6 +238,11 @@ export async function PUT(request) {
         const { id, ...updates } = body
 
         const tableName = type === 'plan' ? 'amc_plans' : 'active_amcs'
+
+        if (type === 'amc' && updates.installation_address_id !== undefined) {
+            updates.installation_address_id = await resolveInstallationAddressId(updates.installation_address_id, updates.customer_id, updates.property);
+            delete updates.property;
+        }
 
         const { data, error } = await supabase
             .from(tableName)

@@ -215,14 +215,21 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
         setCustomerProperties([]);
         if (!id) return;
         try {
+            setLoadingProperties(true);
             const [receiptsData, propsData] = await Promise.all([
                 transactionsAPI.getAll({ type: 'receipt', account_id: id }),
                 propertiesAPI.getAll(id)
             ]);
             setCustomerReceipts(receiptsData || []);
-            setCustomerProperties(propsData || []);
+            const validProps = propsData || [];
+            setCustomerProperties(validProps);
+            if (validProps.length === 1) {
+                setFormData(prev => ({ ...prev, property: validProps[0] }));
+            }
         } catch (err) {
             console.error('Failed to load customer data:', err);
+        } finally {
+            setLoadingProperties(false);
         }
     };
 
@@ -266,7 +273,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
             const newAccount = await accountsAPI.create(accountData);
             if (newAccount?.id) {
                 await fetchCustomers();
-                setFormData(prev => ({ ...prev, customerId: String(newAccount.id) }));
+                await handleCustomerChange(String(newAccount.id));
             }
         } catch (err) {
             alert('Failed to create account: ' + err.message);
