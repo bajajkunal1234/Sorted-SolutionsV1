@@ -240,6 +240,8 @@ export async function PUT(request) {
         const body = await request.json()
         const { id, ...updates } = body
 
+        const tableName = type === 'plan' ? 'rental_plans' : 'active_rentals'
+
         if (type === 'rental' && updates.delivery_address_id !== undefined) {
             updates.delivery_address_id = await resolveDeliveryAddressId(updates.delivery_address_id, updates.customer_id, updates.property);
             delete updates.property;

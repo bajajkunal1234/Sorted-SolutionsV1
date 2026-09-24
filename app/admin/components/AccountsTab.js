@@ -2302,8 +2302,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     onClose={() => setShowCollectPayment(false)} 
                     context="admin" 
                     onSuccess={() => {
-                        // Refresh the transactions when a payment finishes successfully
-                        fetchTransactions();
+                        // Refresh the receipts when a payment finishes successfully
+                        transactionsAPI.getAll({ type: 'receipt', include_archived: true })
+                            .then(data => setReceipts(data || []))
+                            .catch(console.error);
                     }}
                 />
             )}
