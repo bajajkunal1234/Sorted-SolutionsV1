@@ -20,23 +20,45 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
     
     const startDate = new Date(rental.start_date || new Date());
 
+    const normalizeIds = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val.filter(Boolean);
+        if (typeof val === 'string') return [val];
+        return [];
+    };
+
     // Local state for edits before save
-    const [depositReceiptId, setDepositReceiptId] = useState(rental.deposit_receipt_id || null);
+    const [depositReceiptIds, setDepositReceiptIds] = useState(() => {
+        if (rental.rent_receipts?.deposit) {
+            return normalizeIds(rental.rent_receipts.deposit);
+        }
+        return normalizeIds(rental.deposit_receipt_id);
+    });
+
     const [rentReceipts, setRentReceipts] = useState(() => {
-        const initialReceipts = { ...(rental.rent_receipts || {}) };
+        const rawReceipts = rental.rent_receipts || {};
+        const initial = {};
+        for (let i = 1; i <= totalMonths; i++) {
+            if (rawReceipts[i]) {
+                initial[i] = normalizeIds(rawReceipts[i]);
+            } else {
+                initial[i] = [];
+            }
+        }
+        
+        // Also handle advance receipt if any was specified during creation
         const mRent = Number(rental.monthly_rent || 0);
         const rAdvance = Number(rental.rent_advance || 0);
         const advReceiptId = rental.advance_receipt_id;
-        
         if (mRent > 0 && rAdvance > 0 && advReceiptId) {
             const monthsCovered = Math.floor(rAdvance / mRent);
             for (let i = 1; i <= monthsCovered; i++) {
-                if (!initialReceipts[i]) {
-                    initialReceipts[i] = advReceiptId;
+                if (!initial[i] || initial[i].length === 0) {
+                    initial[i] = [advReceiptId];
                 }
             }
         }
-        return initialReceipts;
+        return initial;
     });
 
     // Receipts fetching
@@ -57,54 +79,6 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
             .finally(() => setLoadingReceipts(false));
     }, [customerId]);
 
-    const handleLink = (receipt) => {
-        if (pickerState.type === 'deposit') {
-            setDepositReceiptId(receipt.id);
-        } else if (pickerState.type === 'rent' && pickerState.index !== null) {
-            setRentReceipts(prev => ({ ...prev, [pickerState.index]: receipt.id }));
-        }
-        setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 });
-    };
-
-    const handleUnlink = (type, index) => {
-        if (type === 'deposit') {
-            setDepositReceiptId(null);
-        } else if (type === 'rent') {
-            setRentReceipts(prev => {
-                const next = { ...prev };
-                delete next[index];
-                return next;
-            });
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        // Compute rents_paid & next_rent_due_date
-        let earliestUnpaidIndex = 1;
-        while (earliestUnpaidIndex <= totalMonths && rentReceipts[earliestUnpaidIndex]) {
-            earliestUnpaidIndex++;
-        }
-        
-        const rentsPaid = Object.keys(rentReceipts).length;
-        
-        const nextDueDate = new Date(startDate);
-        nextDueDate.setMonth(nextDueDate.getMonth() + (earliestUnpaidIndex - 1));
-        
-        const rentsRemaining = Math.max(0, totalMonths - rentsPaid);
-
-        // Map it back to parent
-        onSave({
-            rentalId: rental.id,
-            deposit_receipt_id: depositReceiptId,
-            rent_receipts: rentReceipts,
-            rents_paid: rentsPaid,
-            rents_remaining: rentsRemaining,
-            next_rent_due_date: earliestUnpaidIndex <= totalMonths ? nextDueDate.toISOString().split('T')[0] : null
-        });
-    };
-
     // Helper formats
     const fmtAmt = n => `₹${Number(n || 0).toLocaleString()}`;
     const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
@@ -124,51 +98,133 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
         return rawId.length > 8 ? rawId.slice(0, 8) : rawId;
     };
 
-    // Calculate how a receipt is allocated to a specific row (deposit or month i)
-    const getSlotReceiptInfo = (type, monthIndex, linkedId) => {
-        if (!linkedId) return null;
-        const r = getReceiptDetails(linkedId);
-        const receiptCode = getReceiptCode(r, linkedId);
-        const needed = type === 'deposit' ? securityDeposit : monthlyRent;
+    // Calculate allocation across all slots in agreement
+    const slotsInfo = useMemo(() => {
+        const consumed = {};
 
-        if (!r) {
+        const allocateForSlot = (receiptIds, needed) => {
+            const slotReceipts = [];
+            let slotAllocatedTotal = 0;
+
+            for (const rId of receiptIds) {
+                const r = getReceiptDetails(rId);
+                const receiptCode = getReceiptCode(r, rId);
+                const totalAmt = Number(r?.amount || (r ? 0 : needed));
+                const alreadyUsed = consumed[rId] || 0;
+                const availableFromReceipt = Math.max(0, totalAmt - alreadyUsed);
+                const remainingSlotNeeded = Math.max(0, needed - slotAllocatedTotal);
+
+                const allocatedHere = Math.min(availableFromReceipt, remainingSlotNeeded);
+                consumed[rId] = alreadyUsed + allocatedHere;
+                slotAllocatedTotal += allocatedHere;
+
+                slotReceipts.push({
+                    id: rId,
+                    receipt: r,
+                    receiptCode,
+                    date: r?.date,
+                    allocatedAmt: allocatedHere,
+                    totalAmt
+                });
+            }
+
+            const remainingNeeded = Math.max(0, needed - slotAllocatedTotal);
+            const isPaid = receiptIds.length > 0 && remainingNeeded === 0;
+            const isPartial = receiptIds.length > 0 && remainingNeeded > 0;
+
             return {
-                receipt: null,
-                receiptCode,
-                isPartial: false,
-                linkedAmt: needed,
-                date: null
+                needed,
+                totalLinked: slotAllocatedTotal,
+                remainingNeeded,
+                isPaid,
+                isPartial,
+                receipts: slotReceipts
             };
+        };
+
+        const deposit = allocateForSlot(depositReceiptIds, securityDeposit);
+
+        const rents = {};
+        for (let i = 1; i <= totalMonths; i++) {
+            rents[i] = allocateForSlot(rentReceipts[i] || [], monthlyRent);
         }
 
-        const totalAmt = Number(r.amount || 0);
+        return { deposit, rents, consumed };
+    }, [depositReceiptIds, rentReceipts, receipts, securityDeposit, monthlyRent, totalMonths]);
 
-        // Calculate how much of r was consumed before this slot
-        let consumedBefore = 0;
-        if (depositReceiptId === r.id && type !== 'deposit') {
-            consumedBefore += Math.min(totalAmt, securityDeposit);
+    const handleLink = (receipt) => {
+        if (pickerState.type === 'deposit') {
+            setDepositReceiptIds(prev => {
+                if (prev.includes(receipt.id)) return prev;
+                return [...prev, receipt.id];
+            });
+        } else if (pickerState.type === 'rent' && pickerState.index !== null) {
+            setRentReceipts(prev => {
+                const current = prev[pickerState.index] || [];
+                if (current.includes(receipt.id)) return prev;
+                return {
+                    ...prev,
+                    [pickerState.index]: [...current, receipt.id]
+                };
+            });
         }
+        setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 });
+    };
 
-        if (type === 'rent') {
-            for (let m = 1; m < monthIndex; m++) {
-                if (rentReceipts[m] === r.id) {
-                    const avail = Math.max(0, totalAmt - consumedBefore);
-                    consumedBefore += Math.min(avail, monthlyRent);
-                }
+    const handleUnlinkSingle = (type, index, receiptId) => {
+        if (type === 'deposit') {
+            setDepositReceiptIds(prev => prev.filter(id => id !== receiptId));
+        } else if (type === 'rent') {
+            setRentReceipts(prev => ({
+                ...prev,
+                [index]: (prev[index] || []).filter(id => id !== receiptId)
+            }));
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        
+        // Compute rents_paid & next_rent_due_date
+        let earliestUnpaidIndex = 1;
+        while (earliestUnpaidIndex <= totalMonths && slotsInfo.rents[earliestUnpaidIndex]?.isPaid) {
+            earliestUnpaidIndex++;
+        }
+        
+        let rentsPaidCount = 0;
+        for (let i = 1; i <= totalMonths; i++) {
+            if (slotsInfo.rents[i]?.isPaid) {
+                rentsPaidCount++;
             }
         }
+        
+        const nextDueDate = new Date(startDate);
+        nextDueDate.setMonth(nextDueDate.getMonth() + (earliestUnpaidIndex - 1));
+        
+        const rentsRemaining = Math.max(0, totalMonths - rentsPaidCount);
 
-        const availableForSlot = Math.max(0, totalAmt - consumedBefore);
-        const linkedAmt = Math.min(availableForSlot, needed);
-        const isPartial = availableForSlot < needed || totalAmt < needed;
+        // Normalize payload to preserve single string vs array structure
+        const rentReceiptsToSave = {};
+        for (let i = 1; i <= totalMonths; i++) {
+            const ids = rentReceipts[i] || [];
+            if (ids.length === 1) {
+                rentReceiptsToSave[i] = ids[0];
+            } else if (ids.length > 1) {
+                rentReceiptsToSave[i] = ids;
+            }
+        }
+        if (depositReceiptIds.length > 1) {
+            rentReceiptsToSave.deposit = depositReceiptIds;
+        }
 
-        return {
-            receipt: r,
-            receiptCode,
-            isPartial,
-            linkedAmt,
-            date: r.date
-        };
+        onSave({
+            rentalId: rental.id,
+            deposit_receipt_id: depositReceiptIds[0] || null,
+            rent_receipts: rentReceiptsToSave,
+            rents_paid: rentsPaidCount,
+            rents_remaining: rentsRemaining,
+            next_rent_due_date: earliestUnpaidIndex <= totalMonths ? nextDueDate.toISOString().split('T')[0] : null
+        });
     };
 
     // Build rent rows
@@ -185,7 +241,6 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
             label: `Month ${i}`,
             period: `${fmtDate(dStart)} - ${fmtDate(dEnd)}`,
             amount: monthlyRent,
-            linkedId: rentReceipts[i] || null,
             startDate: dStart.toISOString()
         });
     }
@@ -225,14 +280,15 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                         {/* Security Deposit Row */}
                         {(() => {
-                            const slotInfo = depositReceiptId ? getSlotReceiptInfo('deposit', null, depositReceiptId) : null;
-                            const isPartial = !!slotInfo?.isPartial;
+                            const info = slotsInfo.deposit;
+                            const hasReceipts = info.receipts.length > 0;
+                            const isPartial = info.isPartial;
 
                             return (
                                 <div style={{
                                     padding: 'var(--spacing-sm) var(--spacing-md)',
-                                    backgroundColor: depositReceiptId ? (isPartial ? '#f59e0b10' : '#10b98110') : 'var(--bg-secondary)',
-                                    border: `1px solid ${depositReceiptId ? (isPartial ? '#f59e0b40' : '#10b98140') : 'var(--border-primary)'}`,
+                                    backgroundColor: hasReceipts ? (isPartial ? '#f59e0b10' : '#10b98110') : 'var(--bg-secondary)',
+                                    border: `1px solid ${hasReceipts ? (isPartial ? '#f59e0b40' : '#10b98140') : 'var(--border-primary)'}`,
                                     borderRadius: 'var(--radius-md)',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -246,29 +302,71 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flexShrink: 0 }}>
                                         <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{fmtAmt(securityDeposit)}</div>
                                         
-                                        {depositReceiptId ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', minWidth: '180px', justifyContent: 'flex-end' }}>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        color: isPartial ? '#f59e0b' : '#10b981',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        justifyContent: 'flex-end'
-                                                    }}>
-                                                        {isPartial ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
-                                                        {isPartial ? 'Partial Payment Linked' : 'Linked'}
-                                                    </div>
-                                                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-                                                        {fmtDate(slotInfo?.date)} • ID: {formatReceiptId(slotInfo?.receiptCode)}
-                                                        {isPartial && slotInfo?.linkedAmt !== undefined ? ` (${fmtAmt(slotInfo.linkedAmt)} of ${fmtAmt(securityDeposit)})` : ''}
-                                                    </div>
+                                        {hasReceipts ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '180px' }}>
+                                                <div style={{
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    color: isPartial ? '#f59e0b' : '#10b981',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    justifyContent: 'flex-end'
+                                                }}>
+                                                    {isPartial ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
+                                                    {isPartial ? 'Partial Payment Linked' : 'Linked'}
                                                 </div>
-                                                <button onClick={() => handleUnlink('deposit')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '4px' }} title="Unlink Receipt">
-                                                    <X size={14} />
-                                                </button>
+
+                                                {/* List of linked receipts in deposit slot */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                                                    {info.receipts.map(rec => (
+                                                        <div key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                                            <span>
+                                                                {fmtDate(rec.date)} • ID: {formatReceiptId(rec.receiptCode)}
+                                                                {isPartial ? ` (${fmtAmt(rec.allocatedAmt)} of ${fmtAmt(securityDeposit)})` : (info.receipts.length > 1 ? ` (${fmtAmt(rec.allocatedAmt)})` : '')}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUnlinkSingle('deposit', null, rec.id)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                                                title="Unlink this receipt"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Option to link the remaining part if partial */}
+                                                {isPartial && (
+                                                    <div style={{ marginTop: '4px' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-secondary"
+                                                            style={{
+                                                                padding: '2px 8px',
+                                                                fontSize: '11px',
+                                                                color: '#f59e0b',
+                                                                borderColor: '#f59e0b60',
+                                                                backgroundColor: '#f59e0b10',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                fontWeight: 600,
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            onClick={() => setPickerState({
+                                                                isOpen: true,
+                                                                type: 'deposit',
+                                                                index: null,
+                                                                amountExpected: info.remainingNeeded
+                                                            })}
+                                                        >
+                                                            <Plus size={12} /> Link Remaining {fmtAmt(info.remainingNeeded)}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <button 
@@ -286,17 +384,17 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
 
                         {/* Rent Rows */}
                         {rentRows.map((row) => {
-                            const isPaid = !!row.linkedId;
-                            // Check if this row is currently overdue (if past end date and not paid)
+                            const info = slotsInfo.rents[row.monthIndex] || { needed: row.amount, totalLinked: 0, remainingNeeded: row.amount, isPaid: false, isPartial: false, receipts: [] };
+                            const hasReceipts = info.receipts.length > 0;
+                            const isPartial = info.isPartial;
+                            const isPaid = info.isPaid;
                             const rowIsOverdue = !isPaid && row.monthIndex > (rental.rents_paid || 0) && isOverdue(row.startDate);
-                            const slotInfo = isPaid ? getSlotReceiptInfo('rent', row.monthIndex, row.linkedId) : null;
-                            const isPartial = !!slotInfo?.isPartial;
 
                             return (
                                 <div key={row.monthIndex} style={{
                                     padding: 'var(--spacing-sm) var(--spacing-md)',
-                                    backgroundColor: isPaid ? (isPartial ? '#f59e0b10' : '#10b98110') : (rowIsOverdue ? '#ef444408' : 'var(--bg-secondary)'),
-                                    border: `1px solid ${isPaid ? (isPartial ? '#f59e0b40' : '#10b98140') : (rowIsOverdue ? '#ef444440' : 'var(--border-primary)')}`,
+                                    backgroundColor: hasReceipts ? (isPartial ? '#f59e0b10' : '#10b98110') : (rowIsOverdue ? '#ef444408' : 'var(--bg-secondary)'),
+                                    border: `1px solid ${hasReceipts ? (isPartial ? '#f59e0b40' : '#10b98140') : (rowIsOverdue ? '#ef444440' : 'var(--border-primary)')}`,
                                     borderRadius: 'var(--radius-md)',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -313,29 +411,71 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flexShrink: 0 }}>
                                         <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{fmtAmt(row.amount)}</div>
                                         
-                                        {isPaid ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', minWidth: '180px', justifyContent: 'flex-end' }}>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{
-                                                        fontSize: '12px',
-                                                        fontWeight: 600,
-                                                        color: isPartial ? '#f59e0b' : '#10b981',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        justifyContent: 'flex-end'
-                                                    }}>
-                                                        {isPartial ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
-                                                        {isPartial ? 'Partial Payment Linked' : 'Linked'}
-                                                    </div>
-                                                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-                                                        {fmtDate(slotInfo?.date)} • ID: {formatReceiptId(slotInfo?.receiptCode)}
-                                                        {isPartial && slotInfo?.linkedAmt !== undefined ? ` (${fmtAmt(slotInfo.linkedAmt)} of ${fmtAmt(row.amount)})` : ''}
-                                                    </div>
+                                        {hasReceipts ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '180px' }}>
+                                                <div style={{
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    color: isPartial ? '#f59e0b' : '#10b981',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    justifyContent: 'flex-end'
+                                                }}>
+                                                    {isPartial ? <AlertCircle size={12} /> : <CheckCircle size={12} />}
+                                                    {isPartial ? 'Partial Payment Linked' : 'Linked'}
                                                 </div>
-                                                <button onClick={() => handleUnlink('rent', row.monthIndex)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '4px' }} title="Unlink Receipt">
-                                                    <X size={14} />
-                                                </button>
+
+                                                {/* List of linked receipts in rent slot */}
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+                                                    {info.receipts.map(rec => (
+                                                        <div key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                                            <span>
+                                                                {fmtDate(rec.date)} • ID: {formatReceiptId(rec.receiptCode)}
+                                                                {isPartial ? ` (${fmtAmt(rec.allocatedAmt)} of ${fmtAmt(row.amount)})` : (info.receipts.length > 1 ? ` (${fmtAmt(rec.allocatedAmt)})` : '')}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleUnlinkSingle('rent', row.monthIndex, rec.id)}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                                                title="Unlink this receipt"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Option to link the remaining part if partial */}
+                                                {isPartial && (
+                                                    <div style={{ marginTop: '4px' }}>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-secondary"
+                                                            style={{
+                                                                padding: '2px 8px',
+                                                                fontSize: '11px',
+                                                                color: '#f59e0b',
+                                                                borderColor: '#f59e0b60',
+                                                                backgroundColor: '#f59e0b10',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                fontWeight: 600,
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            onClick={() => setPickerState({
+                                                                isOpen: true,
+                                                                type: 'rent',
+                                                                index: row.monthIndex,
+                                                                amountExpected: info.remainingNeeded
+                                                            })}
+                                                        >
+                                                            <Plus size={12} /> Link Remaining {fmtAmt(info.remainingNeeded)}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <button 
@@ -365,7 +505,16 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                 <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 })}>
                     <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '540px' }}>
                         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 className="modal-title" style={{ margin: 0 }}>Select {pickerState.type === 'deposit' ? 'Deposit' : 'Rent'} Receipt</h3>
+                            <div>
+                                <h3 className="modal-title" style={{ margin: 0 }}>
+                                    Select {pickerState.type === 'deposit' ? 'Deposit' : 'Rent'} Receipt
+                                </h3>
+                                {pickerState.amountExpected > 0 && (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        Target amount: <strong style={{ color: 'var(--text-primary)' }}>{fmtAmt(pickerState.amountExpected)}</strong>
+                                    </div>
+                                )}
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <button 
                                     type="button"
@@ -398,39 +547,36 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                         const totalAmt = Number(r.amount || 0);
                                         const needed = Number(pickerState.amountExpected || 0);
 
-                                        // Calculate already allocated amount for r across OTHER slots in this agreement
-                                        let allocatedToOthers = 0;
-                                        if (depositReceiptId === r.id && pickerState.type !== 'deposit') {
-                                            allocatedToOthers += Math.min(totalAmt, securityDeposit);
-                                        }
-                                        Object.entries(rentReceipts).forEach(([mIdx, rId]) => {
-                                            if (rId === r.id) {
-                                                if (pickerState.type === 'rent' && String(pickerState.index) === String(mIdx)) {
-                                                    return; // exclude slot currently being picked
-                                                }
-                                                const avail = Math.max(0, totalAmt - allocatedToOthers);
-                                                allocatedToOthers += Math.min(avail, monthlyRent);
-                                            }
-                                        });
+                                        // Check if this receipt is already in the current slot
+                                        const currentSlotIds = pickerState.type === 'deposit'
+                                            ? depositReceiptIds
+                                            : (rentReceipts[pickerState.index] || []);
+                                        const isAlreadyInThisSlot = currentSlotIds.includes(r.id);
 
-                                        const availableToLink = Math.max(0, totalAmt - allocatedToOthers);
+                                        // Calculate amount consumed by other slots
+                                        const currentSlotAllocatedForR = (pickerState.type === 'deposit'
+                                            ? slotsInfo.deposit
+                                            : slotsInfo.rents[pickerState.index]
+                                        )?.receipts?.find(x => x.id === r.id)?.allocatedAmt || 0;
+
+                                        const consumedByOtherSlots = (slotsInfo.consumed[r.id] || 0) - currentSlotAllocatedForR;
+                                        const availableToLink = Math.max(0, totalAmt - consumedByOtherSlots);
+
                                         const isFullyLinked = availableToLink <= 0;
                                         const isOverNeeded = availableToLink > needed;
                                         const leftToLink = availableToLink - needed;
                                         const isMatch = availableToLink === needed;
                                         const isPartial = availableToLink > 0 && availableToLink < needed;
 
-                                        const isCurrentSlotReceipt = 
-                                            (pickerState.type === 'deposit' && depositReceiptId === r.id) ||
-                                            (pickerState.type === 'rent' && rentReceipts[pickerState.index] === r.id);
+                                        const isClickable = !isAlreadyInThisSlot && !isFullyLinked;
 
-                                        const borderColor = isFullyLinked ? 'var(--border-primary)'
-                                            : isCurrentSlotReceipt ? '#3b82f6'
+                                        const borderColor = isAlreadyInThisSlot ? '#3b82f6'
+                                            : isFullyLinked ? 'var(--border-primary)'
                                             : (isMatch || isOverNeeded) ? '#10b981'
                                             : isPartial ? '#f59e0b' : 'var(--border-primary)';
 
-                                        const bgColor = isFullyLinked ? 'var(--bg-secondary)'
-                                            : isCurrentSlotReceipt ? '#3b82f610'
+                                        const bgColor = isAlreadyInThisSlot ? '#3b82f610'
+                                            : isFullyLinked ? 'var(--bg-secondary)'
                                             : (isMatch || isOverNeeded) ? '#10b98108'
                                             : isPartial ? '#f59e0b08' : 'var(--bg-secondary)';
 
@@ -439,6 +585,10 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                         return (
                                             <button key={r.id} type="button"
                                                 onClick={() => {
+                                                    if (isAlreadyInThisSlot) {
+                                                        alert("This receipt is already linked to this slot.");
+                                                        return;
+                                                    }
                                                     if (isFullyLinked) {
                                                         alert("This receipt has already been fully allocated to other slots in this agreement. Please unlink it from other slots first if you wish to re-allocate it.");
                                                         return;
@@ -450,34 +600,34 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                                     padding: '10px 14px', border: `2px solid ${borderColor}`,
                                                     borderRadius: 'var(--radius-md)', 
                                                     backgroundColor: bgColor,
-                                                    cursor: isFullyLinked ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%',
-                                                    opacity: isFullyLinked ? 0.6 : 1
+                                                    cursor: isClickable ? 'pointer' : 'not-allowed', textAlign: 'left', width: '100%',
+                                                    opacity: isClickable ? 1 : 0.6
                                                 }}>
                                                 <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                                                     <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                         <span>{receiptDisplayTitle}</span>
                                                         
-                                                        {isCurrentSlotReceipt && (
+                                                        {isAlreadyInThisSlot && (
                                                             <span style={{ fontSize: 10, color: '#3b82f6', border: '1px solid #3b82f6', backgroundColor: '#3b82f615', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
-                                                                Current Link
+                                                                Already in this slot
                                                             </span>
                                                         )}
-                                                        {isFullyLinked && (
+                                                        {!isAlreadyInThisSlot && isFullyLinked && (
                                                             <span style={{ fontSize: 10, color: '#ef4444', border: '1px solid #ef4444', backgroundColor: '#ef444415', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
                                                                 Fully Linked
                                                             </span>
                                                         )}
-                                                        {!isFullyLinked && isMatch && (
+                                                        {!isAlreadyInThisSlot && !isFullyLinked && isMatch && (
                                                             <span style={{ fontSize: 10, color: '#10b981', border: '1px solid #10b981', backgroundColor: '#10b98115', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
                                                                 Amount Match
                                                             </span>
                                                         )}
-                                                        {!isFullyLinked && isOverNeeded && (
+                                                        {!isAlreadyInThisSlot && !isFullyLinked && isOverNeeded && (
                                                             <span style={{ fontSize: 10, color: '#10b981', border: '1px solid #10b981', backgroundColor: '#10b98115', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
                                                                 ₹{leftToLink.toLocaleString()} left to link
                                                             </span>
                                                         )}
-                                                        {!isFullyLinked && isPartial && (
+                                                        {!isAlreadyInThisSlot && !isFullyLinked && isPartial && (
                                                             <span style={{ fontSize: 10, color: '#f59e0b', border: '1px solid #f59e0b', backgroundColor: '#f59e0b15', padding: '1px 5px', borderRadius: '4px', textTransform: 'uppercase', fontWeight: 600 }}>
                                                                 Partial (₹{availableToLink.toLocaleString()})
                                                             </span>
@@ -491,7 +641,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                                     <div style={{ fontWeight: 700, fontSize: 15, color: isFullyLinked ? 'var(--text-tertiary)' : ((isMatch || isOverNeeded) ? '#10b981' : (isPartial ? '#f59e0b' : 'var(--text-primary)')) }}>
                                                         {fmtAmt(r.amount)}
                                                     </div>
-                                                    {allocatedToOthers > 0 && (
+                                                    {consumedByOtherSlots > 0 && (
                                                         <div style={{ fontSize: 10, color: isFullyLinked ? '#ef4444' : 'var(--text-secondary)', marginTop: 2 }}>
                                                             {isFullyLinked ? 'All allocated' : `${fmtAmt(availableToLink)} available`}
                                                         </div>
@@ -516,8 +666,8 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                         account_name: rental.customer_name || rental.accounts?.name || '',
                         amount: pickerState.amountExpected,
                         narration: pickerState.type === 'deposit'
-                            ? `Security Deposit received for ${productName}`
-                            : `Rent received for ${productName} - Month ${pickerState.index}`
+                            ? `Security Deposit${pickerState.amountExpected < securityDeposit ? ' (Part Payment)' : ''} received for ${productName}`
+                            : `Rent${pickerState.amountExpected < monthlyRent ? ' (Part Payment)' : ''} received for ${productName} - Month ${pickerState.index}`
                     }}
                     onSave={async (voucherData) => {
                         try {
