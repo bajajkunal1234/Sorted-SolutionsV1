@@ -2269,6 +2269,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                         try {
                             await rentalsAPI.updateActive(paymentData.rentalId, {
                                 rent_receipts: paymentData.rent_receipts,
+                                deposit_receipt_id: paymentData.deposit_receipt_id,
                                 rents_paid: paymentData.rents_paid,
                                 rents_remaining: paymentData.rents_remaining,
                                 next_rent_due_date: paymentData.next_rent_due_date || null
