@@ -19,104 +19,120 @@ const isUUID = (val) => val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}
  * If status is 'draft' or 'cancelled', no journal is created (or existing is deleted).
  */
 async function syncJournalEntry(type, txData) {
-    if (!['sales', 'purchase', 'receipt', 'payment'].includes(type) || !txData.account_id) return;
-    
-    // Always delete any existing journals for this transaction to allow clean replacement/reversal
-    await supabase.from('journal_entries').delete().eq('reference_id', txData.id);
-
-    if (txData.status === 'draft' || txData.status === 'cancelled') return;
-
-    const { data: accounts } = await supabase.from('accounts').select('id, name, under');
-    const findAcc = (condition) => accounts?.find(condition) || null;
-
-    const salesAcc = findAcc(a => (a.under?.toLowerCase().includes('income') || a.under?.toLowerCase().includes('sales')) && a.name?.toLowerCase().includes('sales'));
-    const purchAcc = findAcc(a => (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('purchase')) && a.name?.toLowerCase().includes('purchase'));
-    
-    // Universal tax ledger resolution
-    const cgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'CGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('CGST'));
-    const sgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'SGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('SGST'));
-    const igstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'IGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('IGST'));
-
-    const bankAcc = findAcc(a => a.under?.toLowerCase().includes('bank')) || findAcc(a => a.under?.toLowerCase().includes('cash'));
-    const cashAcc = findAcc(a => a.under?.toLowerCase().includes('cash'));
-
-    let lines = [];
-    const amt = (val) => parseFloat(val) || 0;
-
-    if (type === 'sales') {
-        const total = amt(txData.total_amount);
-        const cgst = amt(txData.cgst);
-        const sgst = amt(txData.sgst);
-        const igst = amt(txData.igst);
-        const base = total - cgst - sgst - igst;
-
-        lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
-        if (salesAcc) lines.push({ account_id: salesAcc.id, debit: 0, credit: base });
-        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: 0, credit: cgst });
-        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: 0, credit: sgst });
-        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: 0, credit: igst });
-    } else if (type === 'purchase') {
-        const total = amt(txData.total_amount);
-        const cgst = amt(txData.cgst);
-        const sgst = amt(txData.sgst);
-        const igst = amt(txData.igst);
-        const base = total - cgst - sgst - igst;
-
-        let debitAcc = purchAcc;
-        if (txData.category) {
-            if (isUUID(txData.category)) {
-                const catAcc = findAcc(a => a.id === txData.category);
-                if (catAcc) debitAcc = catAcc;
-            } else {
-                const catAcc = findAcc(a => a.name?.toLowerCase().includes(txData.category.toLowerCase()) && (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('indirect')));
-                if (catAcc) debitAcc = catAcc;
-            }
-        }
-
-        let creditAccountId = txData.account_id;
-        if (txData.paid_by === 'technician' && txData.po_reference) {
-            const { data: tech } = await supabase.from('technicians').select('ledger_id').eq('id', txData.po_reference).maybeSingle();
-            if (tech && tech.ledger_id) {
-                creditAccountId = tech.ledger_id;
-            }
-        }
-
-        if (debitAcc) lines.push({ account_id: debitAcc.id, debit: base, credit: 0 });
-        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: cgst, credit: 0 });
-        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: sgst, credit: 0 });
-        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: igst, credit: 0 });
-        if (creditAccountId) lines.push({ account_id: creditAccountId, debit: 0, credit: total });
-    } else if (type === 'receipt') {
-        const total = amt(txData.amount);
-        const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
-        const recAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
-        if (recAcc) lines.push({ account_id: recAcc.id, debit: total, credit: 0 });
-        lines.push({ account_id: txData.account_id, debit: 0, credit: total });
-    } else if (type === 'payment') {
-        const total = amt(txData.amount);
-        const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
-        const payAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
-        lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
-        if (payAcc) lines.push({ account_id: payAcc.id, debit: 0, credit: total });
-    }
-
-    const totalD = lines.reduce((s, l) => s + l.debit, 0);
-    const totalC = lines.reduce((s, l) => s + l.credit, 0);
-
-    // If completely balanced, persist to DB
-    if (Math.abs(totalD - totalC) < 0.01 && totalD > 0 && lines.every(l => !!l.account_id)) {
-        const yy = new Date().getFullYear().toString().slice(-2);
-        const { count } = await supabase.from('journal_entries').select('*', { count: 'exact', head: true });
-        const entry_number = `JV-${yy}-${String((count || 0) + 1).padStart(4, '0')}`;
+    try {
+        if (!['sales', 'purchase', 'receipt', 'payment'].includes(type) || !txData.account_id) return;
         
-        const { data: jeData, error } = await supabase.from('journal_entries').insert([{
-            entry_number, date: txData.date, reference_type: `${type}_invoice`, reference_id: txData.id, notes: `Auto-journal for ${type}`
-        }]).select().single();
+        // Always delete any existing journals for this transaction to allow clean replacement/reversal
+        await supabase.from('journal_entries').delete().eq('reference_id', txData.id);
 
-        if (jeData && !error) {
-            const finalLines = lines.filter(l => l.debit > 0 || l.credit > 0).map(l => ({ ...l, journal_entry_id: jeData.id }));
-            await supabase.from('journal_entry_lines').insert(finalLines);
+        if (txData.status === 'draft' || txData.status === 'cancelled') return;
+
+        const { data: accounts } = await supabase.from('accounts').select('id, name, under');
+        const findAcc = (condition) => accounts?.find(condition) || null;
+
+        const salesAcc = findAcc(a => (a.under?.toLowerCase().includes('income') || a.under?.toLowerCase().includes('sales')) && a.name?.toLowerCase().includes('sales'));
+        const purchAcc = findAcc(a => (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('purchase')) && a.name?.toLowerCase().includes('purchase'));
+        
+        // Universal tax ledger resolution
+        const cgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'CGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('CGST'));
+        const sgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'SGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('SGST'));
+        const igstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'IGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('IGST'));
+
+        const bankAcc = findAcc(a => a.under?.toLowerCase().includes('bank')) || findAcc(a => a.under?.toLowerCase().includes('cash'));
+        const cashAcc = findAcc(a => a.under?.toLowerCase().includes('cash'));
+
+        let lines = [];
+        const amt = (val) => parseFloat(val) || 0;
+
+        if (type === 'sales') {
+            const total = amt(txData.total_amount);
+            const cgst = amt(txData.cgst);
+            const sgst = amt(txData.sgst);
+            const igst = amt(txData.igst);
+            const base = total - cgst - sgst - igst;
+
+            lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
+            if (salesAcc) lines.push({ account_id: salesAcc.id, debit: 0, credit: base });
+            if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: 0, credit: cgst });
+            if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: 0, credit: sgst });
+            if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: 0, credit: igst });
+        } else if (type === 'purchase') {
+            const total = amt(txData.total_amount);
+            const cgst = amt(txData.cgst);
+            const sgst = amt(txData.sgst);
+            const igst = amt(txData.igst);
+            const base = total - cgst - sgst - igst;
+
+            let debitAcc = purchAcc;
+            if (txData.category) {
+                if (isUUID(txData.category)) {
+                    const catAcc = findAcc(a => a.id === txData.category);
+                    if (catAcc) debitAcc = catAcc;
+                } else {
+                    const catAcc = findAcc(a => a.name?.toLowerCase().includes(txData.category.toLowerCase()) && (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('indirect')));
+                    if (catAcc) debitAcc = catAcc;
+                }
+            }
+
+            let creditAccountId = txData.account_id;
+            if (txData.paid_by === 'technician' && txData.po_reference) {
+                const { data: tech } = await supabase.from('technicians').select('ledger_id').eq('id', txData.po_reference).maybeSingle();
+                if (tech && tech.ledger_id) {
+                    creditAccountId = tech.ledger_id;
+                }
+            }
+
+            if (debitAcc) lines.push({ account_id: debitAcc.id, debit: base, credit: 0 });
+            if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: cgst, credit: 0 });
+            if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: sgst, credit: 0 });
+            if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: igst, credit: 0 });
+            if (creditAccountId) lines.push({ account_id: creditAccountId, debit: 0, credit: total });
+        } else if (type === 'receipt') {
+            const total = amt(txData.amount);
+            const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
+            const recAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
+            if (recAcc) lines.push({ account_id: recAcc.id, debit: total, credit: 0 });
+            lines.push({ account_id: txData.account_id, debit: 0, credit: total });
+        } else if (type === 'payment') {
+            const total = amt(txData.amount);
+            const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
+            const payAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
+            lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
+            if (payAcc) lines.push({ account_id: payAcc.id, debit: 0, credit: total });
         }
+
+        const totalD = lines.reduce((s, l) => s + l.debit, 0);
+        const totalC = lines.reduce((s, l) => s + l.credit, 0);
+
+        // If completely balanced, persist to DB
+        if (Math.abs(totalD - totalC) < 0.01 && totalD > 0 && lines.every(l => !!l.account_id)) {
+            const yy = new Date().getFullYear().toString().slice(-2);
+            const { data: latestJEs } = await supabase
+                .from('journal_entries')
+                .select('entry_number')
+                .like('entry_number', `JV-${yy}-%`)
+                .order('entry_number', { ascending: false })
+                .limit(1);
+
+            let nextSeq = 1;
+            if (latestJEs && latestJEs.length > 0) {
+                const lastPart = latestJEs[0].entry_number?.split('-')?.[2];
+                const parsedSeq = parseInt(lastPart, 10);
+                if (!isNaN(parsedSeq)) nextSeq = parsedSeq + 1;
+            }
+            const entry_number = `JV-${yy}-${String(nextSeq).padStart(4, '0')}`;
+            
+            const { data: jeData, error } = await supabase.from('journal_entries').insert([{
+                entry_number, date: txData.date, reference_type: `${type}_invoice`, reference_id: txData.id, notes: `Auto-journal for ${type}`
+            }]).select().single();
+
+            if (jeData && !error) {
+                const finalLines = lines.filter(l => l.debit > 0 || l.credit > 0).map(l => ({ ...l, journal_entry_id: jeData.id }));
+                await supabase.from('journal_entry_lines').insert(finalLines);
+            }
+        }
+    } catch (jeErr) {
+        console.error('[syncJournalEntry failed safely]:', jeErr);
     }
 }
 
@@ -511,7 +527,11 @@ export async function POST(request) {
             quotation: 'quotation_sent',
         };
         const notifEvent = notifEventMap[type];
-        if (notifEvent && data.account_id) {
+        const isCashOrWalkIn = !data.account_id || 
+            data.account_id === '93e8c6cc-a40f-4150-98e0-c469530bd1b9' || 
+            data.account_name?.toLowerCase().includes('cash');
+
+        if (notifEvent && data.account_id && !isCashOrWalkIn) {
             fireNotification(notifEvent, {
                 job_id: data.job_id ? String(data.job_id) : undefined,
                 customer_id: String(data.account_id),

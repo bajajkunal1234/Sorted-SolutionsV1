@@ -13,6 +13,7 @@ import NotificationBell from '@/components/common/NotificationBell'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import DashboardFollowups from './components/DashboardFollowups'
 import DashboardLivePerformance from './components/DashboardLivePerformance'
+import ErrorBoundary from './components/ErrorBoundary'
 import dynamic from 'next/dynamic'
 
 const TechnicianLiveMap = dynamic(() => import('./components/reports/TechnicianLiveMap'), {
@@ -368,10 +369,12 @@ export default function AdminApp() {
 
             {/* Store POS Modal */}
             {showPOSModal && (
-                <StorePOSModal
-                    isOpen={showPOSModal}
-                    onClose={() => setShowPOSModal(false)}
-                />
+                <ErrorBoundary onReset={() => setShowPOSModal(false)}>
+                    <StorePOSModal
+                        isOpen={showPOSModal}
+                        onClose={() => setShowPOSModal(false)}
+                    />
+                </ErrorBoundary>
             )}
         </div>
     );

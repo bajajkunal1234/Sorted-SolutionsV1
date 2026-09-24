@@ -93,29 +93,29 @@ export default function StorePOSModal({ isOpen, onClose }) {
     const resizeInfoRef = useRef(null);
 
     const handleResizeStart = (colKey, e) => {
-        e.preventDefault();
+        if (e.cancelable) {
+            e.preventDefault();
+        }
         e.stopPropagation();
         const startX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
         const startWidth = colWidths[colKey] || DEFAULT_COL_WIDTHS[colKey] || 100;
+        const targetCol = colKey;
 
-        resizeInfoRef.current = { colKey, startX, startWidth };
-        setResizingCol(colKey);
+        resizeInfoRef.current = { colKey: targetCol, startX, startWidth };
+        setResizingCol(targetCol);
 
         const onMove = (moveEvt) => {
             if (!resizeInfoRef.current) return;
             const currentX = moveEvt.clientX || (moveEvt.touches && moveEvt.touches[0]?.clientX) || 0;
             const delta = currentX - resizeInfoRef.current.startX;
             const minWidths = { num: 28, description: 150, qty: 55, unit: 65, rate: 75, total: 75, action: 34 };
-            const minW = minWidths[resizeInfoRef.current.colKey] || 50;
+            const minW = minWidths[targetCol] || 50;
             const nextWidth = Math.max(minW, Math.round(resizeInfoRef.current.startWidth + delta));
 
-            setColWidths(prev => {
-                const updated = { ...prev, [resizeInfoRef.current.colKey]: nextWidth };
-                try {
-                    localStorage.setItem('pos_column_widths', JSON.stringify(updated));
-                } catch (err) {}
-                return updated;
-            });
+            setColWidths(prev => ({
+                ...prev,
+                [targetCol]: nextWidth
+            }));
         };
 
         const onEnd = () => {
@@ -125,11 +125,18 @@ export default function StorePOSModal({ isOpen, onClose }) {
             window.removeEventListener('pointerup', onEnd);
             window.removeEventListener('touchmove', onMove);
             window.removeEventListener('touchend', onEnd);
+
+            setColWidths(latest => {
+                try {
+                    localStorage.setItem('pos_column_widths', JSON.stringify(latest));
+                } catch (err) {}
+                return latest;
+            });
         };
 
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onEnd);
-        window.addEventListener('touchmove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: true });
         window.addEventListener('touchend', onEnd);
     };
 
@@ -344,7 +351,11 @@ export default function StorePOSModal({ isOpen, onClose }) {
             };
 
             const savedInvoice = await transactionsAPI.create(invoicePayload, 'sales');
-            const savedInvoiceId = savedInvoice?.data?.id || savedInvoice?.id || `inv-${Date.now()}`;
+            const savedInvoiceId = savedInvoice?.data?.id || savedInvoice?.id;
+
+            if (!savedInvoiceId) {
+                throw new Error(savedInvoice?.error || savedInvoice?.message || 'Invoice could not be confirmed on server. Please try again.');
+            }
 
             // Also create a linked receipt voucher to record the payment in accounting
             try {
@@ -359,10 +370,10 @@ export default function StorePOSModal({ isOpen, onClose }) {
                     status: 'cleared',
                     date: today,
                     narration: `Store POS payment for ${invoiceNumber} (${paymentMode})`,
-                    allocations: savedInvoiceId ? [{
+                    allocations: [{
                         invoice_id: savedInvoiceId,
                         amount_applied: grandTotal
-                    }] : []
+                    }]
                 }, 'receipt');
             } catch (rErr) {
                 console.warn('Auto-receipt creation notice:', rErr);
@@ -390,25 +401,39 @@ export default function StorePOSModal({ isOpen, onClose }) {
         }
     };
 
-    // WhatsApp Message compilation
+    // WhatsApp Message compilation (fully defensive against null or malformed data)
     const getWhatsAppMessage = () => {
-        if (!createdInvoice) return '';
-        const itemsList = createdInvoice.items.map((it, idx) => 
-            `${idx + 1}. *${it.description}* × ${it.qty} ${it.unit} — ₹${Number(it.total).toLocaleString('en-IN')}`
-        ).join('\n');
+        try {
+            if (!createdInvoice) return '';
+            const items = Array.isArray(createdInvoice.items) ? createdInvoice.items : [];
+            const itemsList = items.map((it, idx) => 
+                `${idx + 1}. *${it?.description || 'Item'}* × ${it?.qty || 1} ${it?.unit || 'Nos'} — ₹${Number(it?.total || 0).toLocaleString('en-IN')}`
+            ).join('\n');
 
-        const companyName = printSettings?.company_name || 'Sorted Solutions';
-        const companyPhone = printSettings?.company_phone || '+91 91520 70781';
+            const companyName = printSettings?.company_name || 'Sorted Solutions';
+            const companyPhone = printSettings?.company_phone || '+91 91520 70781';
 
-        return `🧾 *${companyName} — Store Invoice*\n` +
-               `Invoice No: *${createdInvoice.invoice_number}*\n` +
-               `Date: ${new Date(createdInvoice.date).toLocaleDateString('en-GB')}\n` +
-               `Customer: ${createdInvoice.account_name}\n\n` +
-               `*Purchased Items:*\n${itemsList}\n\n` +
-               `*Total Paid:* ₹${Number(createdInvoice.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (${paymentMode})\n` +
-               `Status: *Paid ✅*\n\n` +
-               `Thank you for your visit!\n` +
-               `📞 Support: ${companyPhone}`;
+            const invoiceTotal = Number(createdInvoice.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+            let dateStr = '';
+            try {
+                dateStr = createdInvoice.date ? new Date(createdInvoice.date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+            } catch {
+                dateStr = new Date().toLocaleDateString('en-GB');
+            }
+
+            return `🧾 *${companyName} — Store Invoice*\n` +
+                   `Invoice No: *${createdInvoice.invoice_number || 'N/A'}*\n` +
+                   `Date: ${dateStr}\n` +
+                   `Customer: ${createdInvoice.account_name || 'Customer'}\n\n` +
+                   `*Purchased Items:*\n${itemsList || 'None'}\n\n` +
+                   `*Total Paid:* ₹${invoiceTotal} (${paymentMode || 'Cash'})\n` +
+                   `Status: *Paid ✅*\n\n` +
+                   `Thank you for your visit!\n` +
+                   `📞 Support: ${companyPhone}`;
+        } catch (e) {
+            console.error('Error generating WhatsApp message:', e);
+            return 'Thank you for your visit!';
+        }
     };
 
     const handleShareWhatsApp = () => {
