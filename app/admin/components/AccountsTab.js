@@ -1909,39 +1909,43 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     saveStatus={saveStatus}
                     onResetView={handleResetView}
                 />
-                <button className="btn btn-primary" onClick={handleCreateClick}
-                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
-                    <Plus size={15} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
-                </button>
-                {activeTab === 'sales' && (
-                    <button 
-                        type="button"
-                        onClick={() => window.openPOSModal && window.openPOSModal()}
-                        style={{ 
-                            padding: '6px 14px', 
-                            fontSize: 'var(--font-size-sm)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '5px', 
-                            flexShrink: 0, 
-                            backgroundColor: 'rgba(245, 158, 11, 0.15)', 
-                            border: '1px solid rgba(245, 158, 11, 0.4)', 
-                            color: '#fbbf24', 
-                            borderRadius: '6px', 
-                            fontWeight: 700, 
-                            cursor: 'pointer',
-                            transition: 'all 0.15s'
-                        }}
-                    >
-                        ⚡ Store POS
+                <div className="tab-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', flexShrink: 0 }}>
+                    {activeTab === 'sales' && (
+                        <button 
+                            type="button"
+                            onClick={() => window.openPOSModal && window.openPOSModal()}
+                            className="btn-pos-quick"
+                            style={{ 
+                                padding: '6px 12px', 
+                                fontSize: 'var(--font-size-sm)', 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '5px', 
+                                flexShrink: 0, 
+                                backgroundColor: 'rgba(245, 158, 11, 0.18)', 
+                                border: '1px solid rgba(245, 158, 11, 0.5)', 
+                                color: '#fbbf24', 
+                                borderRadius: '6px', 
+                                fontWeight: 700, 
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            ⚡ Store POS
+                        </button>
+                    )}
+                    <button className="btn btn-primary" onClick={handleCreateClick}
+                        style={{ padding: '6px 14px', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        <Plus size={15} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
                     </button>
-                )}
-                {activeTab === 'receipts' && (
-                    <button className="btn btn-secondary" onClick={() => setShowCollectPayment(true)}
-                        style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, backgroundColor: '#10b981', color: 'white', border: 'none' }}>
-                        <Plus size={15} /> Collect Payment
-                    </button>
-                )}
+                    {activeTab === 'receipts' && (
+                        <button className="btn btn-secondary" onClick={() => setShowCollectPayment(true)}
+                            style={{ padding: '6px 14px', fontSize: 'var(--font-size-sm)', display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0, backgroundColor: '#10b981', color: 'white', border: 'none', whiteSpace: 'nowrap' }}>
+                            <Plus size={15} /> Collect Payment
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Row 2: Sub-tabs */}

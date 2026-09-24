@@ -457,21 +457,32 @@ button[class*="cancel"]:hover,
         order: 1 !important;
     }
 
-    .tab-header-row .btn-primary {
+    .tab-header-row .tab-header-actions,
+    .tab-header-row .btn-primary,
+    .tab-header-row .btn-secondary {
         order: 2 !important;
         margin-left: auto !important;
     }
 
-    /* Search panel wrapper is the child that is neither title nor primary button */
-    .tab-header-row > :not(.tab-title):not(.btn-primary):not(.btn-secondary) {
+    .tab-header-row .tab-header-actions {
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+    }
+
+    .tab-header-row .tab-header-actions .btn-primary,
+    .tab-header-row .tab-header-actions .btn-secondary,
+    .tab-header-row .tab-header-actions .btn-pos-quick {
+        padding: 5px 8px !important;
+        font-size: 11px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Search panel wrapper is the child that is neither title nor actions */
+    .tab-header-row > :not(.tab-title):not(.tab-header-actions):not(.btn-primary):not(.btn-secondary) {
         order: 3 !important;
         flex: 1 0 100% !important;
         width: 100% !important;
-    }
-
-    /* Support secondary buttons (like Collect Payment in Receipts) */
-    .tab-header-row .btn-secondary {
-        order: 2 !important;
     }
 
     /* 8. Responsive Tab Controls Row (View toggles, Refresh, Count) */
@@ -666,4 +677,115 @@ button[class*="cancel"]:hover,
         justify-content: center !important;
         padding: 8px 10px !important;
     }
+
+    /* ── Store POS Mobile Fullscreen & Responsiveness ── */
+    .pos-modal-overlay {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+    }
+    .pos-modal-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
+    .pos-modal-header {
+        padding: 10px 12px !important;
+    }
+    .pos-modal-body {
+        padding: 12px 10px !important;
+    }
+    .pos-account-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .pos-account-summary-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pos-account-summary-controls {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    .pos-bottom-bar-mobile {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        padding: 12px !important;
+    }
+    .pos-bottom-bar-mobile-stats {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    .pos-bottom-bar-mobile-actions {
+        width: 100% !important;
+        display: flex !important;
+        gap: 8px !important;
+    }
+    .pos-bottom-bar-mobile-actions button {
+        flex: 1 1 0% !important;
+        justify-content: center !important;
+    }
+    .pos-share-whatsapp-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pos-share-actions-row {
+        flex-direction: column-reverse !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    .pos-share-actions-row button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}
+
+/* ── Global POS Column Resizing & Table Styles ── */
+.pos-col-header {
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.pos-col-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    cursor: col-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.pos-col-resizer::after {
+    content: '';
+    width: 2px;
+    height: 55%;
+    background-color: rgba(148, 163, 184, 0.45);
+    border-radius: 1px;
+    transition: background-color 0.15s, height 0.15s;
+}
+.pos-col-resizer:hover::after,
+.pos-col-resizer.is-active::after {
+    background-color: #818cf8;
+    height: 90%;
+    width: 3px;
+}
+.pos-col-resizer:hover {
+    background-color: rgba(99, 102, 241, 0.15);
+}
+.pos-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
 }

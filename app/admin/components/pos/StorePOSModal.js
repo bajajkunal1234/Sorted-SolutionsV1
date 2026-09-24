@@ -65,6 +65,103 @@ export default function StorePOSModal({ isOpen, onClose }) {
     const [generating, setGenerating] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
+    // ── Screen 2: Column Resizing State & Persistence ───────────────────────────
+    const DEFAULT_COL_WIDTHS = {
+        num: 36,
+        description: 240,
+        qty: 70,
+        unit: 80,
+        rate: 105,
+        total: 95,
+        action: 38
+    };
+
+    const [colWidths, setColWidths] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('pos_column_widths');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    return { ...DEFAULT_COL_WIDTHS, ...parsed };
+                }
+            } catch (e) {}
+        }
+        return DEFAULT_COL_WIDTHS;
+    });
+
+    const [resizingCol, setResizingCol] = useState(null);
+    const resizeInfoRef = useRef(null);
+
+    const handleResizeStart = (colKey, e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+        const startWidth = colWidths[colKey] || DEFAULT_COL_WIDTHS[colKey] || 100;
+
+        resizeInfoRef.current = { colKey, startX, startWidth };
+        setResizingCol(colKey);
+
+        const onMove = (moveEvt) => {
+            if (!resizeInfoRef.current) return;
+            const currentX = moveEvt.clientX || (moveEvt.touches && moveEvt.touches[0]?.clientX) || 0;
+            const delta = currentX - resizeInfoRef.current.startX;
+            const minWidths = { num: 28, description: 150, qty: 55, unit: 65, rate: 75, total: 75, action: 34 };
+            const minW = minWidths[resizeInfoRef.current.colKey] || 50;
+            const nextWidth = Math.max(minW, Math.round(resizeInfoRef.current.startWidth + delta));
+
+            setColWidths(prev => {
+                const updated = { ...prev, [resizeInfoRef.current.colKey]: nextWidth };
+                try {
+                    localStorage.setItem('pos_column_widths', JSON.stringify(updated));
+                } catch (err) {}
+                return updated;
+            });
+        };
+
+        const onEnd = () => {
+            resizeInfoRef.current = null;
+            setResizingCol(null);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onEnd);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onEnd);
+        window.addEventListener('touchmove', onMove);
+        window.addEventListener('touchend', onEnd);
+    };
+
+    const handleResetColWidths = () => {
+        setColWidths(DEFAULT_COL_WIDTHS);
+        try {
+            localStorage.removeItem('pos_column_widths');
+        } catch (e) {}
+    };
+
+    const handlePresetColWidths = (type) => {
+        if (type === 'wide') {
+            const wideWidths = {
+                num: 36,
+                description: 320,
+                qty: 80,
+                unit: 90,
+                rate: 120,
+                total: 110,
+                action: 40
+            };
+            setColWidths(wideWidths);
+            try {
+                localStorage.setItem('pos_column_widths', JSON.stringify(wideWidths));
+            } catch (e) {}
+        } else {
+            handleResetColWidths();
+        }
+    };
+
+    const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
+
     // ── Screen 3: Generated Invoice & Share State ───────────────────────────────
     const [createdInvoice, setCreatedInvoice] = useState(null);
     const [sharePhone, setSharePhone] = useState('');
@@ -345,11 +442,12 @@ export default function StorePOSModal({ isOpen, onClose }) {
     return (
         <div 
             onClick={onClose}
+            className="pos-modal-overlay"
             style={{
                 position: 'fixed',
                 inset: 0,
                 zIndex: 10000,
-                backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                backgroundColor: 'rgba(0, 0, 0, 0.78)',
                 backdropFilter: 'blur(6px)',
                 display: 'flex',
                 alignItems: 'center',
@@ -359,14 +457,15 @@ export default function StorePOSModal({ isOpen, onClose }) {
         >
             <div 
                 onClick={e => e.stopPropagation()}
+                className="pos-modal-container"
                 style={{
                     width: '100%',
-                    maxWidth: '850px',
-                    maxHeight: '92vh',
+                    maxWidth: '920px',
+                    maxHeight: '94vh',
                     backgroundColor: '#0f172a',
                     border: '1px solid #334155',
                     borderRadius: '16px',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
@@ -374,107 +473,125 @@ export default function StorePOSModal({ isOpen, onClose }) {
                 }}
             >
                 {/* ── Top Header ────────────────────────────────────────────── */}
-                <div style={{
-                    padding: '16px 20px',
-                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))',
+                <div className="pos-modal-header" style={{
+                    padding: '12px 16px',
+                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))',
                     borderBottom: '1px solid #334155',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    flexDirection: 'column',
+                    gap: '10px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                            padding: '8px',
-                            borderRadius: '10px',
-                            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                            color: '#0f172a',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Store size={20} />
-                        </div>
-                        <div>
+                    {/* Row 1: Title and Close button */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                                padding: '7px',
+                                borderRadius: '9px',
+                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                color: '#0f172a',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <Store size={18} />
+                            </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.01em' }}>
+                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.01em' }}>
                                     Store POS Terminal
                                 </h3>
                                 <span style={{
-                                    padding: '2px 8px',
+                                    padding: '2px 7px',
                                     borderRadius: '999px',
                                     backgroundColor: 'rgba(245, 158, 11, 0.15)',
                                     color: '#fbbf24',
-                                    fontSize: '11px',
+                                    fontSize: '10px',
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.05em'
+                                    letterSpacing: '0.04em'
                                 }}>
                                     Quick Sale
                                 </span>
                             </div>
-                            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
-                                Fast store billing without inventory tracking
-                            </p>
                         </div>
+
+                        <button 
+                            onClick={onClose}
+                            aria-label="Close POS"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '8px',
+                                padding: '6px',
+                                cursor: 'pointer',
+                                color: '#94a3b8',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    {/* Step Breadcrumbs */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{
-                            padding: '3px 10px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            backgroundColor: step === 1 ? '#6366f1' : 'rgba(99, 102, 241, 0.15)',
-                            color: step === 1 ? '#fff' : '#818cf8',
-                            border: '1px solid rgba(99, 102, 241, 0.3)'
-                        }}>
+                    {/* Row 2: Responsive Step Stepper */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%' }}>
+                        <div 
+                            onClick={() => { if (step > 1) setStep(1); }}
+                            style={{
+                                flex: '1 1 0%',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                cursor: step > 1 ? 'pointer' : 'default',
+                                backgroundColor: step === 1 ? '#6366f1' : 'rgba(99, 102, 241, 0.12)',
+                                color: step === 1 ? '#fff' : '#818cf8',
+                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
                             1. Account
-                        </span>
+                        </div>
                         <span style={{ color: '#475569', fontSize: '11px' }}>→</span>
-                        <span style={{
-                            padding: '3px 10px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            backgroundColor: step === 2 ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
-                            color: step === 2 ? '#fff' : '#34d399',
-                            border: '1px solid rgba(16, 185, 129, 0.3)'
-                        }}>
+                        <div 
+                            onClick={() => { if (selectedAccount && step > 2) setStep(2); }}
+                            style={{
+                                flex: '1 1 0%',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                cursor: selectedAccount && step > 2 ? 'pointer' : 'default',
+                                backgroundColor: step === 2 ? '#10b981' : 'rgba(16, 185, 129, 0.12)',
+                                color: step === 2 ? '#fff' : '#34d399',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
                             2. Items
-                        </span>
+                        </div>
                         <span style={{ color: '#475569', fontSize: '11px' }}>→</span>
-                        <span style={{
-                            padding: '3px 10px',
+                        <div style={{
+                            flex: '1 1 0%',
+                            padding: '5px 8px',
                             borderRadius: '6px',
                             fontSize: '11px',
                             fontWeight: 700,
-                            backgroundColor: step === 3 ? '#f59e0b' : 'rgba(245, 158, 11, 0.15)',
+                            textAlign: 'center',
+                            backgroundColor: step === 3 ? '#f59e0b' : 'rgba(245, 158, 11, 0.12)',
                             color: step === 3 ? '#fff' : '#fbbf24',
-                            border: '1px solid rgba(245, 158, 11, 0.3)'
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            whiteSpace: 'nowrap'
                         }}>
                             3. Share
-                        </span>
+                        </div>
                     </div>
-
-                    <button 
-                        onClick={onClose}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            borderRadius: '8px',
-                            padding: '6px',
-                            cursor: 'pointer',
-                            color: '#94a3b8',
-                            display: 'flex'
-                        }}
-                    >
-                        <X size={18} />
-                    </button>
                 </div>
 
                 {/* ── Modal Body Content ────────────────────────────────────── */}
-                <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+                <div className="pos-modal-body" style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
 
                     {errorMsg && (
                         <div style={{
@@ -501,7 +618,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     Select Customer / Ledger Account <span style={{ color: '#f87171' }}>*</span>
                                 </label>
                                 
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <div className="pos-account-row" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                     {/* Search Input Container */}
                                     <div ref={searchContainerRef} style={{ position: 'relative', flex: 1 }}>
                                         <div style={{
@@ -758,9 +875,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
                         SCREEN 2: ADD ITEMS & PRICING
                     ════════════════════════════════════════════════════════════ */}
                     {step === 2 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             {/* Account summary chip + date */}
-                            <div style={{
+                            <div className="pos-account-summary-row" style={{
                                 padding: '10px 14px',
                                 backgroundColor: '#1e293b',
                                 borderRadius: '10px',
@@ -785,7 +902,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     </button>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div className="pos-account-summary-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <label style={{ fontSize: '12px', color: '#94a3b8' }}>Date:</label>
                                         <input 
@@ -796,7 +913,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                 backgroundColor: '#0f172a',
                                                 border: '1px solid #334155',
                                                 borderRadius: '6px',
-                                                padding: '4px 8px',
+                                                padding: '5px 8px',
                                                 color: '#f8fafc',
                                                 fontSize: '12px',
                                                 outline: 'none',
@@ -814,7 +931,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                 backgroundColor: '#0f172a',
                                                 border: '1px solid #334155',
                                                 borderRadius: '6px',
-                                                padding: '4px 8px',
+                                                padding: '5px 8px',
                                                 color: '#34d399',
                                                 fontSize: '12px',
                                                 fontWeight: 600,
@@ -830,23 +947,112 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                 </div>
                             </div>
 
-                            {/* Table of Items */}
+                            {/* Column resizing toolbar notice */}
                             <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '2px 4px',
+                                fontSize: '11px',
+                                color: '#94a3b8'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span>↔️ Drag column edges to resize</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePresetColWidths('wide')}
+                                        style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
+                                    >
+                                        Wide Names
+                                    </button>
+                                    <span>•</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleResetColWidths}
+                                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}
+                                    >
+                                        Reset Widths
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Table of Items with Column Resizing & Horizontal Scroll */}
+                            <div className="pos-table-scroll" style={{
                                 backgroundColor: '#1e293b',
                                 borderRadius: '12px',
                                 border: '1px solid #334155',
-                                overflow: 'hidden'
+                                overflowX: 'auto',
+                                WebkitOverflowScrolling: 'touch'
                             }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                <table style={{
+                                    width: '100%',
+                                    minWidth: `${totalTableWidth}px`,
+                                    borderCollapse: 'collapse',
+                                    textAlign: 'left',
+                                    tableLayout: 'fixed'
+                                }}>
+                                    <colgroup>
+                                        <col style={{ width: `${colWidths.num}px` }} />
+                                        <col style={{ width: `${colWidths.description}px` }} />
+                                        <col style={{ width: `${colWidths.qty}px` }} />
+                                        <col style={{ width: `${colWidths.unit}px` }} />
+                                        <col style={{ width: `${colWidths.rate}px` }} />
+                                        <col style={{ width: `${colWidths.total}px` }} />
+                                        <col style={{ width: `${colWidths.action}px` }} />
+                                    </colgroup>
                                     <thead>
-                                        <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid #334155' }}>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', width: '35px', textAlign: 'center' }}>#</th>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Item Name / Description <span style={{ color: '#f87171' }}>*</span></th>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', width: '80px' }}>Qty</th>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', width: '90px' }}>Unit</th>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', width: '120px' }}>Price / Rate (₹)</th>
-                                            <th style={{ padding: '10px 12px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', width: '110px', textAlign: 'right' }}>Total (₹)</th>
-                                            <th style={{ padding: '10px 12px', width: '40px' }}></th>
+                                        <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid #334155' }}>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.num}px`, padding: '10px 4px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', textAlign: 'center' }}>
+                                                #
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'num' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('num', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.description}px`, padding: '10px 10px', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>
+                                                Item Name / Description <span style={{ color: '#f87171' }}>*</span>
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'description' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('description', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.qty}px`, padding: '10px 6px', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>
+                                                Qty
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'qty' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('qty', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.unit}px`, padding: '10px 6px', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>
+                                                Unit
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'unit' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('unit', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.rate}px`, padding: '10px 8px', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>
+                                                Price / Rate (₹)
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'rate' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('rate', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th className="pos-col-header" style={{ width: `${colWidths.total}px`, padding: '10px 8px', fontSize: '11px', fontWeight: 600, color: '#94a3b8', textAlign: 'right' }}>
+                                                Total (₹)
+                                                <div 
+                                                    className={`pos-col-resizer ${resizingCol === 'total' ? 'is-active' : ''}`}
+                                                    onPointerDown={e => handleResizeStart('total', e)}
+                                                    title="Drag to resize column"
+                                                />
+                                            </th>
+                                            <th style={{ width: `${colWidths.action}px`, padding: '10px 4px' }}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -854,40 +1060,42 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                             const lineTotal = (Number(row.qty) || 0) * (Number(row.rate) || 0);
                                             return (
                                                 <tr key={row.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                                    <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+                                                    <td style={{ padding: '8px 4px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
                                                         {index + 1}
                                                     </td>
-                                                    <td style={{ padding: '8px 12px' }}>
+                                                    <td style={{ padding: '8px 6px' }}>
                                                         <input 
                                                             type="text"
                                                             value={row.description}
                                                             onChange={e => handleItemChange(index, 'description', e.target.value)}
-                                                            placeholder="Type product / item name..."
+                                                            placeholder="Type product name..."
                                                             style={{
                                                                 width: '100%',
+                                                                boxSizing: 'border-box',
                                                                 backgroundColor: '#0f172a',
                                                                 border: '1px solid #334155',
                                                                 borderRadius: '6px',
-                                                                padding: '7px 10px',
+                                                                padding: '7px 9px',
                                                                 color: '#f8fafc',
                                                                 fontSize: '13px',
                                                                 outline: 'none'
                                                             }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: '8px 12px' }}>
+                                                    <td style={{ padding: '8px 4px' }}>
                                                         <input 
                                                             type="number"
-                                                            min="0.1"
+                                                            min="0.01"
                                                             step="any"
                                                             value={row.qty}
                                                             onChange={e => handleItemChange(index, 'qty', e.target.value)}
                                                             style={{
                                                                 width: '100%',
+                                                                boxSizing: 'border-box',
                                                                 backgroundColor: '#0f172a',
                                                                 border: '1px solid #334155',
                                                                 borderRadius: '6px',
-                                                                padding: '7px 8px',
+                                                                padding: '7px 4px',
                                                                 color: '#f8fafc',
                                                                 fontSize: '13px',
                                                                 outline: 'none',
@@ -895,16 +1103,17 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                             }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: '8px 12px' }}>
+                                                    <td style={{ padding: '8px 4px' }}>
                                                         <select
                                                             value={row.unit}
                                                             onChange={e => handleItemChange(index, 'unit', e.target.value)}
                                                             style={{
                                                                 width: '100%',
+                                                                boxSizing: 'border-box',
                                                                 backgroundColor: '#0f172a',
                                                                 border: '1px solid #334155',
                                                                 borderRadius: '6px',
-                                                                padding: '7px 6px',
+                                                                padding: '7px 4px',
                                                                 color: '#cbd5e1',
                                                                 fontSize: '12px',
                                                                 outline: 'none'
@@ -915,7 +1124,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                             ))}
                                                         </select>
                                                     </td>
-                                                    <td style={{ padding: '8px 12px' }}>
+                                                    <td style={{ padding: '8px 4px' }}>
                                                         <input 
                                                             type="number"
                                                             min="0"
@@ -925,10 +1134,11 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                             placeholder="0.00"
                                                             style={{
                                                                 width: '100%',
+                                                                boxSizing: 'border-box',
                                                                 backgroundColor: '#0f172a',
                                                                 border: '1px solid #334155',
                                                                 borderRadius: '6px',
-                                                                padding: '7px 10px',
+                                                                padding: '7px 8px',
                                                                 color: '#f8fafc',
                                                                 fontSize: '13px',
                                                                 outline: 'none',
@@ -936,10 +1146,10 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                             }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: '13px', fontWeight: 600, color: lineTotal > 0 ? '#34d399' : '#64748b' }}>
+                                                    <td style={{ padding: '8px 6px', textAlign: 'right', fontSize: '13px', fontWeight: 600, color: lineTotal > 0 ? '#34d399' : '#64748b' }}>
                                                         ₹{lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </td>
-                                                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                                    <td style={{ padding: '8px 2px', textAlign: 'center' }}>
                                                         <button 
                                                             type="button"
                                                             onClick={() => handleRemoveItem(index)}
@@ -950,8 +1160,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                                 color: '#64748b',
                                                                 cursor: 'pointer',
                                                                 padding: '4px',
-                                                                display: 'flex',
-                                                                alignItems: 'center'
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
                                                             }}
                                                             onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
                                                             onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
@@ -966,7 +1177,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                 </table>
 
                                 {/* Add Item button below table */}
-                                <div style={{ padding: '12px 16px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'flex-start' }}>
+                                <div style={{ padding: '10px 14px', borderTop: '1px solid #334155', display: 'flex', justifyContent: 'flex-start' }}>
                                     <button 
                                         type="button"
                                         onClick={handleAddItem}
@@ -1000,37 +1211,39 @@ export default function StorePOSModal({ isOpen, onClose }) {
                             </div>
 
                             {/* Bottom Calculation & Action Bar */}
-                            <div style={{
+                            <div className="pos-bottom-bar-mobile" style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 backgroundColor: '#1e293b',
-                                padding: '14px 20px',
+                                padding: '14px 18px',
                                 borderRadius: '12px',
-                                border: '1px solid #334155'
+                                border: '1px solid #334155',
+                                marginTop: '4px'
                             }}>
-                                <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                                <div className="pos-bottom-bar-mobile-stats" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                                     <div>
-                                        <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' }}>Items Count</div>
-                                        <div style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
+                                        <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Items</div>
+                                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#f8fafc' }}>
                                             {validItems.length} item{validItems.length === 1 ? '' : 's'}
                                         </div>
                                     </div>
                                     <div>
-                                        <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' }}>Grand Total</div>
-                                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#10b981', letterSpacing: '-0.02em' }}>
+                                        <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Grand Total</div>
+                                        <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', letterSpacing: '-0.02em' }}>
                                             ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <div className="pos-bottom-bar-mobile-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <button 
                                         type="button"
                                         onClick={() => setStep(1)}
                                         style={{
-                                            display: 'flex',
+                                            display: 'inline-flex',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
                                             gap: '6px',
                                             padding: '10px 16px',
                                             background: 'none',
@@ -1051,10 +1264,11 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                         disabled={generating || validItems.length === 0}
                                         onClick={handleGenerateInvoice}
                                         style={{
-                                            display: 'flex',
+                                            display: 'inline-flex',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
                                             gap: '8px',
-                                            padding: '10px 22px',
+                                            padding: '10px 20px',
                                             backgroundColor: (generating || validItems.length === 0) ? '#334155' : '#10b981',
                                             color: (generating || validItems.length === 0) ? '#64748b' : '#0f172a',
                                             border: 'none',
@@ -1063,11 +1277,12 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                             fontWeight: 800,
                                             cursor: (generating || validItems.length === 0) ? 'not-allowed' : 'pointer',
                                             boxShadow: validItems.length > 0 ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none',
-                                            transition: 'all 0.15s'
+                                            transition: 'all 0.15s',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         {generating ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                                        <span>{generating ? 'Generating Invoice...' : 'Generate Invoice'}</span>
+                                        <span>{generating ? 'Generating...' : 'Generate Invoice'}</span>
                                     </button>
                                 </div>
                             </div>
@@ -1078,36 +1293,39 @@ export default function StorePOSModal({ isOpen, onClose }) {
                         SCREEN 3: SHARE SCREEN
                     ════════════════════════════════════════════════════════════ */}
                     {step === 3 && createdInvoice && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             {/* Success Banner */}
                             <div style={{
-                                padding: '18px',
+                                padding: '16px',
                                 borderRadius: '12px',
                                 background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.08))',
                                 border: '1px solid rgba(16, 185, 129, 0.4)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'space-between'
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '12px'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 240px' }}>
                                     <div style={{
-                                        width: '46px',
-                                        height: '46px',
+                                        width: '42px',
+                                        height: '42px',
                                         borderRadius: '50%',
                                         backgroundColor: '#10b981',
                                         color: '#0f172a',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
+                                        flexShrink: 0,
                                         boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
                                     }}>
-                                        <CheckCircle2 size={26} />
+                                        <CheckCircle2 size={24} />
                                     </div>
                                     <div>
-                                        <div style={{ fontSize: '17px', fontWeight: 800, color: '#f8fafc' }}>
+                                        <div style={{ fontSize: '16px', fontWeight: 800, color: '#f8fafc' }}>
                                             Invoice {createdInvoice.invoice_number} Created!
                                         </div>
-                                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '3px' }}>
+                                        <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
                                             {createdInvoice.account_name} • Paid ₹{Number(createdInvoice.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })} via {paymentMode}
                                         </div>
                                     </div>
@@ -1116,8 +1334,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                 <button 
                                     onClick={handlePrintInvoice}
                                     style={{
-                                        display: 'flex',
+                                        display: 'inline-flex',
                                         alignItems: 'center',
+                                        justifyContent: 'center',
                                         gap: '6px',
                                         padding: '9px 16px',
                                         backgroundColor: '#1e293b',
@@ -1126,7 +1345,8 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                         color: '#f8fafc',
                                         fontSize: '13px',
                                         fontWeight: 600,
-                                        cursor: 'pointer'
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap'
                                     }}
                                 >
                                     <Printer size={15} />
@@ -1158,20 +1378,21 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     )}
                                 </div>
 
-                                {/* Phone number input */}
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                {/* Phone number input & WhatsApp actions */}
+                                <div className="pos-share-whatsapp-row" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px',
-                                        flex: 1,
+                                        width: '100%',
+                                        boxSizing: 'border-box',
                                         backgroundColor: '#0f172a',
                                         border: '1px solid #334155',
                                         borderRadius: '8px',
-                                        padding: '8px 12px'
+                                        padding: '9px 12px'
                                     }}>
                                         <Phone size={14} color="#64748b" />
-                                        <span style={{ fontSize: '13px', color: '#94a3b8' }}>+91</span>
+                                        <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>+91</span>
                                         <input 
                                             type="tel"
                                             maxLength={10}
@@ -1189,50 +1410,57 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                         />
                                     </div>
 
-                                    <button 
-                                        type="button"
-                                        onClick={handleShareWhatsApp}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            padding: '9px 18px',
-                                            backgroundColor: '#22c55e',
-                                            color: '#ffffff',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            fontSize: '13px',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        <ExternalLink size={14} />
-                                        <span>Send WhatsApp</span>
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                        <button 
+                                            type="button"
+                                            onClick={handleShareWhatsApp}
+                                            style={{
+                                                flex: 2,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                padding: '10px 16px',
+                                                backgroundColor: '#22c55e',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '8px',
+                                                fontSize: '13px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            <ExternalLink size={14} />
+                                            <span>Send on WhatsApp</span>
+                                        </button>
 
-                                    <button 
-                                        type="button"
-                                        onClick={handleCopyWhatsApp}
-                                        title="Copy message"
-                                        style={{
-                                            padding: '9px 14px',
-                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                            border: '1px solid #475569',
-                                            borderRadius: '8px',
-                                            color: '#cbd5e1',
-                                            fontSize: '13px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}
-                                    >
-                                        <Copy size={14} />
-                                        <span>Copy</span>
-                                    </button>
+                                        <button 
+                                            type="button"
+                                            onClick={handleCopyWhatsApp}
+                                            title="Copy message"
+                                            style={{
+                                                flex: 1,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px',
+                                                padding: '10px 14px',
+                                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                border: '1px solid #475569',
+                                                borderRadius: '8px',
+                                                color: '#cbd5e1',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            <Copy size={14} />
+                                            <span>{copied ? 'Copied' : 'Copy'}</span>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Live message preview box */}
@@ -1241,7 +1469,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     border: '1px solid rgba(255, 255, 255, 0.05)',
                                     borderRadius: '8px',
                                     padding: '12px',
-                                    maxHeight: '140px',
+                                    maxHeight: '130px',
                                     overflowY: 'auto',
                                     fontFamily: 'monospace',
                                     fontSize: '11px',
@@ -1254,7 +1482,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                             </div>
 
                             {/* Final Action buttons */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                            <div className="pos-share-actions-row" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
                                 <button 
                                     type="button"
                                     onClick={onClose}
@@ -1276,8 +1504,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     type="button"
                                     onClick={handleResetSale}
                                     style={{
-                                        display: 'flex',
+                                        display: 'inline-flex',
                                         alignItems: 'center',
+                                        justifyContent: 'center',
                                         gap: '6px',
                                         padding: '10px 22px',
                                         backgroundColor: '#f59e0b',
