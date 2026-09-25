@@ -161,8 +161,6 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
         setShowAccountDropdown(false);
     }, [isOpen, editItem, initialDate]);
 
-    if (!isOpen) return null;
-
     // Filter accounts by current contactName / search text
     const filteredAccounts = useMemo(() => {
         const query = (contactName || accountSearchText || '').trim().toLowerCase();
@@ -257,6 +255,8 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
 
     // Current due day number for recurrence display
     const dueDayNum = dueDate ? new Date(dueDate + 'T00:00:00').getDate() : new Date().getDate();
+
+    if (!isOpen) return null;
 
     return (
         <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>

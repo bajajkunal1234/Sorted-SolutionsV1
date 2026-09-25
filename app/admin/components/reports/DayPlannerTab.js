@@ -871,13 +871,15 @@ export default function DayPlannerTab() {
             </div>
 
             {/* Creation / Edit Modal */}
-            <DayPlanModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSavePlan}
-                initialDate={modalInitialDate}
-                editItem={editingItem}
-            />
+            {isModalOpen && (
+                <DayPlanModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onSave={handleSavePlan}
+                    initialDate={modalInitialDate}
+                    editItem={editingItem}
+                />
+            )}
         </div>
     );
 }
