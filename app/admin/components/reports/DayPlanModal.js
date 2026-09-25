@@ -283,7 +283,8 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        backgroundColor: 'var(--bg-elevated)'
+                        backgroundColor: 'var(--bg-elevated)',
+                        flexShrink: 0
                     }}
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -297,7 +298,8 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                                     reminderType === 'visit' ? '#8b5cf6' : '#3b82f6',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                flexShrink: 0
                             }}
                         >
                             {reminderType === 'payment' && <DollarSign size={18} />}
@@ -314,7 +316,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                             </span>
                         </div>
                     </div>
-                    <button className="btn-icon" onClick={onClose} type="button" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                    <button className="btn-icon" onClick={onClose} type="button" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
                         <X size={18} />
                     </button>
                 </div>
@@ -326,7 +328,8 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                         backgroundColor: 'var(--bg-elevated)',
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr 1fr',
-                        gap: '6px'
+                        gap: '6px',
+                        flexShrink: 0
                     }}
                 >
                     <button
@@ -397,8 +400,20 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                 </div>
 
                 {/* Form Content */}
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto' }}>
-                    <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                    <div
+                        className="modal-content"
+                        style={{
+                            flex: 1,
+                            overflowY: 'auto',
+                            WebkitOverflowScrolling: 'touch',
+                            padding: '14px 18px 24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px',
+                            minHeight: 0
+                        }}
+                    >
                         {errors.submit && (
                             <div style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <AlertCircle size={14} />
@@ -877,13 +892,15 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
 
                     {/* Footer Actions */}
                     <div
+                        className="modal-footer"
                         style={{
                             padding: '12px 18px',
                             borderTop: '1px solid var(--border-primary)',
                             display: 'flex',
                             justifyContent: 'flex-end',
                             gap: '10px',
-                            backgroundColor: 'var(--bg-elevated)'
+                            backgroundColor: 'var(--bg-elevated)',
+                            flexShrink: 0
                         }}
                     >
                         <button
