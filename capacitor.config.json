@@ -1,9 +1,9 @@
 {
-  "appId": "in.sortedsolutions.technician",
-  "appName": "New Era Tracker",
+  "appId": "in.sortedsolutions.admin",
+  "appName": "Sorted Admin",
   "webDir": "android-web-placeholder",
   "server": {
-    "url": "https://sortedsolutions.in/newera",
+    "url": "https://sortedsolutions.in/admin",
     "cleartext": true
   },
   "plugins": {

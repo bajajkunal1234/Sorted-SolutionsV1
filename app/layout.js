@@ -76,6 +76,68 @@ export default function RootLayout({ children }) {
                     dangerouslySetInnerHTML={{
                         __html: `
                             (function() {
+                                // 1. globalThis polyfill (Chrome < 71, Android 8.0/8.1)
+                                if (typeof globalThis === 'undefined') {
+                                    if (typeof window !== 'undefined') { window.globalThis = window; }
+                                    else if (typeof self !== 'undefined') { self.globalThis = self; }
+                                    else if (typeof global !== 'undefined') { global.globalThis = global; }
+                                }
+                                // 2. Object.fromEntries polyfill (Chrome < 73)
+                                if (!Object.fromEntries) {
+                                    Object.fromEntries = function(entries) {
+                                        if (!entries) return {};
+                                        var obj = {};
+                                        for (var pair of entries) {
+                                            if (pair) obj[pair[0]] = pair[1];
+                                        }
+                                        return obj;
+                                    };
+                                }
+                                // 3. Array.prototype.flat and flatMap (Chrome < 69)
+                                if (!Array.prototype.flat) {
+                                    Array.prototype.flat = function(depth) {
+                                        depth = depth === undefined ? 1 : Math.floor(depth);
+                                        if (depth < 1) return Array.prototype.slice.call(this);
+                                        return (function flatten(arr, d) {
+                                            return arr.reduce(function(acc, val) {
+                                                return acc.concat(Array.isArray(val) && d > 0 ? flatten(val, d - 1) : val);
+                                            }, []);
+                                        })(this, depth);
+                                    };
+                                }
+                                if (!Array.prototype.flatMap) {
+                                    Array.prototype.flatMap = function(cb, thisArg) {
+                                        return this.map(cb, thisArg).flat();
+                                    };
+                                }
+                                // 4. Promise.allSettled (Chrome < 76)
+                                if (!Promise.allSettled) {
+                                    Promise.allSettled = function(promises) {
+                                        return Promise.all((promises || []).map(function(p) {
+                                            return Promise.resolve(p).then(
+                                                function(value) { return { status: 'fulfilled', value: value }; },
+                                                function(reason) { return { status: 'rejected', reason: reason }; }
+                                            );
+                                        }));
+                                    };
+                                }
+                                // 5. crypto.randomUUID (Chrome < 92)
+                                if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
+                                    crypto.randomUUID = function() {
+                                        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                                            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                                            return v.toString(16);
+                                        });
+                                    };
+                                }
+                            })();
+                        `,
+                    }}
+                />
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+                            (function() {
                                 try {
                                     const theme = localStorage.getItem('theme') || 'dark';
                                     document.documentElement.setAttribute('data-theme', theme);

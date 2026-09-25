@@ -63,15 +63,32 @@ public class MainActivity extends BridgeActivity {
         // Create high-importance custom notification channels on launch
         createCustomNotificationChannels();
 
+        // Enable cookies and third-party cookies for session persistence
+        try {
+            android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
+            cookieManager.setAcceptCookie(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                cookieManager.setAcceptThirdPartyCookies(getBridge().getWebView(), true);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         // Workaround: Override the default WindowInsetsListener to prevent 
         // the default Capacitor logic from stacking padding on the WebView.
         getBridge().getWebView().post(() -> {
             // Lock text zoom to 100% to ignore system font size changes
             try {
-                getBridge().getWebView().getSettings().setTextZoom(100);
-                getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
-                getBridge().getWebView().getSettings().setDomStorageEnabled(true);
-                getBridge().getWebView().getSettings().setDatabaseEnabled(true);
+                android.webkit.WebSettings settings = getBridge().getWebView().getSettings();
+                settings.setTextZoom(100);
+                settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+                settings.setDomStorageEnabled(true);
+                settings.setDatabaseEnabled(true);
+                settings.setAllowFileAccess(true);
+                settings.setAllowContentAccess(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
             }

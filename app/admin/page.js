@@ -62,6 +62,13 @@ export default function AdminApp() {
                 router.replace('/login')
                 return
             }
+            try {
+                localStorage.setItem('isAdmin', 'true');
+                localStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                localStorage.removeItem('technicianSession');
+                localStorage.removeItem('technicianData');
+            } catch { }
             setAdminId('admin') // Always use 'admin' as the recipient_id so it matches app_notifications
             
             // Log active session for Installed Devices report

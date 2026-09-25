@@ -30,48 +30,63 @@ function updateFile(filePath, replaceFn) {
 
 console.log(`Switching target to: ${target.toUpperCase()}...`);
 
-// 1. Update capacitor.config.json
-updateFile('capacitor.config.json', (content) => {
-    const config = JSON.parse(content);
-    config.appId = `in.sortedsolutions.${target}`;
-    config.appName = target === 'admin' ? 'Sorted Admin' : 'Sorted Technician';
-    config.server.url = target === 'admin' 
-        ? 'https://sortedsolutions.in/admin' 
-        : 'https://sortedsolutions.in/technician/dashboard';
-    return JSON.stringify(config, null, 2);
-});
+const appId = `in.sortedsolutions.${target}`;
+const appName = target === 'admin' ? 'Sorted Admin' : 'Sorted Technician';
+const serverUrl = target === 'admin' 
+    ? 'https://sortedsolutions.in/admin' 
+    : 'https://sortedsolutions.in/technician/dashboard';
 
-// 2. Update android/app/build.gradle
+const updateCapacitorConfig = (content) => {
+    try {
+        const config = JSON.parse(content);
+        config.appId = appId;
+        config.appName = appName;
+        if (!config.server) config.server = {};
+        config.server.url = serverUrl;
+        config.server.cleartext = true;
+        return JSON.stringify(config, null, 2) + '\n';
+    } catch (e) {
+        console.error('Failed to parse capacitor config JSON:', e);
+        return content;
+    }
+};
+
+// 1. Update root capacitor.config.json
+updateFile('capacitor.config.json', updateCapacitorConfig);
+
+// 2. Update android asset capacitor.config.json
+updateFile('android/app/src/main/assets/capacitor.config.json', updateCapacitorConfig);
+
+// 3. Update android/app/build.gradle
 updateFile('android/app/build.gradle', (content) => {
     return content.replace(
-        /applicationId\s+"in\.sortedsolutions\.(technician|admin)"/,
-        `applicationId "in.sortedsolutions.${target}"`
+        /applicationId\s+["'][^"']+["']/,
+        `applicationId "${appId}"`
     );
 });
 
-// 3. Update android/app/src/main/res/values/strings.xml
+// 4. Update android/app/src/main/res/values/strings.xml
 updateFile('android/app/src/main/res/values/strings.xml', (content) => {
     let updated = content;
-    const displayName = target === 'admin' ? 'Sorted Admin' : 'Sorted Technician';
     
     updated = updated.replace(
-        /<string name="app_name">Sorted (Technician|Admin)<\/string>/,
-        `<string name="app_name">${displayName}</string>`
+        /<string name="app_name">[^<]*<\/string>/,
+        `<string name="app_name">${appName}</string>`
     );
     updated = updated.replace(
-        /<string name="title_activity_main">Sorted (Technician|Admin)<\/string>/,
-        `<string name="title_activity_main">${displayName}</string>`
+        /<string name="title_activity_main">[^<]*<\/string>/,
+        `<string name="title_activity_main">${appName}</string>`
     );
     updated = updated.replace(
-        /<string name="package_name">in\.sortedsolutions\.(technician|admin)<\/string>/,
-        `<string name="package_name">in.sortedsolutions.${target}</string>`
+        /<string name="package_name">[^<]*<\/string>/,
+        `<string name="package_name">${appId}</string>`
     );
     updated = updated.replace(
-        /<string name="custom_url_scheme">in\.sortedsolutions\.(technician|admin)<\/string>/,
-        `<string name="custom_url_scheme">in.sortedsolutions.${target}</string>`
+        /<string name="custom_url_scheme">[^<]*<\/string>/,
+        `<string name="custom_url_scheme">${appId}</string>`
     );
     
     return updated;
 });
 
-console.log(`Successfully switched build configuration to: ${target.toUpperCase()}`);
+console.log(`Successfully switched build configuration to: ${target.toUpperCase()} (${serverUrl})`);

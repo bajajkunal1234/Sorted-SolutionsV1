@@ -47,6 +47,31 @@ export default function CustomerApp() {
         setMounted(true)
 
         // ── Auth gate: CustomerApp is the single gatekeeper ─────────────────
+        try {
+            const rawSession = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
+            if (rawSession) {
+                const s = JSON.parse(rawSession);
+                if (s?.role === 'admin') {
+                    localStorage.removeItem('customerId');
+                    localStorage.removeItem('customerData');
+                    window.location.href = '/admin';
+                    return;
+                }
+                if (s?.role === 'technician') {
+                    localStorage.removeItem('customerId');
+                    localStorage.removeItem('customerData');
+                    window.location.href = '/technician';
+                    return;
+                }
+            }
+            if (localStorage.getItem('isAdmin') === 'true') {
+                localStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                window.location.href = '/admin';
+                return;
+            }
+        } catch { }
+
         const cId = localStorage.getItem('customerId') || sessionStorage.getItem('customerId')
         if (!cId) {
             // No session at all — send to login

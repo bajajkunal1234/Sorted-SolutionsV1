@@ -1,13 +1,29 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import Header from '@/components/common/Header';
-import { auth } from '@/lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { requestNotificationPermission, saveFCMTokenToServer } from '@/lib/firebase-client';
+
+// ─── Lazy Firebase Auth Loader ────────────────────────────────────────────────
+// Dynamically imported only when OTP is requested so the initial page
+// and admin login (password-based) do not evaluate Firebase on older WebViews.
+let _firebaseAuthModule = null;
+let _firebaseInstance = null;
+
+async function getFirebaseAuth() {
+    if (!_firebaseAuthModule || !_firebaseInstance) {
+        const [fbApp, fbAuth] = await Promise.all([
+            import('@/lib/firebase'),
+            import('firebase/auth')
+        ]);
+        _firebaseInstance = fbApp.auth;
+        _firebaseAuthModule = fbAuth;
+    }
+    return { auth: _firebaseInstance, ..._firebaseAuthModule };
+}
 
 async function registerPushToken(userId, userType) {
     try {
@@ -28,17 +44,26 @@ function saveSession(user, persist) {
 
         if (user.role === 'admin') {
             storage.setItem('isAdmin', 'true');
+            // Explicitly purge customer & technician keys so an admin is never misidentified
+            storage.removeItem('customerId');
+            storage.removeItem('customerData');
+            storage.removeItem('technicianSession');
+            storage.removeItem('technicianData');
             const maxAge = persist ? 60 * 60 * 24 * 30 : ''; 
             document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
-        }
-
-        if (user.role === 'technician') {
+        } else if (user.role === 'technician') {
             const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
             storage.setItem('technicianSession', techSession);
             storage.setItem('technicianData', JSON.stringify(user));
+            storage.removeItem('customerId');
+            storage.removeItem('customerData');
+            storage.removeItem('isAdmin');
         } else {
             storage.setItem('customerData', session);
             storage.setItem('customerId', user.id);
+            storage.removeItem('technicianSession');
+            storage.removeItem('technicianData');
+            storage.removeItem('isAdmin');
         }
     };
 
@@ -72,7 +97,7 @@ function saveSession(user, persist) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function PhoneInput({ value, onChange, disabled }) {
+function PhoneInput({ value, onChange, onSubmit, disabled }) {
     return (
         <div style={{ position: 'relative' }}>
             <Phone size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'rgba(255,255,255,0.4)' }} />
@@ -82,6 +107,12 @@ function PhoneInput({ value, onChange, disabled }) {
                 placeholder="Mobile number"
                 value={value}
                 onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (onSubmit) onSubmit(e);
+                    }
+                }}
                 disabled={disabled}
                 style={{ width: '100%', padding: '13px 13px 13px 74px', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' }}
                 required
@@ -186,6 +217,17 @@ function LoginContent() {
     const initializedRef = useRef(false);
     useEffect(() => {
         try {
+            const raw = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
+            if (raw) {
+                const s = JSON.parse(raw);
+                if (s?.role === 'admin') { router.replace('/admin'); return; }
+                if (s?.role === 'technician') { router.replace('/technician'); return; }
+                if (s?.role === 'customer') { router.replace('/customer/dashboard'); return; }
+            }
+            if (localStorage.getItem('isAdmin') === 'true') {
+                router.replace('/admin');
+                return;
+            }
             const id = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
             if (id) { router.replace('/customer/dashboard'); return; }
         } catch { }
@@ -228,7 +270,9 @@ function LoginContent() {
                 setRecaptchaVisible(true);
             }
 
-            const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            const { auth: fbAuth, RecaptchaVerifier } = await getFirebaseAuth();
+
+            const verifier = new RecaptchaVerifier(fbAuth, 'recaptcha-container', {
                 size: isNative ? 'normal' : 'invisible', 
                 callback: () => {
                     setError('');
@@ -245,6 +289,7 @@ function LoginContent() {
             recaptchaVerifierRef.current = verifier;
             return verifier;
         } catch (e) {
+            console.error('[Recaptcha] Init error:', e);
             recaptchaInitRef.current = false;
             setRecaptchaVisible(false);
             return null;
@@ -256,15 +301,17 @@ function LoginContent() {
         if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return false; }
         setLoading(true); setError('');
         try {
+            const { auth: fbAuth, signInWithPhoneNumber } = await getFirebaseAuth();
             let verifier = recaptchaVerifierRef.current || window.recaptchaVerifier;
             if (!verifier) verifier = await initRecaptcha();
             if (!verifier) throw new Error('Security check failed. Please refresh.');
             
-            const result = await signInWithPhoneNumber(auth, `+91${phone}`, verifier);
+            const result = await signInWithPhoneNumber(fbAuth, `+91${phone}`, verifier);
             setConfirmationResult(result);
             setOtp(['', '', '', '', '', '']);
             return true;
         } catch (err) {
+            console.error('[SendOTP] Error:', err);
             if (err.code === 'auth/too-many-requests') setError('Too many attempts. Please wait 30 minutes.');
             else setError(err.message || 'Failed to send OTP. Please try again.');
             recaptchaInitRef.current = false;
@@ -312,7 +359,8 @@ function LoginContent() {
 
     // ── STEP 1: CHECK PHONE ──────────────────────────────────────────────────
     const handleCheckPhone = async (e) => {
-        e.preventDefault(); setError(''); setSuccessMsg('');
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        setError(''); setSuccessMsg('');
         if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
         setLoading(true);
         try {
@@ -579,11 +627,11 @@ function LoginContent() {
 
                     {/* ── 1. INITIAL PHONE ── */}
                     {step === 'phone' && (
-                        <form onSubmit={handleCheckPhone}>
+                        <form action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handleCheckPhone(e); }}>
                             <div style={inputGap}>
-                                <PhoneInput value={phone} onChange={setPhone} />
+                                <PhoneInput value={phone} onChange={setPhone} onSubmit={handleCheckPhone} disabled={loading} />
                             </div>
-                            <SubmitBtn loading={loading}>Continue</SubmitBtn>
+                            <SubmitBtn loading={loading} type="button" onClick={handleCheckPhone}>Continue</SubmitBtn>
                         </form>
                     )}
 
@@ -595,7 +643,7 @@ function LoginContent() {
                                 <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>+91 {phone}</div>
                             </div>
                             
-                            <form onSubmit={handlePasswordLogin}>
+                            <form action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handlePasswordLogin(e); }}>
                                 <div style={inputGap}>
                                     <PasswordInput value={password} onChange={setPassword} autoFocus={true} />
                                 </div>
@@ -603,7 +651,7 @@ function LoginContent() {
                                     <KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} />
                                     <button type="button" onClick={startForgotPassword} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Forgot password?</button>
                                 </div>
-                                <SubmitBtn loading={loading}>Log In</SubmitBtn>
+                                <SubmitBtn loading={loading} type="submit">Log In</SubmitBtn>
                             </form>
 
                             {showOtpOption && (
@@ -621,7 +669,7 @@ function LoginContent() {
 
                     {/* ── 2B. LOGIN WITH OTP ── */}
                     {step === 'otp' && (
-                        <form onSubmit={handleOtpLoginVerify}>
+                        <form action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handleOtpLoginVerify(e); }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
                                 <button type="button" onClick={() => setStep('password')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Login with password</button>
                             </div>
@@ -632,7 +680,7 @@ function LoginContent() {
                             <div style={{ marginBottom: 24 }}>
                                 <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
                             </div>
-                            <SubmitBtn loading={loading}>Verify & Login</SubmitBtn>
+                            <SubmitBtn loading={loading} type="submit">Verify & Login</SubmitBtn>
                             <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Resend OTP</button>
                         </form>
                     )}
@@ -665,7 +713,7 @@ function LoginContent() {
 
                     {/* ── 4. VERIFY OTP (For Signup/Claim/Forgot) ── */}
                     {(step === 'verify-signup' || step === 'verify-forgot') && (
-                        <form onSubmit={(e) => handleVerifyAndProceed(e, 'create-password')}>
+                        <form action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handleVerifyAndProceed(e, 'create-password'); }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
                                 <button type="button" onClick={() => resetState('phone')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
                             </div>
@@ -676,14 +724,14 @@ function LoginContent() {
                             <div style={{ marginBottom: 24 }}>
                                 <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
                             </div>
-                            <SubmitBtn loading={loading}>Continue</SubmitBtn>
+                            <SubmitBtn loading={loading} type="submit">Continue</SubmitBtn>
                             <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Resend OTP</button>
                         </form>
                     )}
 
                     {/* ── 5. CREATE PASSWORD (Signup/Claim/Forgot) ── */}
                     {step === 'create-password' && (
-                        <form onSubmit={(e) => handleCreatePassword(e, accountStatus?.hasPassword ? 'reset-password' : 'signup')}>
+                        <form action="javascript:void(0);" onSubmit={(e) => { e.preventDefault(); handleCreatePassword(e, accountStatus?.hasPassword ? 'reset-password' : 'signup'); }}>
                             <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                 <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
                                     {accountStatus?.hasPassword ? 'Reset Password' : 'Set a Password'}
@@ -709,7 +757,7 @@ function LoginContent() {
                                 <PasswordInput value={password} onChange={setPassword} placeholder="New password (min. 6 chars)" autoFocus />
                                 <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm new password" />
                             </div>
-                            <SubmitBtn loading={loading}>
+                            <SubmitBtn loading={loading} type="submit">
                                 {accountStatus?.hasPassword ? 'Reset Password' : 'Create Account'}
                             </SubmitBtn>
                         </form>
@@ -721,10 +769,45 @@ function LoginContent() {
     );
 }
 
+class LoginErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    componentDidCatch(error, errorInfo) {
+        console.error('[LoginErrorBoundary] caught error:', error, errorInfo);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#000', color: '#fff', padding: 24, textAlign: 'center' }}>
+                    <h2 style={{ fontSize: 20, marginBottom: 12 }}>Unable to load login</h2>
+                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 20 }}>An error occurred while initializing the application.</p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (typeof window !== 'undefined') window.location.reload();
+                        }}
+                        style={{ padding: '12px 24px', backgroundColor: '#fff', color: '#000', border: 'none', borderRadius: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                        Reload
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 export default function LoginPage() {
     return (
-        <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: 'white' }}>Loading...</div>}>
-            <LoginContent />
-        </Suspense>
+        <LoginErrorBoundary>
+            <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: 'white' }}>Loading...</div>}>
+                <LoginContent />
+            </Suspense>
+        </LoginErrorBoundary>
     );
 }
