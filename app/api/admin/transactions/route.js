@@ -527,11 +527,16 @@ export async function POST(request) {
             quotation: 'quotation_sent',
         };
         const notifEvent = notifEventMap[type];
-        const isCashOrWalkIn = !data.account_id || 
+        const isInternalAccount = !data.account_id || 
             data.account_id === '93e8c6cc-a40f-4150-98e0-c469530bd1b9' || 
-            data.account_name?.toLowerCase().includes('cash');
+            data.account_id === '8eaf830c-547b-411c-b93b-f3912e995206' || 
+            data.account_id === 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6' || 
+            data.account_id === '3070761d-3529-4038-8eda-a4c7728a41c6' || 
+            data.account_name?.toLowerCase().includes('cash') ||
+            data.account_name?.toLowerCase().includes('clearing') ||
+            data.account_name?.toLowerCase().includes('bank');
 
-        if (notifEvent && data.account_id && !isCashOrWalkIn) {
+        if (notifEvent && data.account_id && !isInternalAccount) {
             fireNotification(notifEvent, {
                 job_id: data.job_id ? String(data.job_id) : undefined,
                 customer_id: String(data.account_id),

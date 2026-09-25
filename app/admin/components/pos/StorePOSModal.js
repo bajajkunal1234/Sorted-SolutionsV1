@@ -20,7 +20,10 @@ import {
     CheckCircle2, 
     Loader2, 
     ExternalLink,
-    Store
+    Store,
+    Landmark,
+    Smartphone,
+    CreditCard
 } from 'lucide-react';
 import { accountsAPI, transactionsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import NewAccountForm from '@/app/admin/components/accounts/NewAccountForm';
@@ -29,6 +32,69 @@ import { formatMobileNumber } from '@/lib/utils/validation';
 const UNIT_OPTIONS = ['Nos', 'Pcs', 'Kg', 'Gms', 'Mtr', 'Box', 'Pkt', 'Set', 'Pair', 'Ltr', 'Roll'];
 
 const CASH_ACCOUNT_ID = '93e8c6cc-a40f-4150-98e0-c469530bd1b9';
+
+const QUICK_LEDGER_ACCOUNTS = [
+    {
+        id: '93e8c6cc-a40f-4150-98e0-c469530bd1b9',
+        label: 'Cash-in-hand',
+        badge: 'Store Walk-in',
+        icon: '💵',
+        defaultMode: 'Cash',
+        match: a => a.id === '93e8c6cc-a40f-4150-98e0-c469530bd1b9' || a.name?.toLowerCase().includes('cash-in-hand') || a.type === 'cash',
+        fallback: {
+            id: '93e8c6cc-a40f-4150-98e0-c469530bd1b9',
+            name: 'Cash-in-hand',
+            type: 'cash',
+            under: 'cash-in-hand',
+            mobile: ''
+        }
+    },
+    {
+        id: '8eaf830c-547b-411c-b93b-f3912e995206',
+        label: 'Google Pay Business Clearing',
+        badge: 'UPI / QR',
+        icon: '📱',
+        defaultMode: 'UPI',
+        match: a => a.id === '8eaf830c-547b-411c-b93b-f3912e995206' || a.name?.toLowerCase().includes('google pay') || a.name?.toLowerCase().includes('gpay'),
+        fallback: {
+            id: '8eaf830c-547b-411c-b93b-f3912e995206',
+            name: 'Google Pay Business Clearing',
+            type: 'bank',
+            under: 'bank-accounts',
+            mobile: ''
+        }
+    },
+    {
+        id: 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6',
+        label: 'HDFC Current A/c',
+        badge: 'Bank / Card',
+        icon: '🏦',
+        defaultMode: 'Bank Transfer',
+        match: a => a.id === 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6' || a.name?.toLowerCase().includes('hdfc'),
+        fallback: {
+            id: 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6',
+            name: 'HDFC Current A/c',
+            type: 'bank',
+            under: 'bank-accounts',
+            mobile: ''
+        }
+    },
+    {
+        id: '3070761d-3529-4038-8eda-a4c7728a41c6',
+        label: 'Razorpay Clearing',
+        badge: 'Online Gateway',
+        icon: '⚡',
+        defaultMode: 'UPI',
+        match: a => a.id === '3070761d-3529-4038-8eda-a4c7728a41c6' || a.name?.toLowerCase().includes('razorpay'),
+        fallback: {
+            id: '3070761d-3529-4038-8eda-a4c7728a41c6',
+            name: 'Razorpay Clearing',
+            type: 'bank',
+            under: 'bank-accounts',
+            mobile: ''
+        }
+    }
+];
 
 export default function StorePOSModal({ isOpen, onClose }) {
     // Current Screen / Step: 1 = Select Account, 2 = Items & Pricing, 3 = Share Screen
@@ -229,24 +295,20 @@ export default function StorePOSModal({ isOpen, onClose }) {
         return false;
     }).slice(0, 10);
 
+    // Quick select handler for Cash and Bank clearing ledgers
+    const handleSelectQuickAccount = (config) => {
+        const found = accounts.find(config.match) || config.fallback;
+        setSelectedAccount(found);
+        setAccountSearch(found.name);
+        setIsSearchOpen(false);
+        if (config.defaultMode) {
+            setPaymentMode(config.defaultMode);
+        }
+    };
+
     // Quick select Cash-in-hand
     const handleSelectCash = () => {
-        const cashAcc = accounts.find(a => 
-            a.id === CASH_ACCOUNT_ID || 
-            a.name?.toLowerCase().includes('cash-in-hand') ||
-            a.type === 'cash'
-        ) || {
-            id: CASH_ACCOUNT_ID,
-            name: 'Cash-in-hand',
-            type: 'cash',
-            under: 'cash-in-hand',
-            mobile: ''
-        };
-
-        setSelectedAccount(cashAcc);
-        setAccountSearch(cashAcc.name);
-        setIsSearchOpen(false);
-        setPaymentMode('Cash');
+        handleSelectQuickAccount(QUICK_LEDGER_ACCOUNTS[0]);
     };
 
     // Row management for Screen 2
@@ -365,6 +427,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                     reference_number: invoiceNumber,
                     account_id: selectedAccount.id,
                     account_name: selectedAccount.name,
+                    payment_account_id: (selectedAccount.type === 'bank' || selectedAccount.under === 'bank-accounts') ? selectedAccount.id : undefined,
                     amount: grandTotal,
                     payment_mode: paymentMode || 'Cash',
                     status: 'cleared',
@@ -773,30 +836,52 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     </button>
                                 </div>
 
-                                {/* Quick select button for Cash below field */}
-                                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '11px', color: '#64748b' }}>Quick Select:</span>
-                                    <button 
-                                        type="button"
-                                        onClick={handleSelectCash}
-                                        style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            padding: '6px 12px',
-                                            backgroundColor: selectedAccount?.id === CASH_ACCOUNT_ID ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                                            border: selectedAccount?.id === CASH_ACCOUNT_ID ? '1px solid #10b981' : '1px solid #334155',
-                                            borderRadius: '20px',
-                                            color: selectedAccount?.id === CASH_ACCOUNT_ID ? '#34d399' : '#cbd5e1',
-                                            fontSize: '12px',
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                            transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        <span>💵 Cash-in-hand (Store Walk-in)</span>
-                                        {selectedAccount?.id === CASH_ACCOUNT_ID && <Check size={13} />}
-                                    </button>
+                                {/* Quick select buttons for Cash & Bank clearing ledgers */}
+                                <div style={{ marginTop: '12px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>Quick Select Walk-in / Ledger:</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                        {QUICK_LEDGER_ACCOUNTS.map((q) => {
+                                            const isSelected = selectedAccount && q.match(selectedAccount);
+                                            return (
+                                                <button 
+                                                    key={q.id}
+                                                    type="button"
+                                                    onClick={() => handleSelectQuickAccount(q)}
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        padding: '6px 12px',
+                                                        backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255, 255, 255, 0.05)',
+                                                        border: isSelected ? '1px solid #10b981' : '1px solid #334155',
+                                                        borderRadius: '20px',
+                                                        color: isSelected ? '#34d399' : '#cbd5e1',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.15s'
+                                                    }}
+                                                >
+                                                    <span>{q.icon} {q.label}</span>
+                                                    {q.badge && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '10px',
+                                                            backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                                                            color: isSelected ? '#a7f3d0' : '#94a3b8',
+                                                            fontWeight: 500
+                                                        }}>
+                                                            {q.badge}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && <Check size={13} style={{ strokeWidth: 3 }} />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
 
@@ -809,9 +894,10 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                     border: '1px solid rgba(16, 185, 129, 0.3)',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'space-between'
+                                    justifyContent: 'space-between',
+                                    gap: '12px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
                                         <div style={{
                                             width: '42px',
                                             height: '42px',
@@ -820,13 +906,22 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: '#10b981'
+                                            color: '#10b981',
+                                            flexShrink: 0
                                         }}>
-                                            {selectedAccount.type === 'cash' ? <DollarSign size={22} /> : <User size={22} />}
+                                            {selectedAccount.name?.toLowerCase().includes('google pay') || selectedAccount.name?.toLowerCase().includes('gpay') ? (
+                                                <Smartphone size={22} />
+                                            ) : selectedAccount.type === 'cash' || selectedAccount.name?.toLowerCase().includes('cash') ? (
+                                                <DollarSign size={22} />
+                                            ) : selectedAccount.type === 'bank' || selectedAccount.under === 'bank-accounts' ? (
+                                                <Landmark size={22} />
+                                            ) : (
+                                                <User size={22} />
+                                            )}
                                         </div>
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc' }}>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '15px', fontWeight: 700, color: '#f8fafc', wordBreak: 'break-word' }}>
                                                     {selectedAccount.name}
                                                 </span>
                                                 <span style={{
@@ -841,7 +936,15 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                                 </span>
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '3px' }}>
-                                                {selectedAccount.mobile ? `Phone: ${formatMobileNumber(selectedAccount.mobile)}` : 'No phone attached'}
+                                                {selectedAccount.mobile ? (
+                                                    `Phone: ${formatMobileNumber(selectedAccount.mobile)}`
+                                                ) : selectedAccount.under === 'bank-accounts' || selectedAccount.type === 'bank' ? (
+                                                    `Bank / Clearing Account • Auto Mode: ${paymentMode}`
+                                                ) : selectedAccount.type === 'cash' ? (
+                                                    `Store Cash Drawer • Auto Mode: Cash`
+                                                ) : (
+                                                    'Walk-in / General Ledger'
+                                                )}
                                                 {selectedAccount.sku ? ` • SKU: ${selectedAccount.sku}` : ''}
                                             </div>
                                         </div>
@@ -860,7 +963,8 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                             borderRadius: '6px',
                                             color: '#94a3b8',
                                             fontSize: '12px',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            flexShrink: 0
                                         }}
                                     >
                                         Change
@@ -914,7 +1018,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
                                 gap: '10px'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>Customer:</span>
+                                    <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                                        {(selectedAccount?.type === 'bank' || selectedAccount?.type === 'cash' || selectedAccount?.under === 'bank-accounts' || selectedAccount?.under === 'cash-in-hand') ? 'Ledger:' : 'Customer:'}
+                                    </span>
                                     <span style={{ fontSize: '13px', fontWeight: 700, color: '#f8fafc' }}>
                                         {selectedAccount?.name}
                                     </span>
