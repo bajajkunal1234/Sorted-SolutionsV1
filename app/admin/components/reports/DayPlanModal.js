@@ -337,7 +337,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
 
                         {/* Payment Specific Fields: Amount & Payee */}
                         {reminderType === 'payment' && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                                 <div className="form-group" style={{ margin: 0 }}>
                                     <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                                         Amount (₹)
@@ -377,7 +377,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                         {/* Visit Specific Fields: Contact, Phone, Location */}
                         {reminderType === 'visit' && (
                             <>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                                     <div className="form-group" style={{ margin: 0 }}>
                                         <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                                             Contact Person / Customer
@@ -438,7 +438,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                         )}
 
                         {/* Date & Time Row */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                             <div className="form-group" style={{ margin: 0 }}>
                                 <label className="form-label" style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px', display: 'block' }}>
                                     Due Date *

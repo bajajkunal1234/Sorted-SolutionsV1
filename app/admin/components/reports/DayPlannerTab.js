@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-    Calendar as CalendarIcon,
     ChevronLeft,
     ChevronRight,
     Plus,
@@ -10,14 +9,9 @@ import {
     MapPin,
     CheckSquare,
     Clock,
-    Filter,
     Search,
-    Check,
     Trash2,
     Edit2,
-    AlertCircle,
-    ArrowUpRight,
-    ArrowDownLeft,
     Phone,
     Navigation,
     CalendarCheck,
@@ -25,7 +19,9 @@ import {
     Circle,
     List,
     Grid,
-    CalendarDays
+    CalendarDays,
+    X,
+    Filter
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
@@ -46,7 +42,7 @@ export default function DayPlannerTab() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(todayStr);
 
-    // View mode: 'month' | 'week' | 'agenda'
+    // View mode: 'month' | 'agenda'
     const [viewMode, setViewMode] = useState('month');
 
     // Data state
@@ -58,6 +54,7 @@ export default function DayPlannerTab() {
     const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'payment' | 'visit' | 'task'
     const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'completed'
     const [searchQuery, setSearchQuery] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
 
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,7 +67,7 @@ export default function DayPlannerTab() {
             setLoading(true);
             setError(null);
 
-            // Fetch a 3-month window around currentDate to support smooth navigation
+            // Fetch a 3-month window around currentDate
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
 
@@ -226,40 +223,18 @@ export default function DayPlannerTab() {
         return itemsByDate[selectedDate] || [];
     }, [itemsByDate, selectedDate]);
 
-    // Month KPI Stats
-    const monthStats = useMemo(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-
-        const monthItems = items.filter(it => {
-            if (!it.due_date) return false;
-            const d = new Date(it.due_date + 'T00:00:00');
-            return d.getFullYear() === year && d.getMonth() === month;
-        });
-
-        const payments = monthItems.filter(it => it.reminder_type === 'payment');
-        const visits = monthItems.filter(it => it.reminder_type === 'visit');
-        const completed = monthItems.filter(it => it.status === 'completed');
-        const pending = monthItems.filter(it => it.status !== 'completed');
-
-        const totalPayableAmount = payments
-            .filter(p => (p.metadata?.direction || 'payable') === 'payable')
-            .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-
-        const totalReceivableAmount = payments
-            .filter(p => p.metadata?.direction === 'receivable')
-            .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-
-        return {
-            totalPlanned: monthItems.length,
-            paymentsCount: payments.length,
-            totalPayableAmount,
-            totalReceivableAmount,
-            visitsCount: visits.length,
-            completedCount: completed.length,
-            pendingCount: pending.length
-        };
-    }, [items, currentDate]);
+    // Counts for filter pills
+    const counts = useMemo(() => {
+        let payments = 0;
+        let visits = 0;
+        let tasks = 0;
+        for (const it of items) {
+            if (it.reminder_type === 'payment') payments++;
+            else if (it.reminder_type === 'visit') visits++;
+            else tasks++;
+        }
+        return { all: items.length, payments, visits, tasks };
+    }, [items]);
 
     // Calendar grid computation
     const calendarDays = useMemo(() => {
@@ -316,561 +291,450 @@ export default function DayPlannerTab() {
         return days;
     }, [currentDate]);
 
-    // Week view days computation
-    const weekDays = useMemo(() => {
-        const sel = new Date(selectedDate + 'T00:00:00');
-        let dayIndex = sel.getDay() - 1;
-        if (dayIndex < 0) dayIndex = 6;
-
-        const startOfWeek = new Date(sel);
-        startOfWeek.setDate(sel.getDate() - dayIndex);
-
-        const days = [];
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(startOfWeek);
-            d.setDate(startOfWeek.getDate() + i);
-            days.push({
-                date: d,
-                dateStr: toDateStr(d),
-                dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
-                dayNumber: d.getDate()
-            });
-        }
-        return days;
-    }, [selectedDate]);
-
     // Format header title (e.g., September 2026)
     const monthYearTitle = currentDate.toLocaleDateString('en-US', {
-        month: 'long',
+        month: 'short',
         year: 'numeric'
     });
 
     // Format human readable selected date
-    const selectedDateTitle = useMemo(() => {
+    const selectedDateHeader = useMemo(() => {
         if (!selectedDate) return '';
         const d = new Date(selectedDate + 'T00:00:00');
-        return d.toLocaleDateString('en-US', {
-            weekday: 'long',
+        const isToday = selectedDate === todayStr;
+        const formatted = d.toLocaleDateString('en-US', {
+            weekday: 'short',
             day: 'numeric',
-            month: 'long',
-            year: 'numeric'
+            month: 'short'
         });
-    }, [selectedDate]);
+        return isToday ? `Today • ${formatted}` : formatted;
+    }, [selectedDate, todayStr]);
 
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 'var(--spacing-md)', gap: 'var(--spacing-md)', minHeight: '100%', overflowY: 'auto' }}>
+        <div className="planner-container">
+            <style jsx>{`
+                .planner-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    padding: 10px;
+                    max-width: 100%;
+                    box-sizing: border-box;
+                }
+                .planner-header-bar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: var(--bg-elevated);
+                    border: 1px solid var(--border-primary);
+                    border-radius: 12px;
+                    padding: 8px 12px;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                }
+                .month-nav {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .month-title {
+                    font-size: 15px;
+                    font-weight: 700;
+                    min-width: 120px;
+                    text-align: center;
+                    color: var(--text-primary);
+                }
+                .nav-btn {
+                    padding: 6px;
+                    border-radius: 6px;
+                    border: 1px solid var(--border-primary);
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .nav-btn:hover {
+                    background: var(--bg-hover);
+                }
+                .today-btn {
+                    padding: 4px 10px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    border-radius: 6px;
+                    border: 1px solid var(--border-primary);
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                    cursor: pointer;
+                }
+                .view-toggle {
+                    display: flex;
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-primary);
+                    border-radius: 8px;
+                    padding: 2px;
+                }
+                .toggle-btn {
+                    padding: 5px 10px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    border: none;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    background: transparent;
+                    color: var(--text-secondary);
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .toggle-btn.active {
+                    background: var(--bg-elevated);
+                    color: var(--color-primary);
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                .add-action-btn {
+                    padding: 7px 12px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    border-radius: 8px;
+                    border: none;
+                    background: #6366f1;
+                    color: #ffffff;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-left: auto;
+                }
+                .filter-pills-bar {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    overflow-x: auto;
+                    padding-bottom: 2px;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .filter-pills-bar::-webkit-scrollbar {
+                    display: none;
+                }
+                .pill {
+                    padding: 5px 10px;
+                    border-radius: 20px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    border: 1px solid var(--border-primary);
+                    background: var(--bg-secondary);
+                    color: var(--text-secondary);
+                    cursor: pointer;
+                    white-space: nowrap;
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    flex-shrink: 0;
+                }
+                .pill.active {
+                    background: var(--color-primary);
+                    border-color: var(--color-primary);
+                    color: #ffffff;
+                }
+                .search-input-mobile {
+                    width: 100%;
+                    padding: 7px 10px 7px 30px;
+                    font-size: 12px;
+                    border-radius: 8px;
+                    border: 1px solid var(--border-primary);
+                    background: var(--bg-secondary);
+                    color: var(--text-primary);
+                    box-sizing: border-box;
+                }
+                .calendar-card {
+                    background: var(--bg-elevated);
+                    border: 1px solid var(--border-primary);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+                .weekdays-header {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    text-align: center;
+                    padding: 8px 0;
+                    background: var(--bg-secondary);
+                    border-bottom: 1px solid var(--border-primary);
+                    font-size: 11px;
+                    font-weight: 700;
+                    color: var(--text-secondary);
+                }
+                .calendar-grid {
+                    display: grid;
+                    grid-template-columns: repeat(7, 1fr);
+                    gap: 1px;
+                    background: var(--border-primary);
+                }
+                .day-cell {
+                    background: var(--bg-elevated);
+                    min-height: 52px;
+                    padding: 4px 2px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: background 0.1s;
+                    box-sizing: border-box;
+                }
+                .day-cell.outside {
+                    background: var(--bg-secondary);
+                    opacity: 0.45;
+                }
+                .day-cell.selected {
+                    background: var(--bg-hover);
+                    box-shadow: inset 0 0 0 2px var(--color-primary);
+                }
+                .day-number {
+                    width: 24px;
+                    height: 24px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    color: var(--text-primary);
+                    margin-bottom: 2px;
+                }
+                .day-number.today {
+                    background: var(--color-primary);
+                    color: #ffffff;
+                    font-weight: 700;
+                }
+                .day-dots {
+                    display: flex;
+                    gap: 2.5px;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 8px;
+                    margin-top: 1px;
+                }
+                .dot {
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 50%;
+                }
+                .dot-payment { background: #10b981; }
+                .dot-visit { background: #8b5cf6; }
+                .dot-task { background: #3b82f6; }
+                .schedule-card {
+                    background: var(--bg-elevated);
+                    border: 1px solid var(--border-primary);
+                    border-radius: 12px;
+                    padding: 14px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+                .schedule-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    border-bottom: 1px solid var(--border-primary);
+                    padding-bottom: 10px;
+                }
+                .schedule-title {
+                    font-size: 15px;
+                    font-weight: 700;
+                    margin: 0;
+                    color: var(--text-primary);
+                }
+                .schedule-count {
+                    font-size: 11px;
+                    color: var(--text-secondary);
+                }
+                .activity-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                @media (min-width: 900px) {
+                    .planner-main-content {
+                        display: grid;
+                        grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+                        gap: 16px;
+                        align-items: start;
+                    }
+                }
+            `}</style>
 
-            {/* KPI Metric Cards */}
-            <div
-                style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '12px'
-                }}
-            >
-                {/* Total Planned */}
-                <div
-                    className="card"
-                    style={{
-                        padding: '14px 16px',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--border-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}
-                >
-                    <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#6366f1' }}>
-                        <CalendarCheck size={22} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                            Planned in {currentDate.toLocaleDateString('en-US', { month: 'short' })}
-                        </div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {monthStats.totalPlanned} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>items</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payments Due */}
-                <div
-                    className="card"
-                    style={{
-                        padding: '14px 16px',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--border-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}
-                >
-                    <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
-                        <DollarSign size={22} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                            Payments to Make ({monthStats.paymentsCount})
-                        </div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, color: '#10b981' }}>
-                            {formatCurrency(monthStats.totalPayableAmount)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Visits Planned */}
-                <div
-                    className="card"
-                    style={{
-                        padding: '14px 16px',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--border-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}
-                >
-                    <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
-                        <MapPin size={22} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                            Visits Scheduled
-                        </div>
-                        <div style={{ fontSize: '20px', fontWeight: 700, color: '#8b5cf6' }}>
-                            {monthStats.visitsCount} <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>visits</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Pending vs Completed */}
-                <div
-                    className="card"
-                    style={{
-                        padding: '14px 16px',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-md, 8px)',
-                        border: '1px solid var(--border-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                    }}
-                >
-                    <div style={{ padding: '10px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
-                        <Clock size={22} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.5px' }}>
-                            Status Overview
-                        </div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                            <span style={{ color: '#f59e0b' }}>{monthStats.pendingCount} Pending</span>
-                            <span style={{ margin: '0 6px', color: 'var(--border-primary)' }}>•</span>
-                            <span style={{ color: '#10b981' }}>{monthStats.completedCount} Done</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Navigation & Controls Bar */}
-            <div
-                style={{
-                    backgroundColor: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-primary)',
-                    borderRadius: 'var(--radius-lg, 10px)',
-                    padding: '12px 16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '12px'
-                }}
-            >
+            {/* Header: Month Navigator + View Switcher + Primary Add Button */}
+            <div className="planner-header-bar">
                 {/* Month Navigator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                        onClick={handlePrevMonth}
-                        className="btn-icon"
-                        title="Previous Month"
-                        style={{
-                            padding: '6px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            cursor: 'pointer',
-                            color: 'var(--text-primary)'
-                        }}
-                    >
-                        <ChevronLeft size={18} />
+                <div className="month-nav">
+                    <button onClick={handlePrevMonth} className="nav-btn" title="Previous Month">
+                        <ChevronLeft size={16} />
                     </button>
-
-                    <h3 style={{ margin: '0 8px', fontSize: '18px', fontWeight: 700, minWidth: '180px', textAlign: 'center' }}>
-                        {monthYearTitle}
-                    </h3>
-
-                    <button
-                        onClick={handleNextMonth}
-                        className="btn-icon"
-                        title="Next Month"
-                        style={{
-                            padding: '6px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            cursor: 'pointer',
-                            color: 'var(--text-primary)'
-                        }}
-                    >
-                        <ChevronRight size={18} />
+                    <span className="month-title">{monthYearTitle}</span>
+                    <button onClick={handleNextMonth} className="nav-btn" title="Next Month">
+                        <ChevronRight size={16} />
                     </button>
-
-                    <button
-                        onClick={handleToday}
-                        className="btn btn-secondary"
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            cursor: 'pointer'
-                        }}
-                    >
+                    <button onClick={handleToday} className="today-btn">
                         Today
                     </button>
                 </div>
 
                 {/* View Mode Toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                <div className="view-toggle">
                     <button
                         onClick={() => setViewMode('month')}
-                        style={{
-                            padding: '5px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            backgroundColor: viewMode === 'month' ? 'var(--bg-elevated)' : 'transparent',
-                            color: viewMode === 'month' ? 'var(--color-primary)' : 'var(--text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s'
-                        }}
+                        className={`toggle-btn ${viewMode === 'month' ? 'active' : ''}`}
                     >
-                        <Grid size={14} />
+                        <Grid size={13} />
                         Month
                     </button>
                     <button
-                        onClick={() => setViewMode('week')}
-                        style={{
-                            padding: '5px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            backgroundColor: viewMode === 'week' ? 'var(--bg-elevated)' : 'transparent',
-                            color: viewMode === 'week' ? 'var(--color-primary)' : 'var(--text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s'
-                        }}
-                    >
-                        <CalendarDays size={14} />
-                        Week
-                    </button>
-                    <button
                         onClick={() => setViewMode('agenda')}
-                        style={{
-                            padding: '5px 12px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            backgroundColor: viewMode === 'agenda' ? 'var(--bg-elevated)' : 'transparent',
-                            color: viewMode === 'agenda' ? 'var(--color-primary)' : 'var(--text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            transition: 'all 0.15s'
-                        }}
+                        className={`toggle-btn ${viewMode === 'agenda' ? 'active' : ''}`}
                     >
-                        <List size={14} />
+                        <List size={13} />
                         Agenda
                     </button>
                 </div>
 
-                {/* Filter and Add Action */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    {/* Search */}
-                    <div style={{ position: 'relative', minWidth: '160px' }}>
+                {/* Quick Add Plan Button */}
+                <button onClick={() => handleOpenAdd(selectedDate)} className="add-action-btn">
+                    <Plus size={15} />
+                    <span>Plan Day</span>
+                </button>
+            </div>
+
+            {/* Filter Pills & Search Bar (Mobile Friendly Scrollable Row) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="filter-pills-bar">
+                    <button
+                        onClick={() => setTypeFilter('all')}
+                        className={`pill ${typeFilter === 'all' ? 'active' : ''}`}
+                    >
+                        All ({counts.all})
+                    </button>
+                    <button
+                        onClick={() => setTypeFilter('payment')}
+                        className={`pill ${typeFilter === 'payment' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'payment' ? '#ffffff' : '#10b981' }}
+                    >
+                        <DollarSign size={12} />
+                        Payments ({counts.payments})
+                    </button>
+                    <button
+                        onClick={() => setTypeFilter('visit')}
+                        className={`pill ${typeFilter === 'visit' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'visit' ? '#ffffff' : '#8b5cf6' }}
+                    >
+                        <MapPin size={12} />
+                        Visits ({counts.visits})
+                    </button>
+                    <button
+                        onClick={() => setTypeFilter('task')}
+                        className={`pill ${typeFilter === 'task' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'task' ? '#ffffff' : '#3b82f6' }}
+                    >
+                        <CheckSquare size={12} />
+                        Tasks ({counts.tasks})
+                    </button>
+
+                    {/* Status Toggle Pill */}
+                    <button
+                        onClick={() => setStatusFilter(prev => prev === 'all' ? 'pending' : prev === 'pending' ? 'completed' : 'all')}
+                        className="pill"
+                        style={{
+                            borderColor: statusFilter !== 'all' ? 'var(--color-primary)' : 'var(--border-primary)',
+                            color: statusFilter !== 'all' ? 'var(--color-primary)' : 'var(--text-secondary)'
+                        }}
+                    >
+                        <Filter size={11} />
+                        {statusFilter === 'all' ? 'Status: All' : statusFilter === 'pending' ? 'Pending Only' : 'Completed Only'}
+                    </button>
+
+                    {/* Search Toggle Pill */}
+                    <button
+                        onClick={() => setShowSearch(prev => !prev)}
+                        className="pill"
+                        style={{ color: showSearch ? 'var(--color-primary)' : 'var(--text-secondary)' }}
+                        title="Search plans"
+                    >
+                        <Search size={12} />
+                    </button>
+                </div>
+
+                {/* Collapsible Search Input */}
+                {showSearch && (
+                    <div style={{ position: 'relative', width: '100%' }}>
                         <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                         <input
                             type="text"
-                            placeholder="Filter plans..."
+                            placeholder="Search by title, contact, address..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '6px 10px 6px 30px',
-                                fontSize: '12px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-primary)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)'
-                            }}
+                            className="search-input-mobile"
+                            autoFocus
                         />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
-
-                    {/* Type Filter */}
-                    <select
-                        value={typeFilter}
-                        onChange={(e) => setTypeFilter(e.target.value)}
-                        style={{
-                            padding: '6px 10px',
-                            fontSize: '12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="payment">Payments Only</option>
-                        <option value="visit">Visits Only</option>
-                        <option value="task">Tasks Only</option>
-                    </select>
-
-                    {/* Status Filter */}
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        style={{
-                            padding: '6px 10px',
-                            fontSize: '12px',
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Completed</option>
-                    </select>
-
-                    {/* Plan Activity Primary Action */}
-                    <button
-                        onClick={() => handleOpenAdd(selectedDate)}
-                        className="btn btn-primary"
-                        style={{
-                            padding: '8px 16px',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            borderRadius: '6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            backgroundColor: 'var(--color-primary)',
-                            color: '#ffffff',
-                            border: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <Plus size={16} />
-                        Plan Activity
-                    </button>
-                </div>
+                )}
             </div>
 
-            {/* Main Content Layout: Calendar Grid + Day Details Panel */}
-            <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'agenda' ? '1fr' : 'minmax(0, 1.8fr) minmax(320px, 1.2fr)', gap: '16px', alignItems: 'start' }}>
+            {/* Main Content Area */}
+            <div className="planner-main-content">
 
-                {/* Calendar View Area */}
+                {/* View 1: Month Calendar Grid */}
                 {viewMode === 'month' && (
-                    <div
-                        style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            borderRadius: 'var(--radius-lg, 10px)',
-                            border: '1px solid var(--border-primary)',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column'
-                        }}
-                    >
-                        {/* Days of week header */}
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(7, 1fr)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                borderBottom: '1px solid var(--border-primary)',
-                                textAlign: 'center',
-                                padding: '10px 0',
-                                fontWeight: 700,
-                                fontSize: '12px',
-                                color: 'var(--text-secondary)'
-                            }}
-                        >
-                            <span>MON</span>
-                            <span>TUE</span>
-                            <span>WED</span>
-                            <span>THU</span>
-                            <span>FRI</span>
-                            <span>SAT</span>
-                            <span>SUN</span>
+                    <div className="calendar-card">
+                        {/* Weekday headers: Mon Tue Wed Thu Fri Sat Sun */}
+                        <div className="weekdays-header">
+                            <span>M</span>
+                            <span>T</span>
+                            <span>W</span>
+                            <span>T</span>
+                            <span>F</span>
+                            <span>S</span>
+                            <span>S</span>
                         </div>
 
-                        {/* Calendar Day Cells */}
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(7, 1fr)',
-                                autoRows: 'minmax(105px, 1fr)',
-                                backgroundColor: 'var(--border-primary)',
-                                gap: '1px'
-                            }}
-                        >
+                        {/* 7-column calendar grid */}
+                        <div className="calendar-grid">
                             {calendarDays.map((cell) => {
                                 const isSelected = cell.dateStr === selectedDate;
                                 const isToday = cell.dateStr === todayStr;
                                 const dayItems = itemsByDate[cell.dateStr] || [];
 
+                                const hasPayment = dayItems.some(i => i.reminder_type === 'payment');
+                                const hasVisit = dayItems.some(i => i.reminder_type === 'visit');
+                                const hasTask = dayItems.some(i => i.reminder_type === 'task' || i.reminder_type === 'general');
+
                                 return (
                                     <div
                                         key={cell.dateStr}
                                         onClick={() => setSelectedDate(cell.dateStr)}
-                                        style={{
-                                            backgroundColor: isSelected
-                                                ? 'var(--bg-hover)'
-                                                : cell.isCurrentMonth
-                                                    ? 'var(--bg-elevated)'
-                                                    : 'var(--bg-secondary)',
-                                            padding: '8px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            cursor: 'pointer',
-                                            position: 'relative',
-                                            transition: 'background-color 0.15s ease',
-                                            outline: isSelected ? '2px solid var(--color-primary)' : 'none',
-                                            outlineOffset: '-2px',
-                                            zIndex: isSelected ? 2 : 1
-                                        }}
+                                        className={`day-cell ${!cell.isCurrentMonth ? 'outside' : ''} ${isSelected ? 'selected' : ''}`}
                                     >
-                                        {/* Day Cell Top: Date Number & Add Button */}
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                            <span
-                                                style={{
-                                                    fontSize: '13px',
-                                                    fontWeight: isToday ? 700 : 500,
-                                                    width: '24px',
-                                                    height: '24px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    borderRadius: '50%',
-                                                    backgroundColor: isToday ? 'var(--color-primary)' : 'transparent',
-                                                    color: isToday ? '#ffffff' : cell.isCurrentMonth ? 'var(--text-primary)' : 'var(--text-tertiary)'
-                                                }}
-                                            >
-                                                {cell.dayNumber}
-                                            </span>
-
-                                            {/* Quick + on cell */}
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleOpenAdd(cell.dateStr);
-                                                }}
-                                                title={`Plan for ${cell.dateStr}`}
-                                                style={{
-                                                    border: 'none',
-                                                    background: 'transparent',
-                                                    color: 'var(--text-tertiary)',
-                                                    cursor: 'pointer',
-                                                    padding: '2px',
-                                                    borderRadius: '4px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-primary)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
-                                            >
-                                                <Plus size={14} />
-                                            </button>
+                                        <div className={`day-number ${isToday ? 'today' : ''}`}>
+                                            {cell.dayNumber}
                                         </div>
 
-                                        {/* Day items list inside cell */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', flex: 1, overflow: 'hidden' }}>
-                                            {dayItems.slice(0, 3).map((item) => {
-                                                const isPayment = item.reminder_type === 'payment';
-                                                const isVisit = item.reminder_type === 'visit';
-                                                const isCompleted = item.status === 'completed';
-
-                                                const badgeBg = isPayment
-                                                    ? 'rgba(16, 185, 129, 0.15)'
-                                                    : isVisit
-                                                        ? 'rgba(139, 92, 246, 0.15)'
-                                                        : 'rgba(59, 130, 246, 0.15)';
-
-                                                const badgeColor = isPayment
-                                                    ? '#10b981'
-                                                    : isVisit
-                                                        ? '#8b5cf6'
-                                                        : '#3b82f6';
-
-                                                return (
-                                                    <div
-                                                        key={item.id}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedDate(cell.dateStr);
-                                                            handleOpenEdit(item);
-                                                        }}
-                                                        title={`${item.title} (${item.status})`}
-                                                        style={{
-                                                            fontSize: '11px',
-                                                            padding: '2px 5px',
-                                                            borderRadius: '4px',
-                                                            backgroundColor: badgeBg,
-                                                            color: badgeColor,
-                                                            whiteSpace: 'nowrap',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            opacity: isCompleted ? 0.6 : 1,
-                                                            textDecoration: isCompleted ? 'line-through' : 'none'
-                                                        }}
-                                                    >
-                                                        {isPayment ? <DollarSign size={10} style={{ flexShrink: 0 }} /> :
-                                                            isVisit ? <MapPin size={10} style={{ flexShrink: 0 }} /> :
-                                                                <CheckSquare size={10} style={{ flexShrink: 0 }} />}
-                                                        <span style={{ fontWeight: 600 }}>
-                                                            {isPayment && item.amount ? `₹${item.amount} ` : ''}
-                                                            {item.title}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-
-                                            {dayItems.length > 3 && (
-                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, paddingLeft: '4px' }}>
-                                                    +{dayItems.length - 3} more
-                                                </div>
-                                            )}
+                                        {/* Colored indicator dots */}
+                                        <div className="day-dots">
+                                            {hasPayment && <span className="dot dot-payment" title="Payment reminder" />}
+                                            {hasVisit && <span className="dot dot-visit" title="Visit reminder" />}
+                                            {hasTask && <span className="dot dot-task" title="Task / Reminder" />}
                                         </div>
                                     </div>
                                 );
@@ -879,189 +743,47 @@ export default function DayPlannerTab() {
                     </div>
                 )}
 
-                {/* Week View Area */}
-                {viewMode === 'week' && (
-                    <div
-                        style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            borderRadius: 'var(--radius-lg, 10px)',
-                            border: '1px solid var(--border-primary)',
-                            overflow: 'hidden',
-                            display: 'flex',
-                            flexDirection: 'column'
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(7, 1fr)',
-                                backgroundColor: 'var(--border-primary)',
-                                gap: '1px',
-                                minHeight: '480px'
-                            }}
-                        >
-                            {weekDays.map((wd) => {
-                                const isSelected = wd.dateStr === selectedDate;
-                                const isToday = wd.dateStr === todayStr;
-                                const dayItems = itemsByDate[wd.dateStr] || [];
-
-                                return (
-                                    <div
-                                        key={wd.dateStr}
-                                        onClick={() => setSelectedDate(wd.dateStr)}
-                                        style={{
-                                            backgroundColor: isSelected ? 'var(--bg-hover)' : 'var(--bg-elevated)',
-                                            padding: '10px 8px',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            cursor: 'pointer',
-                                            borderTop: isSelected ? '3px solid var(--color-primary)' : '3px solid transparent'
-                                        }}
-                                    >
-                                        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                {wd.dayName}
-                                            </div>
-                                            <div
-                                                style={{
-                                                    fontSize: '16px',
-                                                    fontWeight: 700,
-                                                    width: '28px',
-                                                    height: '28px',
-                                                    lineHeight: '28px',
-                                                    margin: '4px auto 0',
-                                                    borderRadius: '50%',
-                                                    backgroundColor: isToday ? 'var(--color-primary)' : 'transparent',
-                                                    color: isToday ? '#ffffff' : 'var(--text-primary)'
-                                                }}
-                                            >
-                                                {wd.dayNumber}
-                                            </div>
-                                        </div>
-
-                                        {/* Items */}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                                            {dayItems.map((item) => (
-                                                <div
-                                                    key={item.id}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedDate(wd.dateStr);
-                                                        handleOpenEdit(item);
-                                                    }}
-                                                    style={{
-                                                        padding: '6px 8px',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid var(--border-primary)',
-                                                        backgroundColor: item.reminder_type === 'payment' ? 'rgba(16, 185, 129, 0.1)' :
-                                                            item.reminder_type === 'visit' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                                                        fontSize: '11px'
-                                                    }}
-                                                >
-                                                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
-                                                        {item.title}
-                                                    </div>
-                                                    {item.due_time && (
-                                                        <div style={{ color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                                            <Clock size={10} />
-                                                            {item.due_time}
-                                                        </div>
-                                                    )}
-                                                    {item.amount > 0 && (
-                                                        <div style={{ color: '#10b981', fontWeight: 700 }}>
-                                                            ₹{item.amount}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleOpenAdd(wd.dateStr);
-                                                }}
-                                                style={{
-                                                    marginTop: 'auto',
-                                                    padding: '6px',
-                                                    borderRadius: '4px',
-                                                    border: '1px dashed var(--border-primary)',
-                                                    background: 'transparent',
-                                                    color: 'var(--text-secondary)',
-                                                    fontSize: '11px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '4px'
-                                                }}
-                                            >
-                                                <Plus size={12} />
-                                                Add
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Agenda View Area */}
+                {/* View 2: Agenda View */}
                 {viewMode === 'agenda' && (
-                    <div
-                        style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            borderRadius: 'var(--radius-lg, 10px)',
-                            border: '1px solid var(--border-primary)',
-                            padding: '16px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '16px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
-                            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Upcoming Scheduled Activities</h4>
+                    <div className="schedule-card">
+                        <div className="schedule-header">
+                            <h4 className="schedule-title">Upcoming Agenda</h4>
                             <button
                                 onClick={() => handleOpenAdd(selectedDate)}
-                                className="btn btn-primary"
-                                style={{ padding: '6px 14px', fontSize: '12px' }}
+                                className="add-action-btn"
+                                style={{ padding: '5px 10px', fontSize: '11px' }}
                             >
-                                <Plus size={14} /> Add Plan
+                                <Plus size={13} />
+                                Add
                             </button>
                         </div>
 
                         {Object.keys(itemsByDate).length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
-                                <CalendarCheck size={40} style={{ opacity: 0.3, marginBottom: '8px' }} />
-                                <p style={{ margin: 0, fontSize: '14px' }}>No scheduled plans found for the selected filters.</p>
+                            <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-secondary)' }}>
+                                <CalendarCheck size={32} style={{ opacity: 0.3, marginBottom: '6px' }} />
+                                <p style={{ margin: 0, fontSize: '13px' }}>No scheduled plans found.</p>
                             </div>
                         ) : (
                             Object.keys(itemsByDate).sort().map((dateStr) => {
                                 const dItems = itemsByDate[dateStr];
-                                const isPast = dateStr < todayStr;
                                 const isCurrent = dateStr === todayStr;
 
                                 return (
-                                    <div key={dateStr} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{
-                                                fontSize: '13px',
-                                                fontWeight: 700,
-                                                color: isCurrent ? 'var(--color-primary)' : isPast ? 'var(--text-secondary)' : 'var(--text-primary)'
-                                            }}>
-                                                {new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                                    <div key={dateStr} style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? 'var(--color-primary)' : 'var(--text-primary)' }}>
+                                                {new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                             </span>
                                             {isCurrent && (
-                                                <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-primary)', color: '#ffffff', fontWeight: 700 }}>
+                                                <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '4px', backgroundColor: 'var(--color-primary)', color: '#ffffff', fontWeight: 700 }}>
                                                     TODAY
                                                 </span>
                                             )}
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '8px' }}>
+                                        <div className="activity-list">
                                             {dItems.map(item => (
-                                                <PlanCardItem
+                                                <MobilePlanCardItem
                                                     key={item.id}
                                                     item={item}
                                                     onToggleComplete={handleToggleComplete}
@@ -1077,72 +799,42 @@ export default function DayPlannerTab() {
                     </div>
                 )}
 
-                {/* Selected Date Details Panel (Only shown in Month & Week mode) */}
-                {viewMode !== 'agenda' && (
-                    <div
-                        style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            borderRadius: 'var(--radius-lg, 10px)',
-                            border: '1px solid var(--border-primary)',
-                            padding: '16px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '14px',
-                            position: 'sticky',
-                            top: '16px'
-                        }}
-                    >
-                        {/* Day Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
+                {/* Selected Date Schedule Card (In Month View: Sits below the calendar on mobile, side-by-side on desktop) */}
+                {viewMode === 'month' && (
+                    <div className="schedule-card">
+                        <div className="schedule-header">
                             <div>
-                                <div style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.5px' }}>
-                                    {selectedDate === todayStr ? 'Today\'s Schedule' : 'Day Schedule'}
-                                </div>
-                                <h3 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: 700 }}>
-                                    {selectedDateTitle}
-                                </h3>
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                <h4 className="schedule-title">{selectedDateHeader}</h4>
+                                <span className="schedule-count">
                                     {selectedDateItems.length} {selectedDateItems.length === 1 ? 'activity' : 'activities'} scheduled
-                                </div>
+                                </span>
                             </div>
 
                             <button
                                 onClick={() => handleOpenAdd(selectedDate)}
-                                className="btn btn-primary"
-                                style={{
-                                    padding: '6px 12px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    borderRadius: '6px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    backgroundColor: 'var(--color-primary)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    cursor: 'pointer'
-                                }}
+                                className="add-action-btn"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
                             >
                                 <Plus size={14} />
                                 Add Plan
                             </button>
                         </div>
 
-                        {/* List of Activities on Selected Date */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '520px', overflowY: 'auto' }}>
+                        {/* List of items on selected date */}
+                        <div className="activity-list">
                             {selectedDateItems.length === 0 ? (
                                 <div
                                     style={{
                                         textAlign: 'center',
-                                        padding: '32px 16px',
+                                        padding: '24px 12px',
                                         color: 'var(--text-secondary)',
                                         border: '1px dashed var(--border-primary)',
                                         borderRadius: '8px'
                                     }}
                                 >
-                                    <CalendarCheck size={32} style={{ opacity: 0.3, marginBottom: '6px' }} />
-                                    <p style={{ margin: '0 0 8px 0', fontSize: '13px' }}>
-                                        No activities planned for this day.
+                                    <CalendarCheck size={28} style={{ opacity: 0.3, marginBottom: '6px' }} />
+                                    <p style={{ margin: '0 0 6px 0', fontSize: '13px' }}>
+                                        No activities for this day
                                     </p>
                                     <button
                                         type="button"
@@ -1150,18 +842,18 @@ export default function DayPlannerTab() {
                                         style={{
                                             border: 'none',
                                             background: 'transparent',
-                                            color: 'var(--color-primary)',
+                                            color: '#6366f1',
                                             fontWeight: 600,
                                             fontSize: '12px',
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        + Schedule a payment, visit, or reminder
+                                        + Schedule a payment, visit, or task
                                     </button>
                                 </div>
                             ) : (
                                 selectedDateItems.map((item) => (
-                                    <PlanCardItem
+                                    <MobilePlanCardItem
                                         key={item.id}
                                         item={item}
                                         onToggleComplete={handleToggleComplete}
@@ -1175,7 +867,7 @@ export default function DayPlannerTab() {
                 )}
             </div>
 
-            {/* Plan / Reminder Creation Modal */}
+            {/* Creation / Edit Modal */}
             <DayPlanModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
@@ -1187,29 +879,16 @@ export default function DayPlannerTab() {
     );
 }
 
-// Subcomponent: Plan Item Card
-function PlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
+// Compact Mobile-First Card for Each Planned Item
+function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
     const isPayment = item.reminder_type === 'payment';
     const isVisit = item.reminder_type === 'visit';
-    const isTask = item.reminder_type === 'task' || item.reminder_type === 'general';
     const isCompleted = item.status === 'completed';
 
     const direction = item.metadata?.direction || 'payable';
 
     const typeColor = isPayment ? '#10b981' : isVisit ? '#8b5cf6' : '#3b82f6';
-
-    const getPriorityBadge = (p) => {
-        switch (p) {
-            case 'high':
-                return { label: 'High', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)' };
-            case 'low':
-                return { label: 'Low', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)' };
-            default:
-                return { label: 'Med', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)' };
-        }
-    };
-
-    const priorityBadge = getPriorityBadge(item.priority);
+    const typeBg = isPayment ? 'rgba(16, 185, 129, 0.12)' : isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
 
     return (
         <div
@@ -1217,105 +896,72 @@ function PlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border-primary)',
                 borderRadius: '8px',
-                padding: '12px',
+                padding: '10px 12px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
-                opacity: isCompleted ? 0.65 : 1,
-                transition: 'all 0.15s ease',
-                position: 'relative'
+                gap: '6px',
+                opacity: isCompleted ? 0.6 : 1,
+                boxSizing: 'border-box'
             }}
         >
-            {/* Top row: Checkbox, Title & Type badge */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <button
-                    type="button"
-                    onClick={(e) => onToggleComplete(item, e)}
-                    title={isCompleted ? 'Mark as Pending' : 'Mark as Completed'}
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: 0,
-                        marginTop: '2px',
-                        color: isCompleted ? '#10b981' : 'var(--text-tertiary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                >
-                    {isCompleted ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                </button>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        {/* Type Icon Badge */}
-                        <span
-                            style={{
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: isPayment ? 'rgba(16, 185, 129, 0.15)' :
-                                    isVisit ? 'rgba(139, 92, 246, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                                color: typeColor,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px'
-                            }}
-                        >
-                            {isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
-                            {isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
-                        </span>
-
-                        {/* Priority Badge */}
-                        <span
-                            style={{
-                                fontSize: '10px',
-                                fontWeight: 600,
-                                padding: '2px 5px',
-                                borderRadius: '4px',
-                                backgroundColor: priorityBadge.bg,
-                                color: priorityBadge.color
-                            }}
-                        >
-                            {priorityBadge.label}
-                        </span>
-
-                        {/* Time */}
-                        {item.due_time && (
-                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                <Clock size={11} />
-                                {item.due_time}
-                            </span>
-                        )}
-                    </div>
-
-                    <h4
+            {/* Top Row: Type Pill, Time, Status, Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {/* One-Tap Complete Checkbox */}
+                    <button
+                        type="button"
+                        onClick={(e) => onToggleComplete(item, e)}
+                        title={isCompleted ? 'Mark Pending' : 'Mark Completed'}
                         style={{
-                            margin: '4px 0 0 0',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            color: 'var(--text-primary)',
-                            textDecoration: isCompleted ? 'line-through' : 'none'
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: 0,
+                            color: isCompleted ? '#10b981' : 'var(--text-tertiary)',
+                            display: 'flex',
+                            alignItems: 'center'
                         }}
                     >
-                        {item.title}
-                    </h4>
+                        {isCompleted ? <CheckCircle2 size={17} /> : <Circle size={17} />}
+                    </button>
+
+                    {/* Type Badge */}
+                    <span
+                        style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            backgroundColor: typeBg,
+                            color: typeColor,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                        }}
+                    >
+                        {isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
+                        {isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
+                    </span>
+
+                    {/* Time Slot */}
+                    {item.due_time && (
+                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            <Clock size={10} />
+                            {item.due_time}
+                        </span>
+                    )}
                 </div>
 
-                {/* Edit & Delete actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {/* Actions: Edit & Delete */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <button
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             onEdit(item);
                         }}
-                        className="btn-icon"
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: 'var(--text-secondary)' }}
                         title="Edit"
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)' }}
                     >
                         <Edit2 size={13} />
                     </button>
@@ -1325,72 +971,91 @@ function PlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                             e.stopPropagation();
                             onDelete(item.id, e);
                         }}
-                        className="btn-icon"
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: '#ef4444' }}
                         title="Delete"
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', color: '#ef4444' }}
                     >
                         <Trash2 size={13} />
                     </button>
                 </div>
             </div>
 
-            {/* Context Details: Payment amount or Visit address/phone */}
-            {isPayment && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-elevated)', padding: '6px 10px', borderRadius: '6px' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        {item.contact_name ? `Payee: ${item.contact_name}` : 'Amount'}
-                    </span>
-                    <span style={{ fontSize: '14px', fontWeight: 700, color: direction === 'payable' ? '#ef4444' : '#10b981' }}>
-                        {direction === 'payable' ? '-' : '+'}{formatCurrency(item.amount)}
-                    </span>
-                </div>
-            )}
+            {/* Title & Amount / Payee */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        textDecoration: isCompleted ? 'line-through' : 'none'
+                    }}>
+                        {item.title}
+                    </div>
 
-            {isVisit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '6px 10px', borderRadius: '6px', fontSize: '11px' }}>
                     {item.contact_name && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.contact_name}</span>
-                            {item.contact_phone && (
-                                <a
-                                    href={`tel:${item.contact_phone}`}
-                                    style={{ color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none' }}
-                                >
-                                    <Phone size={10} />
-                                    {item.contact_phone}
-                                </a>
-                            )}
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                            {isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`}
                         </div>
                     )}
+                </div>
 
+                {/* Prominent Payment Amount */}
+                {isPayment && (
+                    <div style={{
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        color: direction === 'payable' ? '#ef4444' : '#10b981',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {direction === 'payable' ? '-' : '+'}{formatCurrency(item.amount)}
+                    </div>
+                )}
+            </div>
+
+            {/* Visit Details: Quick Phone & Map Actions */}
+            {isVisit && (item.contact_phone || item.location) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
+                    {item.contact_phone && (
+                        <a
+                            href={`tel:${item.contact_phone}`}
+                            style={{
+                                fontSize: '11px',
+                                color: 'var(--color-primary)',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontWeight: 600
+                            }}
+                        >
+                            <Phone size={11} />
+                            Call
+                        </a>
+                    )}
                     {item.location && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
-                                {item.location}
-                            </span>
-                            <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: '3px', textDecoration: 'none', fontWeight: 600 }}
-                            >
-                                <Navigation size={10} />
-                                Map
-                            </a>
-                        </div>
-                    )}
-
-                    {item.metadata?.assigned_to && (
-                        <div style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>
-                            Assigned to: <strong style={{ color: 'var(--text-secondary)' }}>{item.metadata.assigned_to}</strong>
-                        </div>
+                        <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                                fontSize: '11px',
+                                color: '#8b5cf6',
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontWeight: 600
+                            }}
+                        >
+                            <Navigation size={11} />
+                            {item.location.length > 25 ? `${item.location.substring(0, 25)}...` : item.location}
+                        </a>
                     )}
                 </div>
             )}
 
-            {/* Description/Notes */}
+            {/* Description Notes */}
             {item.description && (
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '0 4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '2px' }}>
                     "{item.description}"
                 </div>
             )}
