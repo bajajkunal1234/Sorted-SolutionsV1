@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2, Navigation, Camera, Upload } from 'lucide-react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2, Navigation, Camera, Upload, User } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -2883,9 +2883,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                 <Wrench size={11} style={{ display: 'inline', marginRight: 4 }} />{editedJob.description || editedJob.product?.type || editedJob.issueCategory}
                             </div>
                         )}
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
-                        </div>
+                        {(() => {
+                            const assignedTechName = editedJob.assigned_technician?.name || editedJob.technician_name || editedJob.technician?.name;
+                            return (
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                                    {assignedTechName && (
+                                        <>
+                                            <span>•</span>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#38bdf8', fontWeight: 600 }}>
+                                                <User size={12} style={{ display: 'inline', flexShrink: 0 }} />
+                                                {assignedTechName}
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                     <button onClick={onClose} style={{
                         padding: '4px', backgroundColor: 'transparent',

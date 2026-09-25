@@ -960,7 +960,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const technician = editedJob.technician || {};
 
     // Fallback for fields that might be directly on the job object or in relations
-    const technicianName = technician.name || editedJob.technician_name || 'Unassigned';
+    const technicianName = editedJob.technician_name || technician.name || editedJob.assigned_technician?.name || (technicians?.find(t => t.id === editedJob.technician_id)?.name) || 'Unassigned';
     const jobTitle = editedJob.description || editedJob.job_number || 'Job Details';
 
     // Parse notes if it's a booking request to get temp address/phone
@@ -1675,7 +1675,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             </div>
                         )}
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                            <span>•</span>
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                color: technicianName !== 'Unassigned' ? '#38bdf8' : '#f59e0b',
+                                fontWeight: 600
+                            }}>
+                                <User size={12} style={{ display: 'inline', flexShrink: 0 }} />
+                                {technicianName}
+                            </span>
                             {editedJob.created_at && (
                                 <>
                                     <span>•</span>
