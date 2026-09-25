@@ -21,7 +21,10 @@ import {
     Grid,
     CalendarDays,
     X,
-    Filter
+    Filter,
+    Repeat,
+    Building2,
+    Wrench
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
@@ -943,6 +946,48 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                         {isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
                     </span>
 
+                    {/* Recurring Badge */}
+                    {item.is_recurring && (
+                        <span
+                            style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '2px 5px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                color: '#6366f1',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}
+                            title="Repeats automatically"
+                        >
+                            <Repeat size={10} />
+                            {item.recurrence_pattern?.frequency === 'weekly' ? 'Weekly' : item.recurrence_pattern?.frequency === 'daily' ? 'Daily' : 'Monthly'}
+                        </span>
+                    )}
+
+                    {/* Account DB Link Badge */}
+                    {item.account_id && (
+                        <span
+                            style={{
+                                fontSize: '9px',
+                                fontWeight: 600,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                color: '#10b981',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px'
+                            }}
+                            title="Linked to Account DB"
+                        >
+                            <Building2 size={9} />
+                            Account
+                        </span>
+                    )}
+
                     {/* Time Slot */}
                     {item.due_time && (
                         <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
@@ -1012,8 +1057,14 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
             </div>
 
             {/* Visit Details: Quick Phone & Map Actions */}
-            {isVisit && (item.contact_phone || item.location) && (
+            {isVisit && (item.contact_phone || item.location || item.metadata?.assigned_to) && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '2px', flexWrap: 'wrap' }}>
+                    {item.metadata?.assigned_to && (
+                        <span style={{ fontSize: '11px', color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                            <Wrench size={11} />
+                            {item.metadata.assigned_to}
+                        </span>
+                    )}
                     {item.contact_phone && (
                         <a
                             href={`tel:${item.contact_phone}`}

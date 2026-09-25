@@ -3,7 +3,73 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch planned reminders with date filtering, type, status, and search
+// Helper: Project monthly occurrences
+function projectMonthly(originalDate, startStr, endStr) {
+    const [origY, origM, origD] = originalDate.split('-').map(Number);
+    const [startY, startM] = startStr.split('-').map(Number);
+    const [endY, endM] = endStr.split('-').map(Number);
+    const results = [];
+    let curY = startY;
+    let curM = startM;
+    while (curY < endY || (curY === endY && curM <= endM)) {
+        const maxDays = new Date(curY, curM, 0).getDate();
+        const targetDay = Math.min(origD, maxDays);
+        const occStr = `${curY}-${String(curM).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+        if (occStr >= originalDate && occStr >= startStr && occStr <= endStr) {
+            results.push(occStr);
+        }
+        curM++;
+        if (curM > 12) {
+            curM = 1;
+            curY++;
+        }
+    }
+    return results;
+}
+
+// Helper: Project weekly occurrences
+function projectWeekly(originalDate, startStr, endStr) {
+    const orig = new Date(originalDate + 'T00:00:00');
+    const start = new Date(startStr + 'T00:00:00');
+    const end = new Date(endStr + 'T00:00:00');
+    const results = [];
+    let cur = new Date(orig);
+    while (cur < start) {
+        cur.setDate(cur.getDate() + 7);
+    }
+    while (cur <= end) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        const occStr = `${y}-${m}-${d}`;
+        if (occStr >= originalDate && occStr <= endStr) {
+            results.push(occStr);
+        }
+        cur.setDate(cur.getDate() + 7);
+    }
+    return results;
+}
+
+// Helper: Project daily occurrences
+function projectDaily(originalDate, startStr, endStr) {
+    const orig = new Date(originalDate + 'T00:00:00');
+    const start = new Date(startStr + 'T00:00:00');
+    const end = new Date(endStr + 'T00:00:00');
+    const results = [];
+    let cur = new Date(orig);
+    if (cur < start) cur = new Date(start);
+    while (cur <= end) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        const d = String(cur.getDate()).padStart(2, '0');
+        const occStr = `${y}-${m}-${d}`;
+        results.push(occStr);
+        cur.setDate(cur.getDate() + 1);
+    }
+    return results;
+}
+
+// GET: Fetch planned reminders with recurring projection, date filtering, type, status, and search
 export async function GET(request) {
     try {
         if (!supabase) {
@@ -19,38 +85,116 @@ export async function GET(request) {
         const search = searchParams.get('search')
         const limit = parseInt(searchParams.get('limit') || '500', 10)
 
-        let query = supabase
+        // 1. Fetch non-recurring items in date range
+        let baseQuery = supabase
             .from('reminders')
             .select('*')
             .order('due_date', { ascending: true })
             .order('due_time', { ascending: true, nullsFirst: false })
-            .order('created_at', { ascending: false })
             .limit(limit)
 
         if (date) {
-            query = query.eq('due_date', date)
+            baseQuery = baseQuery.eq('due_date', date)
         } else {
-            if (startDate) query = query.gte('due_date', startDate)
-            if (endDate) query = query.lte('due_date', endDate)
+            if (startDate) baseQuery = baseQuery.gte('due_date', startDate)
+            if (endDate) baseQuery = baseQuery.lte('due_date', endDate)
         }
 
         if (reminderType && reminderType !== 'all') {
-            query = query.eq('reminder_type', reminderType)
+            baseQuery = baseQuery.eq('reminder_type', reminderType)
         }
 
         if (status && status !== 'all') {
-            query = query.eq('status', status)
+            baseQuery = baseQuery.eq('status', status)
         }
 
         if (search && search.trim()) {
             const s = search.trim()
-            query = query.or(`title.ilike.%${s}%,description.ilike.%${s}%,contact_name.ilike.%${s}%,location.ilike.%${s}%`)
+            baseQuery = baseQuery.or(`title.ilike.%${s}%,description.ilike.%${s}%,contact_name.ilike.%${s}%,location.ilike.%${s}%`)
         }
 
-        const { data, error } = await query
-        if (error) throw error
+        // 2. Fetch recurring items (which may have originated before startDate)
+        let recurringQuery = supabase
+            .from('reminders')
+            .select('*')
+            .eq('is_recurring', true)
 
-        return NextResponse.json({ success: true, data: data || [] })
+        if (endDate) {
+            recurringQuery = recurringQuery.lte('due_date', endDate)
+        }
+        if (reminderType && reminderType !== 'all') {
+            recurringQuery = recurringQuery.eq('reminder_type', reminderType)
+        }
+
+        const [baseRes, recRes] = await Promise.all([baseQuery, recurringQuery])
+        if (baseRes.error) throw baseRes.error
+
+        const baseItems = baseRes.data || []
+        const recurringItems = recRes.data || []
+
+        // Map existing items by unique ID
+        const itemsMap = new Map()
+        for (const item of baseItems) {
+            itemsMap.set(item.id, item)
+        }
+
+        // Project recurring items if we have a date range or specific date
+        const rangeStart = date || startDate
+        const rangeEnd = date || endDate
+
+        if (rangeStart && rangeEnd) {
+            for (const item of recurringItems) {
+                const freq = item.recurrence_pattern?.frequency || 'monthly'
+                const completedDates = new Set(item.recurrence_pattern?.completed_dates || [])
+
+                let occurrences = []
+                if (freq === 'monthly') {
+                    occurrences = projectMonthly(item.due_date, rangeStart, rangeEnd)
+                } else if (freq === 'weekly') {
+                    occurrences = projectWeekly(item.due_date, rangeStart, rangeEnd)
+                } else if (freq === 'daily') {
+                    occurrences = projectDaily(item.due_date, rangeStart, rangeEnd)
+                }
+
+                for (const occDate of occurrences) {
+                    if (occDate === item.due_date) {
+                        // Original item
+                        if (!itemsMap.has(item.id)) {
+                            itemsMap.set(item.id, item)
+                        }
+                    } else {
+                        // Projected recurring occurrence
+                        const occId = `${item.id}_${occDate}`
+                        const isDone = completedDates.has(occDate)
+
+                        if (status && status !== 'all') {
+                            if (status === 'completed' && !isDone) continue
+                            if (status === 'pending' && isDone) continue
+                        }
+
+                        itemsMap.set(occId, {
+                            ...item,
+                            id: occId,
+                            master_id: item.id,
+                            is_projected: true,
+                            due_date: occDate,
+                            status: isDone ? 'completed' : 'pending',
+                            completed_at: isDone ? (item.completed_at || new Date().toISOString()) : null
+                        })
+                    }
+                }
+            }
+        }
+
+        const allItems = Array.from(itemsMap.values())
+        allItems.sort((a, b) => {
+            if (a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date)
+            const timeA = a.due_time || '99:99'
+            const timeB = b.due_time || '99:99'
+            return timeA.localeCompare(timeB)
+        })
+
+        return NextResponse.json({ success: true, data: allItems })
     } catch (error) {
         console.error('Error fetching planner items:', error)
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -78,6 +222,8 @@ export async function POST(request) {
             priority = 'medium',
             status = 'pending',
             account_id = null,
+            is_recurring = false,
+            recurrence_pattern = {},
             metadata = {}
         } = body
 
@@ -102,6 +248,8 @@ export async function POST(request) {
             priority,
             status,
             account_id: account_id || null,
+            is_recurring: Boolean(is_recurring),
+            recurrence_pattern: recurrence_pattern || {},
             metadata: metadata || {}
         }
 
@@ -134,7 +282,52 @@ export async function PATCH(request) {
             return NextResponse.json({ success: false, error: 'Item ID is required' }, { status: 400 })
         }
 
-        // Handle completed_at timestamp when toggling status
+        // Handle projected recurring occurrence completion
+        if (typeof id === 'string' && id.includes('_')) {
+            const [masterId, occDate] = id.split('_')
+            const { data: master, error: fetchErr } = await supabase
+                .from('reminders')
+                .select('*')
+                .eq('id', masterId)
+                .single()
+
+            if (fetchErr) throw fetchErr
+
+            const pattern = master.recurrence_pattern || {}
+            let completedDates = Array.isArray(pattern.completed_dates) ? [...pattern.completed_dates] : []
+
+            if (updates.status === 'completed') {
+                if (!completedDates.includes(occDate)) completedDates.push(occDate)
+            } else if (updates.status === 'pending') {
+                completedDates = completedDates.filter(d => d !== occDate)
+            }
+
+            const { data: updatedMaster, error: updateErr } = await supabase
+                .from('reminders')
+                .update({
+                    recurrence_pattern: { ...pattern, completed_dates: completedDates },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', masterId)
+                .select()
+                .single()
+
+            if (updateErr) throw updateErr
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    ...updatedMaster,
+                    id,
+                    master_id: masterId,
+                    is_projected: true,
+                    due_date: occDate,
+                    status: updates.status
+                }
+            })
+        }
+
+        // Standard item update
         if ('status' in updates) {
             if (updates.status === 'completed') {
                 updates.completed_at = new Date().toISOString()
@@ -169,10 +362,15 @@ export async function DELETE(request) {
         }
 
         const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
+        let id = searchParams.get('id')
 
         if (!id) {
             return NextResponse.json({ success: false, error: 'Item ID is required' }, { status: 400 })
+        }
+
+        // If deleting a projected recurring occurrence, delete the master record
+        if (id.includes('_')) {
+            id = id.split('_')[0]
         }
 
         const { error } = await supabase
