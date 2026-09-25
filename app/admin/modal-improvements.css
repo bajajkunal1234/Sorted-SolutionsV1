@@ -351,6 +351,24 @@ button[class*="cancel"]:hover,
         gap: var(--spacing-sm) !important;
     }
 
+    /* Preserve compact horizontal tab strip for Job Details and modal tabs */
+    .job-tabs-nav,
+    .job-modal-tabs {
+        display: flex !important;
+        flex-direction: row !important;
+        grid-template-columns: none !important;
+        overflow-x: auto !important;
+        gap: 6px !important;
+        padding: 6px 12px !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    .job-tabs-nav button,
+    .job-modal-tabs button {
+        flex: 1 0 auto !important;
+        min-width: max-content !important;
+        width: auto !important;
+    }
+
     /* 2. Overrule hardcoded inline max-width/max-height on Modals for Mobile Fullscreen */
     .modal,
     .modal-container,

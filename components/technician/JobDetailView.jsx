@@ -2858,42 +2858,48 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '10px 14px', borderBottom: '1px solid var(--border-primary)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     backgroundColor: 'var(--bg-elevated)', flexShrink: 0
                 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <h2 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {editedJob.customerName || 'Customer'}
-                        </h2>
-                        {/* Job name — most important, shown prominently */}
-                        {(editedJob.description || editedJob.product?.type || editedJob.issueCategory) && (
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                <Wrench size={12} style={{ display: 'inline', marginRight: 4 }} />{editedJob.description || editedJob.product?.type || editedJob.issueCategory}
-                            </div>
-                        )}
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
-                            <span>•</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: '2px' }}>
+                            <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 90px)' }}>
+                                {editedJob.customerName || 'Customer'}
+                            </h2>
                             <span style={{
                                 color: editedJob.status === 'completed' ? '#10b981' :
-                                       editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
-                                fontWeight: 600, textTransform: 'uppercase', fontSize: '11px'
+                                       editedJob.status === 'cancelled' ? '#ef4444' : '#38bdf8',
+                                background: editedJob.status === 'completed' ? 'rgba(16,185,129,0.15)' :
+                                            editedJob.status === 'cancelled' ? 'rgba(239,68,68,0.15)' : 'rgba(56,189,248,0.15)',
+                                border: `1px solid ${editedJob.status === 'completed' ? 'rgba(16,185,129,0.3)' : editedJob.status === 'cancelled' ? 'rgba(239,68,68,0.3)' : 'rgba(56,189,248,0.3)'}`,
+                                fontWeight: 700, textTransform: 'uppercase', fontSize: '10px',
+                                borderRadius: 4, padding: '1px 5px', flexShrink: 0
                             }}>{editedJob.status}</span>
+                        </div>
+                        {/* Job name — most important, shown prominently */}
+                        {(editedJob.description || editedJob.product?.type || editedJob.issueCategory) && (
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#38bdf8', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <Wrench size={11} style={{ display: 'inline', marginRight: 4 }} />{editedJob.description || editedJob.product?.type || editedJob.issueCategory}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
                         </div>
                     </div>
                     <button onClick={onClose} style={{
-                        padding: 'var(--spacing-xs)', backgroundColor: 'transparent',
-                        border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, marginLeft: 8
+                        padding: '4px', backgroundColor: 'transparent',
+                        border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, marginLeft: 8, marginTop: -2
                     }}>
-                        <X size={24} />
+                        <X size={20} />
                     </button>
                 </div>
 
                 {/* Tabs */}
-                <div style={{
-                    display: 'flex', gap: 'var(--spacing-sm)', padding: 'var(--spacing-md)',
-                    borderBottom: '1px solid var(--border-primary)', overflowX: 'auto', flexShrink: 0
+                <div className="job-tabs-nav" style={{
+                    display: 'flex', gap: '6px', padding: '6px 12px',
+                    borderBottom: '1px solid var(--border-primary)', overflowX: 'auto', flexShrink: 0,
+                    backgroundColor: 'var(--bg-elevated)', WebkitOverflowScrolling: 'touch'
                 }}>
                     {tabs.map(tab => {
                         const Icon = tab.icon;
@@ -2901,18 +2907,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                         return (
                             <button
                                 key={tab.id}
+                                type="button"
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    border: 'none', borderRadius: '20px', cursor: 'pointer',
-                                    transition: 'all 0.2s ease', flexShrink: 0,
-                                    backgroundColor: isActive ? '#3b82f6' : 'var(--bg-secondary)',
-                                    color: isActive ? '#fff' : 'var(--text-primary)',
-                                    padding: '8px 16px',
+                                    border: isActive ? '1px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.08)',
+                                    borderRadius: '16px', cursor: 'pointer',
+                                    transition: 'all 0.15s ease', flexShrink: 0,
+                                    flex: 1, minWidth: 'max-content',
+                                    backgroundColor: isActive ? '#3b82f6' : 'rgba(255, 255, 255, 0.04)',
+                                    color: isActive ? '#fff' : 'var(--text-secondary)',
+                                    padding: '6px 10px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
                                     whiteSpace: 'nowrap'
                                 }}
                             >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                                    <Icon size={16} />
+                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                                    <Icon size={14} />
                                     {tab.label}
                                 </span>
                             </button>
@@ -2921,7 +2932,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 </div>
 
                 {/* Content Area */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '12px', backgroundColor: 'var(--bg-secondary)' }}>
                     {error && (
                         <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <AlertCircle size={18} /> {error}

@@ -1633,68 +1633,74 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
                 {/* Header */}
-                <div className="modal-header">
+                <div className="modal-header" style={{ padding: '10px 14px', alignItems: 'flex-start', borderBottom: '1px solid var(--border-primary)' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <h2 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer'}
-                        </h2>
-                        {(editedJob.description || editedJob.job_type || editedJob.issueCategory) && (
-                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#10b981', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                🔧 {editedJob.description || editedJob.job_type || editedJob.issueCategory}
-                            </div>
-                        )}
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
-                            <span>•</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: '2px' }}>
+                            <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 90px)' }}>
+                                {editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer'}
+                            </h2>
                             {(() => {
                                 const cfg = getStatusConfig(editedJob.status);
                                 return (
-                                    <span style={{ color: cfg.color, fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 5, padding: '1px 6px' }}>
+                                    <span style={{ color: cfg.color, fontWeight: 700, textTransform: 'uppercase', fontSize: '10px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                                         {cfg.label}
                                     </span>
                                 );
                             })()}
                             {/* Sub-status badge for New Job Request */}
                             {editedJob.status === 'new_job_request' && editedJob.source && SOURCE_LABELS[editedJob.source] && (
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: SOURCE_LABELS[editedJob.source].color, background: `${SOURCE_LABELS[editedJob.source].color}18`, border: `1px solid ${SOURCE_LABELS[editedJob.source].color}30`, borderRadius: 5, padding: '1px 6px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: SOURCE_LABELS[editedJob.source].color, background: `${SOURCE_LABELS[editedJob.source].color}18`, border: `1px solid ${SOURCE_LABELS[editedJob.source].color}30`, borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                                     {SOURCE_LABELS[editedJob.source].emoji} {SOURCE_LABELS[editedJob.source].label}
                                 </span>
                             )}
                             {editedJob.service_coverage === 'amc' && (
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 5, padding: '1px 6px' }}>
-                                    🛡️ AMC Covered
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
+                                    🛡️ AMC
                                 </span>
                             )}
                             {editedJob.service_coverage === 'rental' && (
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                                     📦 Rental
                                 </span>
                             )}
                             {editedJob.service_coverage === 'warranty' && (
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 4, padding: '1px 5px', flexShrink: 0 }}>
                                     📜 Warranty
                                 </span>
                             )}
                         </div>
-                        {editedJob.created_at && (
-                            <div style={{ fontSize: '12px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: 500 }}>
-                                Booked: {formatDateTime(editedJob.created_at)} ({formatRelativeTime(editedJob.created_at)})
+                        {(editedJob.description || editedJob.job_type || editedJob.issueCategory) && (
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#10b981', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                🔧 {editedJob.description || editedJob.job_type || editedJob.issueCategory}
                             </div>
                         )}
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                            {editedJob.created_at && (
+                                <>
+                                    <span>•</span>
+                                    <span>Booked: {formatDateTime(editedJob.created_at)} ({formatRelativeTime(editedJob.created_at)})</span>
+                                </>
+                            )}
+                        </div>
                     </div>
-                    <button className="btn-icon" onClick={onClose} style={{ flexShrink: 0, marginLeft: 8 }}>
-                        <X size={24} />
+                    <button className="btn-icon" onClick={onClose} style={{ flexShrink: 0, padding: 4, marginLeft: 8, marginTop: -2 }}>
+                        <X size={20} />
                     </button>
                 </div>
 
 
                 {/* Tabs */}
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
-                    columnGap: 'var(--spacing-sm)',
-                    padding: 'var(--spacing-md)',
+                <div className="job-tabs-nav" style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '6px',
+                    padding: '6px 12px',
                     borderBottom: '1px solid var(--border-primary)',
+                    backgroundColor: 'var(--bg-elevated)',
+                    overflowX: 'auto',
+                    WebkitOverflowScrolling: 'touch',
+                    flexShrink: 0,
                 }}>
                     {tabs.map(tab => {
                         const Icon = tab.icon;
@@ -1702,29 +1708,29 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         return (
                             <button
                                 key={tab.id}
+                                type="button"
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    display: 'flex',
+                                    display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '6px',
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    fontSize: '14px',
+                                    gap: '5px',
+                                    flex: 1,
+                                    minWidth: 'max-content',
+                                    padding: '6px 10px',
+                                    fontSize: '12px',
                                     fontWeight: 600,
-                                    border: 'none',
-                                    borderRadius: '20px',
+                                    border: isActive ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                                    borderRadius: '16px',
                                     cursor: 'pointer',
-                                    transition: 'background-color 0.2s ease, color 0.2s ease',
-                                    backgroundColor: isActive ? '#10b981' : 'var(--bg-secondary)',
+                                    transition: 'all 0.15s ease',
+                                    backgroundColor: isActive ? '#10b981' : 'rgba(255, 255, 255, 0.04)',
                                     color: isActive ? '#ffffff' : 'var(--text-secondary)',
                                     whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    minWidth: 0
+                                    flexShrink: 0,
                                 }}
                             >
-                                <Icon size={16} style={{ flexShrink: 0 }} />
+                                <Icon size={14} style={{ flexShrink: 0 }} />
                                 {tab.label}
                             </button>
                         );
@@ -1739,8 +1745,40 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <div className="card mb-md">
                                 <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Customer Information</h3>
                                 <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        <strong>Name:</strong> {customer.name || editedJob.customer_name}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                                        <div style={{ fontSize: '14px' }}>
+                                            <strong>Name:</strong> {customer.name || editedJob.customer_name}
+                                        </div>
+                                        {(customer || editedJob.customer_id || editedJob.customer_name) && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    padding: '3px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    color: '#60a5fa',
+                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onClick={() => {
+                                                    onClose();
+                                                    if (window.openCustomerAccount) {
+                                                        window.openCustomerAccount(customer || { id: editedJob.customer_id, name: editedJob.customer_name });
+                                                    }
+                                                }}
+                                                title="View Customer Account"
+                                            >
+                                                <DollarSign size={12} />
+                                                View Cx Account
+                                            </button>
+                                        )}
                                     </div>
                                     {property && (
                                         <div>
@@ -1861,22 +1899,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             )}
                                         </div>
                                     </div>
-                                    <button
-                                        className="btn btn-secondary"
-                                        style={{ width: 'fit-content' }}
-                                        onClick={() => {
-                                            // Close this modal
-                                            onClose();
-                                            // Switch to Accounts tab and open customer account
-                                            // This will be handled by parent component
-                                            if (window.openCustomerAccount && customer) {
-                                                window.openCustomerAccount(customer);
-                                            }
-                                        }}
-                                    >
-                                        <DollarSign size={16} />
-                                        View Cx Account
-                                    </button>
                                 </div>
                             </div>
 
