@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, CalendarClock, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
+import DayPlannerTab from './reports/DayPlannerTab';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 
 import WebsiteSettings from './reports/WebsiteSettings';
@@ -57,6 +58,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     }, []);
 
     const sections = [
+        { id: 'day-planner', label: 'Day Planner & Calendar', icon: CalendarClock, component: DayPlannerTab, color: '#6366f1', description: 'Plan daily activities, payment due dates, customer visits, and reminders' },
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
         { id: 'properties', label: 'Properties', icon: Home, component: AdminPropertiesTab, color: '#f59e0b', description: 'Manage properties, tenants and service history' },
         { id: 'rentals', label: 'Rentals', icon: Package, component: RentalsTab, color: '#8b5cf6', description: 'Manage rental agreements' },
@@ -85,6 +87,8 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     // Create searchable index of all settings
     const searchSuggestions = [
         ...sections.map(s => ({ ...s, type: 'section' })),
+        { id: 'day-planner', label: 'Payment Reminders (Planner)', icon: DollarSign, color: '#10b981', description: 'Schedule and manage payment due dates', type: 'section' },
+        { id: 'day-planner', label: 'Visit Reminders (Planner)', icon: CalendarClock, color: '#8b5cf6', description: 'Schedule client, site, and technician visits', type: 'section' },
         ...Object.entries(settingsByCategory).flatMap(([catId, settings]) =>
             settings.map(s => ({
                 ...s,
