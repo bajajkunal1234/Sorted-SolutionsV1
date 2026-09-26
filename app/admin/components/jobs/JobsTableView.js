@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { Calendar, User, MapPin, AlertCircle, Clock } from 'lucide-react';
 import { getInitials, getLocalityFromAddress, getStatusColor, getTechnicianColor } from '@/lib/utils/helpers';
 
@@ -53,7 +53,7 @@ const COLUMN_LABELS = {
 };
 
 function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
-    // ── Column Widths with localStorage Persistence ──
+    // ── Column Widths with robust localStorage Persistence ──
     const [columnWidths, setColumnWidths] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -71,7 +71,30 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         return DEFAULT_COLUMN_WIDTHS;
     });
 
+    const isWidthsLoadedRef = useRef(false);
+
+    // Guaranteed client-side load on mount
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('admin_jobs_column_widths');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        setColumnWidths(prev => ({ ...DEFAULT_COLUMN_WIDTHS, ...parsed }));
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load column widths on mount', e);
+            } finally {
+                isWidthsLoadedRef.current = true;
+            }
+        }
+    }, []);
+
+    // Save column widths to localStorage ONLY after initial mount load completes
+    useEffect(() => {
+        if (!isWidthsLoadedRef.current) return;
         if (typeof window !== 'undefined') {
             try {
                 localStorage.setItem('admin_jobs_column_widths', JSON.stringify(columnWidths));
@@ -81,7 +104,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         }
     }, [columnWidths]);
 
-    // ── Column Order with localStorage Persistence & Migration ──
+    // ── Column Order with robust localStorage Persistence & Migration ──
     const [columnOrder, setColumnOrder] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -89,12 +112,8 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 if (savedOrder) {
                     const parsed = JSON.parse(savedOrder);
                     if (Array.isArray(parsed) && parsed.length > 0) {
-                        // Keep only keys that belong to DEFAULT_COLUMN_ORDER
                         const validSaved = parsed.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
-                        // Identify any missing columns
                         const missing = DEFAULT_COLUMN_ORDER.filter(key => !validSaved.includes(key));
-                        
-                        // Insert scheduledTime right after dueDate if missing
                         if (missing.includes('scheduledTime')) {
                             const dueIndex = validSaved.indexOf('dueDate');
                             if (dueIndex !== -1) {
@@ -117,7 +136,44 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         return DEFAULT_COLUMN_ORDER;
     });
 
+    const isOrderLoadedRef = useRef(false);
+
+    // Guaranteed client-side load on mount
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const savedOrder = localStorage.getItem('admin_column_order');
+                if (savedOrder) {
+                    const parsed = JSON.parse(savedOrder);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const validSaved = parsed.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
+                        const missing = DEFAULT_COLUMN_ORDER.filter(key => !validSaved.includes(key));
+                        if (missing.includes('scheduledTime')) {
+                            const dueIndex = validSaved.indexOf('dueDate');
+                            if (dueIndex !== -1) {
+                                validSaved.splice(dueIndex + 1, 0, 'scheduledTime');
+                            } else {
+                                validSaved.push('scheduledTime');
+                            }
+                        }
+                        const otherMissing = missing.filter(k => k !== 'scheduledTime');
+                        const finalOrder = [...validSaved, ...otherMissing];
+                        if (finalOrder.length === DEFAULT_COLUMN_ORDER.length) {
+                            setColumnOrder(finalOrder);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load column order on mount', e);
+            } finally {
+                isOrderLoadedRef.current = true;
+            }
+        }
+    }, []);
+
+    // Save column order to localStorage ONLY after initial mount load completes
+    useEffect(() => {
+        if (!isOrderLoadedRef.current) return;
         if (typeof window !== 'undefined') {
             try {
                 localStorage.setItem('admin_column_order', JSON.stringify(columnOrder));
@@ -151,6 +207,11 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 if (sourceIndex !== -1 && targetIndex !== -1) {
                     newOrder.splice(sourceIndex, 1);
                     newOrder.splice(targetIndex, 0, sourceCol);
+                }
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.setItem('admin_column_order', JSON.stringify(newOrder));
+                    } catch (err) {}
                 }
                 return newOrder;
             });
@@ -200,6 +261,14 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         const handleMouseUp = () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
+            if (typeof window !== 'undefined') {
+                try {
+                    setColumnWidths(latest => {
+                        localStorage.setItem('admin_jobs_column_widths', JSON.stringify(latest));
+                        return latest;
+                    });
+                } catch (err) {}
+            }
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -207,8 +276,8 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
     };
 
     // Calculate total table width based on visible columns
-    const totalWidth = Object.keys(visibleColumns || {})
-        .filter(col => visibleColumns[col])
+    const totalWidth = columnOrder
+        .filter(col => visibleColumns?.[col] !== false)
         .reduce((sum, col) => sum + (columnWidths[col] || DEFAULT_COLUMN_WIDTHS[col] || 100), 0);
 
     const renderRow = (job) => {
@@ -606,8 +675,8 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                             Object.entries(groupedJobs).map(([groupName, groupJobsList]) => {
                                 if (!groupJobsList || groupJobsList.length === 0) return null;
                                 
-                                const visibleColumnsCount = Object.keys(visibleColumns || {})
-                                    .filter(col => visibleColumns[col]).length;
+                                const visibleColumnsCount = columnOrder
+                                    .filter(col => visibleColumns?.[col] !== false).length;
 
                                 return (
                                     <Fragment key={groupName}>

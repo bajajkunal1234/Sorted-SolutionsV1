@@ -156,7 +156,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTags, setActiveTags] = useState([]);
 
-    // Column visibility for Table View
+    // Column visibility for Table View with robust hydration & localStorage persistence
     const [visibleColumns, setVisibleColumns] = useState(() => {
         if (typeof window !== 'undefined') {
             try {
@@ -174,8 +174,30 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
         return DEFAULT_VISIBLE_COLUMNS;
     });
 
-    // Save column visibility to localStorage whenever it changes
+    const isColumnsLoadedRef = useRef(false);
+
+    // Guaranteed client-side load on mount (runs after SSR hydration to prevent default overwrites)
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('admin_jobs_visible_columns');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        setVisibleColumns(prev => ({ ...DEFAULT_VISIBLE_COLUMNS, ...parsed }));
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load visible columns from localStorage on mount', e);
+            } finally {
+                isColumnsLoadedRef.current = true;
+            }
+        }
+    }, []);
+
+    // Save column visibility to localStorage whenever it changes, but ONLY after initial load completes
+    useEffect(() => {
+        if (!isColumnsLoadedRef.current) return;
         if (typeof window !== 'undefined') {
             try {
                 localStorage.setItem('admin_jobs_visible_columns', JSON.stringify(visibleColumns));
@@ -184,6 +206,26 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
             }
         }
     }, [visibleColumns]);
+
+    // Direct toggle helper that saves synchronously to localStorage immediately upon click
+    const toggleColumnVisibility = (col) => {
+        setVisibleColumns(prev => {
+            const currentVal = prev[col] !== undefined ? prev[col] : (DEFAULT_VISIBLE_COLUMNS[col] !== false);
+            const updated = {
+                ...DEFAULT_VISIBLE_COLUMNS,
+                ...prev,
+                [col]: !currentVal
+            };
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.setItem('admin_jobs_visible_columns', JSON.stringify(updated));
+                } catch (e) {
+                    console.error('Failed to immediately save column toggle to localStorage', e);
+                }
+            }
+            return updated;
+        });
+    };
 
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
@@ -522,7 +564,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                                 <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', padding: '2px 8px', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
                                     Toggle Columns
                                 </div>
-                                {Object.keys(visibleColumns).map(col => (
+                                {Object.keys(DEFAULT_VISIBLE_COLUMNS).map(col => (
                                     <label
                                         key={col}
                                         style={{
@@ -542,8 +584,8 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                                     >
                                         <input
                                             type="checkbox"
-                                            checked={visibleColumns[col]}
-                                            onChange={() => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+                                            checked={visibleColumns[col] !== false}
+                                            onChange={() => toggleColumnVisibility(col)}
                                             style={{ cursor: 'pointer' }}
                                         />
                                         <span>
