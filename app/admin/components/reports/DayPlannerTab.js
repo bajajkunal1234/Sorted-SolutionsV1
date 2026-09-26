@@ -24,7 +24,9 @@ import {
     Filter,
     Repeat,
     Building2,
-    Wrench
+    Wrench,
+    ExternalLink,
+    Landmark
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
@@ -42,18 +44,20 @@ function getMiniCardProps(item) {
     const isCompleted = item.status === 'completed';
     const type = item.reminder_type || 'task';
     const direction = item.metadata?.direction || (type === 'payment' ? 'payable' : undefined);
+    const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
 
     if (type === 'payment') {
         if (direction === 'payable') {
-            // Payment to make (Payable) - Red card like New Era screenshot
+            // Payment to make (Payable) - Red card when unpaid, green when paid (matching New Era)
             return {
-                borderColor: 'rgba(239, 68, 68, 0.45)',
-                bgColor: isCompleted ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.12)',
-                titleColor: isCompleted ? 'rgba(239, 68, 68, 0.6)' : '#fca5a5',
-                subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ffffff',
+                borderColor: isCompleted ? 'rgba(16, 185, 129, 0.45)' : 'rgba(239, 68, 68, 0.45)',
+                bgColor: isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.12)',
+                titleColor: isCompleted ? '#6ee7b7' : '#fca5a5',
+                subColor: isCompleted ? 'rgba(255, 255, 255, 0.6)' : '#ffffff',
                 title: item.title || item.contact_name || 'Payment',
                 sub: item.amount ? `₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
-                prefix: isCompleted ? '✓ ' : ''
+                prefix: isCompleted ? '✓ ' : '',
+                isNewEra
             };
         } else {
             // Payment to collect (Receivable) - Green card
@@ -64,7 +68,8 @@ function getMiniCardProps(item) {
                 subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ffffff',
                 title: item.title || item.contact_name || 'Collect',
                 sub: item.amount ? `+₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
-                prefix: isCompleted ? '✓ ' : ''
+                prefix: isCompleted ? '✓ ' : '',
+                isNewEra
             };
         }
     } else if (type === 'visit') {
@@ -77,7 +82,8 @@ function getMiniCardProps(item) {
             subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ddd6fe',
             title: item.title || item.contact_name || 'Site Visit',
             sub: techOrLoc,
-            prefix: isCompleted ? '✓ ' : '📍 '
+            prefix: isCompleted ? '✓ ' : '📍 ',
+            isNewEra: false
         };
     } else {
         // Task / General - Blue card
@@ -88,7 +94,8 @@ function getMiniCardProps(item) {
             subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#bfdbfe',
             title: item.title || 'Task',
             sub: item.due_time || (item.priority && item.priority !== 'medium' ? `${item.priority.toUpperCase()}` : undefined),
-            prefix: isCompleted ? '✓ ' : '☑ '
+            prefix: isCompleted ? '✓ ' : '☑ ',
+            isNewEra: false
         };
     }
 }
@@ -942,18 +949,37 @@ export default function DayPlannerTab() {
                                         <div className="day-content">
                                             {dayItems.slice(0, 3).map((item) => {
                                                 const card = getMiniCardProps(item);
+                                                const isNewEraItem = Boolean(item.metadata?.is_newera || item.source === 'newera');
                                                 return (
                                                     <div
                                                         key={item.id}
                                                         className="mini-activity-card"
+                                                        onClick={(e) => {
+                                                            if (isNewEraItem) {
+                                                                e.stopPropagation();
+                                                                setSelectedDate(cell.dateStr);
+                                                                const loanId = item.metadata?.loan_id || '';
+                                                                let url = `/newera?tab=schedule&day=${cell.dateStr}`;
+                                                                if (loanId) url += `&loan_id=${loanId}`;
+                                                                window.open(url, '_blank');
+                                                            }
+                                                        }}
                                                         style={{
                                                             borderColor: card.borderColor,
-                                                            backgroundColor: card.bgColor
+                                                            backgroundColor: card.bgColor,
+                                                            cursor: isNewEraItem ? 'pointer' : 'default'
                                                         }}
-                                                        title={`${item.title || item.contact_name} ${item.amount ? `(₹${Number(item.amount).toLocaleString('en-IN')})` : ''}`}
+                                                        title={
+                                                            isNewEraItem
+                                                                ? `New Era Liability: ${item.title} (${item.amount ? `₹${Number(item.amount).toLocaleString('en-IN')}` : ''}) — Click to open in Liabilities Tracker (new tab)`
+                                                                : `${item.title || item.contact_name} ${item.amount ? `(₹${Number(item.amount).toLocaleString('en-IN')})` : ''}`
+                                                        }
                                                     >
-                                                        <div className="mini-card-title" style={{ color: card.titleColor }}>
-                                                            {card.prefix}{card.title}
+                                                        <div className="mini-card-title" style={{ color: card.titleColor, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {card.prefix}{card.title}
+                                                            </span>
+                                                            {isNewEraItem && <ExternalLink size={9} style={{ opacity: 0.7, flexShrink: 0 }} />}
                                                         </div>
                                                         {card.sub && (
                                                             <div className="mini-card-sub" style={{ color: card.subColor }}>
@@ -1130,34 +1156,51 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
     const isPayment = item.reminder_type === 'payment';
     const isVisit = item.reminder_type === 'visit';
     const isCompleted = item.status === 'completed';
+    const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
 
     const direction = item.metadata?.direction || 'payable';
 
     const typeColor = isPayment ? '#10b981' : isVisit ? '#8b5cf6' : '#3b82f6';
     const typeBg = isPayment ? 'rgba(16, 185, 129, 0.12)' : isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
 
+    const openInNewEra = (e) => {
+        if (e) e.stopPropagation();
+        const dayStr = item.due_date || '';
+        const loanId = item.metadata?.loan_id || '';
+        let url = `/newera?tab=schedule`;
+        if (dayStr) url += `&day=${dayStr}`;
+        if (loanId) url += `&loan_id=${loanId}`;
+        window.open(url, '_blank');
+    };
+
     return (
         <div
+            onClick={isNewEra ? openInNewEra : undefined}
             style={{
                 backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-primary)',
+                border: isNewEra
+                    ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.35)')
+                    : '1px solid var(--border-primary)',
                 borderRadius: '8px',
                 padding: '10px 12px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px',
-                opacity: isCompleted ? 0.6 : 1,
-                boxSizing: 'border-box'
+                opacity: isCompleted ? 0.65 : 1,
+                boxSizing: 'border-box',
+                cursor: isNewEra ? 'pointer' : 'default',
+                transition: 'border-color 0.15s ease, background-color 0.15s ease'
             }}
+            title={isNewEra ? "New Era Liability Installment — Click to open in New Era Tracker (new tab)" : undefined}
         >
             {/* Top Row: Type Pill, Time, Status, Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     {/* One-Tap Complete Checkbox */}
                     <button
                         type="button"
                         onClick={(e) => onToggleComplete(item, e)}
-                        title={isCompleted ? 'Mark Pending' : 'Mark Completed'}
+                        title={isCompleted ? (isNewEra ? 'Mark Unpaid' : 'Mark Pending') : (isNewEra ? 'Mark Paid' : 'Mark Completed')}
                         style={{
                             background: 'transparent',
                             border: 'none',
@@ -1188,6 +1231,48 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                         {isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
                         {isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
                     </span>
+
+                    {/* New Era Liability Badge */}
+                    {isNewEra && (
+                        <span
+                            onClick={openInNewEra}
+                            style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(99, 102, 241, 0.16)',
+                                color: '#a5b4fc',
+                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: 'pointer'
+                            }}
+                            title="Synced from New Era Liabilities Tracker — Click to open in new tab"
+                        >
+                            <Landmark size={10} />
+                            New Era
+                        </span>
+                    )}
+
+                    {/* Installment Number Badge */}
+                    {item.metadata?.installment_number && (
+                        <span
+                            style={{
+                                fontSize: '9px',
+                                fontWeight: 600,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                color: 'var(--text-secondary)',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                            }}
+                        >
+                            Inst #{item.metadata.installment_number}
+                        </span>
+                    )}
 
                     {/* Recurring Badge */}
                     {item.is_recurring && (
@@ -1240,30 +1325,56 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                     )}
                 </div>
 
-                {/* Actions: Edit & Delete */}
+                {/* Actions: Tracker link for New Era, Edit & Delete for standard items */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(item);
-                        }}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: 'var(--text-secondary)' }}
-                        title="Edit"
-                    >
-                        <Edit2 size={13} />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(item.id, e);
-                        }}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: '#ef4444' }}
-                        title="Delete"
-                    >
-                        <Trash2 size={13} />
-                    </button>
+                    {isNewEra ? (
+                        <button
+                            type="button"
+                            onClick={openInNewEra}
+                            style={{
+                                border: '1px solid rgba(99, 102, 241, 0.35)',
+                                backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                color: '#a5b4fc',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                            title="Open installment in New Era Liabilities Tracker (new tab)"
+                        >
+                            <span>Tracker</span>
+                            <ExternalLink size={11} />
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(item);
+                                }}
+                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: 'var(--text-secondary)' }}
+                                title="Edit"
+                            >
+                                <Edit2 size={13} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(item.id, e);
+                                }}
+                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '3px', color: '#ef4444' }}
+                                title="Delete"
+                            >
+                                <Trash2 size={13} />
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -1274,14 +1385,18 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                         fontSize: '13px',
                         fontWeight: 600,
                         color: 'var(--text-primary)',
-                        textDecoration: isCompleted ? 'line-through' : 'none'
+                        textDecoration: isCompleted ? 'line-through' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
                     }}>
-                        {item.title}
+                        <span>{item.title}</span>
+                        {isNewEra && <ExternalLink size={11} style={{ opacity: 0.6 }} />}
                     </div>
 
                     {item.contact_name && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`}
+                            {isNewEra ? `Lender: ${item.contact_name}` : (isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`)}
                         </div>
                     )}
                 </div>
@@ -1291,10 +1406,10 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                     <div style={{
                         fontSize: '14px',
                         fontWeight: 700,
-                        color: direction === 'payable' ? '#ef4444' : '#10b981',
+                        color: isCompleted ? '#10b981' : (direction === 'payable' ? '#ef4444' : '#10b981'),
                         whiteSpace: 'nowrap'
                     }}>
-                        {direction === 'payable' ? '-' : '+'}{formatCurrency(item.amount)}
+                        {isCompleted ? '✓ ' : (direction === 'payable' ? '-' : '+')}{formatCurrency(item.amount)}
                     </div>
                 )}
             </div>

@@ -186,6 +186,80 @@ export async function GET(request) {
             }
         }
 
+        // 3. Fetch New Era Liabilities repayment schedule entries if payments are included
+        const includeNewEra = (!reminderType || reminderType === 'all' || reminderType === 'payment');
+
+        if (includeNewEra && rangeStart && rangeEnd) {
+            let neweraQuery = supabase
+                .from('newera_repayments')
+                .select('id, loan_id, due_date, installment_number, expected_amount, expected_principal, expected_interest, status, notes, newera_loans(id, name, lender, loan_type, status)')
+                .gte('due_date', rangeStart)
+                .lte('due_date', rangeEnd)
+                .order('due_date', { ascending: true });
+
+            if (status && status !== 'all') {
+                if (status === 'completed') {
+                    neweraQuery = neweraQuery.eq('status', 'paid');
+                } else if (status === 'pending') {
+                    neweraQuery = neweraQuery.neq('status', 'paid');
+                }
+            }
+
+            const { data: neweraData, error: neweraErr } = await neweraQuery;
+            if (neweraErr) {
+                console.warn('Failed to fetch newera repayments:', neweraErr);
+            } else if (neweraData) {
+                for (const rep of neweraData) {
+                    const loan = rep.newera_loans;
+                    const loanName = loan?.name ? loan.name.trim() : 'Liability Loan';
+                    const lender = loan?.lender ? loan.lender.trim() : 'Liability';
+                    const instNumber = rep.installment_number;
+                    const cleanTitle = loanName;
+
+                    // Search filter if provided
+                    if (search && search.trim()) {
+                        const s = search.trim().toLowerCase();
+                        const matchTitle = cleanTitle.toLowerCase().includes(s);
+                        const matchLender = lender.toLowerCase().includes(s);
+                        const matchNotes = (rep.notes || '').toLowerCase().includes(s);
+                        if (!matchTitle && !matchLender && !matchNotes) continue;
+                    }
+
+                    const occId = `newera_${rep.id}`;
+                    itemsMap.set(occId, {
+                        id: occId,
+                        source: 'newera',
+                        reminder_type: 'payment',
+                        title: cleanTitle,
+                        amount: parseFloat(rep.expected_amount || 0),
+                        contact_name: lender,
+                        contact_phone: null,
+                        location: null,
+                        due_date: rep.due_date,
+                        due_time: null,
+                        status: rep.status === 'paid' ? 'completed' : 'pending',
+                        priority: 'high',
+                        is_recurring: false,
+                        account_id: null,
+                        metadata: {
+                            direction: 'payable',
+                            is_newera: true,
+                            newera_repayment_id: rep.id,
+                            loan_id: rep.loan_id,
+                            loan_name: loanName,
+                            lender: lender,
+                            installment_number: instNumber,
+                            expected_principal: rep.expected_principal,
+                            expected_interest: rep.expected_interest,
+                            notes: rep.notes,
+                            repayment_status: rep.status
+                        },
+                        description: rep.notes || (instNumber ? `Installment #${instNumber} • Principal ₹${Math.round(rep.expected_principal || 0).toLocaleString('en-IN')}, Interest ₹${Math.round(rep.expected_interest || 0).toLocaleString('en-IN')}` : `Liability Repayment to ${lender}`)
+                    });
+                }
+            }
+        }
+
         const allItems = Array.from(itemsMap.values())
         allItems.sort((a, b) => {
             if (a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date)
@@ -282,6 +356,76 @@ export async function PATCH(request) {
             return NextResponse.json({ success: false, error: 'Item ID is required' }, { status: 400 })
         }
 
+        // Handle New Era Liabilities repayment completion/payment sync
+        if (typeof id === 'string' && id.startsWith('newera_')) {
+            const repaymentId = id.replace('newera_', '');
+            const isCompleted = updates.status === 'completed';
+            const newStatus = isCompleted ? 'paid' : 'unpaid';
+
+            // Fetch repayment details to get loan_id and expected_amount
+            const { data: rep, error: repFetchErr } = await supabase
+                .from('newera_repayments')
+                .select('*, newera_loans(id, name, lender)')
+                .eq('id', repaymentId)
+                .maybeSingle();
+
+            if (repFetchErr || !rep) {
+                return NextResponse.json({ success: false, error: 'Repayment record not found' }, { status: 404 });
+            }
+
+            // Update newera_repayments status
+            const { error: repUpdErr } = await supabase
+                .from('newera_repayments')
+                .update({ status: newStatus })
+                .eq('id', repaymentId);
+
+            if (repUpdErr) throw repUpdErr;
+
+            // Keep newera_payments in sync
+            if (isCompleted) {
+                const { data: existingPay } = await supabase
+                    .from('newera_payments')
+                    .select('id')
+                    .eq('repayment_id', repaymentId)
+                    .maybeSingle();
+
+                if (!existingPay) {
+                    // Find active member Kunal or first member
+                    const { data: members } = await supabase
+                        .from('newera_members')
+                        .select('id, name')
+                        .order('id');
+                    const memberId = members?.find(m => m.name.toLowerCase() === 'kunal')?.id || members?.[0]?.id || 1;
+
+                    await supabase.from('newera_payments').insert({
+                        loan_id: rep.loan_id,
+                        repayment_id: repaymentId,
+                        member_id: memberId,
+                        payment_date: rep.due_date || new Date().toISOString().split('T')[0],
+                        amount: parseFloat(rep.expected_amount || 0),
+                        principal_portion: parseFloat(rep.expected_principal || 0),
+                        interest_portion: parseFloat(rep.expected_interest || 0),
+                        source_of_income: 'Business',
+                        notes: 'Marked paid from Admin Day Planner'
+                    });
+                }
+            } else {
+                await supabase
+                    .from('newera_payments')
+                    .delete()
+                    .eq('repayment_id', repaymentId);
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id,
+                    source: 'newera',
+                    status: updates.status
+                }
+            });
+        }
+
         // Handle projected recurring occurrence completion
         if (typeof id === 'string' && id.includes('_')) {
             const [masterId, occDate] = id.split('_')
@@ -366,6 +510,14 @@ export async function DELETE(request) {
 
         if (!id) {
             return NextResponse.json({ success: false, error: 'Item ID is required' }, { status: 400 })
+        }
+
+        // New Era Liabilities installments cannot be deleted from Admin Day Planner
+        if (typeof id === 'string' && id.startsWith('newera_')) {
+            return NextResponse.json({
+                success: false,
+                error: 'New Era liabilities installments cannot be deleted from Admin Day Planner. Please manage them directly in the New Era Liabilities Tracker.'
+            }, { status: 403 });
         }
 
         // If deleting a projected recurring occurrence, delete the master record

@@ -180,6 +180,29 @@ export default function NewEraDashboard() {
         return years;
     }, [data?.loans, data?.repayments, data?.payments, currentMonth]);
 
+    // Deep-link query parameters support (?tab=schedule&day=YYYY-MM-DD&loan_id=...)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const tabParam = params.get('tab');
+            if (tabParam && ['overview', 'liabilities', 'schedule', 'payments', 'interactions'].includes(tabParam)) {
+                setActiveTab(tabParam);
+            }
+            const dayParam = params.get('day');
+            if (dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam)) {
+                setSelectedCalendarDay(dayParam);
+                const [y, m] = dayParam.split('-').map(Number);
+                if (y && m) {
+                    setCurrentMonth(new Date(y, m - 1, 1));
+                }
+            }
+            const loanParam = params.get('loan_id');
+            if (loanParam) {
+                setSelectedLoanId(loanParam);
+            }
+        }
+    }, []);
+
     // Liabilities View States
     const [editingLoanId, setEditingLoanId] = useState(null);
     const [liabilitiesView, setLiabilitiesView] = useState('table'); // 'table', 'card', 'detail'
