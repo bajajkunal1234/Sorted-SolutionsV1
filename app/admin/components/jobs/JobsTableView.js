@@ -1,82 +1,134 @@
 'use client'
 
 import { useState, useEffect, Fragment } from 'react';
-import { Calendar, User, MapPin, AlertCircle } from 'lucide-react';
+import { Calendar, User, MapPin, AlertCircle, Clock } from 'lucide-react';
 import { getInitials, getLocalityFromAddress, getStatusColor, getTechnicianColor } from '@/lib/utils/helpers';
 
+const DEFAULT_COLUMN_WIDTHS = {
+    job: 200,
+    customer: 140,
+    locality: 160,
+    brand: 100,
+    appliance: 140,
+    applianceType: 120,
+    technician: 130,
+    dueDate: 130,
+    scheduledTime: 130,
+    visited: 80,
+    quotation: 100,
+    invoice: 100,
+    status: 120
+};
+
+const DEFAULT_COLUMN_ORDER = [
+    'job',
+    'customer',
+    'locality',
+    'brand',
+    'appliance',
+    'applianceType',
+    'technician',
+    'dueDate',
+    'scheduledTime',
+    'visited',
+    'quotation',
+    'invoice',
+    'status'
+];
+
+const COLUMN_LABELS = {
+    job: 'Job',
+    customer: 'Customer',
+    locality: 'Locality',
+    brand: 'Brand',
+    appliance: 'Appliance',
+    applianceType: 'Appliance Type',
+    technician: 'Technician',
+    dueDate: 'Due Date',
+    scheduledTime: 'Scheduled Time',
+    visited: 'Visited?',
+    quotation: 'Quotation',
+    invoice: 'Invoice',
+    status: 'Status'
+};
+
 function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
-    const [columnWidths, setColumnWidths] = useState({
-        job: 200,
-        customer: 140,
-        locality: 160,
-        brand: 100,
-        appliance: 140,
-        applianceType: 120,
-        technician: 130,
-        dueDate: 140,
-        visited: 80,
-        quotation: 100,
-        invoice: 100,
-        status: 120
+    // ── Column Widths with localStorage Persistence ──
+    const [columnWidths, setColumnWidths] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('admin_jobs_column_widths');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        return { ...DEFAULT_COLUMN_WIDTHS, ...parsed };
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load column widths from localStorage', e);
+            }
+        }
+        return DEFAULT_COLUMN_WIDTHS;
     });
 
-    const [columnOrder, setColumnOrder] = useState([
-        'job',
-        'customer',
-        'locality',
-        'brand',
-        'appliance',
-        'applianceType',
-        'technician',
-        'dueDate',
-        'visited',
-        'quotation',
-        'invoice',
-        'status'
-    ]);
-    const [canDrag, setCanDrag] = useState(true);
-    const [draggedOverCol, setDraggedOverCol] = useState(null);
-    const [isLoaded, setIsLoaded] = useState(false);
-
-    // Load from localStorage on mount
     useEffect(() => {
-        const savedOrder = localStorage.getItem('admin_column_order');
-        if (savedOrder) {
+        if (typeof window !== 'undefined') {
             try {
-                const parsed = JSON.parse(savedOrder);
-                const validKeys = [
-                    'job',
-                    'customer',
-                    'locality',
-                    'brand',
-                    'appliance',
-                    'applianceType',
-                    'technician',
-                    'dueDate',
-                    'visited',
-                    'quotation',
-                    'invoice',
-                    'status'
-                ];
-                const isValid = Array.isArray(parsed) && 
-                                parsed.every(key => validKeys.includes(key)) && 
-                                parsed.length === validKeys.length;
-                if (isValid) {
-                    setColumnOrder(parsed);
+                localStorage.setItem('admin_jobs_column_widths', JSON.stringify(columnWidths));
+            } catch (e) {
+                console.error('Failed to save column widths to localStorage', e);
+            }
+        }
+    }, [columnWidths]);
+
+    // ── Column Order with localStorage Persistence & Migration ──
+    const [columnOrder, setColumnOrder] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const savedOrder = localStorage.getItem('admin_column_order');
+                if (savedOrder) {
+                    const parsed = JSON.parse(savedOrder);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        // Keep only keys that belong to DEFAULT_COLUMN_ORDER
+                        const validSaved = parsed.filter(key => DEFAULT_COLUMN_ORDER.includes(key));
+                        // Identify any missing columns
+                        const missing = DEFAULT_COLUMN_ORDER.filter(key => !validSaved.includes(key));
+                        
+                        // Insert scheduledTime right after dueDate if missing
+                        if (missing.includes('scheduledTime')) {
+                            const dueIndex = validSaved.indexOf('dueDate');
+                            if (dueIndex !== -1) {
+                                validSaved.splice(dueIndex + 1, 0, 'scheduledTime');
+                            } else {
+                                validSaved.push('scheduledTime');
+                            }
+                        }
+                        const otherMissing = missing.filter(k => k !== 'scheduledTime');
+                        const finalOrder = [...validSaved, ...otherMissing];
+                        if (finalOrder.length === DEFAULT_COLUMN_ORDER.length) {
+                            return finalOrder;
+                        }
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load column order from localStorage', e);
             }
         }
-        setIsLoaded(true);
-    }, []);
+        return DEFAULT_COLUMN_ORDER;
+    });
 
-    // Save to localStorage when columnOrder changes, after initial load is done
     useEffect(() => {
-        if (isLoaded) {
-            localStorage.setItem('admin_column_order', JSON.stringify(columnOrder));
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('admin_column_order', JSON.stringify(columnOrder));
+            } catch (e) {
+                console.error('Failed to save column order to localStorage', e);
+            }
         }
-    }, [columnOrder, isLoaded]);
+    }, [columnOrder]);
+
+    const [canDrag, setCanDrag] = useState(true);
+    const [draggedOverCol, setDraggedOverCol] = useState(null);
 
     const handleDragStart = (e, col) => {
         e.dataTransfer.setData('text/plain', col);
@@ -111,10 +163,31 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         return new Date(dueDate) < new Date();
     };
 
+    const getScheduledTime = (job) => {
+        let bd = {};
+        if (job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') {
+            try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
+        }
+        const rawTime = bd.schedule?.slot || job.scheduled_time || '';
+        if (!rawTime) return '-';
+
+        // If in 24h format like "14:00" or "14:00:00", convert to friendly 12h format "2:00 PM"
+        const timeMatch = rawTime.trim().match(/^(\d{1,2}):(\d{2})(:\d{2})?$/);
+        if (timeMatch) {
+            const h = parseInt(timeMatch[1], 10);
+            const m = timeMatch[2];
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const displayH = h % 12 || 12;
+            return `${displayH}:${m} ${ampm}`;
+        }
+
+        return rawTime;
+    };
+
     const handleMouseDown = (e, col) => {
         e.preventDefault();
         const startX = e.clientX;
-        const startWidth = columnWidths[col];
+        const startWidth = columnWidths[col] || DEFAULT_COLUMN_WIDTHS[col] || 100;
 
         const handleMouseMove = (moveEvent) => {
             const deltaX = moveEvent.clientX - startX;
@@ -136,7 +209,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
     // Calculate total table width based on visible columns
     const totalWidth = Object.keys(visibleColumns || {})
         .filter(col => visibleColumns[col])
-        .reduce((sum, col) => sum + (columnWidths[col] || 100), 0);
+        .reduce((sum, col) => sum + (columnWidths[col] || DEFAULT_COLUMN_WIDTHS[col] || 100), 0);
 
     const renderRow = (job) => {
         const isBooking = job.status === 'booking_request' || job.status === 'new_job_request';
@@ -303,6 +376,29 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                     </div>
                                 </td>
                             );
+                        case 'scheduledTime': {
+                            const timeDisplay = getScheduledTime(job);
+                            const hasTime = timeDisplay !== '-';
+                            return (
+                                <td key="scheduledTime" style={{ padding: '6px 12px', width: columnWidths.scheduledTime, minWidth: columnWidths.scheduledTime, maxWidth: columnWidths.scheduledTime, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                        <Clock size={13} style={{ color: hasTime ? '#818cf8' : 'var(--text-tertiary)', flexShrink: 0 }} />
+                                        <span 
+                                            style={{ 
+                                                overflow: 'hidden', 
+                                                textOverflow: 'ellipsis', 
+                                                whiteSpace: 'nowrap',
+                                                color: hasTime ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                                fontWeight: hasTime ? 500 : 400
+                                            }} 
+                                            title={hasTime ? timeDisplay : 'No scheduled time'}
+                                        >
+                                            {timeDisplay}
+                                        </span>
+                                    </div>
+                                </td>
+                            );
+                        }
                         case 'visited':
                             return (
                                 <td key="visited" style={{ padding: '6px 12px', textAlign: 'center', width: columnWidths.visited, minWidth: columnWidths.visited, maxWidth: columnWidths.visited, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -415,6 +511,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                     brand: 'brand',
                                     technician: 'assignee',
                                     dueDate: 'dueDate',
+                                    scheduledTime: 'scheduledTime',
                                     visited: 'visited',
                                     quotation: 'quotation',
                                     invoice: 'invoice',
@@ -426,6 +523,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                 const isSorted = sortBy === sortKey;
                                 const isSortable = !!sortKey;
                                 const isDraggedOver = draggedOverCol === col;
+                                const colWidth = columnWidths[col] || DEFAULT_COLUMN_WIDTHS[col] || 100;
 
                                 return (
                                     <th 
@@ -451,10 +549,9 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                             fontWeight: 600,
                                             borderBottom: '2px solid var(--border-primary)',
                                             color: isSorted ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                            width: columnWidths[col],
-                                            minWidth: columnWidths[col],
-                                            maxWidth: columnWidths[col],
-                                            position: 'relative',
+                                            width: colWidth,
+                                            minWidth: colWidth,
+                                            maxWidth: colWidth,
                                             overflow: 'hidden',
                                             textOverflow: 'ellipsis',
                                             whiteSpace: 'nowrap',
@@ -470,8 +567,8 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                             if (isSortable && !isSorted) e.currentTarget.style.color = 'var(--text-secondary)';
                                         }}
                                     >
-                                        <span style={{ textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                            {COLUMN_LABELS[col] || col}
                                             {isSorted && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
                                         </span>
                                         {/* Resize handle */}

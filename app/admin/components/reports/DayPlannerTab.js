@@ -312,7 +312,7 @@ export default function DayPlannerTab() {
         }, 0);
     }, [selectedDateItems]);
 
-    // Counts & amount totals for filter pills (respects status and search filter)
+    // Counts & amount totals for filter pills (scoped to currently viewed month)
     const counts = useMemo(() => {
         let payments = 0;
         let paymentAmount = 0;
@@ -320,7 +320,14 @@ export default function DayPlannerTab() {
         let tasks = 0;
         let all = 0;
 
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const currentMonthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+
         for (const it of items) {
+            // Only count items that fall in the currently viewed month
+            if (!it.due_date || !it.due_date.startsWith(currentMonthPrefix)) continue;
+
             if (statusFilter !== 'all' && it.status !== statusFilter) continue;
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
@@ -342,7 +349,15 @@ export default function DayPlannerTab() {
             }
         }
         return { all, payments, paymentAmount, visits, tasks };
-    }, [items, statusFilter, searchQuery]);
+    }, [items, currentDate, statusFilter, searchQuery]);
+
+    // Agenda dates within the currently viewed month
+    const agendaDates = useMemo(() => {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const currentMonthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+        return Object.keys(itemsByDate).filter(d => d.startsWith(currentMonthPrefix)).sort();
+    }, [itemsByDate, currentDate]);
 
     // Calendar grid computation (matches New Era Sunday-first format with empty cards)
     const calendarDays = useMemo(() => {
@@ -908,7 +923,7 @@ export default function DayPlannerTab() {
                         onClick={() => setTypeFilter('payment')}
                         className={`pill ${typeFilter === 'payment' ? 'active' : ''}`}
                         style={{ color: typeFilter === 'payment' ? '#ffffff' : '#10b981' }}
-                        title={counts.paymentAmount > 0 ? `Total Payments: ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : undefined}
+                        title={counts.paymentAmount > 0 ? `Total ${monthYearTitle} Payments: ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : undefined}
                     >
                         <DollarSign size={12} />
                         Payments ({counts.payments}{counts.paymentAmount > 0 ? ` - ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : ''})
@@ -1178,13 +1193,13 @@ export default function DayPlannerTab() {
                             </button>
                         </div>
 
-                        {Object.keys(itemsByDate).length === 0 ? (
+                        {agendaDates.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--text-secondary)' }}>
                                 <CalendarCheck size={32} style={{ opacity: 0.3, marginBottom: '6px' }} />
-                                <p style={{ margin: 0, fontSize: '13px' }}>No scheduled plans found.</p>
+                                <p style={{ margin: 0, fontSize: '13px' }}>No scheduled plans found for {monthYearTitle}.</p>
                             </div>
                         ) : (
-                            Object.keys(itemsByDate).sort().map((dateStr) => {
+                            agendaDates.map((dateStr) => {
                                 const dItems = itemsByDate[dateStr];
                                 const isCurrent = dateStr === todayStr;
 

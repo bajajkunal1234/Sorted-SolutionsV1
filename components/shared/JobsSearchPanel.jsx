@@ -11,6 +11,7 @@ const FILTER_FIELDS = [
     { key: 'customer',    label: 'Customer',      type: 'text' },
     { key: 'assignee',    label: 'Assignee',      type: 'text' },
     { key: 'dueDate',     label: 'Due Date',      type: 'date' },
+    { key: 'scheduledTime', label: 'Scheduled Time', type: 'text' },
     { key: 'createdDate', label: 'Creation Date', type: 'date' },
 ];
 
@@ -45,6 +46,7 @@ const DEFAULT_GROUP_BY_OPTIONS = [
 
 const DEFAULT_SORT_BY_OPTIONS = [
     { value: 'dueDate',       label: 'Due Date' },
+    { value: 'scheduledTime', label: 'Scheduled Time' },
     { value: 'createdAt',     label: 'Creation Date' },
     { value: 'jobName',       label: 'Job Name' },
     { value: 'customer',      label: 'Customer' },

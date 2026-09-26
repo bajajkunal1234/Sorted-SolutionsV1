@@ -24,6 +24,38 @@ const VIEWS_API = '/api/admin/job-views';
 
 const DEFAULTS = { viewType: 'kanban', groupBy: 'none', sortBy: 'dueDate', sortOrder: 'asc', activeTags: [] };
 
+const DEFAULT_VISIBLE_COLUMNS = {
+    job: true,
+    customer: true,
+    locality: true,
+    brand: true,
+    appliance: true,
+    applianceType: true,
+    technician: true,
+    dueDate: true,
+    scheduledTime: true,
+    visited: true,
+    quotation: true,
+    invoice: true,
+    status: true
+};
+
+const COLUMN_LABELS = {
+    job: 'Job',
+    customer: 'Customer',
+    locality: 'Locality',
+    brand: 'Brand',
+    appliance: 'Appliance',
+    applianceType: 'Appliance Type',
+    technician: 'Technician',
+    dueDate: 'Due Date',
+    scheduledTime: 'Scheduled Time',
+    visited: 'Visited?',
+    quotation: 'Quotation',
+    invoice: 'Invoice',
+    status: 'Status'
+};
+
 /** Generate a random short id */
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -77,6 +109,14 @@ function applyTags(jobs, tags, searchTerm) {
                         case 'customer':    fv = j.customer?.name || ''; break;
                         case 'assignee':    fv = j.technician?.name || j.assignedToName || ''; break;
                         case 'dueDate':     fv = j.scheduled_date || j.dueDate || ''; break;
+                        case 'scheduledTime': {
+                            let bd = {};
+                            if (j.status === 'booking_request' || j.status === 'new_job_request' || j.status === 'enquiry') {
+                                try { bd = JSON.parse(j.notes || '{}'); } catch(e){}
+                            }
+                            fv = bd.schedule?.slot || j.scheduled_time || '';
+                            break;
+                        }
                         case 'createdDate': fv = j.created_at || ''; break;
                     }
                     const v = cond.value.toLowerCase(), val = (fv || '').toLowerCase();
@@ -117,20 +157,34 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
     const [activeTags, setActiveTags] = useState([]);
 
     // Column visibility for Table View
-    const [visibleColumns, setVisibleColumns] = useState({
-        job: true,
-        customer: true,
-        locality: true,
-        brand: true,
-        technician: true,
-        dueDate: true,
-        visited: true,
-        quotation: true,
-        invoice: true,
-        status: true,
-        appliance: true,
-        applianceType: true
+    const [visibleColumns, setVisibleColumns] = useState(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('admin_jobs_visible_columns');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        return { ...DEFAULT_VISIBLE_COLUMNS, ...parsed };
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load visible columns from localStorage', e);
+            }
+        }
+        return DEFAULT_VISIBLE_COLUMNS;
     });
+
+    // Save column visibility to localStorage whenever it changes
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('admin_jobs_visible_columns', JSON.stringify(visibleColumns));
+            } catch (e) {
+                console.error('Failed to save visible columns to localStorage', e);
+            }
+        }
+    }, [visibleColumns]);
+
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
     // Close column dropdown on click outside
@@ -179,6 +233,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
         if (config.sortBy)     setSortBy(config.sortBy);
         if (config.sortOrder)  setSortOrder(config.sortOrder);
         if (config.activeTags) setActiveTags(config.activeTags);
+        if (config.visibleColumns) setVisibleColumns(prev => ({ ...prev, ...config.visibleColumns }));
     };
 
     // ── Save helpers ──────────────────────────────────────────────
@@ -195,7 +250,7 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
     const handleSaveNamedView = async (name) => {
         setSaveStatus('saving');
-        const config = { viewType, groupBy, sortBy, sortOrder, activeTags };
+        const config = { viewType, groupBy, sortBy, sortOrder, activeTags, visibleColumns };
         const existing = savedViews.find(v => v.name.toLowerCase() === name.toLowerCase());
         let updated;
         if (existing) {
@@ -491,8 +546,8 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                                             onChange={() => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))}
                                             style={{ cursor: 'pointer' }}
                                         />
-                                        <span style={{ textTransform: 'capitalize' }}>
-                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
+                                        <span>
+                                            {COLUMN_LABELS[col] || col}
                                         </span>
                                     </label>
                                 ))}
