@@ -313,10 +313,68 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
     // Current due day number for recurrence display
     const dueDayNum = dueDate ? new Date(dueDate + 'T00:00:00').getDate() : new Date().getDate();
 
+    // Check if user has entered unsaved changes
+    const isDirty = useMemo(() => {
+        if (editItem) {
+            return (
+                title !== (editItem.title || '') ||
+                amount !== (editItem.amount != null ? String(editItem.amount) : '') ||
+                contactName !== (editItem.contact_name || '') ||
+                contactPhone !== (editItem.contact_phone || '') ||
+                location !== (editItem.location || '') ||
+                description !== (editItem.description || '')
+            );
+        }
+        return Boolean(
+            title.trim() ||
+            amount ||
+            contactName.trim() ||
+            contactPhone.trim() ||
+            location.trim() ||
+            description.trim()
+        );
+    }, [title, amount, contactName, contactPhone, location, description, editItem]);
+
+    // Safe close handler that warns before discarding dirty changes
+    const handleSafeClose = () => {
+        if (isDirty) {
+            if (window.confirm('You have unsaved changes in this plan. Discard changes and close?')) {
+                onClose();
+            }
+        } else {
+            onClose();
+        }
+    };
+
+    // Close on Escape key press (with dirty check)
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                handleSafeClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, isDirty]);
+
+    // State for backdrop bounce feedback
+    const [animateBackdropClick, setAnimateBackdropClick] = useState(false);
+
+    // Prevent accidental backdrop clicks from closing the modal
+    const handleBackdropClick = (e) => {
+        if (e.target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            setAnimateBackdropClick(true);
+            setTimeout(() => setAnimateBackdropClick(false), 250);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
+        <div className="modal-overlay" onClick={handleBackdropClick} style={{ zIndex: 1100 }}>
             <div
                 className="modal-container"
                 onClick={(e) => e.stopPropagation()}
@@ -328,7 +386,11 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                     flexDirection: 'column',
                     borderRadius: 'var(--radius-lg, 12px)',
                     overflow: 'hidden',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+                    boxShadow: animateBackdropClick
+                        ? '0 0 0 2px rgba(99, 102, 241, 0.5), 0 20px 40px rgba(0,0,0,0.45)'
+                        : '0 20px 40px rgba(0,0,0,0.3)',
+                    transform: animateBackdropClick ? 'scale(1.012)' : 'scale(1)',
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
             >
                 {/* Modal Header */}
@@ -373,7 +435,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                             </span>
                         </div>
                     </div>
-                    <button className="btn-icon" onClick={onClose} type="button" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                    <button className="btn-icon" onClick={handleSafeClose} type="button" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
                         <X size={18} />
                     </button>
                 </div>
@@ -979,7 +1041,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                         <button
                             type="button"
                             className="btn btn-secondary"
-                            onClick={onClose}
+                            onClick={handleSafeClose}
                             disabled={saving}
                             style={{ padding: '7px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
                         >
