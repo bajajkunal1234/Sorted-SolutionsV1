@@ -39,6 +39,19 @@ function toDateStr(d) {
     return `${year}-${month}-${day}`;
 }
 
+// Helper to format short Indian currency for mobile day cards
+function formatMobileAmount(num) {
+    if (num == null || isNaN(num)) return '';
+    const val = Math.abs(Number(num));
+    if (val >= 10000000) {
+        return '₹' + (val / 10000000).toFixed(val % 10000000 === 0 ? 0 : 1) + 'Cr';
+    }
+    if (val >= 100000) {
+        return '₹' + (val / 100000).toFixed(val % 100000 === 0 ? 0 : 1) + 'L';
+    }
+    return '₹' + Math.round(val).toLocaleString('en-IN');
+}
+
 // Helper to compute visual styling for day-card activity badges (New Era style)
 function getMiniCardProps(item) {
     const isCompleted = item.status === 'completed';
@@ -717,10 +730,14 @@ export default function DayPlannerTab() {
                     width: 100%;
                 }
 
+                .mobile-day-amounts {
+                    display: none;
+                }
+
                 /* Mobile Viewport */
                 @media (max-width: 640px) {
                     .calendar-card {
-                        padding: 8px 6px;
+                        padding: 8px 4px;
                     }
                     .calendar-grid {
                         gap: 3px;
@@ -731,22 +748,26 @@ export default function DayPlannerTab() {
                         padding-bottom: 4px;
                     }
                     .empty-day-cell {
-                        min-height: 48px;
+                        min-height: 52px;
                         border-radius: 6px;
                     }
                     .day-cell {
-                        min-height: 48px;
-                        max-height: 64px;
-                        padding: 4px 2px;
+                        min-height: 52px;
+                        max-height: none;
+                        padding: 3px 2px;
                         border-radius: 6px;
-                        align-items: center;
-                        justifyContent: center;
+                        align-items: stretch;
+                        justifyContent: flex-start;
+                        gap: 2px;
                     }
                     .day-cell-top {
-                        justify-content: center;
+                        justify-content: space-between;
+                        padding: 0 1px;
+                        line-height: 1;
                     }
                     .day-num-label {
-                        font-size: 12px;
+                        font-size: 11px;
+                        font-weight: 700;
                     }
                     .day-item-count {
                         display: none !important;
@@ -755,12 +776,51 @@ export default function DayPlannerTab() {
                         display: none !important;
                     }
                     .mobile-dot-container {
+                        display: none !important;
+                    }
+
+                    /* Mobile Amount Badges */
+                    .mobile-day-amounts {
                         display: flex !important;
-                        flex-wrap: wrap;
-                        justify-content: center;
+                        flex-direction: column;
                         gap: 2px;
-                        margin-top: 2px;
                         width: 100%;
+                        margin-top: 1px;
+                    }
+                    .mobile-amount-pill {
+                        font-size: 9px;
+                        font-weight: 700;
+                        line-height: 1.15;
+                        padding: 1.5px 2px;
+                        border-radius: 3px;
+                        border: 1px solid;
+                        text-align: center;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        max-width: 100%;
+                        box-sizing: border-box;
+                        letter-spacing: -0.02em;
+                    }
+                    .mobile-amount-pill.pill-visit {
+                        background-color: rgba(139, 92, 246, 0.18);
+                        border-color: rgba(139, 92, 246, 0.35);
+                        color: #c4b5fd;
+                    }
+                    .mobile-amount-pill.pill-task {
+                        background-color: rgba(59, 130, 246, 0.18);
+                        border-color: rgba(59, 130, 246, 0.35);
+                        color: #93c5fd;
+                    }
+                    .mobile-amount-more {
+                        font-size: 8px;
+                        font-weight: 700;
+                        color: #94a3b8;
+                        background: rgba(255, 255, 255, 0.08);
+                        border-radius: 2px;
+                        padding: 1px 2px;
+                        text-align: center;
+                        line-height: 1;
                     }
                 }
             `}</style>
@@ -997,13 +1057,73 @@ export default function DayPlannerTab() {
                                             )}
                                         </div>
 
-                                        {/* Mobile Dots Indicator (Phone screen view) */}
+                                        {/* Mobile View: Clean, Compact Amount Badges */}
                                         {dayItems.length > 0 && (
-                                            <div className="mobile-dot-container">
-                                                {hasPayable && <span className="mobile-dot dot-payable" title="Payment to Make" />}
-                                                {hasReceivable && <span className="mobile-dot dot-payment" title="Payment to Collect" />}
-                                                {hasVisit && <span className="mobile-dot dot-visit" title="Visit" />}
-                                                {hasTask && <span className="mobile-dot dot-task" title="Task" />}
+                                            <div className="mobile-day-amounts">
+                                                {dayItems.slice(0, 3).map((item) => {
+                                                    const isCompleted = item.status === 'completed';
+                                                    const isPay = item.reminder_type === 'payment';
+                                                    const direction = item.metadata?.direction || 'payable';
+
+                                                    if (isPay && item.amount) {
+                                                        const formattedAmt = formatMobileAmount(item.amount);
+                                                        const isPayable = direction === 'payable';
+
+                                                        let badgeBg = isPayable ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)';
+                                                        let badgeBorder = isPayable ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)';
+                                                        let badgeColor = isPayable ? '#fca5a5' : '#6ee7b7';
+
+                                                        if (isCompleted) {
+                                                            badgeBg = 'rgba(16, 185, 129, 0.12)';
+                                                            badgeBorder = 'rgba(16, 185, 129, 0.3)';
+                                                            badgeColor = '#a7f3d0';
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={`mob-${item.id}`}
+                                                                className="mobile-amount-pill"
+                                                                style={{
+                                                                    backgroundColor: badgeBg,
+                                                                    borderColor: badgeBorder,
+                                                                    color: badgeColor,
+                                                                    textDecoration: isCompleted ? 'line-through' : 'none'
+                                                                }}
+                                                                title={`${item.title || item.contact_name}: ${isPayable ? '-' : '+'}${formatCurrency(item.amount)}`}
+                                                            >
+                                                                {isCompleted ? '✓' : isPayable ? '' : '+'}{formattedAmt}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    if (item.reminder_type === 'visit') {
+                                                        return (
+                                                            <div
+                                                                key={`mob-${item.id}`}
+                                                                className="mobile-amount-pill pill-visit"
+                                                                title={`Visit: ${item.title}`}
+                                                            >
+                                                                📍 {item.due_time || 'Visit'}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div
+                                                            key={`mob-${item.id}`}
+                                                            className="mobile-amount-pill pill-task"
+                                                            title={`Task: ${item.title}`}
+                                                        >
+                                                            ☑ {item.title ? item.title.slice(0, 5) : 'Task'}
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                {dayItems.length > 3 && (
+                                                    <div className="mobile-amount-more">
+                                                        +{dayItems.length - 3}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
