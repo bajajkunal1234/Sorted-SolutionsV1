@@ -37,6 +37,62 @@ function toDateStr(d) {
     return `${year}-${month}-${day}`;
 }
 
+// Helper to compute visual styling for day-card activity badges (New Era style)
+function getMiniCardProps(item) {
+    const isCompleted = item.status === 'completed';
+    const type = item.reminder_type || 'task';
+    const direction = item.metadata?.direction || (type === 'payment' ? 'payable' : undefined);
+
+    if (type === 'payment') {
+        if (direction === 'payable') {
+            // Payment to make (Payable) - Red card like New Era screenshot
+            return {
+                borderColor: 'rgba(239, 68, 68, 0.45)',
+                bgColor: isCompleted ? 'rgba(239, 68, 68, 0.05)' : 'rgba(239, 68, 68, 0.12)',
+                titleColor: isCompleted ? 'rgba(239, 68, 68, 0.6)' : '#fca5a5',
+                subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ffffff',
+                title: item.title || item.contact_name || 'Payment',
+                sub: item.amount ? `₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
+                prefix: isCompleted ? '✓ ' : ''
+            };
+        } else {
+            // Payment to collect (Receivable) - Green card
+            return {
+                borderColor: 'rgba(16, 185, 129, 0.45)',
+                bgColor: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.12)',
+                titleColor: isCompleted ? 'rgba(16, 185, 129, 0.6)' : '#6ee7b7',
+                subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ffffff',
+                title: item.title || item.contact_name || 'Collect',
+                sub: item.amount ? `+₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
+                prefix: isCompleted ? '✓ ' : ''
+            };
+        }
+    } else if (type === 'visit') {
+        // Visit - Purple card
+        const techOrLoc = item.metadata?.assigned_to || item.location || item.contact_name || item.due_time;
+        return {
+            borderColor: 'rgba(139, 92, 246, 0.45)',
+            bgColor: isCompleted ? 'rgba(139, 92, 246, 0.05)' : 'rgba(139, 92, 246, 0.12)',
+            titleColor: isCompleted ? 'rgba(139, 92, 246, 0.6)' : '#c4b5fd',
+            subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ddd6fe',
+            title: item.title || item.contact_name || 'Site Visit',
+            sub: techOrLoc,
+            prefix: isCompleted ? '✓ ' : '📍 '
+        };
+    } else {
+        // Task / General - Blue card
+        return {
+            borderColor: 'rgba(59, 130, 246, 0.45)',
+            bgColor: isCompleted ? 'rgba(59, 130, 246, 0.05)' : 'rgba(59, 130, 246, 0.12)',
+            titleColor: isCompleted ? 'rgba(59, 130, 246, 0.6)' : '#93c5fd',
+            subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#bfdbfe',
+            title: item.title || 'Task',
+            sub: item.due_time || (item.priority && item.priority !== 'medium' ? `${item.priority.toUpperCase()}` : undefined),
+            prefix: isCompleted ? '✓ ' : '☑ '
+        };
+    }
+}
+
 export default function DayPlannerTab() {
     // Current date reference
     const todayStr = useMemo(() => toDateStr(new Date()), []);
@@ -239,7 +295,7 @@ export default function DayPlannerTab() {
         return { all: items.length, payments, visits, tasks };
     }, [items]);
 
-    // Calendar grid computation
+    // Calendar grid computation (matches New Era Sunday-first format with empty cards)
     const calendarDays = useMemo(() => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -248,22 +304,14 @@ export default function DayPlannerTab() {
         const firstDayOfMonth = new Date(year, month, 1);
         const lastDayOfMonth = new Date(year, month + 1, 0);
 
-        // Adjust so Monday is 0, Sunday is 6
-        let startDayIndex = firstDayOfMonth.getDay() - 1;
-        if (startDayIndex < 0) startDayIndex = 6;
+        // Sunday is 0, Monday is 1 ... Saturday is 6
+        const startDayIndex = firstDayOfMonth.getDay();
 
         const days = [];
 
-        // Previous month padding
-        const prevMonthLastDay = new Date(year, month, 0).getDate();
-        for (let i = startDayIndex - 1; i >= 0; i--) {
-            const d = new Date(year, month - 1, prevMonthLastDay - i);
-            days.push({
-                date: d,
-                dateStr: toDateStr(d),
-                isCurrentMonth: false,
-                dayNumber: d.getDate()
-            });
+        // Previous month padding (empty cells)
+        for (let i = 0; i < startDayIndex; i++) {
+            days.push(null);
         }
 
         // Current month days
@@ -280,14 +328,8 @@ export default function DayPlannerTab() {
         // Next month padding to fill grid to multiple of 7
         const remaining = 7 - (days.length % 7);
         if (remaining < 7) {
-            for (let i = 1; i <= remaining; i++) {
-                const d = new Date(year, month + 1, i);
-                days.push({
-                    date: d,
-                    dateStr: toDateStr(d),
-                    isCurrentMonth: false,
-                    dayNumber: i
-                });
+            for (let i = 0; i < remaining; i++) {
+                days.push(null);
             }
         }
 
@@ -297,6 +339,12 @@ export default function DayPlannerTab() {
     // Format header title (e.g., September 2026)
     const monthYearTitle = currentDate.toLocaleDateString('en-US', {
         month: 'short',
+        year: 'numeric'
+    });
+
+    // Format full header title (e.g., October 2026)
+    const monthYearLongTitle = currentDate.toLocaleDateString('en-US', {
+        month: 'long',
         year: 'numeric'
     });
 
@@ -458,75 +506,168 @@ export default function DayPlannerTab() {
                     overflow: hidden;
                     width: 100%;
                     box-sizing: border-box;
+                    padding: 12px;
+                }
+                .calendar-card-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 2px 4px 10px;
+                    border-bottom: 1px solid var(--border-primary);
+                    margin-bottom: 8px;
+                }
+                .calendar-nav-title {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: var(--text-primary);
+                    margin: 0;
+                }
+                .calendar-sub-hint {
+                    font-size: 11px;
+                    color: var(--text-secondary);
                 }
                 .weekdays-header {
                     display: grid;
-                    grid-template-columns: repeat(7, 1fr);
+                    grid-template-columns: repeat(7, minmax(0, 1fr));
+                    gap: 6px;
                     text-align: center;
-                    padding: 8px 0;
-                    background: var(--bg-secondary);
-                    border-bottom: 1px solid var(--border-primary);
+                    padding: 4px 0 8px;
                     font-size: 11px;
                     font-weight: 700;
-                    color: var(--text-secondary);
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
                 }
                 .calendar-grid {
                     display: grid;
-                    grid-template-columns: repeat(7, 1fr);
-                    gap: 1px;
-                    background: var(--border-primary);
-                }
-                .day-cell {
-                    background: var(--bg-elevated);
-                    min-height: 52px;
-                    padding: 4px 2px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    cursor: pointer;
-                    user-select: none;
-                    transition: background 0.1s;
+                    grid-template-columns: repeat(7, minmax(0, 1fr));
+                    gap: 6px;
+                    width: 100%;
                     box-sizing: border-box;
                 }
-                .day-cell.outside {
-                    background: var(--bg-secondary);
-                    opacity: 0.45;
+                .empty-day-cell {
+                    background: rgba(255, 255, 255, 0.01);
+                    min-height: 95px;
+                    border-radius: 8px;
+                    border: 1px dashed rgba(255, 255, 255, 0.04);
+                    box-sizing: border-box;
+                }
+                .day-cell {
+                    background: rgba(15, 23, 42, 0.35);
+                    border: 1px solid rgba(255, 255, 255, 0.06);
+                    border-radius: 8px;
+                    min-height: 95px;
+                    padding: 6px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-start;
+                    gap: 4px;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: all 0.15s ease;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                    position: relative;
+                }
+                .day-cell:hover {
+                    background: rgba(255, 255, 255, 0.04);
+                    border-color: rgba(255, 255, 255, 0.12);
                 }
                 .day-cell.selected {
-                    background: var(--bg-hover);
-                    box-shadow: inset 0 0 0 2px var(--color-primary);
+                    border-color: #6366f1 !important;
+                    background: rgba(99, 102, 241, 0.12) !important;
+                    box-shadow: 0 0 0 1px #6366f1, 0 4px 14px rgba(99, 102, 241, 0.18);
                 }
-                .day-number {
-                    width: 24px;
-                    height: 24px;
-                    font-size: 12px;
-                    font-weight: 600;
+                .day-cell.today {
+                    border-color: rgba(99, 102, 241, 0.4);
+                }
+                .day-cell-top {
                     display: flex;
                     align-items: center;
-                    justify-content: center;
-                    border-radius: 50%;
-                    color: var(--text-primary);
-                    margin-bottom: 2px;
+                    justify-content: space-between;
+                    width: 100%;
                 }
-                .day-number.today {
-                    background: var(--color-primary);
-                    color: #ffffff;
+                .day-num-label {
+                    font-size: 13px;
                     font-weight: 700;
+                    color: #f8fafc;
                 }
-                .day-dots {
+                .day-num-label.today {
+                    color: #818cf8;
+                    font-weight: 800;
+                }
+                .day-num-label.selected {
+                    color: #ffffff;
+                    font-weight: 800;
+                }
+                .day-item-count {
+                    font-size: 9px;
+                    font-weight: 800;
+                    color: #94a3b8;
+                    background: rgba(255, 255, 255, 0.08);
+                    padding: 1px 4px;
+                    border-radius: 10px;
+                }
+                .day-content {
                     display: flex;
-                    gap: 2.5px;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 8px;
+                    flex-direction: column;
+                    gap: 3px;
+                    overflow-y: auto;
+                    max-height: 140px;
+                    width: 100%;
+                    scrollbar-width: thin;
+                }
+                .mini-activity-card {
+                    padding: 3px 5px;
+                    border-radius: 4px;
+                    border: 1px solid;
+                    display: block;
+                    text-align: left;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    min-width: 0;
+                    max-width: 100%;
+                    box-sizing: border-box;
+                    transition: transform 0.1s;
+                }
+                .mini-card-title {
+                    font-size: 10.5px;
+                    font-weight: 800;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    line-height: 1.2;
+                }
+                .mini-card-sub {
+                    font-size: 9.5px;
+                    font-weight: 600;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    opacity: 0.9;
                     margin-top: 1px;
                 }
-                .dot {
+                .mini-more-pill {
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: #94a3b8;
+                    background: rgba(255, 255, 255, 0.06);
+                    border-radius: 3px;
+                    padding: 1px 4px;
+                    text-align: center;
+                    margin-top: 1px;
+                }
+                .mobile-dot-container {
+                    display: none;
+                }
+                .mobile-dot {
                     width: 5px;
                     height: 5px;
                     border-radius: 50%;
                 }
                 .dot-payment { background: #10b981; }
+                .dot-payable { background: #ef4444; }
                 .dot-visit { background: #8b5cf6; }
                 .dot-task { background: #3b82f6; }
                 .schedule-card {
@@ -562,12 +703,57 @@ export default function DayPlannerTab() {
                     flex-direction: column;
                     gap: 8px;
                 }
-                @media (min-width: 900px) {
-                    .planner-main-content {
-                        display: grid;
-                        grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
-                        gap: 16px;
-                        align-items: start;
+                .planner-main-content {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    width: 100%;
+                }
+
+                /* Mobile Viewport */
+                @media (max-width: 640px) {
+                    .calendar-card {
+                        padding: 8px 6px;
+                    }
+                    .calendar-grid {
+                        gap: 3px;
+                    }
+                    .weekdays-header {
+                        gap: 3px;
+                        font-size: 10px;
+                        padding-bottom: 4px;
+                    }
+                    .empty-day-cell {
+                        min-height: 48px;
+                        border-radius: 6px;
+                    }
+                    .day-cell {
+                        min-height: 48px;
+                        max-height: 64px;
+                        padding: 4px 2px;
+                        border-radius: 6px;
+                        align-items: center;
+                        justifyContent: center;
+                    }
+                    .day-cell-top {
+                        justify-content: center;
+                    }
+                    .day-num-label {
+                        font-size: 12px;
+                    }
+                    .day-item-count {
+                        display: none !important;
+                    }
+                    .day-content {
+                        display: none !important;
+                    }
+                    .mobile-dot-container {
+                        display: flex !important;
+                        flex-wrap: wrap;
+                        justify-content: center;
+                        gap: 2px;
+                        margin-top: 2px;
+                        width: 100%;
                     }
                 }
             `}</style>
@@ -701,25 +887,36 @@ export default function DayPlannerTab() {
                 {/* View 1: Month Calendar Grid */}
                 {viewMode === 'month' && (
                     <div className="calendar-card">
-                        {/* Weekday headers: Mon Tue Wed Thu Fri Sat Sun */}
-                        <div className="weekdays-header">
-                            <span>M</span>
-                            <span>T</span>
-                            <span>W</span>
-                            <span>T</span>
-                            <span>F</span>
-                            <span>S</span>
-                            <span>S</span>
+                        {/* Month header & subtitle like New Era */}
+                        <div className="calendar-card-header">
+                            <h3 className="calendar-nav-title">
+                                {monthYearLongTitle}
+                            </h3>
+                            <span className="calendar-sub-hint">
+                                Click any date to inspect details
+                            </span>
                         </div>
 
-                        {/* 7-column calendar grid */}
+                        {/* Weekday headers: SUN MON TUE WED THU FRI SAT */}
+                        <div className="weekdays-header">
+                            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(w => (
+                                <span key={w}>{w}</span>
+                            ))}
+                        </div>
+
+                        {/* 7-column calendar grid with New Era activity cards */}
                         <div className="calendar-grid">
-                            {calendarDays.map((cell) => {
+                            {calendarDays.map((cell, idx) => {
+                                if (!cell) {
+                                    return <div key={`empty-${idx}`} className="empty-day-cell" />;
+                                }
+
                                 const isSelected = cell.dateStr === selectedDate;
                                 const isToday = cell.dateStr === todayStr;
                                 const dayItems = itemsByDate[cell.dateStr] || [];
 
-                                const hasPayment = dayItems.some(i => i.reminder_type === 'payment');
+                                const hasPayable = dayItems.some(i => i.reminder_type === 'payment' && (i.metadata?.direction === 'payable' || !i.metadata?.direction));
+                                const hasReceivable = dayItems.some(i => i.reminder_type === 'payment' && i.metadata?.direction === 'receivable');
                                 const hasVisit = dayItems.some(i => i.reminder_type === 'visit');
                                 const hasTask = dayItems.some(i => i.reminder_type === 'task' || i.reminder_type === 'general');
 
@@ -727,18 +924,62 @@ export default function DayPlannerTab() {
                                     <div
                                         key={cell.dateStr}
                                         onClick={() => setSelectedDate(cell.dateStr)}
-                                        className={`day-cell ${!cell.isCurrentMonth ? 'outside' : ''} ${isSelected ? 'selected' : ''}`}
+                                        className={`day-cell ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
                                     >
-                                        <div className={`day-number ${isToday ? 'today' : ''}`}>
-                                            {cell.dayNumber}
+                                        <div className="day-cell-top">
+                                            <span className={`day-num-label ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}>
+                                                {cell.dayNumber}
+                                            </span>
+
+                                            {dayItems.length > 3 && (
+                                                <span className="day-item-count" title={`${dayItems.length} activities`}>
+                                                    {dayItems.length}
+                                                </span>
+                                            )}
                                         </div>
 
-                                        {/* Colored indicator dots */}
-                                        <div className="day-dots">
-                                            {hasPayment && <span className="dot dot-payment" title="Payment reminder" />}
-                                            {hasVisit && <span className="dot dot-visit" title="Visit reminder" />}
-                                            {hasTask && <span className="dot dot-task" title="Task / Reminder" />}
+                                        {/* Desktop / Tablet: Activity Cards Stack (New Era style) */}
+                                        <div className="day-content">
+                                            {dayItems.slice(0, 3).map((item) => {
+                                                const card = getMiniCardProps(item);
+                                                return (
+                                                    <div
+                                                        key={item.id}
+                                                        className="mini-activity-card"
+                                                        style={{
+                                                            borderColor: card.borderColor,
+                                                            backgroundColor: card.bgColor
+                                                        }}
+                                                        title={`${item.title || item.contact_name} ${item.amount ? `(₹${Number(item.amount).toLocaleString('en-IN')})` : ''}`}
+                                                    >
+                                                        <div className="mini-card-title" style={{ color: card.titleColor }}>
+                                                            {card.prefix}{card.title}
+                                                        </div>
+                                                        {card.sub && (
+                                                            <div className="mini-card-sub" style={{ color: card.subColor }}>
+                                                                {card.sub}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+
+                                            {dayItems.length > 3 && (
+                                                <div className="mini-more-pill">
+                                                    +{dayItems.length - 3} more
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Mobile Dots Indicator (Phone screen view) */}
+                                        {dayItems.length > 0 && (
+                                            <div className="mobile-dot-container">
+                                                {hasPayable && <span className="mobile-dot dot-payable" title="Payment to Make" />}
+                                                {hasReceivable && <span className="mobile-dot dot-payment" title="Payment to Collect" />}
+                                                {hasVisit && <span className="mobile-dot dot-visit" title="Visit" />}
+                                                {hasTask && <span className="mobile-dot dot-task" title="Task" />}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
