@@ -302,18 +302,47 @@ export default function DayPlannerTab() {
         return itemsByDate[selectedDate] || [];
     }, [itemsByDate, selectedDate]);
 
-    // Counts for filter pills
+    // Selected day's total payment amount
+    const selectedDatePaymentTotal = useMemo(() => {
+        return selectedDateItems.reduce((sum, it) => {
+            if (it.reminder_type === 'payment' && it.amount) {
+                return sum + Math.abs(Number(it.amount) || 0);
+            }
+            return sum;
+        }, 0);
+    }, [selectedDateItems]);
+
+    // Counts & amount totals for filter pills (respects status and search filter)
     const counts = useMemo(() => {
         let payments = 0;
+        let paymentAmount = 0;
         let visits = 0;
         let tasks = 0;
+        let all = 0;
+
         for (const it of items) {
-            if (it.reminder_type === 'payment') payments++;
-            else if (it.reminder_type === 'visit') visits++;
-            else tasks++;
+            if (statusFilter !== 'all' && it.status !== statusFilter) continue;
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const matchTitle = it.title?.toLowerCase().includes(q);
+                const matchContact = it.contact_name?.toLowerCase().includes(q);
+                const matchLocation = it.location?.toLowerCase().includes(q);
+                const matchDesc = it.description?.toLowerCase().includes(q);
+                if (!matchTitle && !matchContact && !matchLocation && !matchDesc) continue;
+            }
+
+            all++;
+            if (it.reminder_type === 'payment') {
+                payments++;
+                if (it.amount) paymentAmount += Math.abs(Number(it.amount) || 0);
+            } else if (it.reminder_type === 'visit') {
+                visits++;
+            } else {
+                tasks++;
+            }
         }
-        return { all: items.length, payments, visits, tasks };
-    }, [items]);
+        return { all, payments, paymentAmount, visits, tasks };
+    }, [items, statusFilter, searchQuery]);
 
     // Calendar grid computation (matches New Era Sunday-first format with empty cards)
     const calendarDays = useMemo(() => {
@@ -879,9 +908,10 @@ export default function DayPlannerTab() {
                         onClick={() => setTypeFilter('payment')}
                         className={`pill ${typeFilter === 'payment' ? 'active' : ''}`}
                         style={{ color: typeFilter === 'payment' ? '#ffffff' : '#10b981' }}
+                        title={counts.paymentAmount > 0 ? `Total Payments: ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : undefined}
                     >
                         <DollarSign size={12} />
-                        Payments ({counts.payments})
+                        Payments ({counts.payments}{counts.paymentAmount > 0 ? ` - ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : ''})
                     </button>
                     <button
                         onClick={() => setTypeFilter('visit')}
@@ -1197,6 +1227,7 @@ export default function DayPlannerTab() {
                                 <h4 className="schedule-title">{selectedDateHeader}</h4>
                                 <span className="schedule-count">
                                     {selectedDateItems.length} {selectedDateItems.length === 1 ? 'activity' : 'activities'} scheduled
+                                    {selectedDatePaymentTotal > 0 && ` • ₹${Math.round(selectedDatePaymentTotal).toLocaleString('en-IN')}`}
                                 </span>
                             </div>
 
