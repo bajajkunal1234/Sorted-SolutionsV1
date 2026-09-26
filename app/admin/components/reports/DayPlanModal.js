@@ -64,11 +64,11 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
     useEffect(() => {
         if (!isOpen) return;
 
-        // Fetch Accounts
+        // Fetch Accounts (Load all dropdown-ready accounts)
         const fetchAccounts = async () => {
             try {
                 setLoadingAccounts(true);
-                const res = await fetch('/api/admin/accounts?limit=250');
+                const res = await fetch('/api/admin/accounts?purpose=dropdown');
                 const data = await res.json();
                 if (data?.data && Array.isArray(data.data)) {
                     setAccountsList(data.data);
@@ -101,6 +101,32 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
         fetchAccounts();
         fetchTechnicians();
     }, [isOpen]);
+
+    // Debounced server search fallback to catch any dynamically added or unusual account names
+    useEffect(() => {
+        if (!isOpen) return;
+        const q = (contactName || '').trim();
+        if (!q || q.length < 2) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/admin/accounts?purpose=dropdown&search=${encodeURIComponent(q)}`);
+                const result = await res.json();
+                const serverMatches = result?.data || [];
+                if (Array.isArray(serverMatches) && serverMatches.length > 0) {
+                    setAccountsList(prev => {
+                        const existingIds = new Set(prev.map(a => a.id));
+                        const toAdd = serverMatches.filter(a => !existingIds.has(a.id));
+                        return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+                    });
+                }
+            } catch (e) {
+                // Non-blocking
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [contactName, isOpen]);
 
     // Close account dropdown on outside click
     useEffect(() => {
@@ -161,18 +187,49 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
         setShowAccountDropdown(false);
     }, [isOpen, editItem, initialDate]);
 
+    // Helper to format account group / type badge
+    const getAccountBadge = (account) => {
+        const u = (account.under || '').toLowerCase();
+        const t = (account.type || '').toLowerCase();
+        if (t === 'supplier' || u.includes('creditor') || u.includes('supplier')) {
+            return { label: 'Supplier / Vendor', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' };
+        }
+        if (t === 'technician' || u.includes('technician')) {
+            return { label: 'Technician', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)' };
+        }
+        if (t === 'bank' || u.includes('bank')) {
+            return { label: 'Bank', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' };
+        }
+        if (t === 'customer' || u.includes('customer') || u.includes('debtor')) {
+            return { label: 'Customer', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
+        }
+        return { label: account.under || account.type || 'Account', color: 'var(--text-secondary)', bg: 'rgba(255, 255, 255, 0.08)' };
+    };
+
     // Filter accounts by current contactName / search text
     const filteredAccounts = useMemo(() => {
-        const query = (contactName || accountSearchText || '').trim().toLowerCase();
-        if (!query) return accountsList.slice(0, 8);
-        return accountsList
-            .filter(a => {
-                const name = a.name?.toLowerCase() || '';
-                const mobile = a.mobile || a.phone || '';
-                return name.includes(query) || mobile.includes(query);
-            })
-            .slice(0, 8);
-    }, [accountsList, contactName, accountSearchText]);
+        const query = (contactName || '').trim().toLowerCase();
+        if (!query) {
+            return accountsList.slice(0, 40);
+        }
+        const matches = accountsList.filter(a => {
+            const name = (a.name || '').toLowerCase();
+            const mobile = a.mobile || a.phone || '';
+            const under = (a.under || '').toLowerCase();
+            return name.includes(query) || mobile.includes(query) || under.includes(query);
+        });
+
+        // Sort: names starting with the query string appear first
+        matches.sort((a, b) => {
+            const aStarts = (a.name || '').toLowerCase().startsWith(query);
+            const bStarts = (b.name || '').toLowerCase().startsWith(query);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        });
+
+        return matches.slice(0, 50);
+    }, [accountsList, contactName]);
 
     // Handle account selection from dropdown
     const handleSelectAccount = (account) => {
@@ -555,6 +612,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                                             setShowAccountDropdown(true);
                                         }}
                                         onFocus={() => setShowAccountDropdown(true)}
+                                        onClick={() => setShowAccountDropdown(true)}
                                         placeholder="Search account from database or type custom name..."
                                         style={{
                                             width: '100%',
@@ -600,7 +658,7 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                                             border: '1px solid var(--border-primary)',
                                             borderRadius: '8px',
                                             boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-                                            maxHeight: '200px',
+                                            maxHeight: '280px',
                                             overflowY: 'auto',
                                             zIndex: 1200
                                         }}
@@ -629,45 +687,60 @@ export default function DayPlanModal({ isOpen, onClose, onSave, initialDate, edi
                                             </div>
                                         )}
 
-                                        {/* Matching Accounts from DB */}
-                                        <div style={{ padding: '4px 8px', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>
-                                            Accounts in Database ({filteredAccounts.length})
+                                        {/* Matching Accounts Header */}
+                                        <div style={{ padding: '6px 12px', fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                            <span>
+                                                {contactName.trim()
+                                                    ? `Matching Accounts (${filteredAccounts.length})`
+                                                    : `All Database Accounts (${accountsList.length} total)`}
+                                            </span>
+                                            {loadingAccounts && (
+                                                <span style={{ fontSize: '10px', color: 'var(--color-primary)', textTransform: 'none', fontWeight: 500 }}>
+                                                    Loading...
+                                                </span>
+                                            )}
                                         </div>
 
                                         {filteredAccounts.length === 0 ? (
-                                            <div style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                                No matching accounts found. Name will be saved manually.
+                                            <div style={{ padding: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                No matching accounts found for "{contactName}". Name will be saved manually.
                                             </div>
                                         ) : (
-                                            filteredAccounts.map((account) => (
-                                                <div
-                                                    key={account.id}
-                                                    onClick={() => handleSelectAccount(account)}
-                                                    style={{
-                                                        padding: '8px 12px',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        borderBottom: '1px solid var(--border-primary)',
-                                                        transition: 'background 0.1s'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <div>
-                                                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                            {account.name}
+                                            filteredAccounts.map((account) => {
+                                                const badge = getAccountBadge(account);
+                                                return (
+                                                    <div
+                                                        key={account.id}
+                                                        onClick={() => handleSelectAccount(account)}
+                                                        style={{
+                                                            padding: '9px 12px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            borderBottom: '1px solid var(--border-primary)',
+                                                            transition: 'background 0.1s'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <div style={{ minWidth: 0, flex: 1, paddingRight: '8px' }}>
+                                                            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {account.name}
+                                                            </div>
+                                                            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                                                <span style={{ padding: '1px 5px', borderRadius: '4px', backgroundColor: badge.bg, color: badge.color, fontWeight: 600, fontSize: '9px' }}>
+                                                                    {badge.label}
+                                                                </span>
+                                                                {account.mobile && <span>📞 {account.mobile}</span>}
+                                                            </div>
                                                         </div>
-                                                        <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-                                                            {account.account_type || 'Account'} {account.mobile ? `• ${account.mobile}` : ''}
-                                                        </div>
+                                                        <span style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600, flexShrink: 0 }}>
+                                                            Select
+                                                        </span>
                                                     </div>
-                                                    <span style={{ fontSize: '10px', padding: '2px 5px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 600 }}>
-                                                        Select
-                                                    </span>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
                                 )}
