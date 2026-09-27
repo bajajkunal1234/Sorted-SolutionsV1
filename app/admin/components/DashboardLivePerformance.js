@@ -2,26 +2,73 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Briefcase, CheckCircle, TrendingUp, DollarSign, Activity, Loader2 } from 'lucide-react';
+import { Briefcase, CheckCircle, TrendingUp, DollarSign, Activity, Loader2, Calendar, Store, Smartphone, Landmark } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
-const getISTDateString = (isoString) => {
-    if (!isoString) return null;
+const getISTDateString = (dateObj = new Date()) => {
     try {
-        const date = new Date(isoString);
-        // Convert to IST (UTC+5:30)
-        const offsetDate = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
-        return offsetDate.toISOString().split('T')[0];
+        const utcTime = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+        const offsetDate = new Date(utcTime + (5.5 * 60 * 60 * 1000));
+        const year = offsetDate.getFullYear();
+        const month = String(offsetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(offsetDate.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     } catch (e) {
         return null;
     }
 };
 
+const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+        const [y, m, d] = dateStr.split('-');
+        return `${d}/${m}/${y}`;
+    } catch {
+        return dateStr;
+    }
+};
+
 export default function DashboardLivePerformance() {
     const [technicians, setTechnicians] = useState([]);
-    const [selectedTechId, setSelectedTechId] = useState('all');
+    const [selectedTechId, setSelectedTechId] = useState('all'); // 'all' | 'store_pos' | tech.id
     const [loading, setLoading] = useState(true);
+
+    // Date Filtering: 'today' | 'yesterday' | 'custom'
+    const [datePreset, setDatePreset] = useState('today');
+    const [customDate, setCustomDate] = useState(() => getISTDateString(new Date()));
+
+    const todayStr = getISTDateString(new Date());
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = getISTDateString(yesterdayDate);
+
+    const activeDateStr = datePreset === 'today' 
+        ? todayStr 
+        : datePreset === 'yesterday' 
+            ? yesterdayStr 
+            : (customDate || todayStr);
+
     const [metrics, setMetrics] = useState({
-        combined: { revenue: 0, assigned: 0, closed: 0, onJob: 0, visits: 0 },
+        combined: { 
+            revenue: 0, 
+            fieldRevenue: 0, 
+            storeRevenue: 0, 
+            assigned: 0, 
+            closed: 0, 
+            onJob: 0, 
+            visits: 0, 
+            upi: 0, 
+            cash: 0,
+            storeBillsCount: 0 
+        },
+        storePOS: { 
+            revenue: 0, 
+            billsCount: 0, 
+            itemsCount: 0, 
+            upi: 0, 
+            cash: 0, 
+            avgBill: 0 
+        },
         byTech: {}
     });
 
@@ -40,38 +87,38 @@ export default function DashboardLivePerformance() {
             const activeTechs = (techs || []).filter(t => !t.is_fired);
             setTechnicians(activeTechs);
 
-            // Today's date YYYY-MM-DD in IST
-            const localDate = new Date();
-            const utcTime = localDate.getTime() + (localDate.getTimezoneOffset() * 60000);
-            const nowIST = new Date(utcTime + (3600000 * 5.5));
-            const year = nowIST.getFullYear();
-            const month = String(nowIST.getMonth() + 1).padStart(2, '0');
-            const day = String(nowIST.getDate()).padStart(2, '0');
-            const todayStr = `${year}-${month}-${day}`;
+            const targetDateStr = activeDateStr;
 
-            // Get start of today in IST as UTC ISO string for db query
-            const startOfTodayIST = new Date(nowIST);
-            startOfTodayIST.setHours(0, 0, 0, 0);
-            const startOfTodayUTC = new Date(startOfTodayIST.getTime() - (3600000 * 5.5));
-            const startOfTodayISO = startOfTodayUTC.toISOString();
+            // Compute UTC ISO timestamps for the beginning and end of target date in IST
+            const [y, m, d] = targetDateStr.split('-').map(Number);
+            const startIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+            const startOfDateISO = new Date(startIST.getTime() - (5.5 * 3600000)).toISOString();
+            const endIST = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+            const endOfDateISO = new Date(endIST.getTime() - (5.5 * 3600000)).toISOString();
 
-            // Fetch jobs and invoices concurrently
-            const [jobsRes, invoicesRes] = await Promise.all([
+            // Fetch jobs, sales invoices, and receipts concurrently
+            const [jobsRes, invoicesRes, receiptsRes] = await Promise.all([
                 supabase
                     .from('jobs')
                     .select('id, technician_id, status, arrived_at, completed_at, scheduled_date')
-                    .or(`scheduled_date.eq.${todayStr},completed_at.gte.${startOfTodayISO},arrived_at.gte.${startOfTodayISO}`),
+                    .or(`scheduled_date.eq.${targetDateStr},and(completed_at.gte.${startOfDateISO},completed_at.lte.${endOfDateISO}),and(arrived_at.gte.${startOfDateISO},arrived_at.lte.${endOfDateISO})`),
                 supabase
                     .from('sales_invoices')
-                    .select('total_amount, technician_id, status, date')
-                    .eq('date', todayStr)
+                    .select('id, invoice_number, total_amount, technician_id, technician_name, status, date, notes, account_name, items')
+                    .eq('date', targetDateStr)
+                    .neq('status', 'cancelled'),
+                supabase
+                    .from('receipt_vouchers')
+                    .select('id, amount, payment_mode, account_name, reference_number, narration, job_id, created_by, date, status')
+                    .eq('date', targetDateStr)
                     .neq('status', 'cancelled')
             ]);
 
             const jobs = jobsRes.data || [];
             const invoices = invoicesRes.data || [];
+            const receipts = receiptsRes.data || [];
 
-            // Compute metrics
+            // Initialize technician stats
             const byTech = {};
             activeTechs.forEach(t => {
                 byTech[t.id] = {
@@ -80,62 +127,164 @@ export default function DashboardLivePerformance() {
                     assigned: 0,
                     closed: 0,
                     onJob: 0,
-                    visits: 0
+                    visits: 0,
+                    upi: 0,
+                    cash: 0
                 };
             });
 
-            // Populate job metrics
+            // 1. Populate Job metrics
             jobs.forEach(job => {
                 const techId = job.technician_id;
                 if (!byTech[techId]) return;
 
-                // 1. Jobs Assigned: counts if scheduled_date is today
-                if (job.scheduled_date === todayStr) {
+                // Jobs Assigned: scheduled for this date
+                if (job.scheduled_date === targetDateStr) {
                     byTech[techId].assigned++;
                 }
 
-                // 2. Visits: counts if arrived_at was today in IST
+                // Visits: arrived on this date in IST
                 if (job.arrived_at) {
-                    const arrDate = getISTDateString(job.arrived_at);
-                    if (arrDate === todayStr) {
+                    const arrDate = getISTDateString(new Date(job.arrived_at));
+                    if (arrDate === targetDateStr) {
                         byTech[techId].visits++;
                     }
                 }
 
-                // 3. Closed: counts if status is closed and completed_at was today in IST
+                // Closed: completed on this date in IST
                 if (job.status === 'closed' && job.completed_at) {
-                    const compDate = getISTDateString(job.completed_at);
-                    if (compDate === todayStr) {
+                    const compDate = getISTDateString(new Date(job.completed_at));
+                    if (compDate === targetDateStr) {
                         byTech[techId].closed++;
                     }
                 }
 
-                // 4. Currently on Job: real-time active diagnosis/work
-                if (job.arrived_at && !job.completed_at && job.status !== 'closed' && job.status !== 'cancelled') {
+                // Currently on Job
+                if (targetDateStr === todayStr && job.arrived_at && !job.completed_at && job.status !== 'closed' && job.status !== 'cancelled') {
                     byTech[techId].onJob++;
                 }
             });
 
-            // Populate invoice metrics
+            // 2. Separate Store POS Invoices vs Field Invoices
+            const storePOS = {
+                revenue: 0,
+                billsCount: 0,
+                itemsCount: 0,
+                upi: 0,
+                cash: 0,
+                avgBill: 0,
+                invoices: []
+            };
+
+            const posInvoiceNumbers = new Set();
+
             invoices.forEach(inv => {
-                const techId = inv.technician_id;
-                if (!byTech[techId]) return;
-                byTech[techId].revenue += parseFloat(inv.total_amount || 0);
+                const isPOS = (inv.notes && inv.notes.toLowerCase().includes('pos')) || (!inv.technician_id && !inv.job_id);
+                const amt = parseFloat(inv.total_amount || 0);
+
+                if (isPOS) {
+                    storePOS.revenue += amt;
+                    storePOS.billsCount++;
+                    posInvoiceNumbers.add(inv.invoice_number);
+                    storePOS.invoices.push(inv);
+
+                    if (Array.isArray(inv.items)) {
+                        inv.items.forEach(it => {
+                            storePOS.itemsCount += (Number(it.qty) || 1);
+                        });
+                    }
+                } else {
+                    const techId = inv.technician_id;
+                    if (byTech[techId]) {
+                        byTech[techId].revenue += amt;
+                    }
+                }
             });
 
-            // Compute combined
-            const combined = { revenue: 0, assigned: 0, closed: 0, onJob: 0, visits: 0 };
+            // 3. Process Receipts for UPI vs Cash split
+            let fieldUPI = 0;
+            let fieldCash = 0;
+            let storeUPI = 0;
+            let storeCash = 0;
+
+            receipts.forEach(r => {
+                const amt = parseFloat(r.amount || 0);
+                const mode = (r.payment_mode || '').toLowerCase();
+                const accName = (r.account_name || '').toLowerCase();
+                const narr = (r.narration || '').toLowerCase();
+
+                const isCash = mode === 'cash' || accName.includes('cash') || narr.includes('(cash)');
+                const isUPI = mode === 'upi' || mode.includes('gpay') || accName.includes('google pay') || accName.includes('gpay') || narr.includes('(upi)');
+
+                const isStoreReceipt = (r.reference_number && posInvoiceNumbers.has(r.reference_number)) ||
+                                       narr.includes('store pos') ||
+                                       (accName.includes('google pay business clearing') && !r.job_id && !r.created_by);
+
+                if (isStoreReceipt) {
+                    if (isCash) storeCash += amt;
+                    else if (isUPI) storeUPI += amt;
+                } else {
+                    if (isCash) fieldCash += amt;
+                    else if (isUPI) fieldUPI += amt;
+
+                    // Attribute to technician if available
+                    if (r.created_by) {
+                        const matchedTech = activeTechs.find(t => t.name.toLowerCase() === r.created_by.toLowerCase());
+                        if (matchedTech && byTech[matchedTech.id]) {
+                            if (isCash) byTech[matchedTech.id].cash += amt;
+                            else if (isUPI) byTech[matchedTech.id].upi += amt;
+                        }
+                    }
+                }
+            });
+
+            // Defensive check for Store POS: if receipt amounts didn't match invoices, infer from invoice accounts
+            if (storePOS.revenue > 0 && (storeUPI + storeCash) < storePOS.revenue) {
+                let inferredUPI = 0;
+                let inferredCash = 0;
+                storePOS.invoices.forEach(inv => {
+                    const acc = (inv.account_name || '').toLowerCase();
+                    const amt = parseFloat(inv.total_amount || 0);
+                    if (acc.includes('cash')) inferredCash += amt;
+                    else inferredUPI += amt;
+                });
+                storeUPI = Math.max(storeUPI, inferredUPI);
+                storeCash = Math.max(storeCash, inferredCash);
+            }
+
+            storePOS.upi = storeUPI;
+            storePOS.cash = storeCash;
+            storePOS.avgBill = storePOS.billsCount > 0 ? Math.round(storePOS.revenue / storePOS.billsCount) : 0;
+
+            // 4. Combined Metrics Calculation
+            const fieldRevenue = Object.values(byTech).reduce((sum, t) => sum + t.revenue, 0);
+            const totalCombinedRevenue = fieldRevenue + storePOS.revenue;
+            const totalCombinedUPI = fieldUPI + storeUPI;
+            const totalCombinedCash = fieldCash + storeCash;
+
+            const combined = {
+                revenue: totalCombinedRevenue,
+                fieldRevenue,
+                storeRevenue: storePOS.revenue,
+                assigned: 0,
+                closed: 0,
+                onJob: 0,
+                visits: 0,
+                upi: totalCombinedUPI,
+                cash: totalCombinedCash,
+                storeBillsCount: storePOS.billsCount
+            };
+
             Object.values(byTech).forEach(m => {
-                combined.revenue += m.revenue;
                 combined.assigned += m.assigned;
                 combined.closed += m.closed;
                 combined.onJob += m.onJob;
                 combined.visits += m.visits;
             });
 
-            setMetrics({ combined, byTech });
+            setMetrics({ combined, storePOS, byTech });
         } catch (e) {
-            console.error('Error fetching today performance metrics:', e);
+            console.error('Error fetching dashboard performance metrics:', e);
         } finally {
             setLoading(false);
         }
@@ -143,79 +292,310 @@ export default function DashboardLivePerformance() {
 
     useEffect(() => {
         fetchData();
-        // Auto-refresh every 60s
-        const interval = setInterval(fetchData, 60_000);
-        return () => clearInterval(interval);
-    }, []);
+        // Auto-refresh every 60s if viewing today
+        if (datePreset === 'today') {
+            const interval = setInterval(fetchData, 60_000);
+            return () => clearInterval(interval);
+        }
+    }, [activeDateStr]);
 
-    const activeMetrics = selectedTechId === 'all' 
-        ? metrics.combined 
-        : (metrics.byTech[selectedTechId] || { revenue: 0, assigned: 0, closed: 0, onJob: 0, visits: 0 });
+    // Handle Date Preset Switch
+    const handlePresetChange = (preset) => {
+        setDatePreset(preset);
+        if (preset === 'today') {
+            setCustomDate(todayStr);
+        } else if (preset === 'yesterday') {
+            setCustomDate(yesterdayStr);
+        }
+    };
 
-    const cardData = [
-        { label: 'Revenue Generated', value: `₹${(activeMetrics.revenue || 0).toLocaleString()}`, icon: DollarSign, color: '#10b981' },
-        { label: 'Jobs Assigned', value: activeMetrics.assigned || 0, icon: Briefcase, color: '#3b82f6' },
-        { label: 'Visits Done', value: activeMetrics.visits || 0, icon: TrendingUp, color: '#f59e0b' },
-        { label: 'Jobs Closed', value: activeMetrics.closed || 0, icon: CheckCircle, color: '#8b5cf6' },
-    ];
+    // Prepare active cards based on dropdown selection
+    let cardData = [];
+
+    if (selectedTechId === 'store_pos') {
+        const sp = metrics.storePOS;
+        cardData = [
+            {
+                label: 'Store POS Revenue',
+                value: `₹${(sp.revenue || 0).toLocaleString('en-IN')}`,
+                icon: Store,
+                color: '#f59e0b',
+                paymentSplit: { upi: sp.upi, cash: sp.cash }
+            },
+            {
+                label: 'Store Bills Generated',
+                value: sp.billsCount || 0,
+                icon: Briefcase,
+                color: '#3b82f6',
+                subText: 'Walk-in customers'
+            },
+            {
+                label: 'Items Sold',
+                value: sp.itemsCount || 0,
+                icon: TrendingUp,
+                color: '#10b981',
+                subText: 'Total product units'
+            },
+            {
+                label: 'Avg Bill Value',
+                value: `₹${(sp.avgBill || 0).toLocaleString('en-IN')}`,
+                icon: CheckCircle,
+                color: '#8b5cf6',
+                subText: 'Per POS invoice'
+            }
+        ];
+    } else if (selectedTechId === 'all') {
+        const comb = metrics.combined;
+        cardData = [
+            {
+                label: 'Total Revenue',
+                value: `₹${(comb.revenue || 0).toLocaleString('en-IN')}`,
+                icon: DollarSign,
+                color: '#10b981',
+                channelSplit: { field: comb.fieldRevenue, store: comb.storeRevenue },
+                paymentSplit: { upi: comb.upi, cash: comb.cash }
+            },
+            {
+                label: 'Jobs Assigned',
+                value: comb.assigned || 0,
+                icon: Briefcase,
+                color: '#3b82f6',
+                subText: 'Field scheduled'
+            },
+            {
+                label: 'Visits Done',
+                value: comb.visits || 0,
+                icon: TrendingUp,
+                color: '#f59e0b',
+                subText: 'Site visits logged'
+            },
+            {
+                label: 'Jobs Closed',
+                value: comb.closed || 0,
+                icon: CheckCircle,
+                color: '#8b5cf6',
+                subText: comb.storeBillsCount > 0 ? `+ ${comb.storeBillsCount} store bills` : 'Completed today'
+            }
+        ];
+    } else {
+        const tMetrics = metrics.byTech[selectedTechId] || { revenue: 0, assigned: 0, closed: 0, onJob: 0, visits: 0, upi: 0, cash: 0 };
+        cardData = [
+            {
+                label: 'Revenue Generated',
+                value: `₹${(tMetrics.revenue || 0).toLocaleString('en-IN')}`,
+                icon: DollarSign,
+                color: '#10b981',
+                paymentSplit: { upi: tMetrics.upi, cash: tMetrics.cash }
+            },
+            {
+                label: 'Jobs Assigned',
+                value: tMetrics.assigned || 0,
+                icon: Briefcase,
+                color: '#3b82f6',
+                subText: 'Assigned to tech'
+            },
+            {
+                label: 'Visits Done',
+                value: tMetrics.visits || 0,
+                icon: TrendingUp,
+                color: '#f59e0b',
+                subText: 'Sites visited'
+            },
+            {
+                label: 'Jobs Closed',
+                value: tMetrics.closed || 0,
+                icon: CheckCircle,
+                color: '#8b5cf6',
+                subText: 'Service closed'
+            }
+        ];
+    }
+
+    const titleText = datePreset === 'today' 
+        ? "Today's Live Performance" 
+        : datePreset === 'yesterday' 
+            ? "Yesterday's Performance" 
+            : `Performance for ${formatDisplayDate(activeDateStr)}`;
 
     return (
         <div style={{
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-primary)',
             borderRadius: 'var(--radius-lg)',
-            padding: 'var(--spacing-md)',
+            padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--spacing-md)'
+            gap: '12px'
         }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
-                <h3 style={{ 
-                    fontSize: 'var(--font-size-lg)', 
-                    fontWeight: 600, 
-                    margin: 0, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '8px' 
+            {/* Header: Title & Controls */}
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+            }}>
+                {/* Top Row: Title + Date Filter Buttons */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px'
                 }}>
-                    ⚡ Today's Live Performance
-                </h3>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                    <select
-                        value={selectedTechId}
-                        onChange={(e) => setSelectedTechId(e.target.value)}
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: 'var(--font-size-sm)',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-primary)',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="all">All Technicians (Combined)</option>
-                        {technicians.map(t => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {datePreset === 'today' ? '⚡' : '📅'} {titleText}
+                        </span>
+                        {datePreset === 'today' && (
+                            <span style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '50%',
+                                backgroundColor: '#10b981',
+                                boxShadow: '0 0 6px #10b981',
+                                display: 'inline-block'
+                            }} title="Live auto-refresh active" />
+                        )}
+                    </div>
+
+                    {/* Date Toggle Pills */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '2px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-primary)',
+                        gap: '2px'
+                    }}>
+                        <button
+                            type="button"
+                            onClick={() => handlePresetChange('today')}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: datePreset === 'today' ? 700 : 500,
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: datePreset === 'today' ? 'var(--color-primary, #6366f1)' : 'transparent',
+                                color: datePreset === 'today' ? '#ffffff' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Today
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => handlePresetChange('yesterday')}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: datePreset === 'yesterday' ? 700 : 500,
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: datePreset === 'yesterday' ? 'var(--color-primary, #6366f1)' : 'transparent',
+                                color: datePreset === 'yesterday' ? '#ffffff' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Yesterday
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => handlePresetChange('custom')}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: datePreset === 'custom' ? 700 : 500,
+                                borderRadius: '6px',
+                                border: 'none',
+                                backgroundColor: datePreset === 'custom' ? 'var(--color-primary, #6366f1)' : 'transparent',
+                                color: datePreset === 'custom' ? '#ffffff' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            Custom
+                        </button>
+                    </div>
+                </div>
+
+                {/* Sub Row: Custom Date Input (if active) + Dropdown Selector + View All */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                        {datePreset === 'custom' && (
+                            <input
+                                type="date"
+                                value={customDate}
+                                onChange={(e) => setCustomDate(e.target.value)}
+                                style={{
+                                    padding: '5px 8px',
+                                    fontSize: '11px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-primary)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            />
+                        )}
+
+                        {/* Dropdown with Combined, Store POS, and Technicians */}
+                        <select
+                            value={selectedTechId}
+                            onChange={(e) => setSelectedTechId(e.target.value)}
+                            style={{
+                                padding: '5px 10px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                minWidth: '170px',
+                                maxWidth: '100%'
+                            }}
+                        >
+                            <option value="all">⚡ All (Combined: Field + Store)</option>
+                            <option value="store_pos">🏪 Store POS Sales</option>
+                            <optgroup label="Field Technicians">
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.id}>🔧 {t.name}</option>
+                                ))}
+                            </optgroup>
+                        </select>
+                    </div>
 
                     <button
                         onClick={() => {
-                            if (typeof window.openPerformanceTracking === 'function') {
+                            if (selectedTechId === 'store_pos') {
+                                if (typeof window.openStorePOSReport === 'function') {
+                                    window.openStorePOSReport();
+                                }
+                            } else if (typeof window.openPerformanceTracking === 'function') {
                                 window.openPerformanceTracking('performance');
                             }
                         }}
                         style={{
-                            padding: '6px 12px',
-                            fontSize: 'var(--font-size-sm)',
-                            fontWeight: 500,
-                            borderRadius: 'var(--radius-md)',
+                            padding: '5px 10px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            borderRadius: '6px',
                             border: '1px solid var(--border-primary)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-primary)',
+                            backgroundColor: selectedTechId === 'store_pos' ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-secondary)',
+                            color: selectedTechId === 'store_pos' ? '#fbbf24' : 'var(--text-primary)',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
                             display: 'flex',
@@ -231,54 +611,110 @@ export default function DashboardLivePerformance() {
                             e.currentTarget.style.color = 'var(--text-primary)';
                         }}
                     >
-                        View All
+                        {selectedTechId === 'store_pos' ? 'Store POS Report ›' : 'Detailed Tracking ›'}
                     </button>
                 </div>
             </div>
 
+            {/* Metrics Cards Grid */}
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '120px', color: 'var(--text-secondary)' }}>
-                    <Loader2 className="animate-spin" size={24} style={{ marginRight: '8px' }} />
-                    Loading metrics...
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '110px', color: 'var(--text-secondary)' }}>
+                    <Loader2 className="spin" size={20} style={{ marginRight: '8px' }} />
+                    <span style={{ fontSize: '12px' }}>Gathering performance metrics...</span>
                 </div>
             ) : (
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: 'var(--spacing-sm)'
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
+                    gap: '10px'
                 }}>
                     {cardData.map((card, idx) => {
                         const Icon = card.icon;
+                        const isRevenueCard = idx === 0;
+
                         return (
                             <div key={idx} style={{
-                                padding: 'var(--spacing-sm) var(--spacing-md)',
+                                padding: '10px 12px',
                                 backgroundColor: 'var(--bg-secondary)',
                                 border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
+                                borderRadius: '10px',
                                 display: 'flex',
-                                alignItems: 'center',
-                                gap: '12px'
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                gap: '6px',
+                                minHeight: '94px',
+                                position: 'relative'
                             }}>
-                                <div style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: 'var(--radius-md)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    backgroundColor: `${card.color}15`,
-                                    color: card.color,
-                                    flexShrink: 0
-                                }}>
-                                    <Icon size={18} />
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 500, letterSpacing: '0.5px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>
                                         {card.label}
                                     </span>
-                                    <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    <div style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        borderRadius: '7px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: `${card.color}15`,
+                                        color: card.color,
+                                        flexShrink: 0
+                                    }}>
+                                        <Icon size={15} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                                         {card.value}
-                                    </span>
+                                    </div>
+
+                                    {/* Channel Split for Combined Revenue */}
+                                    {card.channelSplit && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            color: '#94a3b8',
+                                            fontWeight: 600,
+                                            marginTop: '3px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: '3px'
+                                        }}>
+                                            <span style={{ color: '#38bdf8' }}>🔧 Field: ₹{card.channelSplit.field.toLocaleString('en-IN')}</span>
+                                            <span>•</span>
+                                            <span style={{ color: '#fbbf24' }}>🏪 Store: ₹{card.channelSplit.store.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Payment Mode Split (UPI vs Cash) */}
+                                    {card.paymentSplit && (
+                                        <div style={{
+                                            fontSize: '10px',
+                                            marginTop: '3px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            flexWrap: 'wrap',
+                                            gap: '4px',
+                                            paddingTop: '3px',
+                                            borderTop: '1px solid rgba(255,255,255,0.05)'
+                                        }}>
+                                            <span style={{ color: '#60a5fa', fontWeight: 600 }}>
+                                                📱 UPI: ₹{(card.paymentSplit.upi || 0).toLocaleString('en-IN')}
+                                            </span>
+                                            <span style={{ color: '#64748b' }}>|</span>
+                                            <span style={{ color: '#34d399', fontWeight: 600 }}>
+                                                💵 Cash: ₹{(card.paymentSplit.cash || 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Sub-label for non-revenue cards */}
+                                    {!card.paymentSplit && card.subText && (
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', fontWeight: 500 }}>
+                                            {card.subText}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );

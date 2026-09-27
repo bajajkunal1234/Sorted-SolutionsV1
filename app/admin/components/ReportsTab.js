@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, CalendarClock, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, CalendarClock, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download, Store } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
+import StorePOSReport from './reports/StorePOSReport';
 import DayPlannerTab from './reports/DayPlannerTab';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 
@@ -71,6 +72,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
         { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
         { id: 'incentives', label: 'Performance Tracking', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Track technician daily metrics and target achievements' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
+        { id: 'pos-sales', label: 'Store POS Sales Summary', icon: Store, component: StorePOSReport, color: '#f59e0b', description: 'Frequently sold POS items & quantities, bills, payment modes (UPI vs Cash), and revenue summary' },
         { id: 'inventory-reports', label: 'Inventory Reports', icon: Package, component: InventoryReports, color: '#10b981', description: 'Analyse stock, valuation and product performance by category and brand' },
         { id: 'customer-app', label: 'Customer App', icon: Smartphone, component: CustomerAppSettings, color: '#ec4899', description: 'Manage customer app homepage banners' },
         { id: 'notifications', label: 'Notification Center', icon: Bell, component: NotificationCenter, color: '#f59e0b', description: 'Manage push, WhatsApp notifications, templates and triggers' },
@@ -87,6 +89,8 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     // Create searchable index of all settings
     const searchSuggestions = [
         ...sections.map(s => ({ ...s, type: 'section' })),
+        { id: 'pos-sales', label: 'Frequently Sold POS Items & Quantities', icon: Store, color: '#f59e0b', description: 'Fastest-moving items, quantities and sales analytics', type: 'section' },
+        { id: 'pos-sales', label: 'Store POS Sales Summary', icon: Store, color: '#f59e0b', description: 'Over-the-counter sales, bills, and UPI vs cash split', type: 'section' },
         { id: 'day-planner', label: 'Payment Reminders (Planner)', icon: DollarSign, color: '#10b981', description: 'Schedule and manage payment due dates', type: 'section' },
         { id: 'day-planner', label: 'Visit Reminders (Planner)', icon: CalendarClock, color: '#8b5cf6', description: 'Schedule client, site, and technician visits', type: 'section' },
         ...Object.entries(settingsByCategory).flatMap(([catId, settings]) =>

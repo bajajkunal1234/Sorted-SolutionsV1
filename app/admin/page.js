@@ -142,6 +142,10 @@ export default function AdminApp() {
         window.openPOSModal = () => {
             setShowPOSModal(true);
         }
+        window.openStorePOSReport = () => {
+            setReportsSectionToOpen('pos-sales');
+            setActiveTab('reports');
+        }
         window.openCreatePaymentForm = () => {
             setAccountsFormToOpen('payment-voucher');
             setAccountsSubTabToOpen('payments');
@@ -176,6 +180,7 @@ export default function AdminApp() {
         }
         return () => {
             delete window.openPOSModal
+            delete window.openStorePOSReport
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
             delete window.openTechnicianManagement
