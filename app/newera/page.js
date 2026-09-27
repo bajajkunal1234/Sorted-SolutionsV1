@@ -39,6 +39,8 @@ const DEFAULT_LIABILITY_COLUMNS = [
     { id: 'principal_amount', label: 'Principal', width: 130, visible: true, sortable: true },
     { id: 'interest_rate_annual', label: 'Interest', width: 95, visible: true, sortable: true },
     { id: 'remaining', label: 'Remaining', width: 130, visible: true, sortable: true },
+    { id: 'days_since_start', label: 'Days Since Start', width: 135, visible: true, sortable: true },
+    { id: 'interest_left_to_pay', label: 'Interest Left to Pay', width: 145, visible: true, sortable: true },
     { id: 'emi_amount', label: 'EMI', width: 110, visible: true, sortable: true },
     { id: 'repayment_day', label: 'Repayment Day', width: 130, visible: true, sortable: true },
     { id: 'attachment_url', label: 'Statement', width: 110, visible: true, sortable: false },
@@ -426,6 +428,101 @@ export default function NewEraDashboard() {
         return Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
     };
 
+    const getDaysSinceStart = (startDateStr) => {
+        if (!startDateStr) return 0;
+        const start = new Date(startDateStr);
+        if (isNaN(start.getTime())) return 0;
+        const todayZero = new Date();
+        todayZero.setHours(0, 0, 0, 0);
+        const startZero = new Date(start);
+        startZero.setHours(0, 0, 0, 0);
+        const diffTime = todayZero.getTime() - startZero.getTime();
+        return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
+    };
+
+    const getMarketLoanInterestInfo = (loan, paymentsList) => {
+        if (!loan || loan.loan_type !== 'Business Loan (Market)') {
+            return null;
+        }
+        const annualRate = parseFloat(loan.interest_rate_annual || 0);
+        if (annualRate <= 0 || !loan.start_date) {
+            return {
+                isMarket: true,
+                hasInterest: false,
+                billedCycles: 0,
+                monthlyInterest: 0,
+                totalBilledInterest: 0,
+                totalInterestPaid: 0,
+                interestLeftToPay: 0,
+                startDay: 1
+            };
+        }
+
+        const loanPayments = (paymentsList || data.payments || []).filter(p => p.loan_id === loan.id);
+        const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
+        const remainingPrincipal = Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
+
+        if (remainingPrincipal <= 0.01) {
+            return {
+                isMarket: true,
+                hasInterest: true,
+                billedCycles: 0,
+                monthlyInterest: 0,
+                totalBilledInterest: 0,
+                totalInterestPaid: 0,
+                interestLeftToPay: 0,
+                startDay: 1
+            };
+        }
+
+        const totalInterestPaid = loanPayments.reduce((sum, p) => sum + parseFloat(p.interest_portion || 0), 0);
+
+        const dateParts = String(loan.start_date).split('-').map(Number);
+        if (dateParts.length < 3) {
+            return { isMarket: true, hasInterest: true, interestLeftToPay: 0, billedCycles: 0, monthlyInterest: 0, totalBilledInterest: 0, totalInterestPaid, startDay: 1 };
+        }
+        const [startYear, startMonth, startDay] = dateParts;
+
+        const todayZero = new Date();
+        todayZero.setHours(0, 0, 0, 0);
+
+        let billedCycles = 0;
+        let cycleIndex = 1;
+
+        while (true) {
+            const targetYear = startYear + Math.floor((startMonth - 1 + cycleIndex) / 12);
+            const targetMonth = (startMonth - 1 + cycleIndex) % 12;
+            const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+            const actualDay = Math.min(startDay, daysInMonth);
+            const billDate = new Date(targetYear, targetMonth, actualDay);
+            billDate.setHours(0, 0, 0, 0);
+
+            if (billDate.getTime() <= todayZero.getTime()) {
+                billedCycles++;
+                cycleIndex++;
+            } else {
+                break;
+            }
+        }
+
+        const principalBase = remainingPrincipal > 0 ? remainingPrincipal : parseFloat(loan.principal_amount || 0);
+        const monthlyInterest = Math.round((principalBase * (annualRate / 100)) / 12);
+        const totalBilledInterest = billedCycles * monthlyInterest;
+        const interestLeftToPay = Math.max(0, totalBilledInterest - totalInterestPaid);
+
+        return {
+            isMarket: true,
+            hasInterest: true,
+            billedCycles,
+            monthlyInterest,
+            totalBilledInterest,
+            totalInterestPaid,
+            interestLeftToPay,
+            remainingPrincipal,
+            startDay
+        };
+    };
+
     const getFilteredAndSortedLoans = () => {
         let list = [...data.loans];
 
@@ -473,6 +570,12 @@ export default function NewEraDashboard() {
                         return (parseFloat(a.interest_rate_annual || 0) - parseFloat(b.interest_rate_annual || 0)) * dir;
                     case 'remaining':
                         return (getRemaining(a) - getRemaining(b)) * dir;
+                    case 'days_since_start':
+                        return (getDaysSinceStart(a.start_date) - getDaysSinceStart(b.start_date)) * dir;
+                    case 'interest_left_to_pay':
+                        const aIntr = (getMarketLoanInterestInfo(a, data.payments)?.interestLeftToPay ?? -1);
+                        const bIntr = (getMarketLoanInterestInfo(b, data.payments)?.interestLeftToPay ?? -1);
+                        return (aIntr - bIntr) * dir;
                     case 'emi_amount':
                         return (parseFloat(a.emi_amount || 0) - parseFloat(b.emi_amount || 0)) * dir;
                     case 'repayment_day':
@@ -499,6 +602,22 @@ export default function NewEraDashboard() {
                     return liabilitySortBy === 'remaining_desc' 
                         ? getRemaining(b) - getRemaining(a)
                         : getRemaining(a) - getRemaining(b);
+                }
+                if (liabilitySortBy === 'days_desc') {
+                    return getDaysSinceStart(b.start_date) - getDaysSinceStart(a.start_date);
+                }
+                if (liabilitySortBy === 'days_asc') {
+                    return getDaysSinceStart(a.start_date) - getDaysSinceStart(b.start_date);
+                }
+                if (liabilitySortBy === 'interest_left_desc') {
+                    const aIntr = getMarketLoanInterestInfo(a, data.payments)?.interestLeftToPay ?? -1;
+                    const bIntr = getMarketLoanInterestInfo(b, data.payments)?.interestLeftToPay ?? -1;
+                    return bIntr - aIntr;
+                }
+                if (liabilitySortBy === 'interest_left_asc') {
+                    const aIntr = getMarketLoanInterestInfo(a, data.payments)?.interestLeftToPay ?? -1;
+                    const bIntr = getMarketLoanInterestInfo(b, data.payments)?.interestLeftToPay ?? -1;
+                    return aIntr - bIntr;
                 }
                 return 0;
             });
@@ -888,33 +1007,56 @@ export default function NewEraDashboard() {
         // Case 2: No schedule installment, but loan has annual interest rate
         const annualRate = parseFloat(loan.interest_rate_annual || 0);
         if (annualRate > 0) {
+            const isMarket = loan.loan_type === 'Business Loan (Market)';
+            const marketInfo = isMarket ? getMarketLoanInterestInfo(loan, data.payments) : null;
             const remainingPrincipal = getLoanRemaining(loan);
             const principalBase = remainingPrincipal > 0 ? remainingPrincipal : parseFloat(loan.principal_amount || 0);
             const monthlyInterest = Math.round((principalBase * (annualRate / 100)) / 12);
 
+            const targetInterest = (isMarket && marketInfo && marketInfo.interestLeftToPay > 0)
+                ? marketInfo.interestLeftToPay
+                : monthlyInterest;
+
+            const suggestedAmount = (!amountInput && isMarket && marketInfo && marketInfo.interestLeftToPay > 0)
+                ? String(marketInfo.interestLeftToPay)
+                : effectiveAmount;
+
             let prin = 0;
             let intr = 0;
 
-            if (isNaN(amountNum) || amountNum <= 0) {
+            const currentAmountNum = (amountInput !== undefined && amountInput !== '')
+                ? parseFloat(amountInput)
+                : (suggestedAmount !== '' ? parseFloat(suggestedAmount) : 0);
+
+            if (isNaN(currentAmountNum) || currentAmountNum <= 0) {
                 prin = '';
                 intr = '';
-            } else if (amountNum >= monthlyInterest) {
-                intr = monthlyInterest;
-                prin = amountNum - intr;
+            } else if (currentAmountNum >= targetInterest) {
+                intr = targetInterest;
+                prin = currentAmountNum - intr;
             } else {
-                intr = amountNum;
+                intr = currentAmountNum;
                 prin = 0;
             }
 
             const formattedPrin = prin !== '' ? (Number.isInteger(prin) ? String(prin) : prin.toFixed(2)) : '';
             const formattedIntr = intr !== '' ? (Number.isInteger(intr) ? String(intr) : intr.toFixed(2)) : '';
 
+            let badgeText = `Auto-calculated: ${annualRate}% p.a. on ₹${Math.round(principalBase).toLocaleString('en-IN')} balance = ₹${monthlyInterest.toLocaleString('en-IN')} interest`;
+            if (isMarket && marketInfo) {
+                if (marketInfo.interestLeftToPay > 0) {
+                    badgeText = `⚡ Market Loan: ${marketInfo.billedCycles} cycle(s) billed on Day ${marketInfo.startDay} (${annualRate}% p.a.) — ₹${marketInfo.interestLeftToPay.toLocaleString('en-IN')} interest left to pay`;
+                } else {
+                    badgeText = `⚡ Market Loan: Interest up to date (Paid: ₹${marketInfo.totalInterestPaid.toLocaleString('en-IN')}) — Next monthly interest: ₹${monthlyInterest.toLocaleString('en-IN')}`;
+                }
+            }
+
             return {
                 repayment_id: '',
-                amount: effectiveAmount,
+                amount: suggestedAmount,
                 principal_portion: formattedPrin,
                 interest_portion: formattedIntr,
-                badgeText: `Auto-calculated: ${annualRate}% p.a. on ₹${Math.round(principalBase).toLocaleString('en-IN')} balance = ₹${monthlyInterest.toLocaleString('en-IN')} interest`,
+                badgeText,
                 badgeType: 'formula'
             };
         }
@@ -1548,6 +1690,10 @@ export default function NewEraDashboard() {
                                                 <option value="principal_asc">Principal (Low-High)</option>
                                                 <option value="remaining_desc">Remaining (High-Low)</option>
                                                 <option value="remaining_asc">Remaining (Low-High)</option>
+                                                <option value="days_desc">Days Since Start (High-Low)</option>
+                                                <option value="days_asc">Days Since Start (Low-High)</option>
+                                                <option value="interest_left_desc">Interest Left (High-Low)</option>
+                                                <option value="interest_left_asc">Interest Left (Low-High)</option>
                                             </select>
                                         </div>
 
@@ -1677,6 +1823,31 @@ export default function NewEraDashboard() {
                                                                     ₹{outstanding.toLocaleString('en-IN')}
                                                                 </span>
                                                             </div>
+                                                            <div style={styles.detailBox}>
+                                                                <span style={styles.detailLabel}>Days Since Start</span>
+                                                                <span style={styles.detailVal}>
+                                                                    {loan.start_date ? `${getDaysSinceStart(loan.start_date)} days` : 'N/A'}
+                                                                </span>
+                                                            </div>
+                                                            {loan.loan_type === 'Business Loan (Market)' && (
+                                                                <div style={styles.detailBox}>
+                                                                    <span style={styles.detailLabel}>Interest Left to Pay</span>
+                                                                    {(() => {
+                                                                        const minfo = getMarketLoanInterestInfo(loan, data.payments);
+                                                                        const ileft = minfo ? minfo.interestLeftToPay : 0;
+                                                                        const hasRate = parseFloat(loan.interest_rate_annual || 0) > 0;
+                                                                        return (
+                                                                            <span style={{ 
+                                                                                ...styles.detailVal, 
+                                                                                color: !hasRate ? '#94a3b8' : (ileft > 0 ? '#f59e0b' : '#10b981'), 
+                                                                                fontWeight: '700' 
+                                                                            }}>
+                                                                                {!hasRate ? '₹0' : `₹${ileft.toLocaleString('en-IN')}`}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            )}
                                                         </div>
 
                                                         {/* Member Shares */}
@@ -1833,6 +2004,33 @@ export default function NewEraDashboard() {
                                                                                     return (
                                                                                         <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, color: '#818cf8', fontWeight: '700' }}>
                                                                                             ₹{outstanding.toLocaleString('en-IN')}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'days_since_start':
+                                                                                    const daysSince = getDaysSinceStart(loan.start_date);
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, color: '#cbd5e1' }} title={loan.start_date ? `Start Date: ${loan.start_date}` : 'No start date'}>
+                                                                                            {loan.start_date ? `${daysSince} ${daysSince === 1 ? 'day' : 'days'}` : '—'}
+                                                                                        </td>
+                                                                                    );
+                                                                                case 'interest_left_to_pay':
+                                                                                    const isMarket = loan.loan_type === 'Business Loan (Market)';
+                                                                                    const marketInfo = isMarket ? getMarketLoanInterestInfo(loan, data.payments) : null;
+                                                                                    const hasRate = parseFloat(loan.interest_rate_annual || 0) > 0;
+                                                                                    const intrLeft = marketInfo ? marketInfo.interestLeftToPay : 0;
+
+                                                                                    return (
+                                                                                        <td key={col.id} style={{ 
+                                                                                            width: `${col.width}px`, 
+                                                                                            minWidth: `${col.width}px`, 
+                                                                                            fontWeight: isMarket && hasRate ? '700' : 'normal',
+                                                                                            color: !isMarket ? '#64748b' : (!hasRate ? '#94a3b8' : (intrLeft > 0 ? '#f59e0b' : '#10b981'))
+                                                                                        }} title={
+                                                                                            isMarket && hasRate && marketInfo
+                                                                                                ? `${marketInfo.billedCycles} bill cycle(s) on Day ${marketInfo.startDay} (Total: ₹${marketInfo.totalBilledInterest.toLocaleString('en-IN')}) — Paid: ₹${marketInfo.totalInterestPaid.toLocaleString('en-IN')}`
+                                                                                                : undefined
+                                                                                        }>
+                                                                                            {!isMarket ? '—' : (!hasRate ? '₹0' : `₹${intrLeft.toLocaleString('en-IN')}`)}
                                                                                         </td>
                                                                                     );
                                                                                 case 'emi_amount':
