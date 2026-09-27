@@ -6,10 +6,10 @@ import { accountsAPI } from '@/lib/adminAPI';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 // onChange receives the full account object (not just the id)
-function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', label = 'Account' }) {
+function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', label = 'Account', initialAccountName = '' }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(() => initialAccountName || '');
     const [showDropdown, setShowDropdown] = useState(false);
     const [dropdownSearch, setDropdownSearch] = useState('');
     const dropdownRef = useRef(null);
@@ -33,25 +33,35 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
         fetchAccounts();
     }, [accountType]);
 
-    // Automatically re-fetch accounts if value is defined but not present in our loaded list
+    // Automatically fetch specific account by ID if value is defined but not present in our loaded list (e.g. Cash-in-hand / Google Pay / Bank accounts)
     useEffect(() => {
-        if (value && fetchedForValueRef.current !== value && accounts.length > 0 && !accounts.some(acc => acc.id === value)) {
-            fetchedForValueRef.current = value;
-            const fetchAccounts = async () => {
-                try {
-                    setLoading(true);
-                    const typeParam = accountType === 'all' ? '' : accountType;
-                    const data = await accountsAPI.getAll(typeParam);
-                    setAccounts(data || []);
-                } catch (err) {
-                    console.error('Error re-fetching accounts for selector:', err);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            fetchAccounts();
+        if (!value) return;
+
+        if (fetchedForValueRef.current !== value) {
+            // If already present in loaded accounts, nothing more needed
+            if (accounts.some(acc => acc.id === value)) {
+                fetchedForValueRef.current = value;
+                return;
+            }
+
+            // If accounts have finished initial loading, or if not found yet, fetch by ID
+            if (!loading || accounts.length > 0) {
+                fetchedForValueRef.current = value;
+                accountsAPI.getById(value).then(res => {
+                    const specificAcc = res?.data || res;
+                    if (specificAcc && specificAcc.id) {
+                        setAccounts(prev => {
+                            if (prev.some(a => a.id === specificAcc.id)) return prev;
+                            return [specificAcc, ...prev];
+                        });
+                        setSearchTerm(specificAcc.name || initialAccountName);
+                    }
+                }).catch(err => {
+                    console.warn('Could not fetch specific account by ID in selector:', err);
+                });
+            }
         }
-    }, [value, accounts, accountType]);
+    }, [value, accounts, loading, initialAccountName]);
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -71,10 +81,12 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
     useEffect(() => {
         if (selectedAccount) {
             setSearchTerm(selectedAccount.name);
+        } else if (initialAccountName && !searchTerm) {
+            setSearchTerm(initialAccountName);
         } else if (!value) {
             setSearchTerm('');
         }
-    }, [value, selectedAccount]);
+    }, [value, selectedAccount, initialAccountName]);
 
     const getAccountTypeBadge = (type) => {
         const badges = {

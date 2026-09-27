@@ -141,6 +141,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, saving = false }
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType="customer"
                                 label="Received From"
+                                initialAccountName={formData.account_name}
                             />
                         </div>
 

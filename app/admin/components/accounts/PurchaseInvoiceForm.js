@@ -418,8 +418,9 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
                                 value={formData.account_id}
                                 onChange={handleAccountChange}
                                 onCreateNew={() => setShowNewAccountForm(true)}
-                                accountType="vendor"
+                                accountType="purchase"
                                 label="Account"
+                                initialAccountName={formData.account_name}
                             />
                         </div>
                         <div>

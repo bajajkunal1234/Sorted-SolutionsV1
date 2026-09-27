@@ -109,8 +109,14 @@ export async function GET(request) {
             if (type && type !== 'all') {
                 if (type === 'customer') {
                     dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%');
+                } else if (type === 'sales' || type === 'sales_party') {
+                    dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%,type.eq.cash,under.ilike.%cash%,type.eq.bank,under.ilike.%bank%');
                 } else if (type === 'supplier' || type === 'vendor') {
                     dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%');
+                } else if (type === 'purchase' || type === 'purchase_party') {
+                    dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%,type.eq.cash,under.ilike.%cash%,type.eq.bank,under.ilike.%bank%');
+                } else if (type === 'payment_method') {
+                    dropdownQuery = dropdownQuery.or('type.eq.bank,type.eq.cash,under.ilike.%bank%,under.ilike.%cash%');
                 } else {
                     dropdownQuery = dropdownQuery.eq('type', type);
                 }
@@ -135,8 +141,12 @@ export async function GET(request) {
         if (type && type !== 'all') {
             if (type === 'customer') {
                 query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%')
+            } else if (type === 'sales' || type === 'sales_party') {
+                query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%,type.eq.cash,under.ilike.%cash%,type.eq.bank,under.ilike.%bank%')
             } else if (type === 'supplier' || type === 'vendor') {
                 query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%')
+            } else if (type === 'purchase' || type === 'purchase_party') {
+                query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%,type.eq.cash,under.ilike.%cash%,type.eq.bank,under.ilike.%bank%')
             } else if (type === 'technician') {
                 query = query.or('type.eq.technician,under.ilike.%technician%,under.ilike.%creditor%')
             } else if (type === 'payment_method') {
