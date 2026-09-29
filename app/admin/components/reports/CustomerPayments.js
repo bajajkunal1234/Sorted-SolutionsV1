@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon, Banknote, QrCode, LayoutGrid, List } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon, Banknote, QrCode, LayoutGrid, List, ChevronRight, ChevronLeft, ArrowUpRight, Eye, Building, Check, X, AlertTriangle } from 'lucide-react';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 
 // Helper component to display live Razorpay status
@@ -62,6 +62,11 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
     const [loading, setLoading] = useState(true);
     const [submittingId, setSubmittingId] = useState(null);
     const [editingReceipt, setEditingReceipt] = useState(null);
+    const [handovers, setHandovers] = useState([]);
+    const [selectedTechnicianLedger, setSelectedTechnicianLedger] = useState(null);
+    const [verifyingHandoverId, setVerifyingHandoverId] = useState(null);
+    const [viewingDepositSlip, setViewingDepositSlip] = useState(null);
+    const [ledgerTab, setLedgerTab] = useState('handovers'); // 'handovers' | 'receipts'
     const [viewMode, setViewMode] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('customer_payments_view_mode') || 'grid';
@@ -82,6 +87,18 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
         localStorage.setItem('customer_payments_view_mode', mode);
     };
 
+    const loadHandovers = async () => {
+        try {
+            const res = await fetch('/api/technician/cash-handovers');
+            const data = await res.json();
+            if (data.success) {
+                setHandovers(data.handovers || []);
+            }
+        } catch (err) {
+            console.error("Failed to load cash handovers:", err);
+        }
+    };
+
     const loadPendingPayments = async () => {
         setLoading(true);
         try {
@@ -95,10 +112,92 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
         } finally {
             setLoading(false);
         }
+        loadHandovers();
+    };
+
+    const handleVerifyHandover = async (handover) => {
+        if (!window.confirm(`Are you sure you want to verify this cash handover of ₹${handover.amount} from ${handover.technician_name}?`)) return;
+
+        setVerifyingHandoverId(handover.id);
+        try {
+            const res = await fetch('/api/technician/cash-handovers', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: handover.id,
+                    status: 'verified',
+                    verified_by: 'Admin'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Handover verified successfully!');
+                loadHandovers();
+            } else {
+                throw new Error(data.error || 'Failed to verify handover');
+            }
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setVerifyingHandoverId(null);
+        }
+    };
+
+    const handleRejectHandover = async (handover) => {
+        if (!window.confirm(`Are you sure you want to REJECT this cash handover of ₹${handover.amount}?`)) return;
+
+        setVerifyingHandoverId(handover.id);
+        try {
+            const res = await fetch('/api/technician/cash-handovers', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: handover.id,
+                    status: 'rejected',
+                    verified_by: 'Admin'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Handover marked as rejected.');
+                loadHandovers();
+            } else {
+                throw new Error(data.error || 'Failed to reject handover');
+            }
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setVerifyingHandoverId(null);
+        }
+    };
+
+    const handleSettleBatch = async (techId) => {
+        if (!window.confirm('Are you sure you want to mark all active handovers for this technician as settled?')) return;
+        try {
+            const res = await fetch('/api/technician/cash-handovers', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'settle_all',
+                    technician_id: techId
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('All active handovers in this cycle marked as settled!');
+                loadHandovers();
+                loadPendingPayments();
+            } else {
+                throw new Error(data.error || 'Failed to settle batch');
+            }
+        } catch (err) {
+            alert(`Error: ${err.message}`);
+        }
     };
 
     useEffect(() => {
         loadPendingPayments();
+        loadHandovers();
     }, []);
 
     const filteredPayments = payments.filter(p => {
@@ -298,40 +397,106 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
             {/* Technician Breakdown Cards */}
             {(() => {
                 const cashPayments = payments.filter(p => (p.payment_mode || '').toLowerCase() === 'cash');
-                const techSums = {};
+                const techMap = {};
+
+                // Group pending cash receipts
                 cashPayments.forEach(p => {
-                    const tech = p.created_by || 'Unknown';
-                    techSums[tech] = (techSums[tech] || 0) + (parseFloat(p.amount) || 0);
+                    const tech = p.jobs?.technician_name || p.created_by || getCollectorName(p);
+                    const techId = p.jobs?.technician_id || null;
+                    if (!techMap[tech]) {
+                        techMap[tech] = { name: tech, id: techId, collected: 0, handedOver: 0, receipts: [], handovers: [] };
+                    }
+                    if (techId && !techMap[tech].id) techMap[tech].id = techId;
+                    techMap[tech].collected += (parseFloat(p.amount) || 0);
+                    techMap[tech].receipts.push(p);
                 });
 
-                if (Object.keys(techSums).length === 0) return null;
+                // Group active handovers (status != 'rejected' and !is_settled)
+                (handovers || []).forEach(h => {
+                    if (h.status === 'rejected' || h.is_settled) return;
+                    const tech = h.technician_name || 'Unknown';
+                    if (!techMap[tech]) {
+                        techMap[tech] = { name: tech, id: h.technician_id, collected: 0, handedOver: 0, receipts: [], handovers: [] };
+                    }
+                    if (h.technician_id && !techMap[tech].id) techMap[tech].id = h.technician_id;
+                    techMap[tech].handedOver += (parseFloat(h.amount) || 0);
+                    techMap[tech].handovers.push(h);
+                });
+
+                if (Object.keys(techMap).length === 0) return null;
 
                 return (
                     <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <User size={14} /> Cash Collected by Technician
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <User size={14} /> Cash Collected by Technician
+                            </div>
+                            <span style={{ fontSize: '10px', color: 'var(--color-primary)', textTransform: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                💡 Click technician card to view cash ledger, review CDM slips & post transactions
+                            </span>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
-                            {Object.entries(techSums).map(([techName, sum]) => (
-                                <div key={techName} className="card" style={{ 
-                                    padding: '10px 14px', 
-                                    backgroundColor: 'var(--bg-elevated)', 
-                                    border: '1px solid var(--border-primary)', 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
-                                    gap: '2px', 
-                                    borderRadius: 'var(--radius-md)',
-                                    minWidth: '140px',
-                                    flex: isMobile ? '1 1 calc(50% - 8px)' : '0 1 auto'
-                                }}>
-                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {techName}
-                                    </span>
-                                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#f59e0b' }}>
-                                        ₹{sum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </span>
-                                </div>
-                            ))}
+                            {Object.entries(techMap).map(([techName, data]) => {
+                                const netBalance = data.collected - data.handedOver;
+                                return (
+                                    <div 
+                                        key={techName} 
+                                        className="card" 
+                                        onClick={() => {
+                                            setSelectedTechnicianLedger(data);
+                                            setLedgerTab('handovers');
+                                        }}
+                                        style={{ 
+                                            padding: '12px 16px', 
+                                            backgroundColor: 'var(--bg-elevated)', 
+                                            border: '1.5px solid var(--border-primary)', 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            gap: '4px', 
+                                            borderRadius: 'var(--radius-md)',
+                                            minWidth: '180px',
+                                            cursor: 'pointer',
+                                            flex: isMobile ? '1 1 calc(50% - 8px)' : '0 1 auto',
+                                            transition: 'transform 0.15s, border-color 0.15s, box-shadow 0.15s',
+                                            boxShadow: 'var(--shadow-sm)'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.borderColor = '#10b981';
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.15)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                        }}
+                                        title="Click to open Cash Handover Ledger"
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {techName}
+                                            </span>
+                                            <ChevronRight size={14} color="var(--text-tertiary)" />
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                            <span style={{ fontSize: '16px', fontWeight: 800, color: netBalance > 0 ? '#f59e0b' : (netBalance < 0 ? '#ef4444' : '#10b981') }}>
+                                                ₹{netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                in hand
+                                            </span>
+                                        </div>
+
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-primary)', paddingTop: '4px', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                                            <span>Coll: ₹{data.collected.toLocaleString('en-IN')}</span>
+                                            {data.handedOver > 0 && (
+                                                <span style={{ color: '#3b82f6', fontWeight: 600 }}>Handed: ₹{data.handedOver.toLocaleString('en-IN')}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 );
@@ -741,6 +906,529 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                             })}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Technician Cash Ledger Modal */}
+            {selectedTechnicianLedger && (() => {
+                const techName = selectedTechnicianLedger.name;
+                const techId = selectedTechnicianLedger.id;
+                
+                const techReceipts = payments.filter(p => 
+                    (p.payment_mode || '').toLowerCase() === 'cash' && 
+                    ((techId && p.jobs?.technician_id === techId) || (p.jobs?.technician_name === techName) || (p.created_by === techName) || getCollectorName(p) === techName)
+                );
+
+                const techHandovers = handovers.filter(h => 
+                    (techId && h.technician_id === techId) || (h.technician_name === techName)
+                );
+
+                const totalCollected = techReceipts.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                const totalHandedOver = techHandovers.filter(h => h.status !== 'rejected' && !h.is_settled).reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                const netBalance = totalCollected - totalHandedOver;
+
+                return (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                        backdropFilter: 'blur(6px)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: isMobile ? '8px' : '20px'
+                    }}>
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '900px',
+                            maxHeight: '92vh',
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '16px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                        }}>
+                            {/* Modal Header */}
+                            <div style={{
+                                padding: '16px 20px',
+                                borderBottom: '1px solid var(--border-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--bg-primary)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
+                                        <Banknote size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                            {techName} — Cash Handover Ledger
+                                        </h3>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            Operational Tracking Ledger · Decoupled from core accounts
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setSelectedTechnicianLedger(null)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        padding: '6px',
+                                        borderRadius: '6px'
+                                    }}
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Summary Metrics Bar */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)',
+                                gap: '10px',
+                                padding: '14px 20px',
+                                backgroundColor: 'var(--bg-secondary)',
+                                borderBottom: '1px solid var(--border-primary)'
+                            }}>
+                                <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Collected (Pending)</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                                        ₹{totalCollected.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{techReceipts.length} customer receipts</div>
+                                </div>
+
+                                <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Handed Over</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#3b82f6', marginTop: '2px' }}>
+                                        ₹{totalHandedOver.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{techHandovers.length} handover entries</div>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: netBalance > 0 ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-elevated)',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px',
+                                    border: netBalance > 0 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-primary)',
+                                    gridColumn: isMobile ? 'span 2' : 'auto'
+                                }}>
+                                    <div style={{ fontSize: '11px', color: netBalance > 0 ? '#f59e0b' : 'var(--text-secondary)', fontWeight: 700 }}>Net Cash in Hand</div>
+                                    <div style={{ fontSize: '20px', fontWeight: 800, color: netBalance > 0 ? '#f59e0b' : (netBalance < 0 ? '#ef4444' : '#10b981'), marginTop: '2px' }}>
+                                        ₹{netBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                        {netBalance === 0 ? 'Fully settled' : (netBalance > 0 ? 'Pending handover to company' : 'Excess deposited')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Tabs Navigation */}
+                            <div style={{ display: 'flex', padding: '0 20px', borderBottom: '1px solid var(--border-primary)', gap: '16px', backgroundColor: 'var(--bg-primary)' }}>
+                                <button
+                                    onClick={() => setLedgerTab('handovers')}
+                                    style={{
+                                        padding: '12px 4px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: ledgerTab === 'handovers' ? '2.5px solid #3b82f6' : '2.5px solid transparent',
+                                        color: ledgerTab === 'handovers' ? '#3b82f6' : 'var(--text-secondary)',
+                                        fontSize: '13px',
+                                        fontWeight: ledgerTab === 'handovers' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <Building size={15} />
+                                    Cash Handovers & CDM Receipts ({techHandovers.length})
+                                </button>
+                                <button
+                                    onClick={() => setLedgerTab('receipts')}
+                                    style={{
+                                        padding: '12px 4px',
+                                        background: 'none',
+                                        border: 'none',
+                                        borderBottom: ledgerTab === 'receipts' ? '2.5px solid #6366f1' : '2.5px solid transparent',
+                                        color: ledgerTab === 'receipts' ? '#6366f1' : 'var(--text-secondary)',
+                                        fontSize: '13px',
+                                        fontWeight: ledgerTab === 'receipts' ? 700 : 500,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                    }}
+                                >
+                                    <Edit size={15} />
+                                    Pending Receipts to Review & Post ({techReceipts.length})
+                                </button>
+                            </div>
+
+                            {/* Tab Content */}
+                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px' }}>
+                                {ledgerTab === 'handovers' ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {techHandovers.length === 0 ? (
+                                            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                                No cash handovers recorded yet for {techName}.
+                                            </div>
+                                        ) : (
+                                            techHandovers.map(h => {
+                                                const hDate = new Date(h.created_at || h.date);
+                                                const isBank = h.handover_type === 'bank_deposit';
+                                                const isBusy = verifyingHandoverId === h.id;
+
+                                                return (
+                                                    <div
+                                                        key={h.id}
+                                                        style={{
+                                                            padding: '12px 16px',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            borderRadius: '10px',
+                                                            display: 'flex',
+                                                            flexDirection: isMobile ? 'column' : 'row',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: isMobile ? 'flex-start' : 'center',
+                                                            gap: '12px'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <div style={{
+                                                                width: '38px',
+                                                                height: '38px',
+                                                                borderRadius: '8px',
+                                                                backgroundColor: isBank ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                                                color: isBank ? '#3b82f6' : '#10b981',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {isBank ? <Building size={18} /> : <User size={18} />}
+                                                            </div>
+
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                        {isBank ? 'CDM Bank Deposit' : `In-Person Handover to ${h.handover_to || 'Admin'}`}
+                                                                    </span>
+                                                                    <span style={{
+                                                                        fontSize: '10px',
+                                                                        fontWeight: 700,
+                                                                        padding: '2px 6px',
+                                                                        borderRadius: '4px',
+                                                                        textTransform: 'uppercase',
+                                                                        backgroundColor: h.status === 'verified' ? 'rgba(16, 185, 129, 0.15)' : (h.status === 'rejected' ? 'rgba(239, 68, 68, 0.15)' : (h.status === 'settled' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)')),
+                                                                        color: h.status === 'verified' ? '#10b981' : (h.status === 'rejected' ? '#ef4444' : (h.status === 'settled' ? '#8b5cf6' : '#f59e0b'))
+                                                                    }}>
+                                                                        {h.status}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                                    <span>{hDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at {hDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                                                                    {isBank && <span>• A/c 50200068074298</span>}
+                                                                    {h.verified_by && <span>• Verified by {h.verified_by}</span>}
+                                                                </div>
+
+                                                                {h.notes && (
+                                                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '4px' }}>
+                                                                        "{h.notes}"
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end', borderTop: isMobile ? '1px solid var(--border-primary)' : 'none', paddingTop: isMobile ? '8px' : '0' }}>
+                                                            {h.receipt_url && (
+                                                                <button
+                                                                    onClick={() => setViewingDepositSlip(h.receipt_url)}
+                                                                    style={{
+                                                                        background: 'none',
+                                                                        border: '1px solid var(--border-primary)',
+                                                                        borderRadius: '6px',
+                                                                        padding: '6px 10px',
+                                                                        color: 'var(--color-primary)',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                >
+                                                                    <Eye size={13} /> View Slip
+                                                                </button>
+                                                            )}
+
+                                                            <div style={{ fontSize: '17px', fontWeight: 800, color: '#3b82f6' }}>
+                                                                ₹{(parseFloat(h.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                            </div>
+
+                                                            {h.status === 'submitted' && (
+                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                    <button
+                                                                        onClick={() => handleVerifyHandover(h)}
+                                                                        disabled={isBusy}
+                                                                        style={{
+                                                                            backgroundColor: '#10b981',
+                                                                            color: 'white',
+                                                                            border: 'none',
+                                                                            borderRadius: '6px',
+                                                                            padding: '6px 10px',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: 700,
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px'
+                                                                        }}
+                                                                        title="Acknowledge cash received"
+                                                                    >
+                                                                        <Check size={12} /> Verify
+                                                                    </button>
+
+                                                                    <button
+                                                                        onClick={() => handleRejectHandover(h)}
+                                                                        disabled={isBusy}
+                                                                        style={{
+                                                                            backgroundColor: 'transparent',
+                                                                            color: '#ef4444',
+                                                                            border: '1px solid #ef4444',
+                                                                            borderRadius: '6px',
+                                                                            padding: '6px 8px',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: 600,
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                        title="Reject handover"
+                                                                    >
+                                                                        <X size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {techReceipts.length === 0 ? (
+                                            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                                🎉 All customer receipts for {techName} have been verified and posted!
+                                            </div>
+                                        ) : (
+                                            techReceipts.map(payment => {
+                                                const propData = payment.jobs?.property;
+                                                const locality = propData?.locality || propData?.city || 'Customer site';
+                                                const isBusy = submittingId === payment.id;
+
+                                                return (
+                                                    <div
+                                                        key={payment.id}
+                                                        style={{
+                                                            padding: '12px 16px',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            borderRadius: '10px',
+                                                            display: 'flex',
+                                                            flexDirection: isMobile ? 'column' : 'row',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: isMobile ? 'flex-start' : 'center',
+                                                            gap: '12px'
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                    {payment.account_name || payment.jobs?.customer_name || 'Customer'}
+                                                                </span>
+                                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                                    {payment.jobs?.job_number || payment.reference_number || 'General'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                                <span>{new Date(payment.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                                <span>• {payment.receipt_number}</span>
+                                                                <span>• {locality}</span>
+                                                                {payment.jobs?.appliance && <span>• {payment.jobs.appliance}</span>}
+                                                            </div>
+
+                                                            {payment.narration && (
+                                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: '2px' }}>
+                                                                    "{payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end', borderTop: isMobile ? '1px solid var(--border-primary)' : 'none', paddingTop: isMobile ? '8px' : '0' }}>
+                                                            <div style={{ fontSize: '17px', fontWeight: 800, color: '#10b981' }}>
+                                                                ₹{(parseFloat(payment.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                                                <button
+                                                                    onClick={() => handleReject(payment)}
+                                                                    disabled={isBusy}
+                                                                    style={{
+                                                                        padding: '6px 8px',
+                                                                        backgroundColor: 'transparent',
+                                                                        color: 'var(--error)',
+                                                                        border: '1px solid var(--error)',
+                                                                        borderRadius: '6px',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                    title="Reject receipt"
+                                                                >
+                                                                    <XCircle size={14} />
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => setEditingReceipt(payment)}
+                                                                    disabled={isBusy}
+                                                                    style={{
+                                                                        padding: '6px 12px',
+                                                                        backgroundColor: '#6366f1',
+                                                                        border: 'none',
+                                                                        borderRadius: '6px',
+                                                                        color: 'white',
+                                                                        fontSize: '12px',
+                                                                        fontWeight: 700,
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '4px'
+                                                                    }}
+                                                                    title="Open form to link invoices and verify into accounts"
+                                                                >
+                                                                    <Edit size={13} /> Review & Post
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div style={{
+                                padding: '12px 20px',
+                                borderTop: '1px solid var(--border-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: 'var(--bg-primary)'
+                            }}>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Technician: <strong>{techName}</strong>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {techHandovers.some(h => h.status !== 'rejected' && !h.is_settled) && (
+                                        <button
+                                            onClick={() => handleSettleBatch(techId)}
+                                            style={{
+                                                padding: '8px 14px',
+                                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                                color: '#8b5cf6',
+                                                borderRadius: '8px',
+                                                fontSize: '12px',
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Mark verified handovers as settled to close this cycle"
+                                        >
+                                            Settle Cycle Handovers
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setSelectedTechnicianLedger(null)}
+                                        style={{
+                                            padding: '8px 16px',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border-primary)',
+                                            color: 'var(--text-primary)',
+                                            borderRadius: '8px',
+                                            fontSize: '12px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Deposit Slip Lightbox Preview */}
+            {viewingDepositSlip && (
+                <div
+                    onClick={() => setViewingDepositSlip(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        zIndex: 10000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px'
+                    }}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                            onClick={() => setViewingDepositSlip(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '-40px',
+                                right: '0',
+                                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                padding: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <X size={20} />
+                        </button>
+                        <img
+                            src={viewingDepositSlip}
+                            alt="Deposit slip"
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '85vh',
+                                objectFit: 'contain',
+                                borderRadius: '8px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                            }}
+                        />
+                    </div>
                 </div>
             )}
 

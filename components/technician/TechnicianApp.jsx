@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download, RefreshCw } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Play, Power, Loader2, Mail, Map, Download, RefreshCw, CheckCircle, Check, Copy, ArrowUpRight, ArrowDownLeft, Building, CreditCard, Camera, Upload, Eye } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
@@ -606,6 +606,19 @@ function TechnicianApp() {
     const [showCollectPayment, setShowCollectPayment] = useState(false);
     const [showCashFlowModal, setShowCashFlowModal] = useState(false);
     const [pendingCashPayments, setPendingCashPayments] = useState([]);
+    const [cashHandovers, setCashHandovers] = useState([]);
+    const [showHandoverModal, setShowHandoverModal] = useState(false);
+    const [handoverType, setHandoverType] = useState('bank_deposit'); // 'bank_deposit' | 'in_person'
+    const [handoverAmount, setHandoverAmount] = useState('');
+    const [handoverTo, setHandoverTo] = useState('');
+    const [handoverReceiptUrl, setHandoverReceiptUrl] = useState('');
+    const [handoverReceiptPhoto, setHandoverReceiptPhoto] = useState(null);
+    const [handoverNotes, setHandoverNotes] = useState('');
+    const [submittingHandover, setSubmittingHandover] = useState(false);
+    const [uploadingReceipt, setUploadingReceipt] = useState(false);
+    const [copiedAccountNo, setCopiedAccountNo] = useState(false);
+    const [viewingHandoverReceipt, setViewingHandoverReceipt] = useState(null);
+    const [cashFlowTab, setCashFlowTab] = useState('all'); // 'all' | 'collections' | 'handovers'
     const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [stock, setStock] = useState([]);
@@ -1500,6 +1513,21 @@ function TechnicianApp() {
         }
     };
 
+    const fetchCashHandovers = async () => {
+        if (!technicianId) return;
+        try {
+            const response = await apiCall(`/api/technician/cash-handovers?technicianId=${technicianId}&unsettled_only=true&t=${Date.now()}`);
+            if (response.ok) {
+                const json = await response.json();
+                if (json.success) {
+                    setCashHandovers(json.handovers || []);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching cash handovers:', err);
+        }
+    };
+
     const fetchPendingCashPayments = async () => {
         if (!technicianId) return;
         try {
@@ -1512,6 +1540,103 @@ function TechnicianApp() {
             }
         } catch (err) {
             console.error('Error fetching pending cash payments:', err);
+        }
+        fetchCashHandovers();
+    };
+
+    const handleReceiptPhotoSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setHandoverReceiptPhoto(file);
+        setUploadingReceipt(true);
+        try {
+            const uploadData = new FormData();
+            uploadData.append('file', file);
+            uploadData.append('folder', 'cash_handovers');
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: uploadData
+            });
+
+            if (uploadRes.ok) {
+                const resJson = await uploadRes.json();
+                if (resJson.success && resJson.url) {
+                    setHandoverReceiptUrl(resJson.url);
+                    setUploadingReceipt(false);
+                    return;
+                }
+            }
+
+            const fallbackUrl = await uploadOrQueueFile(file, `cdm_receipt_${Date.now()}.jpg`);
+            if (fallbackUrl) {
+                setHandoverReceiptUrl(fallbackUrl);
+            }
+        } catch (uploadErr) {
+            console.error('Error uploading CDM receipt:', uploadErr);
+            alert('Failed to upload receipt photo. You can still submit or retry.');
+        } finally {
+            setUploadingReceipt(false);
+        }
+    };
+
+    const handleSubmitHandover = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        const amt = parseFloat(handoverAmount);
+        if (isNaN(amt) || amt <= 0) {
+            alert('Please enter a valid amount greater than 0.');
+            return;
+        }
+
+        if (handoverType === 'in_person' && (!handoverTo || !handoverTo.trim())) {
+            alert('Please enter the name of the person you handed over the cash to.');
+            return;
+        }
+
+        if (handoverType === 'bank_deposit' && !handoverReceiptUrl && !handoverReceiptPhoto) {
+            if (!window.confirm('No CDM receipt photo attached. Do you want to submit anyway?')) {
+                return;
+            }
+        }
+
+        setSubmittingHandover(true);
+        try {
+            const body = {
+                technician_id: technicianId,
+                technician_name: technicianData?.name || 'Technician',
+                amount: amt,
+                handover_type: handoverType,
+                handover_to: handoverType === 'in_person' ? handoverTo.trim() : null,
+                receipt_url: handoverReceiptUrl || null,
+                notes: handoverNotes ? handoverNotes.trim() : null,
+                date: new Date().toISOString().split('T')[0]
+            };
+
+            const response = await apiCall('/api/technician/cash-handovers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert(`Cash handover of ₹${amt.toLocaleString('en-IN')} submitted successfully!`);
+                setShowHandoverModal(false);
+                setHandoverAmount('');
+                setHandoverTo('');
+                setHandoverReceiptUrl('');
+                setHandoverReceiptPhoto(null);
+                setHandoverNotes('');
+                fetchPendingCashPayments();
+            } else {
+                throw new Error(data.error || 'Failed to submit handover');
+            }
+        } catch (err) {
+            console.error('Error submitting cash handover:', err);
+            alert(`Error: ${err.message}`);
+        } finally {
+            setSubmittingHandover(false);
         }
     };
 
@@ -3723,142 +3848,443 @@ function TechnicianApp() {
     };
 
     const renderCashFlowView = () => {
+        const totalPendingCash = pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const totalHandedOverCash = cashHandovers.filter(h => h.status !== 'rejected').reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+        const netCashBalanceInHand = totalPendingCash - totalHandedOverCash;
+
         return (
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
                 {/* Header Row (Sticky/Frozen) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', flexShrink: 0 }}>
-                    <button 
-                        onClick={() => setShowCashFlowModal(false)} 
-                        style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            cursor: 'pointer', 
-                            color: 'var(--text-primary)', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center',
-                            padding: '4px' 
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button 
+                            onClick={() => setShowCashFlowModal(false)} 
+                            style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--text-primary)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                padding: '4px' 
+                            }}
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+                        <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
+                            <DollarSign size={20} color="#10b981" /> Cash Flow & Handover
+                        </h3>
+                    </div>
+
+                    <button
+                        onClick={() => setShowHandoverModal(true)}
+                        style={{
+                            backgroundColor: '#10b981',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '8px 14px',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
                         }}
                     >
-                        <ChevronLeft size={24} />
+                        <ArrowUpRight size={16} /> Handover Cash
                     </button>
-                    <h3 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: 'var(--text-primary)' }}>
-                        <DollarSign size={20} color="#10b981" /> Cash Flow Details
-                    </h3>
                 </div>
 
                 {/* Scrollable Content */}
-                <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', justifyContent: 'flex-start' }}>
-                    {/* Summary Card */}
+                <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: '120px', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', justifyContent: 'flex-start' }}>
+                    
+                    {/* Summary Cards Grid */}
                     <div style={{
-                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                        border: '1px solid rgba(16, 185, 129, 0.2)',
-                        borderRadius: '8px',
-                        padding: '12px 16px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                        gap: '10px'
                     }}>
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>Total Cash to Handover:</span>
-                        <span style={{ fontSize: '20px', fontWeight: 700, color: '#10b981' }}>
-                            ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+                        {/* Total Collected */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '10px',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                        }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Cash Collected</span>
+                            <span style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                ₹{totalPendingCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{pendingCashPayments.length} customer receipts</span>
+                        </div>
+
+                        {/* Handed Over */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '10px',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                        }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Handed Over</span>
+                            <span style={{ fontSize: '17px', fontWeight: 800, color: '#3b82f6' }}>
+                                ₹{totalHandedOverCash.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{cashHandovers.length} handover entries</span>
+                        </div>
+
+                        {/* Net Balance in Hand */}
+                        <div style={{
+                            backgroundColor: netCashBalanceInHand > 0 ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-elevated)',
+                            border: netCashBalanceInHand > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border-primary)',
+                            borderRadius: '10px',
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                        }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: netCashBalanceInHand > 0 ? '#10b981' : 'var(--text-secondary)' }}>Net Cash in Hand</span>
+                            <span style={{ fontSize: '18px', fontWeight: 800, color: netCashBalanceInHand > 0 ? '#10b981' : (netCashBalanceInHand < 0 ? '#ef4444' : 'var(--text-secondary)') }}>
+                                ₹{netCashBalanceInHand.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Balance to settle</span>
+                        </div>
                     </div>
 
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
-                        Handover this cash to the service center at the end of your shift. Once the admin verifies and posts the receipt, these entries will vanish.
-                    </p>
+                    {/* Filter Segmented Control */}
+                    <div style={{ display: 'flex', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                        <button
+                            onClick={() => setCashFlowTab('all')}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: cashFlowTab === 'all' ? 700 : 500,
+                                backgroundColor: cashFlowTab === 'all' ? 'var(--bg-elevated)' : 'transparent',
+                                color: cashFlowTab === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            All Records ({pendingCashPayments.length + cashHandovers.length})
+                        </button>
+                        <button
+                            onClick={() => setCashFlowTab('handovers')}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: cashFlowTab === 'handovers' ? 700 : 500,
+                                backgroundColor: cashFlowTab === 'handovers' ? 'var(--bg-elevated)' : 'transparent',
+                                color: cashFlowTab === 'handovers' ? '#3b82f6' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Handovers ({cashHandovers.length})
+                        </button>
+                        <button
+                            onClick={() => setCashFlowTab('collections')}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: cashFlowTab === 'collections' ? 700 : 500,
+                                backgroundColor: cashFlowTab === 'collections' ? 'var(--bg-elevated)' : 'transparent',
+                                color: cashFlowTab === 'collections' ? '#10b981' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            Collections ({pendingCashPayments.length})
+                        </button>
+                    </div>
 
-                    {pendingCashPayments.length === 0 ? (
-                        <div style={{
-                            padding: '24px',
-                            textAlign: 'center',
-                            backgroundColor: 'var(--bg-secondary)',
-                            borderRadius: '8px',
-                            border: '1px dashed var(--border-primary)',
-                            color: 'var(--text-tertiary)',
-                            fontSize: '13px',
-                            fontWeight: 500
-                        }}>
-                            🎉 No pending cash handover. All cash settled!
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {pendingCashPayments.map((payment) => {
-                                const collectedDate = new Date(payment.created_at || payment.date);
-                                const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
-                                
-                                const propData = payment.jobs?.property;
-                                const locality = propData?.locality || propData?.city || 'No location';
-                                const appliance = payment.jobs?.appliance || 'No appliance';
+                    {/* Section: Cash Handovers */}
+                    {(cashFlowTab === 'all' || cashFlowTab === 'handovers') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>Recent Cash Handovers</span>
+                                <span style={{ color: '#3b82f6', fontWeight: 700 }}>₹{totalHandedOverCash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            </div>
 
-                                return (
-                                    <div
-                                        key={payment.id}
-                                        style={{
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '8px',
-                                            padding: '12px 14px',
-                                            borderRadius: '8px',
-                                            backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
-                                            border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                    {payment.jobs?.customer_name || 'Walk-in Customer'}
-                                                </span>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                                    Job: #{payment.jobs?.job_number || 'General'}
-                                                </span>
+                            {cashHandovers.length === 0 ? (
+                                <div style={{
+                                    padding: '16px',
+                                    textAlign: 'center',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    borderRadius: '8px',
+                                    border: '1px dashed var(--border-primary)',
+                                    color: 'var(--text-tertiary)',
+                                    fontSize: '12px'
+                                }}>
+                                    No handovers recorded yet in this cycle. Click "Handover Cash" after CDM deposit or handing cash to the service center.
+                                </div>
+                            ) : (
+                                cashHandovers.map(h => {
+                                    const hDate = new Date(h.created_at || h.date);
+                                    const isBank = h.handover_type === 'bank_deposit';
+                                    return (
+                                        <div
+                                            key={h.id}
+                                            style={{
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: '10px',
+                                                padding: '12px 14px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{
+                                                        padding: '6px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: isBank ? 'rgba(59, 130, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                                        color: isBank ? '#3b82f6' : '#10b981',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        {isBank ? <Building size={16} /> : <User size={16} />}
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                            {isBank ? 'CDM Bank Deposit' : `Handed over to ${h.handover_to || 'Admin'}`}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                            {isBank ? 'HDFC A/c 50200068074298' : 'Service Center Handover'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#3b82f6' }}>
+                                                        -₹{(parseFloat(h.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </div>
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        padding: '2px 6px',
+                                                        borderRadius: '4px',
+                                                        textTransform: 'uppercase',
+                                                        backgroundColor: h.status === 'verified' ? 'rgba(16, 185, 129, 0.15)' : (h.status === 'rejected' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)'),
+                                                        color: h.status === 'verified' ? '#10b981' : (h.status === 'rejected' ? '#ef4444' : '#f59e0b')
+                                                    }}>
+                                                        {h.status === 'verified' ? 'Verified' : (h.status === 'rejected' ? 'Rejected' : 'Submitted')}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <span style={{ fontSize: '15px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
-                                                ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </span>
-                                        </div>
 
-                                        <div style={{ 
-                                            display: 'flex', 
-                                            flexWrap: 'wrap', 
-                                            gap: '12px', 
-                                            fontSize: '12px',
-                                            color: 'var(--text-secondary)',
-                                            borderTop: '1px solid var(--border-primary)',
-                                            paddingTop: '8px',
-                                            marginTop: '2px'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <MapPin size={12} color="var(--text-tertiary)" />
-                                                <span>{locality}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Briefcase size={12} color="var(--text-tertiary)" />
-                                                <span>{appliance}</span>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                Collected: {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                            </span>
-                                            {isOneDayAgo && (
-                                                <span style={{
-                                                    fontSize: '10px',
-                                                    fontWeight: 700,
-                                                    color: '#ef4444'
-                                                }}>
-                                                    ⚠️ Overdue Handover
-                                                </span>
+                                            {h.notes && (
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic', backgroundColor: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
+                                                    "{h.notes}"
+                                                </div>
                                             )}
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px solid var(--border-primary)' }}>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                    {hDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {hDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                </span>
+
+                                                {h.receipt_url && (
+                                                    <button
+                                                        onClick={() => setViewingHandoverReceipt(h.receipt_url)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: 'var(--color-primary)',
+                                                            fontSize: '11px',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            padding: '2px 6px'
+                                                        }}
+                                                    >
+                                                        <Eye size={12} /> View Deposit Slip
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })
+                            )}
                         </div>
                     )}
+
+                    {/* Section: Pending Customer Cash Collections */}
+                    {(cashFlowTab === 'all' || cashFlowTab === 'collections') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>Customer Cash Collections (Pending Verification)</span>
+                                <span style={{ color: '#10b981', fontWeight: 700 }}>₹{totalPendingCash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            </div>
+
+                            {pendingCashPayments.length === 0 ? (
+                                <div style={{
+                                    padding: '20px',
+                                    textAlign: 'center',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    borderRadius: '8px',
+                                    border: '1px dashed var(--border-primary)',
+                                    color: 'var(--text-tertiary)',
+                                    fontSize: '13px',
+                                    fontWeight: 500
+                                }}>
+                                    🎉 No pending customer cash collections.
+                                </div>
+                            ) : (
+                                pendingCashPayments.map((payment) => {
+                                    const collectedDate = new Date(payment.created_at || payment.date);
+                                    const isOneDayAgo = (Date.now() - collectedDate.getTime()) >= 24 * 60 * 60 * 1000;
+                                    
+                                    const propData = payment.jobs?.property;
+                                    const locality = propData?.locality || propData?.city || 'No location';
+                                    const appliance = payment.jobs?.appliance || 'No appliance';
+
+                                    return (
+                                        <div
+                                            key={payment.id}
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px',
+                                                padding: '12px 14px',
+                                                borderRadius: '8px',
+                                                backgroundColor: isOneDayAgo ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-secondary)',
+                                                border: isOneDayAgo ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-primary)',
+                                                transition: 'border-color 0.2s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                        {payment.jobs?.customer_name || 'Walk-in Customer'}
+                                                    </span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                        Job: #{payment.jobs?.job_number || 'General'}
+                                                    </span>
+                                                </div>
+                                                <span style={{ fontSize: '15px', fontWeight: 700, color: isOneDayAgo ? '#ef4444' : 'var(--text-primary)' }}>
+                                                    ₹{payment.amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                flexWrap: 'wrap', 
+                                                gap: '12px', 
+                                                fontSize: '12px',
+                                                color: 'var(--text-secondary)',
+                                                borderTop: '1px solid var(--border-primary)',
+                                                paddingTop: '8px',
+                                                marginTop: '2px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <MapPin size={12} color="var(--text-tertiary)" />
+                                                    <span>{locality}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Briefcase size={12} color="var(--text-tertiary)" />
+                                                    <span>{appliance}</span>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                    Collected: {collectedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} {collectedDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                </span>
+                                                {isOneDayAgo && (
+                                                    <span style={{
+                                                        fontSize: '10px',
+                                                        fontWeight: 700,
+                                                        color: '#ef4444'
+                                                    }}>
+                                                        ⚠️ Overdue Handover
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom Sticky Running Balance Footer */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    backgroundColor: 'var(--bg-elevated)',
+                    borderTop: '2px solid var(--border-primary)',
+                    padding: '12px 16px',
+                    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.15)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    zIndex: 20
+                }}>
+                    <div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Running Balance
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            Collected ₹{totalPendingCash.toLocaleString('en-IN')} - Handed ₹{totalHandedOverCash.toLocaleString('en-IN')}
+                        </div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            Balance in Hand:
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                            fontSize: '18px',
+                            fontWeight: 800,
+                            color: netCashBalanceInHand > 0 ? '#10b981' : (netCashBalanceInHand < 0 ? '#ef4444' : 'var(--text-secondary)')
+                        }}>
+                            ₹{netCashBalanceInHand.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+
+                        <button
+                            onClick={() => setShowHandoverModal(true)}
+                            style={{
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '8px 12px',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            <ArrowUpRight size={15} /> Handover
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -4216,41 +4642,56 @@ function TechnicianApp() {
 
 
                 {/* Cash Flow / Handover Card */}
-                <div 
-                    className="card"
-                    onClick={() => setShowCashFlowModal(true)}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                    style={{ 
-                        padding: 'var(--spacing-lg)', 
-                        borderLeft: '4px solid #10b981', 
-                        backgroundColor: 'var(--bg-elevated)', 
-                        borderRadius: 'var(--radius-lg)', 
-                        boxShadow: 'var(--shadow-sm)',
-                        cursor: 'pointer',
-                        transition: 'transform 0.2s',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                >
-                    <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                        <DollarSign size={20} color="#10b981" /> Cash Flow / Handover
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ 
-                            fontSize: '14px', 
-                            fontWeight: 700, 
-                            color: '#10b981', 
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)', 
-                            padding: '6px 12px', 
-                            borderRadius: '12px' 
-                        }}>
-                            Total in Hand: ₹{pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {(() => {
+                    const totalPending = pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const totalHanded = cashHandovers.filter(h => h.status !== 'rejected').reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                    const netInHand = totalPending - totalHanded;
+
+                    return (
+                        <div 
+                            className="card"
+                            onClick={() => setShowCashFlowModal(true)}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                            style={{ 
+                                padding: 'var(--spacing-lg)', 
+                                borderLeft: '4px solid #10b981', 
+                                backgroundColor: 'var(--bg-elevated)', 
+                                borderRadius: 'var(--radius-lg)', 
+                                boxShadow: 'var(--shadow-sm)',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}
+                        >
+                            <div>
+                                <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                    <DollarSign size={20} color="#10b981" /> Cash Flow / Handover
+                                </h3>
+                                {totalHanded > 0 && (
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px', display: 'block' }}>
+                                        ₹{totalHanded.toLocaleString('en-IN')} handed over
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ 
+                                    fontSize: '14px', 
+                                    fontWeight: 700, 
+                                    color: netInHand > 0 ? '#10b981' : (netInHand < 0 ? '#ef4444' : 'var(--text-secondary)'), 
+                                    backgroundColor: netInHand > 0 ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)', 
+                                    padding: '6px 12px', 
+                                    borderRadius: '12px' 
+                                }}>
+                                    Total in Hand: ₹{netInHand.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <ChevronRight size={20} color="var(--text-tertiary)" />
+                            </div>
                         </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
-                    </div>
-                </div>
+                    );
+                })()}
 
 
                 {/* Grid / List Cards Wrapper */}
@@ -4975,6 +5416,524 @@ function TechnicianApp() {
                         fetchPendingCashPayments();
                     }}
                 />
+            )}
+
+            {/* Cash Handover Modal */}
+            {showHandoverModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                    backdropFilter: 'blur(6px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px'
+                }}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '480px',
+                        maxHeight: '92vh',
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        {/* Header */}
+                        <div style={{
+                            padding: '16px 20px',
+                            borderBottom: '1px solid var(--border-primary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            backgroundColor: 'var(--bg-primary)'
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                <DollarSign size={20} color="#10b981" /> Record Cash Handover
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    if (!submittingHandover) {
+                                        setShowHandoverModal(false);
+                                        setHandoverReceiptPhoto(null);
+                                        setHandoverReceiptUrl('');
+                                    }
+                                }}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-secondary)',
+                                    padding: '4px'
+                                }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleSubmitHandover} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            
+                            {/* Handover Method Selector */}
+                            <div>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', display: 'block' }}>
+                                    Select Handover Method
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHandoverType('bank_deposit')}
+                                        style={{
+                                            padding: '12px',
+                                            borderRadius: '10px',
+                                            border: handoverType === 'bank_deposit' ? '2px solid #3b82f6' : '1px solid var(--border-primary)',
+                                            backgroundColor: handoverType === 'bank_deposit' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
+                                            color: handoverType === 'bank_deposit' ? '#3b82f6' : 'var(--text-primary)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Building size={22} />
+                                        <span style={{ fontSize: '13px', fontWeight: 700 }}>Bank Deposit (CDM)</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setHandoverType('in_person')}
+                                        style={{
+                                            padding: '12px',
+                                            borderRadius: '10px',
+                                            border: handoverType === 'in_person' ? '2px solid #10b981' : '1px solid var(--border-primary)',
+                                            backgroundColor: handoverType === 'in_person' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-secondary)',
+                                            color: handoverType === 'in_person' ? '#10b981' : 'var(--text-primary)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <User size={22} />
+                                        <span style={{ fontSize: '13px', fontWeight: 700 }}>Handover in Person</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Bank Details Card (for bank_deposit) */}
+                            {handoverType === 'bank_deposit' && (
+                                <div style={{
+                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                    border: '1.5px dashed rgba(59, 130, 246, 0.35)',
+                                    borderRadius: '12px',
+                                    padding: '14px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <CreditCard size={16} color="#3b82f6" />
+                                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                Company Bank Details (CDM)
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (typeof navigator !== 'undefined') {
+                                                    navigator.clipboard.writeText('50200068074298');
+                                                    setCopiedAccountNo(true);
+                                                    setTimeout(() => setCopiedAccountNo(false), 2000);
+                                                }
+                                            }}
+                                            style={{
+                                                background: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: '6px',
+                                                padding: '3px 8px',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                color: copiedAccountNo ? '#10b981' : 'var(--text-primary)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px'
+                                            }}
+                                        >
+                                            {copiedAccountNo ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                                            {copiedAccountNo ? 'Copied!' : 'Copy A/c'}
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px', marginTop: '2px' }}>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', display: 'block' }}>A/C NUMBER</span>
+                                            <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-primary)', letterSpacing: '0.04em' }}>
+                                                50200068074298
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', display: 'block' }}>A/C TYPE</span>
+                                            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Current
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', display: 'block' }}>BANK</span>
+                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                HDFC Bank
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', display: 'block' }}>BENEFICIARY</span>
+                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Sorted Solutions
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Handover In Person Recipient Field */}
+                            {handoverType === 'in_person' && (
+                                <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                                        Whom did you handover the cash to? *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={handoverTo}
+                                        onChange={(e) => setHandoverTo(e.target.value)}
+                                        placeholder="e.g. Kunal Bajaj / Service Center Manager"
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px 12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '14px'
+                                        }}
+                                    />
+                                    {/* Quick Recipient Chips */}
+                                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                        {['Kunal Bajaj', 'Service Center Admin', 'Accounts Desk'].map(name => (
+                                            <button
+                                                key={name}
+                                                type="button"
+                                                onClick={() => setHandoverTo(name)}
+                                                style={{
+                                                    fontSize: '11px',
+                                                    padding: '3px 8px',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid var(--border-primary)',
+                                                    backgroundColor: handoverTo === name ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                                                    color: handoverTo === name ? '#10b981' : 'var(--text-secondary)',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                {name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Amount Input Field */}
+                            <div>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                                    Amount Handed Over (₹) *
+                                </label>
+                                <div style={{ position: 'relative' }}>
+                                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, fontSize: '16px', color: 'var(--text-tertiary)' }}>
+                                        ₹
+                                    </span>
+                                    <input
+                                        type="number"
+                                        inputMode="decimal"
+                                        min="1"
+                                        step="any"
+                                        value={handoverAmount}
+                                        onChange={(e) => setHandoverAmount(e.target.value)}
+                                        placeholder="Enter amount (e.g. 2000)"
+                                        required
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px 12px 10px 28px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '16px',
+                                            fontWeight: 700
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Quick Amount Chips */}
+                                {(() => {
+                                    const totalPending = pendingCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                                    const totalHanded = cashHandovers.filter(h => h.status !== 'rejected').reduce((sum, h) => sum + (parseFloat(h.amount) || 0), 0);
+                                    const netInHand = Math.max(0, totalPending - totalHanded);
+                                    const chips = [];
+                                    if (netInHand > 0) chips.push({ label: `Full (₹${netInHand})`, value: netInHand });
+                                    chips.push({ label: '₹500', value: 500 }, { label: '₹1,000', value: 1000 }, { label: '₹2,000', value: 2000 });
+
+                                    return (
+                                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                                            {chips.map((chip, idx) => (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    onClick={() => setHandoverAmount(chip.value.toString())}
+                                                    style={{
+                                                        fontSize: '11px',
+                                                        padding: '3px 8px',
+                                                        borderRadius: '12px',
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: handoverAmount === chip.value.toString() ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                                                        color: handoverAmount === chip.value.toString() ? '#10b981' : 'var(--text-secondary)',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {chip.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Bank Deposit Slip Photo Upload */}
+                            {handoverType === 'bank_deposit' && (
+                                <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                                        CDM Receipt Slip Photo
+                                    </label>
+
+                                    {handoverReceiptUrl ? (
+                                        <div style={{
+                                            position: 'relative',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--border-primary)',
+                                            maxHeight: '160px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backgroundColor: 'var(--bg-secondary)'
+                                        }}>
+                                            <img
+                                                src={handoverReceiptUrl}
+                                                alt="Receipt preview"
+                                                style={{ width: '100%', height: '160px', objectFit: 'cover' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setHandoverReceiptUrl('');
+                                                    setHandoverReceiptPhoto(null);
+                                                }}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '8px',
+                                                    right: '8px',
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '50%',
+                                                    padding: '6px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label style={{
+                                            border: '2px dashed var(--border-primary)',
+                                            borderRadius: '10px',
+                                            padding: '16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            cursor: uploadingReceipt ? 'not-allowed' : 'pointer',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-secondary)'
+                                        }}>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                capture="environment"
+                                                onChange={handleReceiptPhotoSelect}
+                                                disabled={uploadingReceipt}
+                                                style={{ display: 'none' }}
+                                            />
+                                            {uploadingReceipt ? (
+                                                <>
+                                                    <Loader2 size={24} className="spin" color="var(--color-primary)" />
+                                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Uploading receipt slip...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Camera size={24} color="#3b82f6" />
+                                                    <div style={{ textAlign: 'center' }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', display: 'block' }}>
+                                                            Take Photo or Upload Slip
+                                                        </span>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                                            CDM printed receipt photo
+                                                        </span>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </label>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Notes Field */}
+                            <div>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px', display: 'block' }}>
+                                    Notes / Comments (Optional)
+                                </label>
+                                <textarea
+                                    value={handoverNotes}
+                                    onChange={(e) => setHandoverNotes(e.target.value)}
+                                    placeholder={handoverType === 'bank_deposit' ? 'e.g. Deposited at Malad branch CDM. 1x 500 note rejected.' : 'e.g. Handed over cash in evening.'}
+                                    rows={2}
+                                    style={{
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '13px',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Submit and Cancel Buttons */}
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowHandoverModal(false)}
+                                    disabled={submittingHandover}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingHandover || uploadingReceipt}
+                                    style={{
+                                        flex: 2,
+                                        padding: '12px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        backgroundColor: '#10b981',
+                                        color: 'white',
+                                        fontWeight: 700,
+                                        fontSize: '14px',
+                                        cursor: (submittingHandover || uploadingReceipt) ? 'not-allowed' : 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                    }}
+                                >
+                                    {submittingHandover ? (
+                                        <>
+                                            <Loader2 size={16} className="spin" />
+                                            <span>Submitting...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle size={16} />
+                                            <span>Submit Handover</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Receipt Preview Lightbox */}
+            {viewingHandoverReceipt && (
+                <div 
+                    onClick={() => setViewingHandoverReceipt(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                        zIndex: 10000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px'
+                    }}
+                >
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '85vh' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                            onClick={() => setViewingHandoverReceipt(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '-40px',
+                                right: '0',
+                                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                padding: '8px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <X size={20} />
+                        </button>
+                        <img
+                            src={viewingHandoverReceipt}
+                            alt="Deposit slip"
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '85vh',
+                                objectFit: 'contain',
+                                borderRadius: '8px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                            }}
+                        />
+                    </div>
+                </div>
             )}
 
 
