@@ -18,8 +18,8 @@ import { NextResponse } from 'next/server'
  * the real auth is in localStorage. The cookie only controls this redirect.
  */
 
-// Known search engine bot patterns — allow through unconditionally
-const BOT_UA_PATTERN = /googlebot|bingbot|yandex|duckduckbot|slurp|baiduspider|facebookexternalhit|twitterbot|linkedinbot/i
+// Known search engine & ads bot patterns — allow through unconditionally to /sitemap.xml
+const BOT_UA_PATTERN = /google|googlebot|google-extended|adsbot|mediapartners|inspectiontool|storebot|feedfetcher|bingbot|yandex|duckduckbot|slurp|baiduspider|facebookexternalhit|twitterbot|linkedinbot|applebot/i
 
 export function middleware(request) {
     const { pathname } = request.nextUrl

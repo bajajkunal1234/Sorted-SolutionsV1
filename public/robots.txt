@@ -1,7 +1,12 @@
-User-agent: *
-Allow: /
+# ==============================================================================
+# robots.txt for sortedsolutions.in
+# Permits Google Search, Google Ads, and Google AI crawlers to review public
+# landing pages, while strictly safeguarding internal admin, technician, and API endpoints.
+# ==============================================================================
 
-# Block admin panel from indexing
+# Google-Extended (Google AI, Gemini, Google Ads automated landing page evaluation)
+User-agent: Google-Extended
+Allow: /
 Disallow: /admin
 Disallow: /admin/
 Disallow: /api/
@@ -10,10 +15,66 @@ Disallow: /technician/
 Disallow: /customer/dashboard
 Disallow: /tech
 
-# Allow Google to crawl important paths
+# Google Search & Google Ads Crawlers
+User-agent: Googlebot
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+User-agent: AdsBot-Google
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+User-agent: AdsBot-Google-Mobile
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+User-agent: Mediapartners-Google
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+# All Other Web Crawlers
+User-agent: *
+Allow: /
+
+# Block admin panel, private APIs, and portals from all crawlers
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+# Explicitly allow indexing of public customer service & location pages
 Allow: /services/
 Allow: /location/
 Allow: /booking
 Allow: /contact
+Allow: /privacy
+Allow: /terms
 
 Sitemap: https://sortedsolutions.in/sitemap.xml
