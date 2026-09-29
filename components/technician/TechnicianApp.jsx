@@ -3853,7 +3853,7 @@ function TechnicianApp() {
         const netCashBalanceInHand = totalPendingCash - totalHandedOverCash;
 
         return (
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {/* Header Row (Sticky/Frozen) */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', flexShrink: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -3899,7 +3899,7 @@ function TechnicianApp() {
                 </div>
 
                 {/* Scrollable Content */}
-                <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: '120px', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', justifyContent: 'flex-start' }}>
+                <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: '20px', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', justifyContent: 'flex-start' }}>
                     
                     {/* Summary Cards Grid */}
                     <div style={{
@@ -4230,12 +4230,10 @@ function TechnicianApp() {
                     )}
                 </div>
 
-                {/* Bottom Sticky Running Balance Footer */}
+                {/* Bottom Running Balance Footer (Positioned above fixed bottom navigation tabs) */}
                 <div style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
+                    flexShrink: 0,
+                    marginBottom: 'calc(var(--bottom-tab-height, 60px) + env(safe-area-inset-bottom, 0px))',
                     backgroundColor: 'var(--bg-elevated)',
                     borderTop: '2px solid var(--border-primary)',
                     padding: '12px 16px',
