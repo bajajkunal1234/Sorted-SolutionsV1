@@ -27,7 +27,8 @@ import {
     LayoutGrid,
     Table,
     Eye,
-    SlidersHorizontal
+    SlidersHorizontal,
+    BookOpen
 } from 'lucide-react';
 
 const DEFAULT_LIABILITY_COLUMNS = [
@@ -212,6 +213,8 @@ export default function NewEraDashboard() {
     const [liabilityFilterType, setLiabilityFilterType] = useState('all');
     const [liabilityRemainingFilter, setLiabilityRemainingFilter] = useState('outstanding'); // 'outstanding' (default: > 0), 'all', 'settled' (=== 0)
     const [liabilitySortBy, setLiabilitySortBy] = useState('name_asc');
+    const [ledgerLoan, setLedgerLoan] = useState(null);
+    const [ledgerTab, setLedgerTab] = useState('all'); // 'all', 'payments', 'schedule'
 
     // Dynamic Columns & Sorting for Liabilities Table
     const [liabilityColumns, setLiabilityColumns] = useState(DEFAULT_LIABILITY_COLUMNS);
@@ -522,6 +525,104 @@ export default function NewEraDashboard() {
             startDay
         };
     };
+
+    const openLedger = (loan) => {
+        setLedgerLoan(loan);
+        setLedgerTab('all');
+    };
+
+    const closeLedger = () => {
+        setLedgerLoan(null);
+    };
+
+    const handleLedgerLogPayment = (loan) => {
+        setLedgerLoan(null);
+        const split = calculatePaymentSplit(loan.id, new Date().toISOString().split('T')[0], '', '');
+        setPaymentForm({
+            loan_id: loan.id,
+            repayment_id: split.repayment_id,
+            member_id: data.members.length > 0 ? data.members[0].id : '',
+            payment_date: new Date().toISOString().split('T')[0],
+            amount: split.amount,
+            principal_portion: split.principal_portion,
+            interest_portion: split.interest_portion,
+            source_of_income: 'Business',
+            notes: ''
+        });
+        setAutoBreakdownBadge({ text: split.badgeText, type: split.badgeType });
+        setShowAddPayment(true);
+    };
+
+    const handleLedgerEdit = (loan) => {
+        setLedgerLoan(null);
+        startEditLoan(loan);
+    };
+
+    const getLoanLedgerEntries = (loan) => {
+        if (!loan) return [];
+
+        const entries = [];
+        let runningPrincipal = parseFloat(loan.principal_amount || 0);
+
+        // 1. Initial Disbursement / Opening Balance
+        entries.push({
+            id: `disb-${loan.id}`,
+            date: loan.start_date || 'N/A',
+            type: 'disbursement',
+            typeLabel: 'Disbursement',
+            description: `Initial Principal Disbursed / Opening Balance`,
+            debitPrincipal: parseFloat(loan.principal_amount || 0),
+            creditPrincipal: 0,
+            interestPaid: 0,
+            totalAmount: parseFloat(loan.principal_amount || 0),
+            runningPrincipal: runningPrincipal,
+            party: loan.lender,
+            source: 'Lender Disbursal',
+            notes: loan.account_number ? `A/C: ${loan.account_number}` : ''
+        });
+
+        // 2. Payments (sorted ascending by payment_date)
+        const loanPayments = [...(data.payments || [])]
+            .filter(p => p.loan_id === loan.id)
+            .sort((a, b) => (a.payment_date || '').localeCompare(b.payment_date || ''));
+
+        loanPayments.forEach(p => {
+            const prinPaid = parseFloat(p.principal_portion || 0);
+            const intrPaid = parseFloat(p.interest_portion || 0);
+            runningPrincipal = Math.max(0, runningPrincipal - prinPaid);
+            const member = data.members.find(m => m.id === p.member_id);
+
+            entries.push({
+                id: `pay-${p.id}`,
+                date: p.payment_date,
+                type: 'payment',
+                typeLabel: 'Repayment',
+                description: `Payment Entry by ${member ? member.name : 'Member'}`,
+                debitPrincipal: 0,
+                creditPrincipal: prinPaid,
+                interestPaid: intrPaid,
+                totalAmount: parseFloat(p.amount || 0),
+                runningPrincipal: runningPrincipal,
+                party: member ? member.name : 'Unknown',
+                source: p.source_of_income || 'Direct',
+                notes: p.notes || ''
+            });
+        });
+
+        return entries;
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && ledgerLoan) {
+                closeLedger();
+            }
+        };
+        if (ledgerLoan) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [ledgerLoan]);
 
     const getFilteredAndSortedLoans = () => {
         let list = [...data.loans];
@@ -1788,6 +1889,13 @@ export default function NewEraDashboard() {
                                                             </div>
                                                             <div style={{ display: 'flex', gap: '0.4rem' }}>
                                                                 <button 
+                                                                    onClick={() => openLedger(loan)} 
+                                                                    style={{ ...styles.iconDeleteBtn, color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.25)', backgroundColor: 'rgba(56, 189, 248, 0.08)' }} 
+                                                                    title="View Account Ledger"
+                                                                >
+                                                                    <BookOpen size={14} />
+                                                                </button>
+                                                                <button 
                                                                     onClick={() => startEditLoan(loan)} 
                                                                     style={{ ...styles.iconDeleteBtn, color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.2)' }} 
                                                                     title="Edit Loan"
@@ -1885,6 +1993,31 @@ export default function NewEraDashboard() {
                                                                 </a>
                                                             </div>
                                                         )}
+
+                                                        <button
+                                                            onClick={() => openLedger(loan)}
+                                                            style={{
+                                                                marginTop: '0.85rem',
+                                                                width: '100%',
+                                                                padding: '0.5rem 0.75rem',
+                                                                borderRadius: '0.5rem',
+                                                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                                                backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                                                                color: '#38bdf8',
+                                                                fontSize: '0.8rem',
+                                                                fontWeight: '600',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '0.4rem',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            title="View Account Ledger"
+                                                        >
+                                                            <BookOpen size={14} />
+                                                            <span>View Account Ledger</span>
+                                                        </button>
                                                     </div>
                                                 );
                                             })}
@@ -1949,7 +2082,13 @@ export default function NewEraDashboard() {
                                                                 const outstanding = Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
 
                                                                 return (
-                                                                    <tr key={loan.id}>
+                                                                    <tr 
+                                                                        key={loan.id}
+                                                                        onClick={() => openLedger(loan)}
+                                                                        className="table-row-clickable"
+                                                                        style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                                                                        title="Click to view Account Ledger"
+                                                                    >
                                                                         {visibleColumns.map(col => {
                                                                             switch (col.id) {
                                                                                 case 'name':
@@ -2047,7 +2186,7 @@ export default function NewEraDashboard() {
                                                                                     );
                                                                                 case 'attachment_url':
                                                                                     return (
-                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }} onClick={e => e.stopPropagation()}>
                                                                                             {loan.attachment_url ? (
                                                                                                 <a 
                                                                                                     href={loan.attachment_url} 
@@ -2065,8 +2204,15 @@ export default function NewEraDashboard() {
                                                                                     );
                                                                                 case 'actions':
                                                                                     return (
-                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }}>
+                                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px` }} onClick={e => e.stopPropagation()}>
                                                                                             <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                                                                                <button 
+                                                                                                    onClick={(e) => { e.stopPropagation(); openLedger(loan); }} 
+                                                                                                    style={{ ...styles.iconBtn, color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)' }}
+                                                                                                    title="View Account Ledger"
+                                                                                                >
+                                                                                                    <BookOpen size={14} />
+                                                                                                </button>
                                                                                                 <button 
                                                                                                     onClick={() => startEditLoan(loan)} 
                                                                                                     style={{ ...styles.iconBtn, color: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)' }}
@@ -4320,6 +4466,688 @@ export default function NewEraDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* 5. Account Ledger Modal */}
+            {ledgerLoan && (() => {
+                const loan = ledgerLoan;
+                const loanPayments = (data.payments || []).filter(p => p.loan_id === loan.id);
+                const paidPrincipal = loanPayments.reduce((sum, p) => sum + parseFloat(p.principal_portion || 0), 0);
+                const paidInterest = loanPayments.reduce((sum, p) => sum + parseFloat(p.interest_portion || 0), 0);
+                const totalPaid = paidPrincipal + paidInterest;
+                const outstandingPrincipal = Math.max(0, parseFloat(loan.principal_amount || 0) - paidPrincipal);
+                const daysSinceStart = getDaysSinceStart(loan.start_date);
+                const isMarket = loan.loan_type === 'Business Loan (Market)';
+                const marketInfo = isMarket ? getMarketLoanInterestInfo(loan, data.payments) : null;
+                const loanRepayments = (data.repayments || [])
+                    .filter(r => r.loan_id === loan.id)
+                    .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
+                const ledgerEntries = getLoanLedgerEntries(loan);
+                const isSettled = outstandingPrincipal <= 0.01;
+
+                return (
+                    <div style={styles.modalOverlay} onClick={closeLedger}>
+                        <div 
+                            style={{
+                                ...styles.modalContent,
+                                maxWidth: '1000px',
+                                width: '96%',
+                                maxHeight: '92vh',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                padding: 0,
+                                overflow: 'hidden'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            {/* Modal Top Bar / Header */}
+                            <div style={{
+                                padding: '1.25rem 1.5rem',
+                                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                gap: '1rem',
+                                background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%)',
+                                flexWrap: 'wrap'
+                            }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', flex: 1, minWidth: '240px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        <span style={{
+                                            ...styles.statusBadge,
+                                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                            color: '#a5b4fc',
+                                            borderColor: 'rgba(99, 102, 241, 0.3)',
+                                            fontSize: '0.7rem'
+                                        }}>
+                                            {loan.loan_type}
+                                        </span>
+                                        <span style={{
+                                            ...styles.statusBadge,
+                                            backgroundColor: isSettled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                                            color: isSettled ? '#34d399' : '#38bdf8',
+                                            borderColor: isSettled ? 'rgba(16, 185, 129, 0.3)' : 'rgba(56, 189, 248, 0.3)',
+                                            fontSize: '0.7rem'
+                                        }}>
+                                            {isSettled ? 'Settled (Zero Balance)' : 'Active Liability'}
+                                        </span>
+                                    </div>
+                                    <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <BookOpen size={20} color="#38bdf8" />
+                                        <span>{loan.name} — Account Ledger</span>
+                                    </h2>
+                                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.2rem' }}>
+                                        <span>Lender: <strong style={{ color: '#e2e8f0' }}>{loan.lender}</strong></span>
+                                        <span>•</span>
+                                        <span>A/C: <strong style={{ color: '#e2e8f0' }}>{loan.account_number || 'N/A'}</strong></span>
+                                        <span>•</span>
+                                        <span>Start: <strong style={{ color: '#e2e8f0' }}>{loan.start_date || 'N/A'}</strong> ({daysSinceStart} days)</span>
+                                        {loan.mobile_number && (
+                                            <>
+                                                <span>•</span>
+                                                <span>Phone: <strong style={{ color: '#e2e8f0' }}>{loan.mobile_number}</strong></span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleLedgerLogPayment(loan)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem',
+                                            backgroundColor: '#6366f1',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '0.375rem',
+                                            padding: '0.45rem 0.85rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Log a repayment entry against this account"
+                                    >
+                                        <Plus size={14} />
+                                        <span>Log Payment</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => handleLedgerEdit(loan)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.35rem',
+                                            backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                            color: '#fbbf24',
+                                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                                            borderRadius: '0.375rem',
+                                            padding: '0.45rem 0.75rem',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                        title="Edit this account details"
+                                    >
+                                        <Edit size={14} />
+                                        <span>Edit</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={closeLedger}
+                                        style={{ ...styles.closeModalBtn, marginLeft: '0.5rem' }}
+                                        title="Close Ledger (Esc)"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Scrollable Body */}
+                            <div style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1 }}>
+                                {/* 5 Financial KPI Summary Cards */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                                    gap: '0.75rem'
+                                }}>
+                                    <div style={{
+                                        background: 'rgba(15, 23, 42, 0.6)',
+                                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                                        borderRadius: '0.75rem',
+                                        padding: '0.85rem 1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                            Principal Borrowed
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', marginTop: '0.2rem' }}>
+                                            ₹{parseFloat(loan.principal_amount || 0).toLocaleString('en-IN')}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                                            Rate: {loan.interest_rate_annual || 0}% p.a.
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        background: 'rgba(99, 102, 241, 0.08)',
+                                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                                        borderRadius: '0.75rem',
+                                        padding: '0.85rem 1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                            Remaining Principal
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#818cf8', marginTop: '0.2rem' }}>
+                                            ₹{outstandingPrincipal.toLocaleString('en-IN')}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: isSettled ? '#34d399' : '#a5b4fc', marginTop: '0.2rem', fontWeight: '600' }}>
+                                            {isSettled ? '✓ Fully Cleared' : 'Outstanding Balance'}
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        background: 'rgba(16, 185, 129, 0.08)',
+                                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                                        borderRadius: '0.75rem',
+                                        padding: '0.85rem 1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#6ee7b7', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                            Principal Repaid
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#34d399', marginTop: '0.2rem' }}>
+                                            ₹{paidPrincipal.toLocaleString('en-IN')}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                            {parseFloat(loan.principal_amount || 0) > 0 ? ((paidPrincipal / parseFloat(loan.principal_amount)) * 100).toFixed(1) : 0}% repaid
+                                        </span>
+                                    </div>
+
+                                    <div style={{
+                                        background: 'rgba(245, 158, 11, 0.08)',
+                                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                                        borderRadius: '0.75rem',
+                                        padding: '0.85rem 1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <span style={{ fontSize: '0.7rem', color: '#fcd34d', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                            Interest Paid
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#fbbf24', marginTop: '0.2rem' }}>
+                                            ₹{paidInterest.toLocaleString('en-IN')}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                            Total Paid: ₹{totalPaid.toLocaleString('en-IN')}
+                                        </span>
+                                    </div>
+
+                                    {isMarket ? (
+                                        <div style={{
+                                            background: marketInfo && marketInfo.interestLeftToPay > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(15, 23, 42, 0.6)',
+                                            border: marketInfo && marketInfo.interestLeftToPay > 0 ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                            borderRadius: '0.75rem',
+                                            padding: '0.85rem 1rem',
+                                            display: 'flex',
+                                            flexDirection: 'column'
+                                        }}>
+                                            <span style={{ fontSize: '0.7rem', color: marketInfo && marketInfo.interestLeftToPay > 0 ? '#fca5a5' : '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                                Interest Left to Pay
+                                            </span>
+                                            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: marketInfo && marketInfo.interestLeftToPay > 0 ? '#ef4444' : '#34d399', marginTop: '0.2rem' }}>
+                                                ₹{(marketInfo ? marketInfo.interestLeftToPay : 0).toLocaleString('en-IN')}
+                                            </span>
+                                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
+                                                {marketInfo ? `${marketInfo.billedCycles} cycle(s) (Day ${marketInfo.startDay})` : '—'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            background: 'rgba(15, 23, 42, 0.6)',
+                                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                                            borderRadius: '0.75rem',
+                                            padding: '0.85rem 1rem',
+                                            display: 'flex',
+                                            flexDirection: 'column'
+                                        }}>
+                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>
+                                                Tenure & EMI
+                                            </span>
+                                            <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', marginTop: '0.2rem' }}>
+                                                {loan.emi_amount ? `₹${parseFloat(loan.emi_amount).toLocaleString('en-IN')}` : 'N/A'}
+                                            </span>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
+                                                {loan.tenure_months ? `${loan.tenure_months} Mo` : ''} (Repayment Day: {loan.repayment_day || 5})
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Statement Document Banner (if exists) */}
+                                {loan.attachment_url && (
+                                    <div style={{
+                                        backgroundColor: 'rgba(56, 189, 248, 0.08)',
+                                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                                        borderRadius: '0.5rem',
+                                        padding: '0.65rem 1rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '0.75rem',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#e2e8f0' }}>
+                                            <span>📄</span>
+                                            <span>Attached Statement: <strong>{loan.attachment_name || 'Bank/Loan Statement'}</strong></span>
+                                        </div>
+                                        <a 
+                                            href={loan.attachment_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                fontSize: '0.8rem',
+                                                fontWeight: '600',
+                                                color: '#38bdf8',
+                                                textDecoration: 'none',
+                                                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                                                padding: '0.25rem 0.65rem',
+                                                borderRadius: '0.35rem',
+                                                border: '1px solid rgba(56, 189, 248, 0.3)'
+                                            }}
+                                        >
+                                            View / Download Statement →
+                                        </a>
+                                    </div>
+                                )}
+
+                                {/* Sub-navigation Tabs */}
+                                <div style={{
+                                    display: 'flex',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                                    gap: '0.5rem',
+                                    marginTop: '0.25rem'
+                                }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setLedgerTab('all')}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            borderBottom: ledgerTab === 'all' ? '2px solid #6366f1' : '2px solid transparent',
+                                            color: ledgerTab === 'all' ? '#ffffff' : '#94a3b8',
+                                            fontWeight: ledgerTab === 'all' ? '700' : '500',
+                                            padding: '0.6rem 0.9rem',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        <span>Running Ledger</span>
+                                        <span style={{
+                                            backgroundColor: ledgerTab === 'all' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                            color: ledgerTab === 'all' ? '#a5b4fc' : '#64748b',
+                                            fontSize: '0.7rem',
+                                            padding: '0.1rem 0.4rem',
+                                            borderRadius: '999px',
+                                            fontWeight: '700'
+                                        }}>{ledgerEntries.length}</span>
+                                    </button>
+
+                                    <button 
+                                        type="button"
+                                        onClick={() => setLedgerTab('payments')}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            borderBottom: ledgerTab === 'payments' ? '2px solid #6366f1' : '2px solid transparent',
+                                            color: ledgerTab === 'payments' ? '#ffffff' : '#94a3b8',
+                                            fontWeight: ledgerTab === 'payments' ? '700' : '500',
+                                            padding: '0.6rem 0.9rem',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        <span>Repayments Only</span>
+                                        <span style={{
+                                            backgroundColor: ledgerTab === 'payments' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                            color: ledgerTab === 'payments' ? '#a5b4fc' : '#64748b',
+                                            fontSize: '0.7rem',
+                                            padding: '0.1rem 0.4rem',
+                                            borderRadius: '999px',
+                                            fontWeight: '700'
+                                        }}>{loanPayments.length}</span>
+                                    </button>
+
+                                    <button 
+                                        type="button"
+                                        onClick={() => setLedgerTab('schedule')}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            borderBottom: ledgerTab === 'schedule' ? '2px solid #6366f1' : '2px solid transparent',
+                                            color: ledgerTab === 'schedule' ? '#ffffff' : '#94a3b8',
+                                            fontWeight: ledgerTab === 'schedule' ? '700' : '500',
+                                            padding: '0.6rem 0.9rem',
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        <span>Installment Schedule</span>
+                                        <span style={{
+                                            backgroundColor: ledgerTab === 'schedule' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                                            color: ledgerTab === 'schedule' ? '#a5b4fc' : '#64748b',
+                                            fontSize: '0.7rem',
+                                            padding: '0.1rem 0.4rem',
+                                            borderRadius: '999px',
+                                            fontWeight: '700'
+                                        }}>{loanRepayments.length}</span>
+                                    </button>
+                                </div>
+
+                                {/* Sub-tab 1: Chronological Running Ledger */}
+                                {ledgerTab === 'all' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <table style={{ ...styles.customTable, width: '100%', minWidth: '820px' }}>
+                                                <thead>
+                                                    <tr style={{ background: 'rgba(15, 23, 42, 0.8)' }}>
+                                                        <th style={{ width: '100px' }}>Date</th>
+                                                        <th style={{ width: '110px' }}>Type</th>
+                                                        <th>Description / Party</th>
+                                                        <th style={{ textAlign: 'right', width: '120px' }}>Disbursed (Dr)</th>
+                                                        <th style={{ textAlign: 'right', width: '120px' }}>Principal Paid (Cr)</th>
+                                                        <th style={{ textAlign: 'right', width: '110px' }}>Interest Paid</th>
+                                                        <th style={{ textAlign: 'right', width: '110px' }}>Total Outflow</th>
+                                                        <th style={{ textAlign: 'right', width: '130px', color: '#a5b4fc' }}>Running Principal</th>
+                                                        <th style={{ width: '120px' }}>Source / Notes</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {ledgerEntries.map((entry, idx) => (
+                                                        <tr key={entry.id || idx} style={{
+                                                            backgroundColor: entry.type === 'disbursement' ? 'rgba(99, 102, 241, 0.03)' : 'transparent'
+                                                        }}>
+                                                            <td style={{ fontWeight: '600', color: '#ffffff' }}>{entry.date}</td>
+                                                            <td>
+                                                                <span style={{
+                                                                    ...styles.statusBadge,
+                                                                    backgroundColor: entry.type === 'disbursement' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                                                    color: entry.type === 'disbursement' ? '#818cf8' : '#34d399',
+                                                                    borderColor: entry.type === 'disbursement' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                                                                    fontSize: '0.65rem'
+                                                                }}>
+                                                                    {entry.typeLabel}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ fontWeight: '600', color: '#ffffff' }}>{entry.description}</div>
+                                                                {entry.party && (
+                                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Party: {entry.party}</div>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: entry.debitPrincipal > 0 ? '700' : 'normal', color: entry.debitPrincipal > 0 ? '#ffffff' : '#64748b' }}>
+                                                                {entry.debitPrincipal > 0 ? `₹${entry.debitPrincipal.toLocaleString('en-IN')}` : '—'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: entry.creditPrincipal > 0 ? '700' : 'normal', color: entry.creditPrincipal > 0 ? '#34d399' : '#64748b' }}>
+                                                                {entry.creditPrincipal > 0 ? `₹${entry.creditPrincipal.toLocaleString('en-IN')}` : '—'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: entry.interestPaid > 0 ? '700' : 'normal', color: entry.interestPaid > 0 ? '#fbbf24' : '#64748b' }}>
+                                                                {entry.interestPaid > 0 ? `₹${entry.interestPaid.toLocaleString('en-IN')}` : '—'}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: '700', color: entry.type === 'disbursement' ? '#818cf8' : '#ffffff' }}>
+                                                                ₹{entry.totalAmount.toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: '800', color: '#818cf8' }}>
+                                                                ₹{entry.runningPrincipal.toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td>
+                                                                <div style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>{entry.source}</div>
+                                                                {entry.notes && (
+                                                                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontStyle: 'italic', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={entry.notes}>
+                                                                        {entry.notes}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr style={{ background: 'rgba(15, 23, 42, 0.95)', borderTop: '2px solid rgba(99, 102, 241, 0.3)' }}>
+                                                        <td colSpan={3} style={{ fontWeight: '800', color: '#ffffff', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                                            Account Totals & Current Closing Balance
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: '800', color: '#ffffff' }}>
+                                                            ₹{parseFloat(loan.principal_amount || 0).toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: '800', color: '#34d399' }}>
+                                                            ₹{paidPrincipal.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: '800', color: '#fbbf24' }}>
+                                                            ₹{paidInterest.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: '800', color: '#ffffff' }}>
+                                                            ₹{totalPaid.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ textAlign: 'right', fontWeight: '900', color: isSettled ? '#34d399' : '#818cf8', fontSize: '0.95rem' }}>
+                                                            ₹{outstandingPrincipal.toLocaleString('en-IN')}
+                                                        </td>
+                                                        <td style={{ fontSize: '0.75rem', color: isSettled ? '#34d399' : '#818cf8', fontWeight: '700' }}>
+                                                            {isSettled ? '✓ Zero Bal' : 'Remaining'}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Sub-tab 2: Repayments Only */}
+                                {ledgerTab === 'payments' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {loanPayments.length === 0 ? (
+                                            <div style={{ ...styles.bigEmptyState, padding: '2rem 1rem' }}>
+                                                <ClipboardList size={36} color="#475569" style={{ marginBottom: '0.5rem' }} />
+                                                <p style={{ margin: 0 }}>No repayments have been recorded for this liability account yet.</p>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleLedgerLogPayment(loan)} 
+                                                    style={{ ...styles.modalSubmitBtn, marginTop: '0.75rem', padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+                                                >
+                                                    + Log First Repayment
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <table style={{ ...styles.customTable, width: '100%', minWidth: '750px' }}>
+                                                    <thead>
+                                                        <tr style={{ background: 'rgba(15, 23, 42, 0.8)' }}>
+                                                            <th style={{ width: '110px' }}>Payment Date</th>
+                                                            <th style={{ width: '140px' }}>Paid By</th>
+                                                            <th style={{ width: '120px' }}>Income Source</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Principal Portion</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Interest Portion</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Total Paid</th>
+                                                            <th>Notes / Reference</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {loanPayments.map(p => {
+                                                            const member = (data.members || []).find(m => m.id === p.member_id);
+                                                            return (
+                                                                <tr key={p.id}>
+                                                                    <td style={{ fontWeight: '600', color: '#ffffff' }}>{p.payment_date}</td>
+                                                                    <td>
+                                                                        <div style={{ fontWeight: '600', color: '#ffffff' }}>{member ? member.name : 'Unknown'}</div>
+                                                                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{member ? member.role : ''}</div>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span style={{
+                                                                            ...styles.statusBadge,
+                                                                            backgroundColor: 'rgba(56, 189, 248, 0.12)',
+                                                                            color: '#38bdf8',
+                                                                            borderColor: 'rgba(56, 189, 248, 0.25)',
+                                                                            fontSize: '0.7rem'
+                                                                        }}>
+                                                                            {p.source_of_income || 'Business'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '700', color: '#34d399' }}>
+                                                                        ₹{parseFloat(p.principal_portion || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '700', color: '#fbbf24' }}>
+                                                                        ₹{parseFloat(p.interest_portion || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '800', color: '#ffffff' }}>
+                                                                        ₹{parseFloat(p.amount || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                                        {p.notes || '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr style={{ background: 'rgba(15, 23, 42, 0.95)', borderTop: '2px solid rgba(99, 102, 241, 0.3)' }}>
+                                                            <td colSpan={3} style={{ fontWeight: '800', color: '#ffffff', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                                                Total Repayments ({loanPayments.length} Entries)
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: '800', color: '#34d399' }}>
+                                                                ₹{paidPrincipal.toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: '800', color: '#fbbf24' }}>
+                                                                ₹{paidInterest.toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td style={{ textAlign: 'right', fontWeight: '900', color: '#ffffff', fontSize: '0.95rem' }}>
+                                                                ₹{totalPaid.toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td></td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Sub-tab 3: Installment Schedule */}
+                                {ledgerTab === 'schedule' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {loanRepayments.length === 0 ? (
+                                            <div style={{ ...styles.bigEmptyState, padding: '2rem 1rem' }}>
+                                                <Calendar size={36} color="#475569" style={{ marginBottom: '0.5rem' }} />
+                                                <p style={{ margin: 0 }}>No installment schedule entries configured for this account.</p>
+                                            </div>
+                                        ) : (
+                                            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                                <table style={{ ...styles.customTable, width: '100%', minWidth: '700px' }}>
+                                                    <thead>
+                                                        <tr style={{ background: 'rgba(15, 23, 42, 0.8)' }}>
+                                                            <th style={{ width: '80px' }}>Inst. #</th>
+                                                            <th style={{ width: '110px' }}>Due Date</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Expected Amount</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Principal Component</th>
+                                                            <th style={{ textAlign: 'right', width: '120px' }}>Interest Component</th>
+                                                            <th style={{ width: '100px' }}>Status</th>
+                                                            <th>Notes</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {loanRepayments.map((rep, idx) => {
+                                                            const isPaid = (data.payments || []).some(p => p.repayment_id === rep.id);
+                                                            return (
+                                                                <tr key={rep.id || idx}>
+                                                                    <td style={{ fontWeight: '700', color: '#ffffff' }}>
+                                                                        #{rep.installment_number || (idx + 1)}
+                                                                    </td>
+                                                                    <td style={{ fontWeight: '600', color: '#e2e8f0' }}>{rep.due_date}</td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '800', color: '#ffffff' }}>
+                                                                        ₹{Math.round(rep.expected_amount || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#34d399' }}>
+                                                                        ₹{Math.round(rep.expected_principal || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td style={{ textAlign: 'right', fontWeight: '600', color: '#fbbf24' }}>
+                                                                        ₹{Math.round(rep.expected_interest || 0).toLocaleString('en-IN')}
+                                                                    </td>
+                                                                    <td>
+                                                                        <span style={{
+                                                                            ...styles.statusBadge,
+                                                                            backgroundColor: isPaid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                                            color: isPaid ? '#34d399' : '#fbbf24',
+                                                                            borderColor: isPaid ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+                                                                            fontSize: '0.65rem'
+                                                                        }}>
+                                                                            {isPaid ? '✓ Paid' : 'Due'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                                        {rep.notes || '—'}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Modal Bottom Action Bar */}
+                            <div style={{
+                                padding: '1rem 1.5rem',
+                                borderTop: '1px solid rgba(255,255,255,0.08)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                background: 'rgba(15, 23, 42, 0.75)'
+                            }}>
+                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                    Press <kbd style={{ padding: '0.15rem 0.35rem', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e2e8f0', fontSize: '0.75rem' }}>Esc</kbd> or click outside to close
+                                </div>
+                                <button 
+                                    type="button"
+                                    onClick={closeLedger}
+                                    style={{
+                                        backgroundColor: 'rgba(255,255,255,0.08)',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        borderRadius: '0.375rem',
+                                        padding: '0.45rem 1rem',
+                                        color: '#ffffff',
+                                        fontSize: '0.85rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Close Ledger
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
@@ -5718,6 +6546,16 @@ if (typeof window !== 'undefined') {
         }
         tr:hover {
             background-color: rgba(255,255,255,0.01);
+        }
+        .table-row-clickable {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .table-row-clickable:hover {
+            background-color: rgba(99, 102, 241, 0.08) !important;
+        }
+        .table-row-clickable:hover td {
+            color: #ffffff;
         }
         th {
             font-weight: 700;
