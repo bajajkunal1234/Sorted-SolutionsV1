@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { X, MapPin } from 'lucide-react'
 import LocalityCombobox from '@/components/common/LocalityCombobox'
+import { getLocalityForPincode } from '@/lib/data/mumbaiLocalities'
 
 const S = {
     overlay: {
@@ -61,7 +62,8 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError('')
-        const effectiveLocality = formData.locality === '__other__' ? formData.localityOther.trim() : formData.locality
+        const rawLoc = (formData.locality === '__other__' ? formData.localityOther?.trim() : formData.locality) || ''
+        const effectiveLocality = (rawLoc && rawLoc !== '__other__') ? rawLoc : (getLocalityForPincode(formData.pincode) || '')
         if (!effectiveLocality) { setError('Please select or type your locality.'); return }
 
         try {

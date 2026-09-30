@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { CheckCircle, MapPin, User, ArrowRight, ArrowLeft, Home, AlertCircle, Loader2, Camera, RefreshCw } from 'lucide-react'
 import LocalityCombobox from '@/components/common/LocalityCombobox'
+import { getLocalityForPincode } from '@/lib/data/mumbaiLocalities'
 import dynamic from 'next/dynamic'
 import UseCurrentLocationButton from '@/components/common/UseCurrentLocationButton'
 
@@ -235,7 +236,8 @@ function StepAddress({ onNext, onSkip, customerId }) {
         const cId = customerId || localStorage.getItem('customerId')
         if (!cId) { setError('Session expired. Please log in again.'); return }
 
-        const effectiveLocality = form.locality === '__other__' ? form.localityOther?.trim() : form.locality
+        const rawLoc = (form.locality === '__other__' ? form.localityOther?.trim() : form.locality) || ''
+        const effectiveLocality = (rawLoc && rawLoc !== '__other__') ? rawLoc : (getLocalityForPincode(form.pincode) || '')
         if (!effectiveLocality) { setError('Please select or type your locality.'); return }
 
         if (selectedExisting) {

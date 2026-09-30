@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Unlink, Calendar, Clock, Home, Trash2, Activity, RefreshCw, Link2, UserPlus } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
+import { MUMBAI_LOCALITIES, getPincodeForLocality, getLocalityForPincode } from '@/lib/data/mumbaiLocalities'
 import LocalityCombobox from '@/components/common/LocalityCombobox'
 
 const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
@@ -138,6 +138,7 @@ export default function AdminPropertiesTab() {
         if (!editForm.address) { setSaveError('Street address is required'); return }
         setSaving(true)
         setSaveError('')
+        const cleanLoc = (editForm.locality === '__other__' ? '' : (editForm.locality || '').trim()) || getLocalityForPincode(editForm.pincode) || ''
         try {
             const res = await fetch(`/api/admin/properties?id=${selected.id}`, {
                 method: 'PATCH',
@@ -146,7 +147,7 @@ export default function AdminPropertiesTab() {
                     flat_number: editForm.flat_number,
                     building_name: editForm.building_name,
                     address: editForm.address,
-                    locality: editForm.locality,
+                    locality: cleanLoc,
                     city: editForm.city,
                     pincode: editForm.pincode,
                     property_type: editForm.property_type,
@@ -630,10 +631,11 @@ function AddPropertyModal({ onClose, onSaved }) {
         if (!form.address) { setError('Street address is required'); return }
         setSaving(true)
         setDuplicate(null)
+        const cleanLoc = (form.locality === '__other__' ? '' : (form.locality || '').trim()) || getLocalityForPincode(form.pincode) || ''
         try {
             const body = forceCreate
-                ? { ...form, latitude: form.lat, longitude: form.lng, force_create: true }
-                : { ...form, latitude: form.lat, longitude: form.lng }
+                ? { ...form, locality: cleanLoc, latitude: form.lat, longitude: form.lng, force_create: true }
+                : { ...form, locality: cleanLoc, latitude: form.lat, longitude: form.lng }
             const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
             const data = await res.json()
             if (data.duplicate) { setDuplicate(data.existing); setError(data.error); setSaving(false); return }

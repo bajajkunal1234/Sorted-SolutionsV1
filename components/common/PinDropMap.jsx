@@ -122,7 +122,8 @@ export default function PinDropMap({
     }, [onChange]);
 
     const runSearch = useCallback(async (bld, str, loc, pin) => {
-        if (!loc && !pin && !str && !bld) return;
+        const cleanLoc = (loc && loc !== '__other__' && loc !== 'undefined') ? String(loc).trim() : '';
+        if (!cleanLoc && !pin && !str && !bld) return;
 
         setGeocoding(true);
         setSearchStatus('searching');
@@ -131,11 +132,11 @@ export default function PinDropMap({
         const cityCtx = 'Mumbai, Maharashtra, India';
         const queries = [];
 
-        if (bld && str && loc)   queries.push(`${bld}, ${str}, ${loc}, ${cityCtx}`);
-        if (bld && loc)           queries.push(`${bld}, ${loc}, ${cityCtx}`);
-        if (str && loc)           queries.push(`${str}, ${loc}, ${cityCtx}`);
-        if (loc)                  queries.push(`${loc}, ${cityCtx}`);
-        if (pin)                  queries.push(`${pin}, India`);
+        if (bld && str && cleanLoc)   queries.push(`${bld}, ${str}, ${cleanLoc}, ${cityCtx}`);
+        if (bld && cleanLoc)          queries.push(`${bld}, ${cleanLoc}, ${cityCtx}`);
+        if (str && cleanLoc)          queries.push(`${str}, ${cleanLoc}, ${cityCtx}`);
+        if (cleanLoc)                 queries.push(`${cleanLoc}, ${cityCtx}`);
+        if (pin)                      queries.push(`${pin}, India`);
 
         let placed = false;
         for (const q of queries) {

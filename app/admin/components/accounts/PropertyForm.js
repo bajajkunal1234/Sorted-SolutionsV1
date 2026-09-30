@@ -39,10 +39,10 @@ function PropertyForm({ customerId, onSave, onClose }) {
     const [loading, setLoading] = useState(false)
     const [errors, setErrors] = useState({})
 
-    const handleLocalityChange = (e) => {
-        const name = e.target.value
-        const pin = getPincodeForLocality(name)
-        setFormData(prev => ({ ...prev, locality: name, pincode: pin || prev.pincode }))
+    const handleLocalityChange = (loc, pin) => {
+        const name = typeof loc === 'string' ? loc : (loc?.target?.value || '')
+        const resolvedPin = pin || getPincodeForLocality(name) || formData.pincode
+        setFormData(prev => ({ ...prev, locality: name, pincode: resolvedPin }))
     }
 
     const handleSubmit = async (e) => {

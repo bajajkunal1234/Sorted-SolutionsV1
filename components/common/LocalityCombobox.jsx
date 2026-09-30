@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Search, X } from 'lucide-react'
+import { MapPin, X } from 'lucide-react'
 import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
 
 /**
  * Shared searchable locality combobox.
  *
+ * Supports both predefined Mumbai localities and arbitrary custom locality input.
+ * Never stores or propagates '__other__'.
+ *
  * Props:
- *   value         – current locality name (or '__other__')
+ *   value         – current locality name
  *   pincode       – current pincode string (controlled)
- *   onChange(locality, pincode) – called when selection changes
+ *   onChange(locality, pincode) – called when selection or text changes
  *   inputClassName – optional CSS class for the text input
  *   inputStyle     – optional inline style for the text input
  *   dropdownZIndex – default 999
@@ -25,33 +28,43 @@ export default function LocalityCombobox({
     dropdownZIndex = 999,
     showPincode = true,
 }) {
-    // query = what user types in the search box
-    const [query, setQuery] = useState(value === '__other__' ? '' : (value || ''))
+    const cleanValue = (value && value !== '__other__') ? value : ''
+    const [query, setQuery] = useState(cleanValue)
     const [open, setOpen] = useState(false)
     const containerRef = useRef(null)
     const inputRef = useRef(null)
 
-    // Sync display when value changes externally (e.g. URL pre-fill)
+    // Sync display when value changes externally
     useEffect(() => {
         if (!open) {
-            setQuery(value === '__other__' ? '' : (value || ''))
+            setQuery(cleanValue)
         }
-    }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [value, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Close on outside click
+    // Close on outside click and commit typed locality
     useEffect(() => {
         const handler = (e) => {
             if (containerRef.current && !containerRef.current.contains(e.target)) {
                 setOpen(false)
-                // If user typed something not in list, treat as Other
-                if (query.trim() && !MUMBAI_LOCALITIES.find(l => l.name.toLowerCase() === query.trim().toLowerCase())) {
-                    onChange('__other__', pincode)
+                const trimmed = query.trim()
+                if (!trimmed || trimmed === '__other__') {
+                    if (value && value !== '__other__') {
+                        onChange('', pincode)
+                    }
+                    return
+                }
+                const match = MUMBAI_LOCALITIES.find(l => l.name.toLowerCase() === trimmed.toLowerCase())
+                if (match) {
+                    setQuery(match.name)
+                    onChange(match.name, match.pincode || pincode)
+                } else {
+                    onChange(trimmed, pincode)
                 }
             }
         }
         document.addEventListener('mousedown', handler)
         return () => document.removeEventListener('mousedown', handler)
-    }, [query, pincode, onChange])
+    }, [query, pincode, value, onChange])
 
     const filtered = query.trim().length === 0
         ? MUMBAI_LOCALITIES
@@ -60,20 +73,51 @@ export default function LocalityCombobox({
     const handleSelect = (loc) => {
         setQuery(loc.name)
         setOpen(false)
-        onChange(loc.name, loc.pincode)
+        onChange(loc.name, loc.pincode || pincode)
     }
 
-    const handleOther = () => {
-        setOpen(false)
-        onChange('__other__', pincode)
+    const handleUseCustom = (customText) => {
+        const text = (customText || query).trim()
+        if (text && text !== '__other__') {
+            const match = MUMBAI_LOCALITIES.find(l => l.name.toLowerCase() === text.toLowerCase())
+            const finalName = match ? match.name : text
+            const finalPin = match?.pincode || pincode || getPincodeForLocality(finalName)
+            setQuery(finalName)
+            setOpen(false)
+            onChange(finalName, finalPin)
+        } else {
+            setOpen(false)
+        }
     }
 
     const handleInputChange = (e) => {
-        setQuery(e.target.value)
+        const val = e.target.value
+        setQuery(val)
         setOpen(true)
-        // Clear selection while typing
-        if (value && value !== '__other__') {
-            onChange('', '')
+        const trimmed = val.trim()
+        if (!trimmed) {
+            onChange('', pincode)
+            return
+        }
+        const match = MUMBAI_LOCALITIES.find(l => l.name.toLowerCase() === trimmed.toLowerCase())
+        if (match) {
+            onChange(match.name, match.pincode || pincode)
+        } else {
+            onChange(trimmed, pincode)
+        }
+    }
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const trimmed = query.trim()
+            if (filtered.length > 0 && filtered[0].name.toLowerCase() === trimmed.toLowerCase()) {
+                handleSelect(filtered[0])
+            } else if (trimmed) {
+                handleUseCustom(trimmed)
+            }
+        } else if (e.key === 'Escape') {
+            setOpen(false)
         }
     }
 
@@ -92,6 +136,8 @@ export default function LocalityCombobox({
         ...inputStyle,
     }
 
+    const activeLocality = (query && query !== '__other__') ? query : cleanValue
+
     return (
         <div ref={containerRef} style={{ position: 'relative' }}>
             {/* Text input */}
@@ -105,18 +151,20 @@ export default function LocalityCombobox({
                     type="text"
                     className={inputClassName}
                     style={baseInputStyle}
-                    value={query}
+                    value={query === '__other__' ? '' : query}
                     onChange={handleInputChange}
                     onFocus={() => setOpen(true)}
-                    placeholder="Search your area / locality..."
+                    onKeyDown={handleKeyDown}
+                    placeholder="Search or enter locality..."
                     autoComplete="off"
-                    aria-label="Search locality"
+                    aria-label="Search or enter locality"
                     aria-expanded={open}
                     role="combobox"
                     aria-autocomplete="list"
                 />
                 {query && (
                     <button
+                        type="button"
                         onMouseDown={e => { e.preventDefault(); handleClear() }}
                         style={{
                             position: 'absolute', right: 8, top: '50%',
@@ -145,16 +193,19 @@ export default function LocalityCombobox({
                     zIndex: dropdownZIndex,
                     scrollbarWidth: 'thin',
                 }}>
-                    {/* No match */}
-                    {filtered.length === 0 && (
-                        <div style={{ padding: '10px 14px', fontSize: 13, color: '#94a3b8' }}>
-                            No match —{' '}
-                            <span
-                                onMouseDown={e => { e.preventDefault(); handleOther() }}
-                                style={{ color: '#38bdf8', cursor: 'pointer', textDecoration: 'underline' }}
-                            >
-                                use &ldquo;{query}&rdquo; as your area
-                            </span>
+                    {/* No match option */}
+                    {filtered.length === 0 && query.trim() && (
+                        <div
+                            onMouseDown={e => { e.preventDefault(); handleUseCustom(query) }}
+                            style={{
+                                padding: '10px 14px',
+                                fontSize: 13,
+                                color: '#38bdf8',
+                                cursor: 'pointer',
+                                background: 'rgba(56,189,248,0.08)',
+                            }}
+                        >
+                            📍 Use &ldquo;{query.trim()}&rdquo; as locality
                         </div>
                     )}
 
@@ -167,26 +218,50 @@ export default function LocalityCombobox({
                                 padding: '9px 14px',
                                 fontSize: 13,
                                 cursor: 'pointer',
-                                color: loc.name === value ? '#38bdf8' : '#e2e8f0',
+                                color: loc.name === activeLocality ? '#38bdf8' : '#e2e8f0',
                                 borderBottom: '1px solid rgba(255,255,255,0.04)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                background: loc.name === value ? 'rgba(56,189,248,0.1)' : 'transparent',
+                                background: loc.name === activeLocality ? 'rgba(56,189,248,0.1)' : 'transparent',
                                 transition: 'background 0.1s',
                             }}
                             onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
-                            onMouseLeave={e => e.currentTarget.style.background = loc.name === value ? 'rgba(56,189,248,0.1)' : 'transparent'}
+                            onMouseLeave={e => e.currentTarget.style.background = loc.name === activeLocality ? 'rgba(56,189,248,0.1)' : 'transparent'}
                         >
                             <span>{loc.name}</span>
                             <span style={{ fontSize: 11, color: '#64748b' }}>{loc.pincode}</span>
                         </div>
                     ))}
 
-                    {/* "Other" footer option */}
-                    {filtered.length > 0 && (
+                    {/* Custom area option if user typed something not strictly matching first option */}
+                    {filtered.length > 0 && query.trim() && !MUMBAI_LOCALITIES.some(l => l.name.toLowerCase() === query.trim().toLowerCase()) && (
                         <div
-                            onMouseDown={e => { e.preventDefault(); handleOther() }}
+                            onMouseDown={e => { e.preventDefault(); handleUseCustom(query) }}
+                            style={{
+                                padding: '9px 14px',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                color: '#38bdf8',
+                                borderTop: '1px solid rgba(255,255,255,0.06)',
+                                fontStyle: 'italic',
+                                background: 'transparent',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            📍 Use &ldquo;{query.trim()}&rdquo; as custom area
+                        </div>
+                    )}
+
+                    {/* Enter manually fallback info */}
+                    {filtered.length > 0 && !query.trim() && (
+                        <div
+                            onMouseDown={e => {
+                                e.preventDefault()
+                                setOpen(false)
+                                inputRef.current?.focus()
+                            }}
                             style={{
                                 padding: '9px 14px',
                                 fontSize: 12,
@@ -194,47 +269,16 @@ export default function LocalityCombobox({
                                 color: '#64748b',
                                 borderTop: '1px solid rgba(255,255,255,0.06)',
                                 fontStyle: 'italic',
-                                background: value === '__other__' ? 'rgba(56,189,248,0.06)' : 'transparent',
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
-                            onMouseLeave={e => e.currentTarget.style.background = value === '__other__' ? 'rgba(56,189,248,0.06)' : 'transparent'}
                         >
-                            My area is not listed — enter manually
+                            Type any area / landmark if not listed above
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Manual "Other" input + pincode */}
-            {value === '__other__' && (
-                <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                    <input
-                        type="text"
-                        className={inputClassName}
-                        style={{ ...inputStyle, flex: 1, boxSizing: 'border-box' }}
-                        placeholder="Type your area / locality name"
-                        value={query}
-                        onChange={e => { setQuery(e.target.value); onChange('__other__', pincode) }}
-                        aria-label="Custom locality name"
-                    />
-                    {showPincode && (
-                        <input
-                            type="text"
-                            className={inputClassName}
-                            style={{ ...inputStyle, width: 100, boxSizing: 'border-box' }}
-                            placeholder="Pincode"
-                            value={pincode}
-                            maxLength={6}
-                            inputMode="numeric"
-                            onChange={e => onChange('__other__', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            aria-label="Pincode"
-                        />
-                    )}
-                </div>
-            )}
-
-            {/* Pincode display when a known locality is selected */}
-            {showPincode && value && value !== '__other__' && pincode && (
+            {/* Pincode display below when locality or pincode is present */}
+            {showPincode && activeLocality && pincode && (
                 <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 12, color: '#64748b' }}>📮 Pincode:</span>
                     <input
@@ -244,10 +288,10 @@ export default function LocalityCombobox({
                         value={pincode}
                         maxLength={6}
                         inputMode="numeric"
-                        onChange={e => onChange(value, e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        onChange={e => onChange(activeLocality, e.target.value.replace(/\D/g, '').slice(0, 6))}
                         aria-label="Pincode (editable)"
                     />
-                    <span style={{ fontSize: 11, color: '#475569' }}>edit if incorrect</span>
+                    <span style={{ fontSize: 11, color: '#475569' }}>auto-filled · edit if needed</span>
                 </div>
             )}
         </div>

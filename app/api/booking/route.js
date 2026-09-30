@@ -5,6 +5,7 @@ import { fireNotification } from '@/lib/fire-notification'
 import { generateJobNumber } from '@/lib/generateJobNumber'
 import { generateAccountSKU } from '@/lib/generateAccountSKU'
 import { trackLeadAttribution } from '@/lib/lead-tracker'
+import { getLocalityForPincode } from '@/lib/data/mumbaiLocalities'
 
 export async function POST(request) {
     const supabase = createServerSupabase()
@@ -145,7 +146,7 @@ export async function POST(request) {
                             customer?.address?.flat_number,
                             customer?.address?.building_name,
                             customer?.address?.street,
-                            customer?.address?.locality || customer?.address?.area,
+                            ((customer?.address?.locality && customer.address.locality !== '__other__') ? customer.address.locality : customer?.address?.area) || getLocalityForPincode(customer?.address?.pincode || pincode),
                             customer?.address?.pincode || pincode
                         ].filter(Boolean).join(', '),
                         properties: [
@@ -155,7 +156,7 @@ export async function POST(request) {
                                 flat_number: customer?.address?.flat_number || '',
                                 building_name: customer?.address?.building_name || '',
                                 address: customer?.address?.street || '',
-                                locality: customer?.address?.locality || customer?.address?.area || '',
+                                locality: ((customer?.address?.locality && customer.address.locality !== '__other__') ? customer.address.locality : customer?.address?.area) || getLocalityForPincode(customer?.address?.pincode || pincode) || '',
                                 pincode: customer?.address?.pincode || pincode || '',
                                 contactPhone: rawPhone10,
                                 contactPerson: customerName
@@ -305,14 +306,17 @@ export async function POST(request) {
         let job = null;
         // Build standardized job name: "New [Appliance Type] [Issue] [Locality]"
         // Website bookings are always "New" — warranty is assessed by admin later
-        const bookingLocality =
+        const rawLocality = (
             customer?.address?.locality ||
             customer?.address?.area ||
             customer?.address?.neighbourhood ||
             customer?.address?.suburb ||
             customer?.address?.district ||
-            pincode ||
-            '';
+            ''
+        ).trim();
+        const bookingLocality = (rawLocality && rawLocality !== '__other__')
+            ? rawLocality
+            : (getLocalityForPincode(customer?.address?.pincode || pincode) || pincode || '');
         const autoDescription = ['New', subcategoryName || categoryName || '', issueName || '', bookingLocality.trim()]
             .map(s => (s || '').trim())
             .filter(Boolean)
@@ -337,7 +341,7 @@ export async function POST(request) {
                 flat_number: customer?.address?.flat_number || '',
                 building_name: customer?.address?.building_name || '',
                 address: customer?.address?.street || '',
-                locality: customer?.address?.locality || customer?.address?.area || pincode || '',
+                locality: ((customer?.address?.locality && customer.address.locality !== '__other__') ? customer.address.locality : customer?.address?.area) || getLocalityForPincode(customer?.address?.pincode || pincode) || pincode || '',
                 city: customer?.address?.city || 'Mumbai',
                 pincode: customer?.address?.pincode || pincode || '',
                 property_type: 'residential',
