@@ -378,12 +378,6 @@ function IncentivesManagement({ initialSubTab }) {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    useEffect(() => {
-        if (initialSubTab) {
-            setActiveView(initialSubTab);
-        }
-    }, [initialSubTab]);
-
     const now = new Date();
     const [activeMonth, setActiveMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     const [loading, setLoading] = useState(true);
@@ -393,7 +387,7 @@ function IncentivesManagement({ initialSubTab }) {
     const [allInteractions, setAllInteractions] = useState([]);
     const [selectedTechId, setSelectedTechId] = useState(null);
 
-    const [datePreset, setDatePreset] = useState('this_month'); // today, yesterday, this_week, this_month, custom
+    const [datePreset, setDatePreset] = useState(initialSubTab === 'job_details' ? 'today' : 'this_month'); // today, yesterday, this_week, this_month, custom
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [allQuotations, setAllQuotations] = useState([]);
@@ -442,6 +436,18 @@ function IncentivesManagement({ initialSubTab }) {
         }
         return { start, end };
     };
+
+    useEffect(() => {
+        if (initialSubTab) {
+            setActiveView(initialSubTab);
+            if (initialSubTab === 'job_details') {
+                setDatePreset('today');
+                const { start, end } = getDatesForPreset('today');
+                setStartDate(start);
+                setEndDate(end);
+            }
+        }
+    }, [initialSubTab]);
 
     useEffect(() => {
         if (datePreset !== 'custom') {

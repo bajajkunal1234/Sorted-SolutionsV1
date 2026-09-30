@@ -207,6 +207,16 @@ export default function DashboardLivePerformance() {
             let storeUPI = 0;
             let storeCash = 0;
 
+            const jobTechMap = {};
+            jobs.forEach(j => {
+                if (j.id && j.technician_id) jobTechMap[j.id] = j.technician_id;
+            });
+
+            const invoiceTechMap = {};
+            invoices.forEach(inv => {
+                if (inv.invoice_number && inv.technician_id) invoiceTechMap[inv.invoice_number] = inv.technician_id;
+            });
+
             receipts.forEach(r => {
                 const amt = parseFloat(r.amount || 0);
                 const mode = (r.payment_mode || '').toLowerCase();
@@ -227,13 +237,35 @@ export default function DashboardLivePerformance() {
                     if (isCash) fieldCash += amt;
                     else if (isUPI) fieldUPI += amt;
 
-                    // Attribute to technician if available
-                    if (r.created_by) {
-                        const matchedTech = activeTechs.find(t => t.name.toLowerCase() === r.created_by.toLowerCase());
-                        if (matchedTech && byTech[matchedTech.id]) {
-                            if (isCash) byTech[matchedTech.id].cash += amt;
-                            else if (isUPI) byTech[matchedTech.id].upi += amt;
+                    // Attribute to technician
+                    let matchedTechId = null;
+                    if (r.job_id && jobTechMap[r.job_id]) {
+                        matchedTechId = jobTechMap[r.job_id];
+                    } else if (r.reference_number && invoiceTechMap[r.reference_number]) {
+                        matchedTechId = invoiceTechMap[r.reference_number];
+                    } else if (r.created_by) {
+                        const matchedTech = activeTechs.find(t => 
+                            t.id === r.created_by || 
+                            t.name.toLowerCase() === r.created_by.toLowerCase()
+                        );
+                        if (matchedTech) matchedTechId = matchedTech.id;
+                    }
+
+                    if (!matchedTechId && r.narration) {
+                        const match = r.narration.match(/Collected by (.*?)(?:\(|$)/i);
+                        if (match && match[1]) {
+                            const collName = match[1].trim().toLowerCase();
+                            const matchedTech = activeTechs.find(t => 
+                                t.name.toLowerCase() === collName || 
+                                collName.includes(t.name.toLowerCase())
+                            );
+                            if (matchedTech) matchedTechId = matchedTech.id;
                         }
+                    }
+
+                    if (matchedTechId && byTech[matchedTechId]) {
+                        if (isCash) byTech[matchedTechId].cash += amt;
+                        else if (isUPI) byTech[matchedTechId].upi += amt;
                     }
                 }
             });
@@ -256,11 +288,29 @@ export default function DashboardLivePerformance() {
             storePOS.cash = storeCash;
             storePOS.avgBill = storePOS.billsCount > 0 ? Math.round(storePOS.revenue / storePOS.billsCount) : 0;
 
+            // Defensive check for Technicians: infer UPI/cash from invoice account if no receipts attributed
+            activeTechs.forEach(t => {
+                if (byTech[t.id].revenue > 0 && (byTech[t.id].upi + byTech[t.id].cash) === 0) {
+                    let infUPI = 0;
+                    let infCash = 0;
+                    invoices.filter(inv => inv.technician_id === t.id).forEach(inv => {
+                        const acc = (inv.account_name || '').toLowerCase();
+                        const amt = parseFloat(inv.total_amount || 0);
+                        if (acc.includes('cash')) infCash += amt;
+                        else infUPI += amt;
+                    });
+                    if (infUPI + infCash > 0) {
+                        byTech[t.id].upi = infUPI;
+                        byTech[t.id].cash = infCash;
+                    }
+                }
+            });
+
             // 4. Combined Metrics Calculation
             const fieldRevenue = Object.values(byTech).reduce((sum, t) => sum + t.revenue, 0);
             const totalCombinedRevenue = fieldRevenue + storePOS.revenue;
-            const totalCombinedUPI = fieldUPI + storeUPI;
-            const totalCombinedCash = fieldCash + storeCash;
+            const totalCombinedUPI = Math.max(fieldUPI + storeUPI, Object.values(byTech).reduce((sum, t) => sum + t.upi, 0) + storePOS.upi);
+            const totalCombinedCash = Math.max(fieldCash + storeCash, Object.values(byTech).reduce((sum, t) => sum + t.cash, 0) + storePOS.cash);
 
             const combined = {
                 revenue: totalCombinedRevenue,
@@ -309,39 +359,60 @@ export default function DashboardLivePerformance() {
         }
     };
 
-    // Prepare active cards based on dropdown selection
+    // Prepare active cards based on dropdown selection (8 cards across all states)
     let cardData = [];
 
     if (selectedTechId === 'store_pos') {
         const sp = metrics.storePOS;
         cardData = [
             {
-                label: 'Store POS Revenue',
+                label: 'Total Revenue',
+                value: `₹${(sp.revenue || 0).toLocaleString('en-IN')}`,
+                icon: DollarSign,
+                color: '#10b981'
+            },
+            {
+                label: 'Field Revenue',
+                value: '₹0',
+                icon: Briefcase,
+                color: '#0ea5e9'
+            },
+            {
+                label: 'Store Revenue',
                 value: `₹${(sp.revenue || 0).toLocaleString('en-IN')}`,
                 icon: Store,
-                color: '#f59e0b',
-                paymentSplit: { upi: sp.upi, cash: sp.cash }
+                color: '#f59e0b'
             },
             {
-                label: 'Store Bills Generated',
-                value: sp.billsCount || 0,
-                icon: Briefcase,
-                color: '#3b82f6',
-                subText: 'Walk-in customers'
+                label: 'UPI Revenue',
+                value: `₹${(sp.upi || 0).toLocaleString('en-IN')}`,
+                icon: Smartphone,
+                color: '#6366f1'
             },
             {
-                label: 'Items Sold',
-                value: sp.itemsCount || 0,
+                label: 'Cash Revenue',
+                value: `₹${(sp.cash || 0).toLocaleString('en-IN')}`,
+                icon: Landmark,
+                color: '#14b8a6'
+            },
+            {
+                label: 'Jobs Assigned',
+                value: 0,
+                icon: Calendar,
+                color: '#3b82f6'
+            },
+            {
+                label: 'Visits Done',
+                value: 0,
                 icon: TrendingUp,
-                color: '#10b981',
-                subText: 'Total product units'
+                color: '#f97316'
             },
             {
-                label: 'Avg Bill Value',
-                value: `₹${(sp.avgBill || 0).toLocaleString('en-IN')}`,
+                label: 'Jobs Closed',
+                value: sp.billsCount || 0,
                 icon: CheckCircle,
                 color: '#8b5cf6',
-                subText: 'Per POS invoice'
+                subText: sp.billsCount > 0 ? `${sp.billsCount} bills` : undefined
             }
         ];
     } else if (selectedTechId === 'all') {
@@ -351,62 +422,102 @@ export default function DashboardLivePerformance() {
                 label: 'Total Revenue',
                 value: `₹${(comb.revenue || 0).toLocaleString('en-IN')}`,
                 icon: DollarSign,
-                color: '#10b981',
-                channelSplit: { field: comb.fieldRevenue, store: comb.storeRevenue },
-                paymentSplit: { upi: comb.upi, cash: comb.cash }
+                color: '#10b981'
+            },
+            {
+                label: 'Field Revenue',
+                value: `₹${(comb.fieldRevenue || 0).toLocaleString('en-IN')}`,
+                icon: Briefcase,
+                color: '#0ea5e9'
+            },
+            {
+                label: 'Store Revenue',
+                value: `₹${(comb.storeRevenue || 0).toLocaleString('en-IN')}`,
+                icon: Store,
+                color: '#f59e0b'
+            },
+            {
+                label: 'UPI Revenue',
+                value: `₹${(comb.upi || 0).toLocaleString('en-IN')}`,
+                icon: Smartphone,
+                color: '#6366f1'
+            },
+            {
+                label: 'Cash Revenue',
+                value: `₹${(comb.cash || 0).toLocaleString('en-IN')}`,
+                icon: Landmark,
+                color: '#14b8a6'
             },
             {
                 label: 'Jobs Assigned',
                 value: comb.assigned || 0,
-                icon: Briefcase,
-                color: '#3b82f6',
-                subText: 'Field scheduled'
+                icon: Calendar,
+                color: '#3b82f6'
             },
             {
                 label: 'Visits Done',
                 value: comb.visits || 0,
                 icon: TrendingUp,
-                color: '#f59e0b',
-                subText: 'Site visits logged'
+                color: '#f97316'
             },
             {
                 label: 'Jobs Closed',
                 value: comb.closed || 0,
                 icon: CheckCircle,
                 color: '#8b5cf6',
-                subText: comb.storeBillsCount > 0 ? `+ ${comb.storeBillsCount} store bills` : 'Completed today'
+                subText: comb.storeBillsCount > 0 ? `+${comb.storeBillsCount} bills` : undefined
             }
         ];
     } else {
         const tMetrics = metrics.byTech[selectedTechId] || { revenue: 0, assigned: 0, closed: 0, onJob: 0, visits: 0, upi: 0, cash: 0 };
         cardData = [
             {
-                label: 'Revenue Generated',
+                label: 'Total Revenue',
                 value: `₹${(tMetrics.revenue || 0).toLocaleString('en-IN')}`,
                 icon: DollarSign,
-                color: '#10b981',
-                paymentSplit: { upi: tMetrics.upi, cash: tMetrics.cash }
+                color: '#10b981'
+            },
+            {
+                label: 'Field Revenue',
+                value: `₹${(tMetrics.revenue || 0).toLocaleString('en-IN')}`,
+                icon: Briefcase,
+                color: '#0ea5e9'
+            },
+            {
+                label: 'Store Revenue',
+                value: '₹0',
+                icon: Store,
+                color: '#f59e0b'
+            },
+            {
+                label: 'UPI Revenue',
+                value: `₹${(tMetrics.upi || 0).toLocaleString('en-IN')}`,
+                icon: Smartphone,
+                color: '#6366f1'
+            },
+            {
+                label: 'Cash Revenue',
+                value: `₹${(tMetrics.cash || 0).toLocaleString('en-IN')}`,
+                icon: Landmark,
+                color: '#14b8a6'
             },
             {
                 label: 'Jobs Assigned',
                 value: tMetrics.assigned || 0,
-                icon: Briefcase,
-                color: '#3b82f6',
-                subText: 'Assigned to tech'
+                icon: Calendar,
+                color: '#3b82f6'
             },
             {
                 label: 'Visits Done',
                 value: tMetrics.visits || 0,
                 icon: TrendingUp,
-                color: '#f59e0b',
-                subText: 'Sites visited'
+                color: '#f97316'
             },
             {
                 label: 'Jobs Closed',
                 value: tMetrics.closed || 0,
                 icon: CheckCircle,
-                color: '#8b5cf6',
-                subText: 'Service closed'
+                color: '#8b5cf6'
             }
         ];
     }
@@ -422,16 +533,16 @@ export default function DashboardLivePerformance() {
             backgroundColor: 'var(--bg-elevated)',
             border: '1px solid var(--border-primary)',
             borderRadius: 'var(--radius-lg)',
-            padding: '14px 16px',
+            padding: '12px 14px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px'
+            gap: '10px'
         }}>
             {/* Header: Title & Controls */}
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px'
+                gap: '8px'
             }}>
                 {/* Top Row: Title + Date Filter Buttons */}
                 <div style={{
@@ -442,7 +553,7 @@ export default function DashboardLivePerformance() {
                     gap: '8px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {datePreset === 'today' ? '⚡' : '📅'} {titleText}
                         </span>
                         {datePreset === 'today' && (
@@ -471,7 +582,7 @@ export default function DashboardLivePerformance() {
                             type="button"
                             onClick={() => handlePresetChange('today')}
                             style={{
-                                padding: '4px 10px',
+                                padding: '4px 9px',
                                 fontSize: '11px',
                                 fontWeight: datePreset === 'today' ? 700 : 500,
                                 borderRadius: '6px',
@@ -489,7 +600,7 @@ export default function DashboardLivePerformance() {
                             type="button"
                             onClick={() => handlePresetChange('yesterday')}
                             style={{
-                                padding: '4px 10px',
+                                padding: '4px 9px',
                                 fontSize: '11px',
                                 fontWeight: datePreset === 'yesterday' ? 700 : 500,
                                 borderRadius: '6px',
@@ -507,7 +618,7 @@ export default function DashboardLivePerformance() {
                             type="button"
                             onClick={() => handlePresetChange('custom')}
                             style={{
-                                padding: '4px 10px',
+                                padding: '4px 9px',
                                 fontSize: '11px',
                                 fontWeight: datePreset === 'custom' ? 700 : 500,
                                 borderRadius: '6px',
@@ -523,7 +634,7 @@ export default function DashboardLivePerformance() {
                     </div>
                 </div>
 
-                {/* Sub Row: Custom Date Input (if active) + Dropdown Selector + View All */}
+                {/* Sub Row: Custom Date Input (if active) + Dropdown Selector + Action Buttons */}
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -531,14 +642,14 @@ export default function DashboardLivePerformance() {
                     flexWrap: 'wrap',
                     gap: '8px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: '1 1 200px' }}>
                         {datePreset === 'custom' && (
                             <input
                                 type="date"
                                 value={customDate}
                                 onChange={(e) => setCustomDate(e.target.value)}
                                 style={{
-                                    padding: '5px 8px',
+                                    padding: '4px 8px',
                                     fontSize: '11px',
                                     borderRadius: '6px',
                                     border: '1px solid var(--border-primary)',
@@ -555,7 +666,7 @@ export default function DashboardLivePerformance() {
                             value={selectedTechId}
                             onChange={(e) => setSelectedTechId(e.target.value)}
                             style={{
-                                padding: '5px 10px',
+                                padding: '5px 8px',
                                 fontSize: '12px',
                                 fontWeight: 600,
                                 borderRadius: '6px',
@@ -564,8 +675,9 @@ export default function DashboardLivePerformance() {
                                 color: 'var(--text-primary)',
                                 outline: 'none',
                                 cursor: 'pointer',
-                                minWidth: '170px',
-                                maxWidth: '100%'
+                                minWidth: '160px',
+                                maxWidth: '100%',
+                                flex: '1 1 auto'
                             }}
                         >
                             <option value="all">⚡ All (Combined: Field + Store)</option>
@@ -578,142 +690,148 @@ export default function DashboardLivePerformance() {
                         </select>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            if (selectedTechId === 'store_pos') {
+                    {/* Action buttons: Field Detail & Store Detail */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (typeof window.openPerformanceTracking === 'function') {
+                                    window.openPerformanceTracking('job_details');
+                                }
+                            }}
+                            style={{
+                                padding: '5px 9px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--color-primary)';
+                                e.currentTarget.style.color = 'var(--color-primary)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                e.currentTarget.style.color = 'var(--text-primary)';
+                            }}
+                        >
+                            Field Detail ›
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
                                 if (typeof window.openStorePOSReport === 'function') {
                                     window.openStorePOSReport();
                                 }
-                            } else if (typeof window.openPerformanceTracking === 'function') {
-                                window.openPerformanceTracking('performance');
-                            }
-                        }}
-                        style={{
-                            padding: '5px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            borderRadius: '6px',
-                            border: '1px solid var(--border-primary)',
-                            backgroundColor: selectedTechId === 'store_pos' ? 'rgba(245, 158, 11, 0.12)' : 'var(--bg-secondary)',
-                            color: selectedTechId === 'store_pos' ? '#fbbf24' : 'var(--text-primary)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--color-primary)';
-                            e.currentTarget.style.color = 'var(--color-primary)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'var(--border-primary)';
-                            e.currentTarget.style.color = 'var(--text-primary)';
-                        }}
-                    >
-                        {selectedTechId === 'store_pos' ? 'Store POS Report ›' : 'Detailed Tracking ›'}
-                    </button>
+                            }}
+                            style={{
+                                padding: '5px 9px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                                color: '#f59e0b',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#f59e0b';
+                                e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.08)';
+                            }}
+                        >
+                            Store Detail ›
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Metrics Cards Grid */}
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '110px', color: 'var(--text-secondary)' }}>
-                    <Loader2 className="spin" size={20} style={{ marginRight: '8px' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '90px', color: 'var(--text-secondary)' }}>
+                    <Loader2 className="spin" size={18} style={{ marginRight: '8px' }} />
                     <span style={{ fontSize: '12px' }}>Gathering performance metrics...</span>
                 </div>
             ) : (
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))',
-                    gap: '10px'
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '8px'
                 }}>
                     {cardData.map((card, idx) => {
                         const Icon = card.icon;
-                        const isRevenueCard = idx === 0;
 
                         return (
                             <div key={idx} style={{
-                                padding: '10px 12px',
+                                padding: '8px 10px',
                                 backgroundColor: 'var(--bg-secondary)',
                                 border: '1px solid var(--border-primary)',
-                                borderRadius: '10px',
+                                borderRadius: '8px',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'space-between',
-                                gap: '6px',
-                                minHeight: '94px',
+                                gap: '4px',
+                                minHeight: '56px',
                                 position: 'relative'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                    <span style={{
+                                        fontSize: '9.5px',
+                                        color: 'var(--text-secondary)',
+                                        textTransform: 'uppercase',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.3px',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }}>
                                         {card.label}
                                     </span>
                                     <div style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        borderRadius: '7px',
+                                        width: '20px',
+                                        height: '20px',
+                                        borderRadius: '5px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor: `${card.color}15`,
+                                        backgroundColor: `${card.color}18`,
                                         color: card.color,
                                         flexShrink: 0
                                     }}>
-                                        <Icon size={15} />
+                                        <Icon size={12} />
                                     </div>
                                 </div>
 
-                                <div>
-                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '2px' }}>
+                                    <div style={{
+                                        fontSize: '16px',
+                                        fontWeight: 800,
+                                        color: 'var(--text-primary)',
+                                        letterSpacing: '-0.02em',
+                                        lineHeight: 1.15
+                                    }}>
                                         {card.value}
                                     </div>
 
-                                    {/* Channel Split for Combined Revenue */}
-                                    {card.channelSplit && (
-                                        <div style={{
-                                            fontSize: '10px',
-                                            color: '#94a3b8',
-                                            fontWeight: 600,
-                                            marginTop: '3px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            flexWrap: 'wrap',
-                                            gap: '3px'
-                                        }}>
-                                            <span style={{ color: '#38bdf8' }}>🔧 Field: ₹{card.channelSplit.field.toLocaleString('en-IN')}</span>
-                                            <span>•</span>
-                                            <span style={{ color: '#fbbf24' }}>🏪 Store: ₹{card.channelSplit.store.toLocaleString('en-IN')}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Payment Mode Split (UPI vs Cash) */}
-                                    {card.paymentSplit && (
-                                        <div style={{
-                                            fontSize: '10px',
-                                            marginTop: '3px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            flexWrap: 'wrap',
-                                            gap: '4px',
-                                            paddingTop: '3px',
-                                            borderTop: '1px solid rgba(255,255,255,0.05)'
-                                        }}>
-                                            <span style={{ color: '#60a5fa', fontWeight: 600 }}>
-                                                📱 UPI: ₹{(card.paymentSplit.upi || 0).toLocaleString('en-IN')}
-                                            </span>
-                                            <span style={{ color: '#64748b' }}>|</span>
-                                            <span style={{ color: '#34d399', fontWeight: 600 }}>
-                                                💵 Cash: ₹{(card.paymentSplit.cash || 0).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Sub-label for non-revenue cards */}
-                                    {!card.paymentSplit && card.subText && (
-                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', fontWeight: 500 }}>
+                                    {card.subText && (
+                                        <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
                                             {card.subText}
-                                        </div>
+                                        </span>
                                     )}
                                 </div>
                             </div>

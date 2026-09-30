@@ -37,6 +37,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     const [activeSection, setActiveSection] = useState(null); // null = homepage
     const [subSection, setSubSection] = useState(null);
     const [customSubTab, setCustomSubTab] = useState(null);
+    const [currentTechSubTab, setCurrentTechSubTab] = useState(initialTechSubTab || null);
     const [bankAccountsSubTab, setBankAccountsSubTab] = useState('setup');
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
@@ -48,9 +49,12 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
             if (initialSubSection) {
                 setSubSection(initialSubSection);
             }
+            if (initialTechSubTab) {
+                setCurrentTechSubTab(initialTechSubTab);
+            }
             if (onClearInitial) onClearInitial();
         }
-    }, [initialSection, initialSubSection, onClearInitial]);
+    }, [initialSection, initialSubSection, initialTechSubTab, onClearInitial]);
 
     // Synchronize toggle state with actual document theme attribute upon mounting
     useEffect(() => {
@@ -532,7 +536,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                         setSearchTerm={setSearchTerm}
                         initialSubTab={
                             customSubTab || (activeSection === 'technicians' || activeSection === 'incentives'
-                                ? initialTechSubTab
+                                ? (currentTechSubTab || initialTechSubTab)
                                 : null)
                         }
                         navigateToSection={(sectionId, subTabId) => {
