@@ -38,7 +38,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     const [subSection, setSubSection] = useState(null);
     const [customSubTab, setCustomSubTab] = useState(null);
     const [currentTechSubTab, setCurrentTechSubTab] = useState(initialTechSubTab || null);
-    const [bankAccountsSubTab, setBankAccountsSubTab] = useState('setup');
+    const [bankAccountsSubTab, setBankAccountsSubTab] = useState('transactions');
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');

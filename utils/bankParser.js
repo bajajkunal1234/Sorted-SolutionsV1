@@ -128,6 +128,14 @@ const normalizeTransaction = (row, format) => {
         return null;
     };
 
+    const cleanNum = (val) => {
+        if (typeof val === 'number') return isNaN(val) ? 0 : val;
+        if (!val) return 0;
+        const str = String(val).replace(/,/g, '').trim();
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
+    };
+
     let dateValue = null;
     let particulars = '';
     let refNo = '';
@@ -136,26 +144,26 @@ const normalizeTransaction = (row, format) => {
     let balance = 0;
 
     if (format === 'HDFC') {
-        dateValue = getValue(['Date']);
-        particulars = getValue(['Narration', 'Particulars']) || '';
-        refNo = getValue(['Chq./Ref.No.', 'Reference No.']) || '';
-        withdrawal = parseFloat(getValue(['Withdrawal Amt.', 'Withdrawal'])) || 0;
-        deposit = parseFloat(getValue(['Deposit Amt.', 'Deposit'])) || 0;
-        balance = parseFloat(getValue(['Closing Balance', 'Balance'])) || 0;
+        dateValue = getValue(['Date', 'Txn Date', 'Transaction Date']);
+        particulars = getValue(['Narration', 'Particulars', 'Description']) || '';
+        refNo = getValue(['Chq./Ref.No.', 'Reference No.', 'Ref No.', 'Cheque/Ref No']) || '';
+        withdrawal = cleanNum(getValue(['Withdrawal Amt.', 'Withdrawal', 'Debit Amt.', 'Debit']));
+        deposit = cleanNum(getValue(['Deposit Amt.', 'Deposit', 'Credit Amt.', 'Credit']));
+        balance = cleanNum(getValue(['Closing Balance', 'Balance', 'Closing Bal', 'Balance (INR)']));
     } else if (format === 'ICICI') {
-        dateValue = getValue(['Transaction Date', 'Date']);
-        particulars = getValue(['Transaction Remarks', 'Particulars', 'Narration']) || '';
-        refNo = getValue(['Cheque Number', 'Ref No.']) || '';
-        withdrawal = parseFloat(getValue(['Withdrawal Amt (INR)', 'Withdrawal'])) || 0;
-        deposit = parseFloat(getValue(['Deposit Amt (INR)', 'Deposit'])) || 0;
-        balance = parseFloat(getValue(['Balance (INR)', 'Balance'])) || 0;
+        dateValue = getValue(['Transaction Date', 'Date', 'Value Date']);
+        particulars = getValue(['Transaction Remarks', 'Particulars', 'Narration', 'Description']) || '';
+        refNo = getValue(['Cheque Number', 'Ref No.', 'Transaction ID', 'Reference']) || '';
+        withdrawal = cleanNum(getValue(['Withdrawal Amt (INR)', 'Withdrawal', 'Debit']));
+        deposit = cleanNum(getValue(['Deposit Amt (INR)', 'Deposit', 'Credit']));
+        balance = cleanNum(getValue(['Balance (INR)', 'Balance', 'Closing Balance']));
     } else {
-        dateValue = getValue(['Date', 'Date/Time', 'Transaction Date']);
+        dateValue = getValue(['Date', 'Date/Time', 'Transaction Date', 'Txn Date']);
         particulars = getValue(['Narration', 'Description', 'Particulars', 'Transaction Remarks']) || '';
-        refNo = getValue(['Reference', 'Ref No.', 'Chq No.', 'Chq./Ref.No.']) || '';
-        withdrawal = parseFloat(getValue(['Withdrawal', 'Debit', 'Withdrawal Amt.'])) || 0;
-        deposit = parseFloat(getValue(['Deposit', 'Credit', 'Deposit Amt.'])) || 0;
-        balance = parseFloat(getValue(['Balance', 'Closing Balance'])) || 0;
+        refNo = getValue(['Reference', 'Ref No.', 'Chq No.', 'Chq./Ref.No.', 'Cheque No.']) || '';
+        withdrawal = cleanNum(getValue(['Withdrawal', 'Debit', 'Withdrawal Amt.', 'Debit Amount']));
+        deposit = cleanNum(getValue(['Deposit', 'Credit', 'Deposit Amt.', 'Credit Amount']));
+        balance = cleanNum(getValue(['Balance', 'Closing Balance', 'Closing Bal', 'Balance (INR)']));
     }
 
     // Format Date
@@ -163,16 +171,22 @@ const normalizeTransaction = (row, format) => {
     if (dateValue instanceof Date) {
         date = dateValue.toISOString().split('T')[0];
     } else if (typeof dateValue === 'string') {
-        // Try to handle DD/MM/YY or DD/MM/YYYY
-        const parts = dateValue.split(/[\/\-]/);
+        const trimmed = dateValue.trim();
+        const parts = trimmed.split(/[\/\-]/);
         if (parts.length === 3) {
-            let d = parts[0], m = parts[1], y = parts[2];
-            if (y.length === 2) y = '20' + y;
-            if (d.length === 1) d = '0' + d;
-            if (m.length === 1) m = '0' + m;
-            date = `${y}-${m}-${d}`;
+            let [p0, p1, p2] = parts;
+            if (p0.length === 4) {
+                // YYYY-MM-DD
+                date = `${p0}-${p1.padStart(2, '0')}-${p2.padStart(2, '0')}`;
+            } else {
+                // DD-MM-YYYY or DD-MM-YY
+                let y = p2.length === 2 ? '20' + p2 : p2;
+                let m = p1.padStart(2, '0');
+                let d = p0.padStart(2, '0');
+                date = `${y}-${m}-${d}`;
+            }
         } else {
-            date = dateValue;
+            date = trimmed;
         }
     } else if (dateValue) {
         date = String(dateValue);
