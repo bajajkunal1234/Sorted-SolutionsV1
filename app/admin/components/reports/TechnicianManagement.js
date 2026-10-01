@@ -236,12 +236,40 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             }
         });
 
+        channel.on('broadcast', { event: 'shift_updated' }, () => {
+            console.log('Realtime broadcast: shift updated');
+            fetchTechnicians();
+        });
+
+        channel.on('broadcast', { event: 'location_updated' }, () => {
+            fetchTechnicians();
+        });
+
         channel.subscribe();
+
+        // Also subscribe to technician_live_locations changes so duty status and online status stay live
+        const locChannel = supabase
+            .channel('realtime:technician_locations_changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'technician_live_locations' },
+                () => {
+                    fetchTechnicians();
+                }
+            )
+            .subscribe();
+
+        // 45s safety net polling
+        const rosterTimer = setInterval(() => {
+            fetchTechnicians();
+        }, 45000);
 
         return () => {
             supabase.removeChannel(channel);
+            supabase.removeChannel(locChannel);
+            clearInterval(rosterTimer);
         };
-    }, [selectedTechFilter]);
+    }, [selectedTechFilter, activeTab]);
 
     const fetchSpares = async () => {
         setSparesLoading(true);

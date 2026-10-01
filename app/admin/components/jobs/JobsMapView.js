@@ -572,14 +572,28 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
         });
     };
 
+    // Format elapsed seconds into compact human-readable string
+    const formatAge = (seconds) => {
+        if (seconds == null || isNaN(seconds)) return 'Never';
+        if (seconds < 60) return `${seconds}s ago`;
+        const m = Math.floor(seconds / 60);
+        if (m < 60) return `${m}m ago`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h}h ago`;
+        const d = Math.floor(h / 24);
+        return `${d}d ago`;
+    };
+
     // Helper to build technician markers dynamically based on selected style option
-    const getTechIcon = (tech) => {
+    const getTechIcon = (tech, isOffline = false) => {
         const name = tech?.name || 'Technician';
         const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-        const techColor = getTechColor(name);
+        const baseColor = getTechColor(name);
+        const techColor = isOffline ? '#64748b' : baseColor;
+        const filterStyle = isOffline ? 'filter: grayscale(85%) opacity(0.65);' : '';
 
         if (techMarkerType === 'pin') {
-            const htmlContent = `<div style="position: relative; width: 34px; height: 42px;">
+            const htmlContent = `<div style="position: relative; width: 34px; height: 42px; ${filterStyle}">
                 <svg width="34" height="42" viewBox="0 0 34 42" fill="none" style="position: absolute; top:0; left:0; width:100%; height:100%;">
                   <path d="M17 0C7.6 0 0 7.6 0 17C0 29.7 17 42 17 42C17 42 34 29.7 34 17C34 7.6 26.4 0 17 0Z" fill="${techColor}"/>
                   <text x="17" y="23" fill="#ffffff" font-size="13" font-family="system-ui, sans-serif" font-weight="900" text-anchor="middle">
@@ -602,7 +616,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                 width: 32px;
                 height: 32px;
                 border-radius: 50%;
-                border: 2px solid #ffffff;
+                border: 2px solid ${isOffline ? '#94a3b8' : '#ffffff'};
                 background-color: ${techColor};
                 color: #ffffff;
                 font-size: 11px;
@@ -611,6 +625,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                 justify-content: center;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.35);
                 font-weight: bold;
+                ${filterStyle}
               ">${initials}</div>`;
 
             return L.divIcon({
@@ -622,12 +637,12 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
             });
         }
 
-        // Default 'wrench' (now custom standing man silhouette badge) circle icon
+        // Default 'wrench' (standing man silhouette badge) circle icon
         return L.divIcon({
-            html: `<div style="position: relative; width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+            html: `<div style="position: relative; width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); ${filterStyle}">
                 <svg width="24" height="28" viewBox="0 0 24 28" fill="none" style="display: block; width: 100%; height: 100%;">
                     <!-- Oval base -->
-                    <ellipse cx="12" cy="24" rx="8" ry="3" fill="#facc15" stroke="#1e293b" stroke-width="1.5" />
+                    <ellipse cx="12" cy="24" rx="8" ry="3" fill="${isOffline ? '#94a3b8' : '#facc15'}" stroke="#1e293b" stroke-width="1.5" />
                     <!-- Body -->
                     <path d="M 12 11 C 9.5 11, 7.5 12, 7.5 14 L 8.8 19 L 9 24 H 11 L 12 21.5 L 13 24 H 15.2 L 15.5 19 L 16.5 14 C 16.5 12, 14.5 11, 12 11 Z" fill="${techColor}" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" />
                     <!-- Head -->
@@ -1415,25 +1430,37 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                     const tech = technicians.find(t => t.id === loc.technician_id);
                     if (!tech || tech.is_active === false) return null; // Hide inactive/fired technicians from map
 
+                    const isOffline = !loc.is_online || (loc.seconds_ago !== undefined ? loc.seconds_ago > 900 : (Date.now() - new Date(loc.last_seen).getTime() > 15 * 60 * 1000));
+
                     return (
                         <Marker
                             key={`${loc.technician_id}-${techMarkerType}`}
                             position={[loc.latitude, loc.longitude]}
-                            icon={getTechIcon(tech)}
+                            icon={getTechIcon(tech, isOffline)}
                         >
                             <Tooltip direction="top" offset={[0, -16]}>
                                 <div>
-                                    <span style={{ fontWeight: 600 }}>{tech.name}</span> (Technician)
+                                    <span style={{ fontWeight: 600 }}>{tech.name}</span> {isOffline ? '(Technician - Offline 💤)' : (loc.is_on_job ? '(Technician - On Job 🔧)' : '(Technician - Available 🟢)')}
                                 </div>
                             </Tooltip>
 
                             <Popup>
-                                <div style={{ fontSize: '12px', color: '#cbd5e1', minWidth: '160px' }}>
-                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 700, color: '#eab308' }}>{tech.name}</h4>
-                                    <div><strong>Status:</strong> {loc.is_on_job ? 'On Job 🔧' : 'Available 🟢'}</div>
-                                    {loc.battery_level !== undefined && <div><strong>Battery:</strong> {loc.battery_level}%</div>}
+                                <div style={{ fontSize: '12px', color: '#cbd5e1', minWidth: '170px' }}>
+                                    <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 700, color: isOffline ? '#94a3b8' : '#eab308' }}>
+                                        {tech.name} {isOffline && <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 'bold' }}>[OFFLINE]</span>}
+                                    </h4>
+                                    <div>
+                                        <strong>Status:</strong> {isOffline ? (
+                                            <span style={{ color: '#94a3b8', fontWeight: 600 }}>Offline 💤 ({formatAge(loc.seconds_ago)})</span>
+                                        ) : (
+                                            <span>{loc.is_on_job ? 'On Job 🔧' : 'Available 🟢'}</span>
+                                        )}
+                                    </div>
+                                    {loc.battery_level !== undefined && loc.battery_level !== null && loc.battery_level >= 0 && (
+                                        <div><strong>Battery:</strong> {loc.battery_level}%</div>
+                                    )}
                                     <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>
-                                        Last seen: {new Date(loc.last_seen).toLocaleTimeString()}
+                                        Last seen: {formatAge(loc.seconds_ago)} ({new Date(loc.last_seen).toLocaleDateString([], { month: 'short', day: 'numeric' })} {new Date(loc.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
                                     </div>
                                     <div style={{ marginTop: '8px', borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: '8px' }}>
                                         <button

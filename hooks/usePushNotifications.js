@@ -127,12 +127,18 @@ export function usePushNotifications({ userType, userId }) {
                 const notification = action?.notification || {};
                 const data = notification.data || {};
                 const link = data.link || data.click_action || data.url;
-                const jobId = data.job_id || data.jobId;
+                const jobId = data.job_id || data.jobId || data.job_number;
 
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('app-notification-opened', {
                         detail: { link, jobId, data, notification }
                     }));
+
+                    if (jobId && typeof window.openJobInJobsTab === 'function') {
+                        window.openJobInJobsTab({ id: jobId, job_number: jobId });
+                    } else if (link && typeof window.processAdminTargetParams === 'function') {
+                        window.processAdminTargetParams(link);
+                    }
 
                     if (link) {
                         try {
@@ -176,10 +182,16 @@ export function usePushNotifications({ userType, userId }) {
             if (event.data?.type === 'NOTIFICATION_CLICK') {
                 console.log('[Web Push] Notification click message from SW:', event.data);
                 const { url, data } = event.data;
-                const jobId = data?.job_id || data?.jobId;
+                const jobId = data?.job_id || data?.jobId || data?.job_number;
                 window.dispatchEvent(new CustomEvent('app-notification-opened', {
                     detail: { link: url, jobId, data }
                 }));
+
+                if (jobId && typeof window.openJobInJobsTab === 'function') {
+                    window.openJobInJobsTab({ id: jobId, job_number: jobId });
+                } else if (url && typeof window.processAdminTargetParams === 'function') {
+                    window.processAdminTargetParams(url);
+                }
             }
         };
 

@@ -136,20 +136,25 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
             }
         }
 
-        if (!jobId && notif.message) {
+        if (!jobId && notif.message && (!tab || tab === 'jobs')) {
             const m = notif.message.match(/Job\s*#?([A-Za-z0-9_-]+)/i);
             if (m) jobId = m[1];
         }
 
-        // Dispatch global event for active components
+        // Dispatch global event for active components (technician app, admin, customer app)
         window.dispatchEvent(new CustomEvent('app-notification-opened', {
             detail: { link, jobId, tab, notif }
         }));
 
-        // If on Admin app with openJobInJobsTab available
-        if (jobId && typeof window !== 'undefined' && typeof window.openJobInJobsTab === 'function') {
+        // If this notification specifically targets a job and we're on the Admin app
+        if (jobId && (!tab || tab === 'jobs') && typeof window !== 'undefined' && typeof window.openJobInJobsTab === 'function') {
             window.openJobInJobsTab({ id: jobId, job_number: jobId });
             return;
+        }
+
+        // Instant admin tab/section switching if available
+        if (link && typeof window !== 'undefined' && typeof window.processAdminTargetParams === 'function') {
+            window.processAdminTargetParams(link);
         }
 
         // Navigate if link exists

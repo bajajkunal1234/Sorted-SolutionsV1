@@ -410,22 +410,46 @@ function TechnicianApp() {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        const checkAndOpenJob = (targetId) => {
+        const checkAndOpenJob = async (targetId) => {
             if (!targetId) return;
             const strId = String(targetId).trim();
+            const cleanTarget = strId.toLowerCase().replace(/^(job-?)/, '');
             pendingJobIdToOpenRef.current = strId;
 
-            if (jobs && jobs.length > 0) {
-                const found = jobs.find(j => 
-                    String(j.id) === strId || 
-                    String(j.job_number) === strId ||
-                    (j.job_number && strId && String(j.job_number).toLowerCase() === strId.toLowerCase())
-                );
-                if (found) {
-                    setSelectedJob(found);
-                    pendingJobIdToOpenRef.current = null;
-                }
+            const matchJob = (list) => (list || []).find(j => 
+                String(j.id) === strId || 
+                String(j.job_number) === strId ||
+                (j.job_number && String(j.job_number).toLowerCase() === strId.toLowerCase()) ||
+                (j.job_number && String(j.job_number).toLowerCase().replace(/^(job-?)/, '') === cleanTarget)
+            );
+
+            // 1. Try finding in current local jobs list
+            let found = matchJob(jobs);
+            if (found) {
+                setSelectedJob(found);
+                pendingJobIdToOpenRef.current = null;
+                return;
             }
+
+            // 2. If not found in current jobs, directly fetch this job from API
+            try {
+                const res = await apiCall(`/api/technician/jobs/${encodeURIComponent(strId)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const job = data.job || data.data || data;
+                    if (job && (job.id || job.job_number)) {
+                        setSelectedJob(job);
+                        pendingJobIdToOpenRef.current = null;
+                        fetchJobs(true);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('[TechnicianApp] Direct job fetch for deep link failed:', err);
+            }
+
+            // Fallback: trigger fetchJobs() to refresh list
+            fetchJobs(true);
         };
 
         const handleUrl = () => {
@@ -467,10 +491,12 @@ function TechnicianApp() {
     useEffect(() => {
         if (pendingJobIdToOpenRef.current && jobs && jobs.length > 0) {
             const strId = pendingJobIdToOpenRef.current;
+            const cleanTarget = strId.toLowerCase().replace(/^(job-?)/, '');
             const found = jobs.find(j => 
                 String(j.id) === strId || 
                 String(j.job_number) === strId ||
-                (j.job_number && strId && String(j.job_number).toLowerCase() === strId.toLowerCase())
+                (j.job_number && String(j.job_number).toLowerCase() === strId.toLowerCase()) ||
+                (j.job_number && String(j.job_number).toLowerCase().replace(/^(job-?)/, '') === cleanTarget)
             );
             if (found) {
                 setSelectedJob(found);

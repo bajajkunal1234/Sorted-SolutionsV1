@@ -15,6 +15,7 @@ import JobsListView from './jobs/JobsListView';
 const JobsMapView = dynamic(() => import('./jobs/JobsMapView'), { ssr: false });
 import BookingReviewModal from './jobs/BookingReviewModal';
 import { jobsAPI } from '@/lib/adminAPI';
+import { supabase } from '@/lib/supabase';
 import { sortJobs, groupJobsBy, STATUS_ORDER } from '@/lib/utils/helpers';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
@@ -339,30 +340,94 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
     useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
+    // Real-time synchronization & auto-refresh for Admin
     useEffect(() => {
         if (typeof window === 'undefined') return;
+
+        // 1. Supabase Postgres changes for instantaneous updates
+        const channel = supabase
+            .channel('admin:jobs-realtime-feed')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'jobs' },
+                (payload) => {
+                    console.log('[JobsTab] Real-time job event received:', payload.eventType, payload.new?.job_number);
+                    fetchJobs(true);
+                }
+            )
+            .subscribe();
+
+        // 2. 30-second polling safety net
+        const pollInterval = setInterval(() => {
+            fetchJobs(true);
+        }, 30000);
+
+        // 3. Tab resume / focus refresh
         const handleRefresh = () => {
             console.log('[JobsTab] Resume/focus detected, auto-refreshing jobs...');
-            fetchJobs(true); // Forces cache-bypassing fetch
+            fetchJobs(true);
         };
         window.addEventListener('refresh-active-tab', handleRefresh);
-        return () => window.removeEventListener('refresh-active-tab', handleRefresh);
+
+        return () => {
+            supabase.removeChannel(channel);
+            clearInterval(pollInterval);
+            window.removeEventListener('refresh-active-tab', handleRefresh);
+        };
     }, [fetchJobs]);
 
+    // Reliable job opener for notifications and deep links
     useEffect(() => {
-        if (jobToOpen && jobs.length > 0) {
-            const targetId = typeof jobToOpen === 'string' ? jobToOpen : (jobToOpen.id || jobToOpen.job_number);
-            const j = jobs.find(job => 
-                String(job.id) === String(targetId) || 
-                String(job.job_number) === String(targetId) ||
-                (job.job_number && targetId && String(job.job_number).toLowerCase() === String(targetId).toLowerCase())
+        if (!jobToOpen) return;
+
+        let isMounted = true;
+        const targetId = typeof jobToOpen === 'string' ? jobToOpen.trim() : (jobToOpen.id || jobToOpen.job_number);
+        if (!targetId) return;
+
+        const findAndOpen = async () => {
+            const strTarget = String(targetId).trim();
+            const cleanTarget = strTarget.toLowerCase().replace(/^(job-?)/, '');
+
+            const matchJob = (list) => (list || []).find(job => 
+                String(job.id) === strTarget || 
+                String(job.job_number) === strTarget ||
+                (job.job_number && String(job.job_number).toLowerCase() === strTarget.toLowerCase()) ||
+                (job.job_number && String(job.job_number).toLowerCase().replace(/^(job-?)/, '') === cleanTarget)
             );
-            if (j) {
-                if (j.status === 'booking_request') setReviewBooking(j);
-                else setSelectedJob(j);
+
+            // 1. Try currently loaded jobs
+            let j = matchJob(jobs);
+
+            // 2. If not found in local memory, immediately fetch fresh jobs from server
+            if (!j) {
+                try {
+                    const freshJobs = await jobsAPI.getAll({ _t: Date.now() });
+                    if (isMounted && Array.isArray(freshJobs)) {
+                        setJobs(freshJobs);
+                        j = matchJob(freshJobs);
+                    }
+                } catch (fetchErr) {
+                    console.warn('[JobsTab] Failed to fetch fresh jobs for jobToOpen:', fetchErr);
+                }
             }
-            if (onJobOpened) onJobOpened();
-        }
+
+            if (isMounted) {
+                if (j) {
+                    if (j.status === 'booking_request' || j.status === 'new_job_request' || j.status === 'enquiry') {
+                        setReviewBooking(j);
+                    } else {
+                        setSelectedJob(j);
+                    }
+                } else {
+                    console.warn('[JobsTab] Could not locate job to open with ID:', targetId);
+                }
+                if (onJobOpened) onJobOpened();
+            }
+        };
+
+        findAndOpen();
+
+        return () => { isMounted = false; };
     }, [jobToOpen, jobs, onJobOpened]);
 
     // Handle cross-tab deep-linking for map view, tag filters, or saved view loading

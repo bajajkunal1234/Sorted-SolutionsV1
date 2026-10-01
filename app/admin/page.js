@@ -270,6 +270,7 @@ export default function AdminApp() {
         };
 
         processTargetParams();
+        window.processAdminTargetParams = processTargetParams;
 
         const handlePopState = () => processTargetParams();
         window.addEventListener('popstate', handlePopState);
@@ -288,6 +289,7 @@ export default function AdminApp() {
         window.addEventListener('app-notification-opened', handleNotificationOpened);
 
         return () => {
+            delete window.processAdminTargetParams;
             window.removeEventListener('popstate', handlePopState);
             window.removeEventListener('app-notification-opened', handleNotificationOpened);
         };

@@ -23,13 +23,16 @@ export async function GET(request) {
         // Fetch live locations for duty_status enrichment
         const { data: liveLocs } = await supabase
             .from('technician_live_locations')
-            .select('technician_id, duty_status, is_online');
+            .select('technician_id, duty_status, is_online, updated_at');
         
         const locMap = {};
         for (const loc of liveLocs || []) {
+            const secondsAgo = loc.updated_at ? Math.round((Date.now() - new Date(loc.updated_at).getTime()) / 1000) : 999999;
+            const isOnline = (loc.is_online !== false) && secondsAgo <= 900;
             locMap[loc.technician_id] = {
-                duty_status: loc.duty_status || 'offline',
-                is_online: loc.is_online || false
+                duty_status: isOnline ? (loc.duty_status || 'on_duty') : 'offline',
+                is_online: isOnline,
+                seconds_ago: secondsAgo
             };
         }
 

@@ -13,7 +13,7 @@ export async function GET() {
     try {
         const { data, error } = await supabase
             .from('technician_live_locations')
-            .select('technician_id, latitude, longitude, is_on_job, tracking_source, updated_at, is_online, location_precision, ip_address, battery_level, connectivity_status, is_mocked')
+            .select('technician_id, latitude, longitude, is_on_job, tracking_source, updated_at, is_online, location_precision, ip_address, battery_level, connectivity_status, is_mocked, duty_status')
             .not('latitude', 'is', null)
             .order('updated_at', { ascending: false })
 
@@ -38,24 +38,30 @@ export async function GET() {
 
         const enriched = (data || [])
             .filter(r => techMap[r.technician_id] && techMap[r.technician_id].is_active)
-            .map(r => ({
-                technician_id: r.technician_id,
-                name: techMap[r.technician_id]?.name || 'Technician',
-                current_session_token: techMap[r.technician_id]?.current_session_token || null,
-                latitude: r.latitude,
-                longitude: r.longitude,
-                is_on_job: r.is_on_job,
-                tracking_source: r.tracking_source || 'web',
-                last_seen: r.updated_at,
-                is_online: r.is_online !== false,
-                location_precision: r.location_precision || 'precise',
-                ip_address: r.ip_address,
-                battery_level: r.battery_level,
-                connectivity_status: r.connectivity_status,
-                is_mocked: !!r.is_mocked,
-                // seconds since last ping
-                seconds_ago: Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000),
-            }))
+            .map(r => {
+                const secondsAgo = Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000)
+                // A technician is truly online only if their last ping was received within the last 15 minutes (900 seconds)
+                const isOnline = (r.is_online !== false) && secondsAgo <= 900
+                return {
+                    technician_id: r.technician_id,
+                    name: techMap[r.technician_id]?.name || 'Technician',
+                    current_session_token: techMap[r.technician_id]?.current_session_token || null,
+                    latitude: r.latitude,
+                    longitude: r.longitude,
+                    is_on_job: r.is_on_job,
+                    tracking_source: r.tracking_source || 'web',
+                    last_seen: r.updated_at,
+                    is_online: isOnline,
+                    duty_status: isOnline ? (r.duty_status || (r.is_on_job ? 'on_duty' : 'idle')) : 'offline',
+                    location_precision: r.location_precision || 'precise',
+                    ip_address: r.ip_address,
+                    battery_level: r.battery_level,
+                    connectivity_status: r.connectivity_status,
+                    is_mocked: !!r.is_mocked,
+                    // seconds since last ping
+                    seconds_ago: secondsAgo,
+                }
+            })
 
         return NextResponse.json({ success: true, data: enriched, total: enriched.length })
     } catch (err) {
