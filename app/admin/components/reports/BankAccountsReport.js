@@ -4,15 +4,27 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
     Building2, Settings2, Plus, AlertCircle, CheckCircle2, Loader2,
-    ChevronDown, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle,
+    ChevronDown, ChevronUp, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle,
     Calendar, FileSpreadsheet, Link2, Unlink, Clock, Search, Filter,
-    ShieldAlert, Sparkles, ExternalLink, ArrowUpRight, ArrowDownLeft, X
+    ShieldAlert, Sparkles, ExternalLink, ArrowUpRight, ArrowDownLeft, X,
+    ArrowUpDown
 } from 'lucide-react';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import LinkSystemEntryModal from './LinkSystemEntryModal';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
+
+const DEFAULT_COLUMN_WIDTHS = {
+    date: 90,
+    source: 95,
+    voucherNo: 110,
+    particulars: 240,
+    deposit: 100,
+    withdrawal: 100,
+    status: 135,
+    action: 140
+};
 
 export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
     // Default to 'transactions' subtab as requested
@@ -25,16 +37,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [selectedAccountId, setSelectedAccountId] = useState(null);
 
     // Date Range Selection States
-    const getWeekRange = () => {
-        const today = new Date();
-        const start = new Date(today);
-        start.setDate(today.getDate() - 7);
-        return {
-            from: start.toISOString().split('T')[0],
-            to: today.toISOString().split('T')[0]
-        };
-    };
-
     const getMonthRange = () => {
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -50,9 +52,14 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [fromDate, setFromDate] = useState(initialRange.from);
     const [toDate, setToDate] = useState(initialRange.to);
 
-    // Filter states
+    // Filter and Sort states
     const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unassigned' | 'uncleared' | 'duplicate' | 'reconciled'
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
+
+    // Resizable column widths
+    const [colWidths, setColWidths] = useState(DEFAULT_COLUMN_WIDTHS);
+    const resizingRef = useRef(null);
 
     // Bank Statement & System Data
     const [activeStatement, setActiveStatement] = useState(null);
@@ -67,8 +74,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [testing, setTesting] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showVoucherForm, setShowVoucherForm] = useState(null); // { type, data, alertId, statementTxId }
-    const [showLinkModal, setShowLinkModal] = useState(null); // bank transaction to link
+    const [showVoucherForm, setShowVoucherForm] = useState(null);
+    const [showLinkModal, setShowLinkModal] = useState(null);
     const [testStatus, setTestStatus] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -104,7 +111,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         fetchAccountsAndSettings();
     }, []);
 
-    // Sync Setup Form when selectedAccountId or settings change
+    // Sync Setup Form when selectedAccountId changes
     useEffect(() => {
         if (selectedAccountId) {
             const saved = imapSettings[selectedAccountId] || {};
@@ -125,6 +132,46 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             fetchComprehensiveData(selectedAccountId);
         }
     }, [selectedAccountId, fromDate, toDate]);
+
+    // Column resizing logic with touch & mouse drag support
+    const handleResizeStart = (colKey, e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const startX = e.touches ? e.touches[0].clientX : e.clientX;
+        const startWidth = colWidths[colKey] || DEFAULT_COLUMN_WIDTHS[colKey];
+        resizingRef.current = { colKey, startX, startWidth };
+
+        const handleMove = (moveEvent) => {
+            if (!resizingRef.current) return;
+            const currentX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            const delta = currentX - resizingRef.current.startX;
+            const newWidth = Math.max(50, Math.round(resizingRef.current.startWidth + delta));
+            setColWidths(prev => ({ ...prev, [colKey]: newWidth }));
+        };
+
+        const handleEnd = () => {
+            resizingRef.current = null;
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchend', handleEnd);
+        };
+
+        window.addEventListener('mousemove', handleMove, { passive: false });
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+    };
+
+    // Column Sorting Toggle
+    const handleSort = (key) => {
+        setSortConfig(prev => {
+            if (prev.key === key) {
+                return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { key, direction: key === 'deposit' || key === 'withdrawal' || key === 'date' ? 'desc' : 'asc' };
+        });
+    };
 
     const handlePresetClick = (preset) => {
         setDatePreset(preset);
@@ -178,7 +225,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             setImapSettings(settings);
 
             if (accList.length > 0) {
-                // Preselect HDFC Current A/c by default as required
+                // Preselect HDFC Current A/c by default
                 const defaultAcc = accList.find(a =>
                     (a.name || '').toLowerCase().includes('hdfc') && (a.name || '').toLowerCase().includes('current')
                 ) || accList.find(a =>
@@ -232,8 +279,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const computedStartBalance = (balanceType === 'dr' ? baseOpening : -baseOpening) + priorInflow - priorOutflow;
             setAccountOpeningBal(computedStartBalance);
 
-            // 3. Fetch All System Entries for the selected bank account within range:
-            // Receipts, Payments, Purchase Invoices, Sales Invoices
+            // 3. Fetch All System Entries for the selected bank account within range
             const [payRes, recRes, purRes, salRes, alertRes, stmtRes] = await Promise.all([
                 supabase
                     .from('payment_vouchers')
@@ -292,7 +338,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     number: p.payment_number,
                     date: p.date,
                     amount: parseFloat(p.amount) || 0,
-                    direction: 'outflow', // payment = money leaves bank
+                    direction: 'outflow',
                     party: p.account_name || 'Vendor / Payee',
                     narration: p.narration,
                     refNo: p.reference_number || '',
@@ -309,7 +355,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     number: r.receipt_number,
                     date: r.date,
                     amount: parseFloat(r.amount) || 0,
-                    direction: 'inflow', // receipt = money enters bank
+                    direction: 'inflow',
                     party: r.account_name || 'Customer / Payer',
                     narration: r.narration,
                     refNo: r.reference_number || '',
@@ -357,7 +403,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
             // 4. Fetch Bank Statement Data
             const stmtList = stmtRes.data || [];
-            // Find active statement for current period or latest
             const active = stmtList.find(s => s.from_date <= toDate && s.to_date >= fromDate) || stmtList[0] || null;
 
             if (active) {
@@ -381,14 +426,13 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         }
     };
 
-    // ─── DUPLICATE DETECTION & UNIFIED LEDGER MAPPING ───
+    // Duplicate detection and unified ledger computation
     const {
         unifiedLedger,
         stats,
         closingComparison,
         weeklyStatus
     } = useMemo(() => {
-        // Collect linked IDs
         const linkedVoucherIds = new Set();
         (statementTransactions || []).forEach(t => {
             if (t.voucher_id) linkedVoucherIds.add(t.voucher_id);
@@ -399,7 +443,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             if (a.system_entry_id) linkedVoucherIds.add(a.system_entry_id);
         });
 
-        // 1. Detect Duplicates in System Entries (e.g. admin created two identical payment vouchers)
+        // 1. Detect Duplicates in System Entries
         const systemDuplicateIds = new Set();
         const voucherKeyCount = {};
         systemVouchers.forEach(v => {
@@ -436,7 +480,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const isDuplicate = stmtDuplicateIds.has(st.id);
             const linkedVoucher = systemVouchers.find(v => v.id === st.voucher_id || v.id === st.system_entry_id);
 
-            // Find potential match if unreconciled
             let potentialMatch = null;
             if (!isReconciled) {
                 potentialMatch = systemVouchers.find(v => {
@@ -454,7 +497,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 id: st.id,
                 statementTxId: st.id,
                 date: st.date,
-                type: st.type, // 'receipt' (deposit) or 'payment' (withdrawal)
+                type: st.type,
                 sourceLabel: 'BANK STMT',
                 voucherNo: linkedVoucher ? linkedVoucher.number : '—',
                 particulars: st.particulars,
@@ -470,12 +513,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
         });
 
-        // B. Add Gmail Alerts (if unreconciled and not duplicated by a statement row)
+        // B. Add Gmail Alerts
         bankAlerts.forEach(alert => {
             const isReconciled = alert.status === 'reconciled' || !!alert.voucher_id;
             const linkedVoucher = systemVouchers.find(v => v.id === alert.voucher_id || v.id === alert.system_entry_id);
 
-            // Skip alert if statement has already captured the exact same reference
             const coveredByStatement = alert.reference_number && statementTransactions.some(st => st.ref_no === alert.reference_number);
             if (coveredByStatement) return;
 
@@ -511,12 +553,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
         });
 
-        // C. Add System Vouchers (Receipts, Payments, Purchases, Sales)
+        // C. Add System Vouchers
         systemVouchers.forEach(sv => {
-            const isReconciled = linkedVoucherIds.has(sv.id);
             const isDuplicate = systemDuplicateIds.has(sv.id);
-
-            // If it's already represented in a statement/alert row above, don't duplicate the row in the unified list
             const representedInStmt = statementTransactions.some(st => st.voucher_id === sv.id || st.system_entry_id === sv.id);
             const representedInAlert = bankAlerts.some(ba => ba.voucher_id === sv.id || ba.system_entry_id === sv.id);
 
@@ -535,23 +574,19 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     refNo: sv.refNo || '',
                     amount: sv.amount,
                     balance: 0,
-                    isReconciled: false, // Unreconciled in bank!
-                    isUncleared: true,   // System entry not yet seen in statement
+                    isReconciled: false,
+                    isUncleared: true,
                     isDuplicate,
                     raw: sv
                 });
             }
         });
 
-        // Sort all rows chronologically (descending date)
-        rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        // 4. Calculate Financial Reconciliation & Balances
+        // 4. Financial Reconciliation & Balances
         const systemInflows = systemVouchers.filter(v => v.direction === 'inflow').reduce((sum, v) => sum + v.amount, 0);
         const systemOutflows = systemVouchers.filter(v => v.direction === 'outflow').reduce((sum, v) => sum + v.amount, 0);
         const systemClosingBal = accountOpeningBal + systemInflows - systemOutflows;
 
-        // Statement Opening and Closing Balances
         let statementOpening = 0;
         let statementClosing = 0;
         let statementInflows = 0;
@@ -562,7 +597,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             statementOpening = parseFloat(activeStatement.opening_balance) || 0;
             statementClosing = parseFloat(activeStatement.closing_balance) || 0;
 
-            // If statement table has transactions with balances, extract precise first and last
             if (statementTransactions.length > 0) {
                 const chronological = [...statementTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
                 const firstTx = chronological[0];
@@ -585,7 +619,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         const isDiscrepancy = hasStatement && Math.abs(discrepancy) > 0.05;
 
         // 5. Weekly Reconciliation Tracking
-        // Days since last statement reconciliation
         let latestReconciledDate = null;
         if (activeStatement?.to_date) {
             latestReconciledDate = activeStatement.to_date;
@@ -601,7 +634,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             daysSinceReconciliation = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
         }
 
-        // Summary counts
         const unassignedCount = rows.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled).length;
         const unclearedCount = rows.filter(r => r.origin === 'system' && !r.isReconciled).length;
         const duplicateCount = rows.filter(r => r.isDuplicate).length;
@@ -637,9 +669,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         };
     }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement]);
 
-    // Filter rows based on activeFilter and searchTerm
-    const displayedRows = useMemo(() => {
-        let list = unifiedLedger;
+    // Filter and Sort rows
+    const sortedRows = useMemo(() => {
+        let list = [...unifiedLedger];
 
         if (activeFilter === 'unassigned') {
             list = list.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled);
@@ -661,8 +693,43 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             );
         }
 
+        // Apply Sorting
+        const { key, direction } = sortConfig;
+        const factor = direction === 'asc' ? 1 : -1;
+
+        list.sort((a, b) => {
+            if (key === 'date') {
+                return (new Date(a.date) - new Date(b.date)) * factor;
+            }
+            if (key === 'source') {
+                return (a.sourceLabel || '').localeCompare(b.sourceLabel || '') * factor;
+            }
+            if (key === 'voucherNo') {
+                return (a.voucherNo || '').localeCompare(b.voucherNo || '') * factor;
+            }
+            if (key === 'particulars') {
+                return (a.particulars || '').localeCompare(b.particulars || '') * factor;
+            }
+            if (key === 'deposit') {
+                const amtA = a.type === 'receipt' ? a.amount : 0;
+                const amtB = b.type === 'receipt' ? b.amount : 0;
+                return (amtA - amtB) * factor;
+            }
+            if (key === 'withdrawal') {
+                const amtA = a.type !== 'receipt' ? a.amount : 0;
+                const amtB = b.type !== 'receipt' ? b.amount : 0;
+                return (amtA - amtB) * factor;
+            }
+            if (key === 'status') {
+                const statusA = a.isReconciled ? 3 : (a.isDuplicate ? 0 : (a.isUnassigned ? 1 : 2));
+                const statusB = b.isReconciled ? 3 : (b.isDuplicate ? 0 : (b.isUnassigned ? 1 : 2));
+                return (statusA - statusB) * factor;
+            }
+            return 0;
+        });
+
         return list;
-    }, [unifiedLedger, activeFilter, searchTerm]);
+    }, [unifiedLedger, activeFilter, searchTerm, sortConfig]);
 
     // Handle Bank Statement Upload
     const handleFileUpload = async (e) => {
@@ -692,13 +759,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         return;
                     }
 
-                    // Sort chronologically
                     const sorted = [...parsed].sort((a, b) => new Date(a.date) - new Date(b.date));
                     const dates = sorted.map(t => new Date(t.date)).filter(d => !isNaN(d));
                     const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
                     const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
 
-                    // Extract opening and closing balance
                     let stClosing = 0;
                     let stOpening = 0;
                     const firstRow = sorted[0];
@@ -711,7 +776,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         stOpening = firstRow.type === 'receipt' ? firstRow.balance - firstRow.amount : firstRow.balance + firstRow.amount;
                     }
 
-                    // Remove existing statement for this period
                     await supabase
                         .from('bank_statements')
                         .delete()
@@ -719,7 +783,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         .eq('from_date', minDate)
                         .eq('to_date', maxDate);
 
-                    // Insert new bank statement
                     const { data: statement, error: stErr } = await supabase
                         .from('bank_statements')
                         .insert({
@@ -1020,52 +1083,78 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
     if (loading && accounts.length === 0) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
-                <Loader2 size={32} className="spin" style={{ color: 'var(--color-primary)' }} />
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '240px' }}>
+                <Loader2 size={28} className="spin" style={{ color: 'var(--color-primary)' }} />
             </div>
         );
     }
 
     return (
-        <div style={{ padding: isMobile ? 'var(--spacing-xs)' : 'var(--spacing-md)', height: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{
+            padding: isMobile ? '6px 8px' : 'var(--spacing-md)',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isMobile ? '8px' : '10px'
+        }}>
             <style>{`
                 @keyframes pulse-red {
                     0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
                     70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
                     100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
                 }
+                .col-resizer {
+                    position: absolute;
+                    right: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 7px;
+                    cursor: col-resize;
+                    user-select: none;
+                    z-index: 5;
+                }
+                .col-resizer:hover, .col-resizer:active {
+                    background-color: var(--primary-color, #3b82f6);
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
             `}</style>
 
             {accounts.length === 0 ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
-                    <Building2 size={40} style={{ color: 'var(--text-tertiary)', margin: '0 auto 12px', opacity: 0.3 }} />
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '6px' }}>No Bank Accounts Registered</h3>
-                    <p style={{ color: 'var(--text-secondary)', maxWidth: '300px', margin: '0 auto 12px', fontSize: '12px' }}>
+                <div style={{ padding: '40px 16px', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
+                    <Building2 size={36} style={{ color: 'var(--text-tertiary)', margin: '0 auto 10px', opacity: 0.3 }} />
+                    <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>No Bank Accounts Registered</h3>
+                    <p style={{ color: 'var(--text-secondary)', maxWidth: '280px', margin: '0 auto 10px', fontSize: '11px' }}>
                         Register your bank account under Current Assets to enable automatic statement reconciliation.
                     </p>
-                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ fontSize: '12px' }}>
+                    <button onClick={() => setShowCreateModal(true)} className="btn btn-primary" style={{ fontSize: '11px', padding: '6px 12px' }}>
                         Register Bank Ledger
                     </button>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '10px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Top Bar: Bank Selector, Statement Upload & Sync Actions */}
+                    {/* Top Bar: Bank Selector & Actions (Mobile First) */}
                     <div style={{
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '10px',
+                        alignItems: isMobile ? 'stretch' : 'center',
+                        gap: isMobile ? '6px' : '10px',
                         backgroundColor: 'var(--bg-elevated)',
-                        padding: '10px 14px',
+                        padding: isMobile ? '8px 10px' : '8px 12px',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--border-primary)'
                     }}>
                         {/* Bank Account Selector */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 320px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                                🏦 Bank Account:
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                                🏦 Bank:
                             </span>
                             <div style={{ position: 'relative', flex: 1 }}>
                                 <select
@@ -1073,9 +1162,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     onChange={e => setSelectedAccountId(e.target.value)}
                                     style={{
                                         width: '100%',
-                                        padding: '7px 12px',
-                                        paddingRight: '32px',
-                                        fontSize: '13px',
+                                        padding: '6px 28px 6px 10px',
+                                        fontSize: isMobile ? '12px' : '13px',
                                         fontWeight: 700,
                                         borderRadius: 'var(--radius-md)',
                                         backgroundColor: 'var(--bg-secondary)',
@@ -1098,43 +1186,49 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                             </div>
                         </div>
 
-                        {/* Actions */}
+                        {/* Actions: Sync Alerts & Upload Statement */}
                         {activeSubTab === 'transactions' && (
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '6px', width: isMobile ? '100%' : 'auto' }}>
                                 <button
                                     onClick={triggerSync}
                                     disabled={syncing}
                                     className="btn btn-secondary"
                                     style={{
+                                        flex: isMobile ? 1 : 'none',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '7px 14px',
-                                        fontSize: '12px',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        padding: '6px 10px',
+                                        fontSize: '11px',
                                         fontWeight: 600,
-                                        whiteSpace: 'nowrap'
+                                        whiteSpace: 'nowrap',
+                                        height: '34px'
                                     }}
                                     title="Fetch latest transaction alerts from Gmail"
                                 >
-                                    {syncing ? <Loader2 size={13} className="spin" /> : <RefreshCw size={13} />}
+                                    {syncing ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
                                     Sync Alerts
                                 </button>
 
                                 <label
                                     className="btn btn-primary"
                                     style={{
+                                        flex: isMobile ? 1 : 'none',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '7px 14px',
-                                        fontSize: '12px',
+                                        justifyContent: 'center',
+                                        gap: '5px',
+                                        padding: '6px 12px',
+                                        fontSize: '11px',
                                         fontWeight: 600,
                                         whiteSpace: 'nowrap',
                                         cursor: 'pointer',
-                                        margin: 0
+                                        margin: 0,
+                                        height: '34px'
                                     }}
                                 >
-                                    <Upload size={13} />
+                                    <Upload size={12} />
                                     Upload Statement
                                     <input
                                         type="file"
@@ -1147,45 +1241,63 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         )}
                     </div>
 
-                    {/* Date Presets & Custom Date Pickers */}
+                    {/* Date Presets & Custom Pickers (Mobile-First scrollable strip) */}
                     {activeSubTab === 'transactions' && (
                         <div style={{
                             display: 'flex',
-                            alignItems: 'center',
+                            flexDirection: isMobile ? 'column' : 'row',
+                            alignItems: isMobile ? 'stretch' : 'center',
                             justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: '10px',
+                            gap: '6px',
                             backgroundColor: 'var(--bg-elevated)',
-                            padding: '8px 14px',
+                            padding: isMobile ? '6px 8px' : '6px 12px',
                             borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--border-primary)'
                         }}>
-                            {/* Preset Buttons */}
-                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                                {['today', 'yesterday', 'week', 'month', 'custom'].map(preset => (
+                            {/* Preset Buttons Strip */}
+                            <div className="no-scrollbar" style={{
+                                display: 'flex',
+                                gap: '4px',
+                                overflowX: 'auto',
+                                paddingBottom: isMobile ? '2px' : 0,
+                                WebkitOverflowScrolling: 'touch'
+                            }}>
+                                {[
+                                    { id: 'today', label: 'Today' },
+                                    { id: 'yesterday', label: 'Yesterday' },
+                                    { id: 'week', label: '7 Days' },
+                                    { id: 'month', label: 'This Month' },
+                                    { id: 'custom', label: 'Custom' }
+                                ].map(preset => (
                                     <button
-                                        key={preset}
-                                        onClick={() => handlePresetClick(preset)}
+                                        key={preset.id}
+                                        onClick={() => handlePresetClick(preset.id)}
                                         style={{
-                                            padding: '4px 10px',
+                                            padding: '4px 8px',
                                             fontSize: '11px',
                                             fontWeight: 600,
                                             borderRadius: 'var(--radius-sm)',
                                             border: '1px solid var(--border-primary)',
-                                            backgroundColor: datePreset === preset ? 'var(--primary-color)' : 'var(--bg-secondary)',
-                                            color: datePreset === preset ? '#fff' : 'var(--text-secondary)',
+                                            backgroundColor: datePreset === preset.id ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                                            color: datePreset === preset.id ? '#fff' : 'var(--text-secondary)',
                                             cursor: 'pointer',
-                                            textTransform: 'capitalize',
+                                            whiteSpace: 'nowrap',
                                             transition: 'all 0.15s'
                                         }}
                                     >
-                                        {preset === 'week' ? 'Past 7 Days' : preset === 'month' ? 'This Month' : preset === 'custom' ? 'Custom Range' : preset}
+                                        {preset.label}
                                     </button>
                                 ))}
                             </div>
 
                             {/* Date Pickers */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: isMobile ? 'space-between' : 'flex-end',
+                                gap: '6px',
+                                fontSize: '11px'
+                            }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>From:</span>
                                     <input
@@ -1230,183 +1342,46 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         </div>
                     )}
 
-                    {/* Weekly Reconciliation Status Alert & Closing Balance Comparison */}
+                    {/* Sleek Compact Weekly Cadence & Balance Discrepancy Alert Ribbon */}
                     {activeSubTab === 'transactions' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            
-                            {/* Alert Banner 1: Weekly Reconciliation Cadence Tracker */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {/* Cadence & Statement Status Alert */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 flexWrap: 'wrap',
-                                gap: '8px',
-                                padding: '8px 14px',
+                                gap: '6px',
+                                padding: isMobile ? '6px 8px' : '6px 12px',
                                 borderRadius: 'var(--radius-md)',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 600,
                                 backgroundColor: weeklyStatus.isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
                                 border: `1px solid ${weeklyStatus.isOverdue ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
                                 color: weeklyStatus.isOverdue ? '#ef4444' : '#10b981'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     {weeklyStatus.isOverdue ? (
-                                        <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                                        <AlertTriangle size={14} style={{ flexShrink: 0 }} />
                                     ) : (
-                                        <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                                        <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
                                     )}
                                     <span>
                                         {weeklyStatus.daysSince === null ? (
-                                            '⚠️ Weekly Reconciliation Pending: No bank statement reconciliation has been recorded yet.'
+                                            '⚠️ Weekly Reconciliation Pending: No statement reconciliation on record.'
                                         ) : weeklyStatus.isOverdue ? (
-                                            `⚠️ Weekly Reconciliation Overdue: It has been ${weeklyStatus.daysSince} days since the last reconciliation (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}). Please upload this week\'s statement.`
+                                            `⚠️ Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days since last reconciliation (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}). Upload this week\'s statement.`
                                         ) : (
-                                            `✅ Weekly Reconciliation Up-to-date: Last statement reconciliation was completed ${weeklyStatus.daysSince === 0 ? 'today' : `${weeklyStatus.daysSince} days ago`} (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}).`
+                                            `✅ Weekly Reconciliation On Track: Reconciled ${weeklyStatus.daysSince === 0 ? 'today' : `${weeklyStatus.daysSince} days ago`}.`
                                         )}
                                     </span>
                                 </div>
 
-                                {activeStatement && (
-                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                        Statement Period: <strong>{activeStatement.from_date}</strong> to <strong>{activeStatement.to_date}</strong>
-                                    </div>
+                                {closingComparison.isDiscrepancy && (
+                                    <span style={{ color: '#ef4444', fontWeight: 800 }}>
+                                        🚨 Closing Diff: ₹{Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
                                 )}
-                            </div>
-
-                            {/* Alert Banner 2: Closing Balance Discrepancy Highlight */}
-                            {closingComparison.hasStatement && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    flexWrap: 'wrap',
-                                    gap: '8px',
-                                    padding: '10px 14px',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                                    border: `1px solid ${closingComparison.isDiscrepancy ? '#ef4444' : '#10b981'}`,
-                                    color: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {closingComparison.isDiscrepancy ? (
-                                            <ShieldAlert size={18} style={{ flexShrink: 0 }} />
-                                        ) : (
-                                            <Sparkles size={18} style={{ flexShrink: 0 }} />
-                                        )}
-                                        <div>
-                                            <div>
-                                                {closingComparison.isDiscrepancy ? (
-                                                    `🚨 Closing Balance Mismatch: Discrepancy of ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })} detected!`
-                                                ) : (
-                                                    `✨ Closing Balances Match Exactly: ₹${closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Fully Reconciled)`
-                                                )}
-                                            </div>
-                                            <div style={{ fontSize: '11px', fontWeight: 500, marginTop: '2px', opacity: 0.9 }}>
-                                                System Calculated: <strong>₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                                                {' '}vs Bank Statement: <strong>₹{closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-                                                {closingComparison.isDiscrepancy && ' · Check unassigned bank transactions or missing system vouchers below.'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {closingComparison.isDiscrepancy && (
-                                        <button
-                                            onClick={() => setActiveFilter('unassigned')}
-                                            className="btn btn-primary"
-                                            style={{
-                                                padding: '4px 10px',
-                                                fontSize: '11px',
-                                                backgroundColor: '#ef4444',
-                                                border: 'none',
-                                                color: '#fff',
-                                                fontWeight: 700
-                                            }}
-                                        >
-                                            View Unassigned ({stats.unassignedCount})
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Financial Summary Cards Row */}
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-                                gap: '10px'
-                            }}>
-                                {/* Opening Balance Card */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    padding: '10px 14px',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)'
-                                }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>
-                                        Opening Balance
-                                    </div>
-                                    <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '4px', color: 'var(--text-primary)' }}>
-                                        ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                        {closingComparison.hasStatement ? `Statement: ₹${closingComparison.statementOpening.toLocaleString('en-IN')}` : 'As of period start'}
-                                    </div>
-                                </div>
-
-                                {/* Total Inflows (Deposits) */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    padding: '10px 14px',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)'
-                                }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>
-                                        Total Deposits (+)
-                                    </div>
-                                    <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '4px', color: '#10b981' }}>
-                                        +₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                        {closingComparison.hasStatement ? `Statement: ₹${closingComparison.statementInflows.toLocaleString('en-IN')}` : 'Receipts & Sales'}
-                                    </div>
-                                </div>
-
-                                {/* Total Outflows (Withdrawals) */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    padding: '10px 14px',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)'
-                                }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase' }}>
-                                        Total Withdrawals (-)
-                                    </div>
-                                    <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '4px', color: '#ef4444' }}>
-                                        -₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                        {closingComparison.hasStatement ? `Statement: ₹${closingComparison.statementOutflows.toLocaleString('en-IN')}` : 'Payments & Purchases'}
-                                    </div>
-                                </div>
-
-                                {/* Closing Balance Card */}
-                                <div style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    padding: '10px 14px',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: `1px solid ${closingComparison.isDiscrepancy ? '#ef4444' : 'var(--border-primary)'}`
-                                }}>
-                                    <div style={{ fontSize: '10px', fontWeight: 700, color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-tertiary)', textTransform: 'uppercase' }}>
-                                        Closing Balance
-                                    </div>
-                                    <div style={{ fontSize: '16px', fontWeight: 800, marginTop: '4px', color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-primary)' }}>
-                                        ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-tertiary)', marginTop: '2px', fontWeight: 600 }}>
-                                        {closingComparison.hasStatement ? (closingComparison.isDiscrepancy ? `Diff: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN')}` : 'Matches Bank Statement') : 'System computed'}
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -1414,9 +1389,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     {/* Subtab Content: Setup vs Transactions */}
                     {activeSubTab === 'setup' ? (
                         /* SETUP TAB */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <div style={{ backgroundColor: 'var(--bg-elevated)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>
                                     Configure Instant Email Scraper
                                 </h3>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: '2px 0 0 0' }}>
@@ -1424,68 +1399,68 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </p>
                             </div>
 
-                            <form onSubmit={handleSaveSetup} style={{ display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <form onSubmit={handleSaveSetup} style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--bg-elevated)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                                         Scraper Gmail Address *
                                     </label>
                                     <input
-                                        type="email" required placeholder="e.g. spendlogs@gmail.com" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="email" required placeholder="e.g. spendlogs@gmail.com" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={setupForm.email} onChange={e => setSetupForm({ ...setupForm, email: e.target.value })}
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                                         Google App Password * (16-character code)
                                     </label>
                                     <input
-                                        type="password" required placeholder="16-character code" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="password" required placeholder="16-character code" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={setupForm.app_password} onChange={e => setSetupForm({ ...setupForm, app_password: e.target.value })}
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                                         Account Suffix (Last 4 Digits)
                                     </label>
                                     <input
-                                        type="text" maxLength="4" placeholder="e.g. 4298" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="text" maxLength="4" placeholder="e.g. 4298" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={setupForm.account_ending} onChange={e => setSetupForm({ ...setupForm, account_ending: e.target.value.replace(/\D/g, '') })}
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-primary)', paddingTop: '10px' }}>
-                                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Active Scraper Listener</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600 }}>Active Scraper Listener</span>
                                     <input
-                                        type="checkbox" style={{ width: '34px', height: '18px', cursor: 'pointer' }}
+                                        type="checkbox" style={{ width: '30px', height: '16px', cursor: 'pointer' }}
                                         checked={setupForm.is_active} onChange={e => setSetupForm({ ...setupForm, is_active: e.target.checked })}
                                     />
                                 </div>
 
                                 {testStatus && (
                                     <div style={{
-                                        display: 'flex', gap: '6px', padding: '10px', borderRadius: 'var(--radius-md)',
+                                        display: 'flex', gap: '6px', padding: '8px', borderRadius: 'var(--radius-md)',
                                         backgroundColor: testStatus.success ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
                                         border: `1px solid ${testStatus.success ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
                                         fontSize: '11px', color: testStatus.success ? '#10b981' : '#ef4444'
                                     }}>
-                                        <AlertCircle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                        <AlertCircle size={13} style={{ flexShrink: 0, marginTop: '1px' }} />
                                         <span>{testStatus.msg}</span>
                                     </div>
                                 )}
 
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '2px' }}>
                                     <button
                                         type="button" onClick={handleTestConnection} disabled={testing || saving}
-                                        className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
+                                        className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', fontSize: '11px' }}
                                     >
                                         {testing && <Loader2 size={12} className="spin" />}
                                         Test Connection
                                     </button>
                                     <button
                                         type="submit" disabled={saving || testing}
-                                        className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}
+                                        className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 12px', fontSize: '11px' }}
                                     >
                                         {saving && <Loader2 size={12} className="spin" />}
                                         Save Configuration
@@ -1494,23 +1469,30 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                             </form>
                         </div>
                     ) : (
-                        /* TRANSACTIONS RECONCILIATION TABLE & LEDGER VIEW */
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, minHeight: 0 }}>
+                        /* TRANSACTIONS RECONCILIATION TABLE & LEDGER VIEW (MOBILE FIRST) */
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0 }}>
                             
-                            {/* Filter Bar: Quick Categories + Search */}
+                            {/* Filter Bar: Horizontal Scrollable Chips + Search */}
                             <div style={{
                                 display: 'flex',
-                                alignItems: 'center',
+                                flexDirection: isMobile ? 'column' : 'row',
+                                alignItems: isMobile ? 'stretch' : 'center',
                                 justifyContent: 'space-between',
-                                flexWrap: 'wrap',
-                                gap: '8px',
+                                gap: '6px',
                                 backgroundColor: 'var(--bg-elevated)',
-                                padding: '8px 12px',
+                                padding: isMobile ? '6px 8px' : '6px 10px',
                                 borderRadius: 'var(--radius-md)',
                                 border: '1px solid var(--border-primary)'
                             }}>
-                                {/* Category Filter Tabs */}
-                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                {/* Horizontally Scrollable Category Filter Chips */}
+                                <div className="no-scrollbar" style={{
+                                    display: 'flex',
+                                    gap: '4px',
+                                    overflowX: 'auto',
+                                    whiteSpace: 'nowrap',
+                                    paddingBottom: isMobile ? '2px' : 0,
+                                    WebkitOverflowScrolling: 'touch'
+                                }}>
                                     <button
                                         onClick={() => setActiveFilter('all')}
                                         style={{
@@ -1521,7 +1503,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             border: '1px solid var(--border-primary)',
                                             backgroundColor: activeFilter === 'all' ? 'var(--primary-color)' : 'var(--bg-secondary)',
                                             color: activeFilter === 'all' ? '#fff' : 'var(--text-secondary)',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         All ({stats.totalCount})
@@ -1537,7 +1520,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             border: '1px solid rgba(245, 158, 11, 0.4)',
                                             backgroundColor: activeFilter === 'unassigned' ? '#f59e0b' : 'rgba(245, 158, 11, 0.1)',
                                             color: activeFilter === 'unassigned' ? '#000' : '#f59e0b',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         ⚠️ Needs System Entry ({stats.unassignedCount})
@@ -1553,7 +1537,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             border: '1px solid rgba(139, 92, 246, 0.4)',
                                             backgroundColor: activeFilter === 'uncleared' ? '#8b5cf6' : 'rgba(139, 92, 246, 0.1)',
                                             color: activeFilter === 'uncleared' ? '#fff' : '#8b5cf6',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         ⚠️ Not in Statement ({stats.unclearedCount})
@@ -1569,7 +1554,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             border: '1px solid rgba(239, 68, 68, 0.4)',
                                             backgroundColor: activeFilter === 'duplicate' ? '#ef4444' : 'rgba(239, 68, 68, 0.1)',
                                             color: activeFilter === 'duplicate' ? '#fff' : '#ef4444',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         🚨 Duplicates ({stats.duplicateCount})
@@ -1585,7 +1571,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             border: '1px solid rgba(16, 185, 129, 0.4)',
                                             backgroundColor: activeFilter === 'reconciled' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
                                             color: activeFilter === 'reconciled' ? '#fff' : '#10b981',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
                                         }}
                                     >
                                         ✅ Reconciled ({stats.reconciledCount})
@@ -1593,16 +1580,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </div>
 
                                 {/* Search Bar */}
-                                <div style={{ position: 'relative', width: isMobile ? '100%' : '240px' }}>
+                                <div style={{ position: 'relative', width: isMobile ? '100%' : '220px' }}>
                                     <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                     <input
                                         type="text"
-                                        placeholder="Search voucher, party, or ref..."
+                                        placeholder="Search voucher, party, ref..."
                                         value={searchTerm}
                                         onChange={e => setSearchTerm(e.target.value)}
                                         style={{
                                             width: '100%',
-                                            padding: '5px 8px 5px 28px',
+                                            padding: '4px 24px 4px 26px',
                                             fontSize: '11px',
                                             borderRadius: 'var(--radius-sm)',
                                             border: '1px solid var(--border-primary)',
@@ -1621,23 +1608,196 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </div>
                             </div>
 
-                            {/* TABLE OF TRANSACTIONS */}
-                            <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                    <thead style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                            {/* RECONCILIATION TABLE CONTAINER WITH HORIZONTAL SCROLL & COLUMN RESIZING */}
+                            <div style={{
+                                flex: 1,
+                                overflowX: 'auto',
+                                overflowY: 'auto',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                WebkitOverflowScrolling: 'touch'
+                            }}>
+                                <table style={{
+                                    borderCollapse: 'collapse',
+                                    fontSize: isMobile ? '11px' : '12px',
+                                    textAlign: 'left',
+                                    tableLayout: 'fixed',
+                                    width: Object.values(colWidths).reduce((a, b) => a + b, 0)
+                                }}>
+                                    <thead style={{
+                                        position: 'sticky',
+                                        top: 0,
+                                        zIndex: 10,
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        borderBottom: '1px solid var(--border-primary)'
+                                    }}>
                                         <tr>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, width: '90px' }}>Date</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, width: '100px' }}>Source / Type</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, width: '120px' }}>Voucher No.</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700 }}>Party / Narration</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'right', width: '110px' }}>Deposit (+)</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'right', width: '110px' }}>Withdrawal (-)</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'center', width: '140px' }}>Reconciliation Status</th>
-                                            <th style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'center', width: '170px' }}>Action</th>
+                                            {/* Date Column */}
+                                            <th
+                                                style={{ width: colWidths.date, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('date')}
+                                                title="Click to sort by Date"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
+                                                    <span>Date</span>
+                                                    {sortConfig.key === 'date' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('date', e)} onTouchStart={e => handleResizeStart('date', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Source / Type Column */}
+                                            <th
+                                                style={{ width: colWidths.source, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('source')}
+                                                title="Click to sort by Source"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
+                                                    <span>Source</span>
+                                                    {sortConfig.key === 'source' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('source', e)} onTouchStart={e => handleResizeStart('source', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Voucher No. Column */}
+                                            <th
+                                                style={{ width: colWidths.voucherNo, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('voucherNo')}
+                                                title="Click to sort by Voucher No"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
+                                                    <span>Voucher No.</span>
+                                                    {sortConfig.key === 'voucherNo' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('voucherNo', e)} onTouchStart={e => handleResizeStart('voucherNo', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Party / Narration Column */}
+                                            <th
+                                                style={{ width: colWidths.particulars, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('particulars')}
+                                                title="Click to sort by Party / Description"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
+                                                    <span>Party / Narration</span>
+                                                    {sortConfig.key === 'particulars' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('particulars', e)} onTouchStart={e => handleResizeStart('particulars', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Deposit (+) Column */}
+                                            <th
+                                                style={{ width: colWidths.deposit, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('deposit')}
+                                                title="Click to sort by Deposit"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                                                    <span>Deposit (+)</span>
+                                                    {sortConfig.key === 'deposit' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('deposit', e)} onTouchStart={e => handleResizeStart('deposit', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Withdrawal (-) Column */}
+                                            <th
+                                                style={{ width: colWidths.withdrawal, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('withdrawal')}
+                                                title="Click to sort by Withdrawal"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                                                    <span>Withdrawal (-)</span>
+                                                    {sortConfig.key === 'withdrawal' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('withdrawal', e)} onTouchStart={e => handleResizeStart('withdrawal', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Reconciliation Status Column */}
+                                            <th
+                                                style={{ width: colWidths.status, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                                                onClick={() => handleSort('status')}
+                                                title="Click to sort by Status"
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}>
+                                                    <span>Reconciled / Status</span>
+                                                    {sortConfig.key === 'status' ? (
+                                                        sortConfig.direction === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                                                    ) : <ArrowUpDown size={11} style={{ opacity: 0.3 }} />}
+                                                </div>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('status', e)} onTouchStart={e => handleResizeStart('status', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
+
+                                            {/* Action Column */}
+                                            <th style={{ width: colWidths.action, position: 'relative', padding: '8px 10px', color: 'var(--text-tertiary)', fontWeight: 700, textAlign: 'center' }}>
+                                                <span>Action</span>
+                                                <div className="col-resizer" onMouseDown={e => handleResizeStart('action', e)} onTouchStart={e => handleResizeStart('action', e)} onClick={e => e.stopPropagation()} />
+                                            </th>
                                         </tr>
                                     </thead>
+
                                     <tbody>
-                                        {displayedRows.map(row => {
+                                        {/* 1. TOP ROW: OPENING BALANCE */}
+                                        <tr style={{
+                                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                            borderBottom: '2px solid var(--border-primary)',
+                                            fontWeight: 700
+                                        }}>
+                                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                                                {new Date(fromDate).toLocaleDateString('en-GB')}
+                                            </td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                <span style={{
+                                                    fontSize: '9px',
+                                                    fontWeight: 800,
+                                                    padding: '2px 5px',
+                                                    borderRadius: '3px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                                                    color: '#3b82f6',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    OPENING
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                                                    Opening Balance b/f
+                                                </div>
+                                                <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                                                    {closingComparison.hasStatement
+                                                        ? `System: ₹${closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · Stmt: ₹${closingComparison.statementOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                                        : 'As of period start date'}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: 800,
+                                                    color: closingComparison.systemOpening >= 0 ? '#10b981' : '#ef4444'
+                                                }}>
+                                                    ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                                                {closingComparison.hasStatement ? 'Statement linked' : 'Book balance'}
+                                            </td>
+                                        </tr>
+
+                                        {/* 2. TRANSACTION ROWS */}
+                                        {sortedRows.map(row => {
                                             const isDeposit = row.type === 'receipt';
                                             const isReconciled = row.isReconciled;
                                             const isUnassigned = (row.origin === 'statement' || row.origin === 'alert') && !isReconciled;
@@ -1660,12 +1820,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     }}
                                                 >
                                                     {/* Date */}
-                                                    <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>
+                                                    <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>
                                                         {new Date(row.date).toLocaleDateString('en-GB')}
                                                     </td>
 
                                                     {/* Source & Type */}
-                                                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                                    <td style={{ padding: '7px 10px', verticalAlign: 'top' }}>
                                                         <span style={{
                                                             fontSize: '9px',
                                                             fontWeight: 800,
@@ -1680,7 +1840,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Voucher Number */}
-                                                    <td style={{ padding: '8px 10px', verticalAlign: 'top', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                                    <td style={{ padding: '7px 10px', verticalAlign: 'top', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>
                                                         {row.voucherNo}
                                                         {row.refNo && (
                                                             <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontFamily: 'monospace', marginTop: '1px' }}>
@@ -1690,7 +1850,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Party / Particulars */}
-                                                    <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                                                    <td style={{ padding: '7px 10px', verticalAlign: 'top' }}>
                                                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                                                             {row.particulars}
                                                         </div>
@@ -1707,39 +1867,39 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Deposit Amount */}
-                                                    <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top', fontWeight: 700, color: '#10b981' }}>
+                                                    <td style={{ padding: '7px 10px', textAlign: 'right', verticalAlign: 'top', fontWeight: 700, color: '#10b981' }}>
                                                         {isDeposit ? `+₹${row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                                                     </td>
 
                                                     {/* Withdrawal Amount */}
-                                                    <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top', fontWeight: 700, color: '#ef4444' }}>
+                                                    <td style={{ padding: '7px 10px', textAlign: 'right', verticalAlign: 'top', fontWeight: 700, color: '#ef4444' }}>
                                                         {!isDeposit ? `-₹${row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                                                     </td>
 
                                                     {/* Reconciliation Status & Flags */}
-                                                    <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                                                    <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'top' }}>
                                                         {isReconciled ? (
                                                             <span style={{
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
                                                                 gap: '3px',
-                                                                padding: '2px 6px',
+                                                                padding: '2px 5px',
                                                                 borderRadius: '4px',
-                                                                fontSize: '10px',
+                                                                fontSize: '9px',
                                                                 fontWeight: 700,
                                                                 backgroundColor: 'rgba(16, 185, 129, 0.12)',
                                                                 color: '#10b981'
                                                             }}>
-                                                                <CheckCircle size={11} /> Reconciled
+                                                                <CheckCircle size={10} /> Reconciled
                                                             </span>
                                                         ) : isDuplicate ? (
                                                             <span style={{
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
                                                                 gap: '3px',
-                                                                padding: '2px 6px',
+                                                                padding: '2px 5px',
                                                                 borderRadius: '4px',
-                                                                fontSize: '10px',
+                                                                fontSize: '9px',
                                                                 fontWeight: 800,
                                                                 backgroundColor: '#ef4444',
                                                                 color: '#fff',
@@ -1752,9 +1912,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
                                                                 gap: '3px',
-                                                                padding: '2px 6px',
+                                                                padding: '2px 5px',
                                                                 borderRadius: '4px',
-                                                                fontSize: '10px',
+                                                                fontSize: '9px',
                                                                 fontWeight: 700,
                                                                 backgroundColor: 'rgba(245, 158, 11, 0.15)',
                                                                 color: '#d97706'
@@ -1766,14 +1926,14 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
                                                                 gap: '3px',
-                                                                padding: '2px 6px',
+                                                                padding: '2px 5px',
                                                                 borderRadius: '4px',
-                                                                fontSize: '10px',
+                                                                fontSize: '9px',
                                                                 fontWeight: 700,
                                                                 backgroundColor: 'rgba(139, 92, 246, 0.15)',
                                                                 color: '#8b5cf6'
                                                             }}>
-                                                                ⚠️ Not in Statement
+                                                                ⚠️ Not in Stmt
                                                             </span>
                                                         ) : (
                                                             <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Pending</span>
@@ -1781,45 +1941,45 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
-                                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                                    <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                                                        <div style={{ display: 'flex', gap: '3px', justifyContent: 'center', flexWrap: 'wrap' }}>
                                                             {isUnassigned && (
                                                                 <>
                                                                     <button
                                                                         onClick={() => setShowLinkModal(row)}
                                                                         className="btn btn-secondary"
                                                                         style={{
-                                                                            padding: '3px 7px',
+                                                                            padding: '2px 6px',
                                                                             fontSize: '10px',
                                                                             fontWeight: 700,
                                                                             display: 'flex',
                                                                             alignItems: 'center',
-                                                                            gap: '3px',
+                                                                            gap: '2px',
                                                                             border: '1px solid var(--border-primary)'
                                                                         }}
                                                                         title="Link to an existing Payment, Receipt, Sales, or Purchase entry"
                                                                     >
-                                                                        <Link2 size={11} />
-                                                                        Link Entry
+                                                                        <Link2 size={10} />
+                                                                        Link
                                                                     </button>
 
                                                                     <button
                                                                         onClick={() => handleCreateVoucherFromRow(row)}
                                                                         className="btn btn-primary"
                                                                         style={{
-                                                                            padding: '3px 7px',
+                                                                            padding: '2px 6px',
                                                                             fontSize: '10px',
                                                                             fontWeight: 700,
                                                                             display: 'flex',
                                                                             alignItems: 'center',
-                                                                            gap: '3px',
+                                                                            gap: '2px',
                                                                             backgroundColor: '#f59e0b',
                                                                             color: '#000',
                                                                             border: 'none'
                                                                         }}
                                                                         title="Create a new Voucher in system"
                                                                     >
-                                                                        <Plus size={11} />
+                                                                        <Plus size={10} />
                                                                         Create
                                                                     </button>
                                                                 </>
@@ -1837,19 +1997,19 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                     })}
                                                                     className="btn btn-secondary"
                                                                     style={{
-                                                                        padding: '3px 7px',
+                                                                        padding: '2px 6px',
                                                                         fontSize: '10px',
                                                                         fontWeight: 700,
                                                                         display: 'flex',
                                                                         alignItems: 'center',
-                                                                        gap: '3px',
+                                                                        gap: '2px',
                                                                         border: '1px solid rgba(139, 92, 246, 0.4)',
                                                                         color: '#8b5cf6'
                                                                     }}
                                                                     title="Link with an existing statement transaction"
                                                                 >
-                                                                    <Link2 size={11} />
-                                                                    Match Bank Txn
+                                                                    <Link2 size={10} />
+                                                                    Match
                                                                 </button>
                                                             )}
 
@@ -1858,18 +2018,18 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                     onClick={() => handleUnlink(row)}
                                                                     className="btn btn-secondary"
                                                                     style={{
-                                                                        padding: '3px 7px',
-                                                                        fontSize: '10px',
+                                                                        padding: '2px 6px',
+                                                                        fontSize: '9px',
                                                                         fontWeight: 600,
                                                                         display: 'flex',
                                                                         alignItems: 'center',
-                                                                        gap: '3px',
+                                                                        gap: '2px',
                                                                         color: 'var(--text-tertiary)',
                                                                         border: '1px solid var(--border-primary)'
                                                                     }}
                                                                     title="Unlink and mark as unreconciled"
                                                                 >
-                                                                    <Unlink size={11} />
+                                                                    <Unlink size={10} />
                                                                     Unlink
                                                                 </button>
                                                             )}
@@ -1879,13 +2039,77 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             );
                                         })}
 
-                                        {displayedRows.length === 0 && (
+                                        {sortedRows.length === 0 && (
                                             <tr>
-                                                <td colSpan="8" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                                <td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
                                                     No transactions found for the selected period and filter.
                                                 </td>
                                             </tr>
                                         )}
+
+                                        {/* 3. BOTTOM ROW: CLOSING BALANCE (WITH RECONCILIATION SUMMARY) */}
+                                        <tr style={{
+                                            backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+                                            borderTop: '2px solid var(--border-primary)',
+                                            fontWeight: 700
+                                        }}>
+                                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                                                {new Date(toDate).toLocaleDateString('en-GB')}
+                                            </td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                <span style={{
+                                                    fontSize: '9px',
+                                                    fontWeight: 800,
+                                                    padding: '2px 5px',
+                                                    borderRadius: '3px',
+                                                    backgroundColor: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981',
+                                                    color: '#fff',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    CLOSING
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                                                    Closing Balance c/f
+                                                </div>
+                                                <div style={{ fontSize: '9px', color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                    {closingComparison.hasStatement ? (
+                                                        closingComparison.isDiscrepancy ? (
+                                                            `🚨 Discrepancy: System ₹${closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} vs Stmt ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Diff: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })})`
+                                                        ) : (
+                                                            `✅ Matched with Statement: ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                                        )
+                                                    ) : (
+                                                        `System Computed Closing Balance`
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#10b981', fontWeight: 800 }}>
+                                                +₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#ef4444', fontWeight: 800 }}>
+                                                -₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                <div style={{
+                                                    fontSize: '11px',
+                                                    fontWeight: 800,
+                                                    color: closingComparison.isDiscrepancy ? '#ef4444' : (closingComparison.systemClosing >= 0 ? '#10b981' : '#ef4444')
+                                                }}>
+                                                    ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                </div>
+                                                {closingComparison.hasStatement && closingComparison.isDiscrepancy && (
+                                                    <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 700 }}>
+                                                        Stmt: ₹{closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                                                {closingComparison.hasStatement ? (closingComparison.isDiscrepancy ? '⚠️ Mismatch' : '✅ Balanced') : 'Book balance'}
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -1897,36 +2121,36 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             {/* CREATE BANK ACCOUNT MODAL */}
             {showCreateModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '12px' }}>
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Building2 size={16} style={{ color: 'var(--color-primary)' }} />
+                                <Building2 size={15} style={{ color: 'var(--color-primary)' }} />
                                 Add Bank Account Ledger
                             </h3>
                             <button onClick={() => setShowCreateModal(false)} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', fontSize: '14px' }}>✕</button>
                         </div>
 
-                        <form onSubmit={handleCreateAccount} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <form onSubmit={handleCreateAccount} style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ledger Account Name *</label>
                                 <input
-                                    type="text" required placeholder="e.g. HDFC Current A/c" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                    type="text" required placeholder="e.g. HDFC Current A/c" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                     value={newAccount.name} onChange={e => setNewAccount({ ...newAccount, name: e.target.value })}
                                 />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Name *</label>
                                     <input
-                                        type="text" required placeholder="e.g. HDFC Bank" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="text" required placeholder="e.g. HDFC Bank" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={newAccount.bank_name} onChange={e => setNewAccount({ ...newAccount, bank_name: e.target.value })}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Type</label>
                                     <select
-                                        className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={newAccount.account_type} onChange={e => setNewAccount({ ...newAccount, account_type: e.target.value })}
                                     >
                                         <option value="current">Current</option>
@@ -1936,42 +2160,42 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Account Number</label>
                                 <input
-                                    type="text" placeholder="Full Account Number" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                    type="text" placeholder="Full Account Number" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                     value={newAccount.account_number} onChange={e => setNewAccount({ ...newAccount, account_number: e.target.value.replace(/\D/g, '') })}
                                 />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>IFSC Code</label>
                                     <input
-                                        type="text" placeholder="IFSC Code" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="text" placeholder="IFSC Code" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={newAccount.ifsc_code} onChange={e => setNewAccount({ ...newAccount, ifsc_code: e.target.value })}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Branch</label>
                                     <input
-                                        type="text" placeholder="e.g. Bandra" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                        type="text" placeholder="e.g. Bandra" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                         value={newAccount.branch} onChange={e => setNewAccount({ ...newAccount, branch: e.target.value })}
                                     />
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                 <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Opening Balance (₹)</label>
                                 <input
-                                    type="number" step="0.01" placeholder="0.00" className="form-control" style={{ fontSize: '13px', padding: '8px' }}
+                                    type="number" step="0.01" placeholder="0.00" className="form-control" style={{ fontSize: '12px', padding: '6px 8px' }}
                                     value={newAccount.opening_balance} onChange={e => setNewAccount({ ...newAccount, opening_balance: e.target.value })}
                                 />
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>Cancel</button>
-                                <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+                                <button type="button" onClick={() => setShowCreateModal(false)} className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: '11px' }}>Cancel</button>
+                                <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 12px', fontSize: '11px' }}>
                                     {saving && <Loader2 size={12} className="spin" />}
                                     Create Account
                                 </button>
