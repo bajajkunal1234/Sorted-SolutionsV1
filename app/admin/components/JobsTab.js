@@ -351,8 +351,16 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
     useEffect(() => {
         if (jobToOpen && jobs.length > 0) {
-            const j = jobs.find(j => j.id === jobToOpen.id);
-            if (j) { if (j.status === 'booking_request') setReviewBooking(j); else setSelectedJob(j); }
+            const targetId = typeof jobToOpen === 'string' ? jobToOpen : (jobToOpen.id || jobToOpen.job_number);
+            const j = jobs.find(job => 
+                String(job.id) === String(targetId) || 
+                String(job.job_number) === String(targetId) ||
+                (job.job_number && targetId && String(job.job_number).toLowerCase() === String(targetId).toLowerCase())
+            );
+            if (j) {
+                if (j.status === 'booking_request') setReviewBooking(j);
+                else setSelectedJob(j);
+            }
             if (onJobOpened) onJobOpened();
         }
     }, [jobToOpen, jobs, onJobOpened]);

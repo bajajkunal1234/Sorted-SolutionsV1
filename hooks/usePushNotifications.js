@@ -120,6 +120,36 @@ export function usePushNotifications({ userType, userId }) {
                 console.log('[Native Push] Notification received in foreground:', notification);
                 playNotificationChime();
             });
+
+            // Listen for user tapping / clicking on notification from system notification panel
+            await PushNotifications.addListener('actionPerformed', (action) => {
+                console.log('[Native Push] Action performed (notification clicked):', action);
+                const notification = action?.notification || {};
+                const data = notification.data || {};
+                const link = data.link || data.click_action || data.url;
+                const jobId = data.job_id || data.jobId;
+
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('app-notification-opened', {
+                        detail: { link, jobId, data, notification }
+                    }));
+
+                    if (link) {
+                        try {
+                            const urlObj = new URL(link, window.location.origin);
+                            const targetPath = urlObj.pathname + urlObj.search;
+                            if (window.location.pathname === urlObj.pathname) {
+                                window.history.pushState({}, '', targetPath);
+                                window.dispatchEvent(new PopStateEvent('popstate'));
+                            } else {
+                                window.location.href = targetPath;
+                            }
+                        } catch (e) {
+                            console.warn('[Native Push] Navigation parsing failed:', e);
+                        }
+                    }
+                }
+            });
             
             // Register app with FCM natively
             await PushNotifications.register();
@@ -141,6 +171,22 @@ export function usePushNotifications({ userType, userId }) {
         if (typeof window === 'undefined') return;
         if (!userType || !userId) return;
 
+        // Listen for notification click message posted from service worker on web
+        const swMsgHandler = (event) => {
+            if (event.data?.type === 'NOTIFICATION_CLICK') {
+                console.log('[Web Push] Notification click message from SW:', event.data);
+                const { url, data } = event.data;
+                const jobId = data?.job_id || data?.jobId;
+                window.dispatchEvent(new CustomEvent('app-notification-opened', {
+                    detail: { link: url, jobId, data }
+                }));
+            }
+        };
+
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', swMsgHandler);
+        }
+
         if (isNative) {
             // Native platform (Android/iOS APK) - always safe to initialize native push flow
             registerNativePush();
@@ -161,6 +207,12 @@ export function usePushNotifications({ userType, userId }) {
                 }
             }
         }
+
+        return () => {
+            if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.removeEventListener('message', swMsgHandler);
+            }
+        };
     }, [userType, userId, isNative, registerNativePush, registerWebPush, isIOS]);
 
     return {

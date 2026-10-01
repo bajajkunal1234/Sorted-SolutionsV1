@@ -100,17 +100,37 @@ export default function CustomerApp() {
         if (newBookingId) {
             setFlasherMsg(`🎉 Booking Confirmed! Job #${newBookingId} created successfully.`)
             setShowServicesTooltip(true)
-            
-            // Clean up the URL so it doesn't trigger on refresh
             const url = new URL(window.location.href)
             url.searchParams.delete('newBooking')
             window.history.replaceState({}, '', url.toString())
-
-            // Auto-hide flasher after 3 seconds
-            setTimeout(() => {
-                setFlasherMsg(null)
-            }, 3000)
+            setTimeout(() => setFlasherMsg(null), 3000)
         }
+
+        // Check for tab parameter from notification deep-link (e.g. ?tab=services&jobId=...)
+        const targetTab = searchParams.get('tab')
+        if (targetTab && ['home', 'services', 'plans', 'profile'].includes(targetTab)) {
+            setActiveTab(targetTab)
+        }
+
+        const handleNotifOpened = (e) => {
+            const { link, tab } = e.detail || {};
+            if (tab && ['home', 'services', 'plans', 'profile'].includes(tab)) {
+                setActiveTab(tab);
+            } else if (link) {
+                try {
+                    const u = new URL(link, window.location.origin);
+                    const t = u.searchParams.get('tab');
+                    if (t && ['home', 'services', 'plans', 'profile'].includes(t)) {
+                        setActiveTab(t);
+                    }
+                } catch {}
+            }
+        };
+        window.addEventListener('app-notification-opened', handleNotifOpened);
+
+        return () => {
+            window.removeEventListener('app-notification-opened', handleNotifOpened);
+        };
     }, [searchParams])
 
     if (!mounted) return null

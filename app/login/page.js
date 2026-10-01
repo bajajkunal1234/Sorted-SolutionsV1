@@ -217,12 +217,61 @@ function LoginContent() {
     const initializedRef = useRef(false);
     useEffect(() => {
         try {
+            // Support explicit cache/session reset via query parameter
+            if (searchParams.get('reset') === 'true' || searchParams.get('logout') === 'true') {
+                localStorage.removeItem('user_session');
+                sessionStorage.removeItem('user_session');
+                localStorage.removeItem('technicianSession');
+                sessionStorage.removeItem('technicianSession');
+                localStorage.removeItem('technicianData');
+                sessionStorage.removeItem('technicianData');
+                localStorage.removeItem('customerId');
+                sessionStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                sessionStorage.removeItem('customerData');
+                localStorage.removeItem('isAdmin');
+                return;
+            }
+
             const raw = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
             if (raw) {
                 const s = JSON.parse(raw);
-                if (s?.role === 'admin') { router.replace('/admin'); return; }
-                if (s?.role === 'technician') { router.replace('/technician'); return; }
-                if (s?.role === 'customer') { router.replace('/customer/dashboard'); return; }
+                if (s?.role === 'admin') {
+                    if (localStorage.getItem('isAdmin') === 'true') {
+                        router.replace('/admin');
+                        return;
+                    } else {
+                        localStorage.removeItem('user_session');
+                        sessionStorage.removeItem('user_session');
+                    }
+                } else if (s?.role === 'technician') {
+                    const techSession = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                    if (techSession) {
+                        try {
+                            const parsed = JSON.parse(techSession);
+                            if (parsed && parsed.technicianId) {
+                                router.replace('/technician/dashboard');
+                                return;
+                            }
+                        } catch {}
+                    }
+                    // Stale or invalid technician session: clear keys so user can see login screen
+                    localStorage.removeItem('user_session');
+                    sessionStorage.removeItem('user_session');
+                    localStorage.removeItem('technicianSession');
+                    sessionStorage.removeItem('technicianSession');
+                    localStorage.removeItem('technicianData');
+                    sessionStorage.removeItem('technicianData');
+                } else if (s?.role === 'customer') {
+                    const customerId = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
+                    if (customerId) {
+                        router.replace('/customer/dashboard');
+                        return;
+                    } else {
+                        localStorage.removeItem('user_session');
+                        sessionStorage.removeItem('user_session');
+                    }
+                }
             }
             if (localStorage.getItem('isAdmin') === 'true') {
                 router.replace('/admin');
@@ -230,7 +279,9 @@ function LoginContent() {
             }
             const id = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
             if (id) { router.replace('/customer/dashboard'); return; }
-        } catch { }
+        } catch (e) {
+            console.warn('Error in login auth check:', e);
+        }
         if (initializedRef.current) return;
         initializedRef.current = true;
         const p = searchParams.get('phone');

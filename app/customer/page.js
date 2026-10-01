@@ -20,7 +20,14 @@ export default function CustomerPage() {
                 if (s?.role === 'technician') {
                     localStorage.removeItem('customerId');
                     localStorage.removeItem('customerData');
-                    router.replace('/technician');
+                    const techSession = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                    if (techSession) {
+                        router.replace('/technician/dashboard');
+                    } else {
+                        localStorage.removeItem('user_session');
+                        sessionStorage.removeItem('user_session');
+                        router.replace('/login');
+                    }
                     return;
                 }
             }
@@ -34,9 +41,13 @@ export default function CustomerPage() {
             if (customerId) {
                 router.replace('/customer/dashboard');
             } else {
+                localStorage.removeItem('user_session');
+                sessionStorage.removeItem('user_session');
                 router.replace('/login');
             }
         } catch {
+            localStorage.removeItem('user_session');
+            sessionStorage.removeItem('user_session');
             router.replace('/login');
         }
     }, [router]);

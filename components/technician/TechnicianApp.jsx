@@ -404,6 +404,81 @@ function TechnicianApp() {
         isOnlineRef.current = isOnline;
     }, [isOnline]);
 
+    const pendingJobIdToOpenRef = useRef(null);
+
+    // Deep linking & Notification Open Listener for Technician
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const checkAndOpenJob = (targetId) => {
+            if (!targetId) return;
+            const strId = String(targetId).trim();
+            pendingJobIdToOpenRef.current = strId;
+
+            if (jobs && jobs.length > 0) {
+                const found = jobs.find(j => 
+                    String(j.id) === strId || 
+                    String(j.job_number) === strId ||
+                    (j.job_number && strId && String(j.job_number).toLowerCase() === strId.toLowerCase())
+                );
+                if (found) {
+                    setSelectedJob(found);
+                    pendingJobIdToOpenRef.current = null;
+                }
+            }
+        };
+
+        const handleUrl = () => {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const jobId = params.get('jobId') || params.get('job_id');
+                if (jobId) {
+                    checkAndOpenJob(jobId);
+                }
+            } catch (err) {
+                console.warn('TechnicianApp deep link parse error:', err);
+            }
+        };
+
+        handleUrl();
+        window.addEventListener('popstate', handleUrl);
+
+        const handleNotificationOpened = (e) => {
+            const { link, jobId } = e.detail || {};
+            if (jobId) {
+                checkAndOpenJob(jobId);
+            } else if (link) {
+                try {
+                    const urlObj = new URL(link, window.location.origin);
+                    const jId = urlObj.searchParams.get('jobId') || urlObj.searchParams.get('job_id');
+                    if (jId) checkAndOpenJob(jId);
+                } catch {}
+            }
+        };
+        window.addEventListener('app-notification-opened', handleNotificationOpened);
+
+        return () => {
+            window.removeEventListener('popstate', handleUrl);
+            window.removeEventListener('app-notification-opened', handleNotificationOpened);
+        };
+    }, [jobs]);
+
+    // When jobs list updates/finishes loading, open any pending job
+    useEffect(() => {
+        if (pendingJobIdToOpenRef.current && jobs && jobs.length > 0) {
+            const strId = pendingJobIdToOpenRef.current;
+            const found = jobs.find(j => 
+                String(j.id) === strId || 
+                String(j.job_number) === strId ||
+                (j.job_number && strId && String(j.job_number).toLowerCase() === strId.toLowerCase())
+            );
+            if (found) {
+                setSelectedJob(found);
+                pendingJobIdToOpenRef.current = null;
+            }
+        }
+    }, [jobs]);
+
     // 8:00 PM Logout Reminder Effect
     useEffect(() => {
         if (!isOnline) {
@@ -875,19 +950,35 @@ function TechnicianApp() {
         const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
         const storedTechData = localStorage.getItem('technicianData') || sessionStorage.getItem('technicianData');
 
+        const purgeAndRedirect = () => {
+            try {
+                localStorage.removeItem('user_session');
+                sessionStorage.removeItem('user_session');
+                localStorage.removeItem('technicianSession');
+                sessionStorage.removeItem('technicianSession');
+                localStorage.removeItem('technicianData');
+                sessionStorage.removeItem('technicianData');
+            } catch {}
+            router.replace('/login');
+        };
+
         if (!session) {
-            router.push('/login');
+            purgeAndRedirect();
             return;
         }
 
         try {
             const sessionData = JSON.parse(session);
-            const techData = JSON.parse(storedTechData);
+            const techData = storedTechData ? JSON.parse(storedTechData) : null;
+            if (!sessionData?.technicianId) {
+                purgeAndRedirect();
+                return;
+            }
             setTechnicianId(sessionData.technicianId);
             setTechnicianData(techData);
         } catch (err) {
             console.error('Error parsing session:', err);
-            router.push('/login');
+            purgeAndRedirect();
         }
     }, [router]);
 
@@ -957,8 +1048,14 @@ function TechnicianApp() {
                     body: JSON.stringify({ action: 'logout', technician_id: technicianId })
                 }).catch(() => {});
             }
-            localStorage.removeItem('technicianSession');
-            localStorage.removeItem('technicianData');
+            try {
+                localStorage.removeItem('user_session');
+                sessionStorage.removeItem('user_session');
+                localStorage.removeItem('technicianSession');
+                sessionStorage.removeItem('technicianSession');
+                localStorage.removeItem('technicianData');
+                sessionStorage.removeItem('technicianData');
+            } catch {}
             alert('You have been logged out because you logged in on another device.');
             window.location.href = '/login';
         };
@@ -1888,8 +1985,14 @@ function TechnicianApp() {
                     console.error('Failed to clear native GPS settings on logout:', err);
                 }
             }
-            localStorage.removeItem('technicianSession');
-            localStorage.removeItem('technicianData');
+            try {
+                localStorage.removeItem('user_session');
+                sessionStorage.removeItem('user_session');
+                localStorage.removeItem('technicianSession');
+                sessionStorage.removeItem('technicianSession');
+                localStorage.removeItem('technicianData');
+                sessionStorage.removeItem('technicianData');
+            } catch {}
             // Force a hard reload to clear any in-memory state
             window.location.href = '/login';
         }

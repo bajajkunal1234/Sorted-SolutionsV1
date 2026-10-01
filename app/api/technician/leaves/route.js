@@ -139,7 +139,7 @@ export async function POST(request) {
             recipient_id: 'admin',
             title: 'New Leave Request 📅',
             message: `${techName} requested leave for ${leave_date}. Reason: ${reason || 'Not specified'}`,
-            link: '/admin',
+            link: '/admin?tab=reports&section=technicians&subTab=leaves',
             is_read: false
         }).catch(() => {});
 

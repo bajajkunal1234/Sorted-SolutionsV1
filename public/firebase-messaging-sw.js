@@ -139,13 +139,25 @@ self.addEventListener('notificationclick', (event) => {
 
     if (event.action === 'dismiss') return;
 
-    const url = event.notification.data?.link || '/';
+    const notifData = event.notification.data || {};
+    const url = notifData.link || '/';
 
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-            // Focus existing window if URL matches
-            const match = wins.find((w) => w.url.includes(url.split('?')[0]) && 'focus' in w);
-            if (match) return match.focus();
+            const urlPath = url.split('?')[0];
+            // Focus and navigate existing window if URL matches path
+            const match = wins.find((w) => w.url.includes(urlPath) && 'focus' in w);
+            if (match) {
+                match.postMessage({
+                    type: 'NOTIFICATION_CLICK',
+                    url: url,
+                    data: notifData
+                });
+                if ('navigate' in match) {
+                    return match.navigate(url).then(m => (m || match).focus()).catch(() => match.focus());
+                }
+                return match.focus();
+            }
             // Otherwise open a new window
             return clients.openWindow(url);
         })

@@ -109,7 +109,68 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
         setIsOpen(false);
         setShowInboxModal(false);
         if (!notif.is_read) { await markRead(notif.id); fetchInbox(); }
-        if (notif.link) router.push(notif.link);
+
+        let link = notif.link;
+        if (!link && notif.message) {
+            const match = notif.message.match(/https?:\/\/[^\s]+/);
+            if (match) link = match[0];
+        }
+
+        let jobId = null;
+        let tab = null;
+
+        if (link) {
+            try {
+                const urlObj = new URL(link, window.location.origin);
+                jobId = urlObj.searchParams.get('jobId') || urlObj.searchParams.get('job_id');
+                tab = urlObj.searchParams.get('tab');
+                
+                // Convert legacy /customer/bookings/:id to dashboard tab
+                const bookingMatch = urlObj.pathname.match(/\/customer\/bookings\/([^/?]+)/);
+                if (bookingMatch) {
+                    jobId = bookingMatch[1];
+                    link = `/customer/dashboard?tab=services&jobId=${encodeURIComponent(jobId)}`;
+                }
+            } catch (e) {
+                console.warn('Error parsing notif link:', e);
+            }
+        }
+
+        if (!jobId && notif.message) {
+            const m = notif.message.match(/Job\s*#?([A-Za-z0-9_-]+)/i);
+            if (m) jobId = m[1];
+        }
+
+        // Dispatch global event for active components
+        window.dispatchEvent(new CustomEvent('app-notification-opened', {
+            detail: { link, jobId, tab, notif }
+        }));
+
+        // If on Admin app with openJobInJobsTab available
+        if (jobId && typeof window !== 'undefined' && typeof window.openJobInJobsTab === 'function') {
+            window.openJobInJobsTab({ id: jobId, job_number: jobId });
+            return;
+        }
+
+        // Navigate if link exists
+        if (link) {
+            try {
+                const urlObj = new URL(link, window.location.origin);
+                const targetRelative = urlObj.pathname + urlObj.search;
+                if (window.location.pathname === urlObj.pathname) {
+                    window.history.pushState({}, '', targetRelative);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                } else {
+                    router.push(targetRelative);
+                }
+            } catch {
+                if (link.startsWith('/')) {
+                    router.push(link);
+                } else {
+                    window.location.href = link;
+                }
+            }
+        }
     };
 
     const handleMarkAllRead = async () => {

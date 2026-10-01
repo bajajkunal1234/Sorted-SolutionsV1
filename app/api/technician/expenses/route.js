@@ -182,7 +182,7 @@ export async function POST(request) {
             recipient_id: 'admin',
             title: 'New Expense Request 💰',
             message: `${expenseData.technician_name || 'A technician'} submitted a new ${expenseData.category} expense request of ₹${expenseData.amount}.`,
-            link: '/admin',
+            link: '/admin?tab=reports&section=incentives',
             is_read: false
         }).then(() => {}).catch((err) => console.error('Error creating admin notification:', err));
 

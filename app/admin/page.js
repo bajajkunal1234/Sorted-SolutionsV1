@@ -238,6 +238,61 @@ export default function AdminApp() {
         };
     }, [])
 
+    // Handle URL query parameters and notification open events (clicks from phone panel or bell)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const processTargetParams = (urlStr) => {
+            try {
+                const targetUrl = urlStr ? new URL(urlStr, window.location.origin) : new URL(window.location.href);
+                const tab = targetUrl.searchParams.get('tab');
+                const jobId = targetUrl.searchParams.get('jobId') || targetUrl.searchParams.get('job_id');
+                const customerId = targetUrl.searchParams.get('customerId') || targetUrl.searchParams.get('customer_id');
+                const section = targetUrl.searchParams.get('section') || targetUrl.searchParams.get('sub');
+                const subTab = targetUrl.searchParams.get('subTab');
+
+                if (jobId) {
+                    setActiveTab('jobs');
+                    setJobToOpen({ id: jobId, job_number: jobId });
+                } else if (customerId) {
+                    setActiveTab('accounts');
+                    setCustomerToOpen({ id: customerId });
+                } else if (tab === 'reports' || section) {
+                    setActiveTab('reports');
+                    if (section) setReportsSectionToOpen(section);
+                    if (subTab) setTechSubTabToOpen(subTab);
+                } else if (tab && ['dashboard', 'jobs', 'accounts', 'inventory', 'reports'].includes(tab)) {
+                    setActiveTab(tab);
+                }
+            } catch (err) {
+                console.warn('Error processing target params:', err);
+            }
+        };
+
+        processTargetParams();
+
+        const handlePopState = () => processTargetParams();
+        window.addEventListener('popstate', handlePopState);
+
+        const handleNotificationOpened = (e) => {
+            const { link, jobId, tab } = e.detail || {};
+            if (jobId) {
+                setActiveTab('jobs');
+                setJobToOpen({ id: jobId, job_number: jobId });
+            } else if (link) {
+                processTargetParams(link);
+            } else if (tab) {
+                setActiveTab(tab);
+            }
+        };
+        window.addEventListener('app-notification-opened', handleNotificationOpened);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+            window.removeEventListener('app-notification-opened', handleNotificationOpened);
+        };
+    }, []);
+
     // ── Auth guard loading screen (AFTER all hooks) ─────────────────────────
     if (!authChecked) {
         return (

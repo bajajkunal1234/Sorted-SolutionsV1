@@ -69,7 +69,7 @@ export async function PATCH(request) {
             recipient_id: leave.technician_id,
             title: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'} ${statusEmoji}`,
             message: `Your leave request for ${leave.leave_date} has been ${status}.`,
-            link: '/technician',
+            link: '/technician/dashboard?tab=leaves',
             is_read: false
         }).catch(() => {});
 
