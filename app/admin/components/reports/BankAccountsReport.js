@@ -1139,97 +1139,93 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '10px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Top Bar: Bank Selector & Actions (Mobile First) */}
+                    {/* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row) */}
                     <div style={{
                         display: 'flex',
-                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: 'center',
                         justifyContent: 'space-between',
-                        alignItems: isMobile ? 'stretch' : 'center',
-                        gap: isMobile ? '6px' : '10px',
+                        gap: '6px',
                         backgroundColor: 'var(--bg-elevated)',
-                        padding: isMobile ? '8px 10px' : '8px 12px',
+                        padding: '6px 8px',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--border-primary)'
                     }}>
-                        {/* Bank Account Selector */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                            <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                                🏦 Bank:
-                            </span>
-                            <div style={{ position: 'relative', flex: 1 }}>
-                                <select
-                                    value={selectedAccountId || ''}
-                                    onChange={e => setSelectedAccountId(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '6px 28px 6px 10px',
-                                        fontSize: isMobile ? '12px' : '13px',
-                                        fontWeight: 700,
-                                        borderRadius: 'var(--radius-md)',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        color: 'var(--text-primary)',
-                                        border: '1px solid var(--border-primary)',
-                                        cursor: 'pointer',
-                                        appearance: 'none'
-                                    }}
-                                >
-                                    {accounts.map(acc => {
-                                        const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
-                                        return (
-                                            <option key={acc.id} value={acc.id}>
-                                                {acc.name} ({acc.bank_name || 'Bank'}{acc.account_number ? ` · ending ${acc.account_number.slice(-4)}` : ''}) {isConfigured ? '🟢' : '⚪'}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                                <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
-                            </div>
+                        {/* Bank Account Selector Dropdown */}
+                        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+                            <select
+                                value={selectedAccountId || ''}
+                                onChange={e => setSelectedAccountId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '5px 24px 5px 8px',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-primary)',
+                                    cursor: 'pointer',
+                                    appearance: 'none',
+                                    height: '32px',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {accounts.map(acc => {
+                                    const isConfigured = imapSettings[acc.id]?.email && imapSettings[acc.id]?.app_password;
+                                    return (
+                                        <option key={acc.id} value={acc.id}>
+                                            {acc.name} ({acc.bank_name || 'Bank'}{acc.account_number ? ` · ending ${acc.account_number.slice(-4)}` : ''}) {isConfigured ? '🟢' : '⚪'}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <ChevronDown size={14} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
                         </div>
 
-                        {/* Actions: Sync Alerts & Upload Statement */}
+                        {/* Action Symbols: Sync Alerts & Upload Statement */}
                         {activeSubTab === 'transactions' && (
-                            <div style={{ display: 'flex', gap: '6px', width: isMobile ? '100%' : 'auto' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                                 <button
+                                    type="button"
                                     onClick={triggerSync}
                                     disabled={syncing}
                                     className="btn btn-secondary"
                                     style={{
-                                        flex: isMobile ? 1 : 'none',
+                                        width: '32px',
+                                        height: '32px',
+                                        minWidth: '32px',
+                                        padding: 0,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '5px',
-                                        padding: '6px 10px',
-                                        fontSize: '11px',
-                                        fontWeight: 600,
-                                        whiteSpace: 'nowrap',
-                                        height: '34px'
+                                        borderRadius: 'var(--radius-sm)'
                                     }}
-                                    title="Fetch latest transaction alerts from Gmail"
+                                    title="Sync Alerts from Gmail"
+                                    aria-label="Sync Alerts"
                                 >
-                                    {syncing ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
-                                    Sync Alerts
+                                    {syncing ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
                                 </button>
 
                                 <label
                                     className="btn btn-primary"
                                     style={{
-                                        flex: isMobile ? 1 : 'none',
+                                        width: '32px',
+                                        height: '32px',
+                                        minWidth: '32px',
+                                        padding: 0,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        gap: '5px',
-                                        padding: '6px 12px',
-                                        fontSize: '11px',
-                                        fontWeight: 600,
-                                        whiteSpace: 'nowrap',
+                                        borderRadius: 'var(--radius-sm)',
                                         cursor: 'pointer',
-                                        margin: 0,
-                                        height: '34px'
+                                        margin: 0
                                     }}
+                                    title="Upload Bank Statement (.csv, .xls, .xlsx)"
+                                    aria-label="Upload Statement"
                                 >
-                                    <Upload size={12} />
-                                    Upload Statement
+                                    <Upload size={14} />
                                     <input
                                         type="file"
                                         accept=".csv,.xls,.xlsx"
@@ -1241,148 +1237,153 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         )}
                     </div>
 
-                    {/* Date Presets & Custom Pickers (Mobile-First scrollable strip) */}
+                    {/* Date Presets Strip & Custom Date Picker */}
                     {activeSubTab === 'transactions' && (
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: isMobile ? 'column' : 'row',
-                            alignItems: isMobile ? 'stretch' : 'center',
-                            justifyContent: 'space-between',
-                            gap: '6px',
-                            backgroundColor: 'var(--bg-elevated)',
-                            padding: isMobile ? '6px 8px' : '6px 12px',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--border-primary)'
-                        }}>
-                            {/* Preset Buttons Strip */}
-                            <div className="no-scrollbar" style={{
-                                display: 'flex',
-                                gap: '4px',
-                                overflowX: 'auto',
-                                paddingBottom: isMobile ? '2px' : 0,
-                                WebkitOverflowScrolling: 'touch'
-                            }}>
-                                {[
-                                    { id: 'today', label: 'Today' },
-                                    { id: 'yesterday', label: 'Yesterday' },
-                                    { id: 'week', label: '7 Days' },
-                                    { id: 'month', label: 'This Month' },
-                                    { id: 'custom', label: 'Custom' }
-                                ].map(preset => (
-                                    <button
-                                        key={preset.id}
-                                        onClick={() => handlePresetClick(preset.id)}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 600,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: datePreset === preset.id ? 'var(--primary-color)' : 'var(--bg-secondary)',
-                                            color: datePreset === preset.id ? '#fff' : 'var(--text-secondary)',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap',
-                                            transition: 'all 0.15s'
-                                        }}
-                                    >
-                                        {preset.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Date Pickers */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {/* Preset Buttons + Red Alert Icon */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: isMobile ? 'space-between' : 'flex-end',
-                                gap: '6px',
-                                fontSize: '11px'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>From:</span>
-                                    <input
-                                        type="date"
-                                        value={fromDate}
-                                        onChange={e => {
-                                            setFromDate(e.target.value);
-                                            setDatePreset('custom');
-                                        }}
-                                        style={{
-                                            padding: '3px 6px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '11px',
-                                            fontWeight: 600
-                                        }}
-                                    />
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>To:</span>
-                                    <input
-                                        type="date"
-                                        value={toDate}
-                                        onChange={e => {
-                                            setToDate(e.target.value);
-                                            setDatePreset('custom');
-                                        }}
-                                        style={{
-                                            padding: '3px 6px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '11px',
-                                            fontWeight: 600
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Sleek Compact Weekly Cadence & Balance Discrepancy Alert Ribbon */}
-                    {activeSubTab === 'transactions' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {/* Cadence & Statement Status Alert */}
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                flexWrap: 'wrap',
-                                gap: '6px',
-                                padding: isMobile ? '6px 8px' : '6px 12px',
+                                backgroundColor: 'var(--bg-elevated)',
+                                padding: '4px 6px',
                                 borderRadius: 'var(--radius-md)',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                backgroundColor: weeklyStatus.isOverdue ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                                border: `1px solid ${weeklyStatus.isOverdue ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
-                                color: weeklyStatus.isOverdue ? '#ef4444' : '#10b981'
+                                border: '1px solid var(--border-primary)',
+                                gap: '4px'
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    {weeklyStatus.isOverdue ? (
-                                        <AlertTriangle size={14} style={{ flexShrink: 0 }} />
-                                    ) : (
-                                        <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
-                                    )}
-                                    <span>
-                                        {weeklyStatus.daysSince === null ? (
-                                            '⚠️ Weekly Reconciliation Pending: No statement reconciliation on record.'
-                                        ) : weeklyStatus.isOverdue ? (
-                                            `⚠️ Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days since last reconciliation (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}). Upload this week\'s statement.`
-                                        ) : (
-                                            `✅ Weekly Reconciliation On Track: Reconciled ${weeklyStatus.daysSince === 0 ? 'today' : `${weeklyStatus.daysSince} days ago`}.`
-                                        )}
-                                    </span>
-                                </div>
+                                <div className="no-scrollbar" style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    overflowX: 'auto',
+                                    WebkitOverflowScrolling: 'touch',
+                                    flex: 1
+                                }}>
+                                    {[
+                                        { id: 'today', label: 'Today' },
+                                        { id: 'yesterday', label: 'Yesterday' },
+                                        { id: 'week', label: '7 Days' },
+                                        { id: 'month', label: 'This Month' },
+                                        { id: 'custom', label: 'Custom' }
+                                    ].map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            onClick={() => handlePresetClick(preset.id)}
+                                            style={{
+                                                padding: '3px 7px',
+                                                fontSize: '11px',
+                                                fontWeight: datePreset === preset.id ? 700 : 500,
+                                                borderRadius: 'var(--radius-sm)',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: datePreset === preset.id ? 'var(--primary-color)' : 'var(--bg-secondary)',
+                                                color: datePreset === preset.id ? '#fff' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    ))}
 
-                                {closingComparison.isDiscrepancy && (
-                                    <span style={{ color: '#ef4444', fontWeight: 800 }}>
-                                        🚨 Closing Diff: ₹{Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </span>
-                                )}
+                                    {/* Red Alert Icon replacing the full row */}
+                                    {(weeklyStatus.isOverdue || closingComparison.isDiscrepancy) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const msgs = [];
+                                                if (weeklyStatus.daysSince === null) {
+                                                    msgs.push('⚠️ Weekly Reconciliation Pending: No statement reconciliation on record.');
+                                                } else if (weeklyStatus.isOverdue) {
+                                                    msgs.push(`⚠️ Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days since last reconciliation (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}). Upload this week\'s statement.`);
+                                                }
+                                                if (closingComparison.isDiscrepancy) {
+                                                    msgs.push(`🚨 Closing Balance Discrepancy: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })} difference between bank statement and system entries.`);
+                                                }
+                                                alert(msgs.join('\n\n'));
+                                            }}
+                                            title={
+                                                weeklyStatus.daysSince === null
+                                                    ? 'Weekly Reconciliation Pending: No statement reconciliation on record.'
+                                                    : weeklyStatus.isOverdue
+                                                        ? `Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days overdue.`
+                                                        : 'Closing Balance Discrepancy Detected.'
+                                            }
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '3px 6px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                color: '#ef4444',
+                                                cursor: 'pointer',
+                                                flexShrink: 0,
+                                                marginLeft: '2px',
+                                                animation: 'pulse-red 2s infinite'
+                                            }}
+                                        >
+                                            <AlertTriangle size={13} style={{ color: '#ef4444' }} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
+
+                            {/* Start and End Date Selector (ONLY OPENS WHEN CLICKED CUSTOM) */}
+                            {datePreset === 'custom' && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '6px',
+                                    padding: '4px 8px',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    border: '1px dashed var(--border-primary)',
+                                    fontSize: '10px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '10px' }}>From:</span>
+                                        <input
+                                            type="date"
+                                            value={fromDate}
+                                            onChange={e => setFromDate(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '2px 4px',
+                                                borderRadius: '3px',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '10px',
+                                                fontWeight: 500,
+                                                height: '24px'
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
+                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '10px' }}>To:</span>
+                                        <input
+                                            type="date"
+                                            value={toDate}
+                                            onChange={e => setToDate(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '2px 4px',
+                                                borderRadius: '3px',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '10px',
+                                                fontWeight: 500,
+                                                height: '24px'
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
