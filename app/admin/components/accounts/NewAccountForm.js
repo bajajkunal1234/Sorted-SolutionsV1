@@ -93,6 +93,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         // Acquisition Source (How did you hear about us?)
         acquisitionSource: initialData?.acquisition_source || '',
         referredBy: initialData?.referred_by || '',
+        tipAmount: initialData?.tip_amount || '',
+        campaignCategory: initialData?.campaign_category || '',
         leadChannel: '',
         leadArrivalDate: new Date().toISOString().split('T')[0],
 
@@ -106,6 +108,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
     const [showGroupForm, setShowGroupForm] = useState(false);
     const [checkingLead, setCheckingLead] = useState(false);
     const [leadExists, setLeadExists] = useState(false);
+    const [existingLeadInfo, setExistingLeadInfo] = useState(null);
 
 
     // Customer Properties (for Sundry Debtors/Creditors)
@@ -149,6 +152,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                 .then(data => {
                     if (active && data.success) {
                         setLeadExists(data.exists);
+                        setExistingLeadInfo(data.exists ? data.lead : null);
                         if (data.exists) {
                             // Clear leadChannel if already exists
                             setFormData(prev => ({ ...prev, leadChannel: '' }));
@@ -157,7 +161,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                 })
                 .catch(err => {
                     console.error('Failed to check lead:', err);
-                    if (active) setLeadExists(false);
+                    if (active) {
+                        setLeadExists(false);
+                        setExistingLeadInfo(null);
+                    }
                 })
                 .finally(() => {
                     if (active) setCheckingLead(false);
@@ -166,6 +173,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             return () => { active = false; };
         } else {
             setLeadExists(false);
+            setExistingLeadInfo(null);
             setCheckingLead(false);
             if (formData.leadChannel || formData.leadArrivalDate !== new Date().toISOString().split('T')[0]) {
                 setFormData(prev => ({ 
@@ -583,6 +591,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             gst_applicable: formData.gstApplicable,
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
+            tip_amount: parseFloat(formData.tipAmount || '0'),
+            campaign_category: formData.campaignCategory || '',
             leadChannel: formData.leadChannel,
             leadArrivalDate: formData.leadArrivalDate,
             status: initialData?.status || 'active',
@@ -1391,11 +1401,14 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                             style={{ borderColor: errors.acquisitionSource ? '#ef4444' : undefined }}
                                                         >
                                                             <option value="">-- Select Source --</option>
-                                                            <option value="direct">Direct / Walk-in</option>
-                                                            <option value="referral">Referral / Word of Mouth</option>
                                                             <option value="google_ads">Google Ads (Paid)</option>
-                                                            <option value="social_media">Social Media</option>
+                                                            <option value="justdial">JustDial (Subscription)</option>
+                                                            <option value="renit">Renit (Brand Partner)</option>
+                                                            <option value="referral">Personal / Local Referral (Friend / Client Contact)</option>
                                                             <option value="google_organic">Google Search (Organic)</option>
+                                                            <option value="direct">Direct / Walk-in</option>
+                                                            <option value="social_media">Social Media</option>
+                                                            <option value="other">Other / Custom Marketer</option>
                                                         </select>
                                                         {errors.acquisitionSource && (
                                                             <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.acquisitionSource}</span>
@@ -1404,13 +1417,39 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                 )}
                                                 {showField('referredBy') && (
                                                     <div className="form-group" style={{ marginBottom: 0 }}>
-                                                        <label className="form-label">Referred By</label>
+                                                        <label className="form-label">Referred By (Friend / Staff / Company)</label>
                                                         <input
                                                             type="text"
                                                             className="form-input"
                                                             value={formData.referredBy}
                                                             onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
-                                                            placeholder="Name or details"
+                                                            placeholder="Name, firm, or phone of referrer"
+                                                        />
+                                                    </div>
+                                                )}
+                                                {formData.acquisitionSource === 'referral' && (
+                                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                                        <label className="form-label">Tip / Commission Paid (₹)</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="1"
+                                                            className="form-input"
+                                                            value={formData.tipAmount || ''}
+                                                            onChange={(e) => setFormData({ ...formData, tipAmount: e.target.value })}
+                                                            placeholder="e.g. 200 (Leave 0 if free)"
+                                                        />
+                                                    </div>
+                                                )}
+                                                {formData.acquisitionSource === 'justdial' && (
+                                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                                        <label className="form-label">JustDial Category</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={formData.campaignCategory || ''}
+                                                            onChange={(e) => setFormData({ ...formData, campaignCategory: e.target.value })}
+                                                            placeholder="e.g. AC Repair, Washing Machine"
                                                         />
                                                     </div>
                                                 )}
@@ -1433,7 +1472,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                                                 <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 4 }}>Checking Leads Directory...</span>
                                                             )}
                                                             {leadExists && (
-                                                                <span style={{ color: '#10b981', fontSize: 'var(--font-size-xs)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Already detected in Leads Directory.</span>
+                                                                <span style={{ color: '#10b981', fontSize: 'var(--font-size-xs)', fontWeight: 600, display: 'block', marginTop: 4 }}>
+                                                                    ✓ Already in Leads Directory
+                                                                    {existingLeadInfo?.lead_source ? ` (${existingLeadInfo.lead_source.replace(/_/g, ' ').toUpperCase()})` : ''}
+                                                                    {existingLeadInfo?.first_contact_at ? ` · ${new Date(existingLeadInfo.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                                                                </span>
                                                             )}
                                                         </div>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>

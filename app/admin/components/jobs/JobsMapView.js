@@ -1440,7 +1440,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                         >
                             <Tooltip direction="top" offset={[0, -16]}>
                                 <div>
-                                    <span style={{ fontWeight: 600 }}>{tech.name}</span> {isOffline ? '(Technician - Offline 💤)' : (loc.is_on_job ? '(Technician - On Job 🔧)' : '(Technician - Available 🟢)')}
+                                    <span style={{ fontWeight: 600 }}>{tech.name}</span> {isOffline ? '(Technician - Offline 💤)' : (loc.duty_status === 'lunch' ? '(Technician - On Break 🥪)' : (loc.is_on_job ? '(Technician - On Job 🔧)' : '(Technician - Available 🟢)'))}
                                 </div>
                             </Tooltip>
 
@@ -1452,12 +1452,17 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                                     <div>
                                         <strong>Status:</strong> {isOffline ? (
                                             <span style={{ color: '#94a3b8', fontWeight: 600 }}>Offline 💤 ({formatAge(loc.seconds_ago)})</span>
+                                        ) : loc.duty_status === 'lunch' ? (
+                                            <span style={{ color: '#f59e0b', fontWeight: 600 }}>On Break 🥪</span>
                                         ) : (
                                             <span>{loc.is_on_job ? 'On Job 🔧' : 'Available 🟢'}</span>
                                         )}
                                     </div>
                                     {loc.battery_level !== undefined && loc.battery_level !== null && loc.battery_level >= 0 && (
                                         <div><strong>Battery:</strong> {loc.battery_level}%</div>
+                                    )}
+                                    {loc.connectivity_status && (
+                                        <div><strong>Connection:</strong> {loc.connectivity_status}</div>
                                     )}
                                     <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>
                                         Last seen: {formatAge(loc.seconds_ago)} ({new Date(loc.last_seen).toLocaleDateString([], { month: 'short', day: 'numeric' })} {new Date(loc.last_seen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})

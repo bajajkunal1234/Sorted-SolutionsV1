@@ -285,8 +285,24 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
     useEffect(() => {
         fetchLocations();
-        const interval = setInterval(fetchLocations, 60_000); // auto-refresh every 60s
-        return () => clearInterval(interval);
+        const interval = setInterval(fetchLocations, 30_000); // auto-refresh every 30s
+
+        // Subscribe to real-time postgres changes on technician_live_locations for instant telemetry updates
+        const liveChannel = supabase
+            .channel('live-map-technician-locations')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'technician_live_locations' },
+                () => {
+                    fetchLocations();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            clearInterval(interval);
+            supabase.removeChannel(liveChannel);
+        };
     }, [activeJobs, activeTechnicians]);
 
     const trackingList = activeTechnicians.length > 0 
@@ -343,7 +359,10 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                 return isTrulyOnline && loc.is_on_job;
             }
             if (statusFilter === 'idle') {
-                return isTrulyOnline && !loc.is_on_job;
+                return isTrulyOnline && !loc.is_on_job && loc.duty_status !== 'lunch';
+            }
+            if (statusFilter === 'lunch') {
+                return isTrulyOnline && loc.duty_status === 'lunch';
             }
             if (statusFilter === 'offline') {
                 return isOffline;
@@ -381,7 +400,8 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
     const activeTechsList = mergedLocations.filter(l => l.is_online && l.seconds_ago <= 900);
     const offlineTechsList = mergedLocations.filter(l => !l.is_online || l.seconds_ago > 900);
     const onJobCount = activeTechsList.filter(l => l.is_on_job).length;
-    const idleCount = activeTechsList.filter(l => !l.is_on_job).length;
+    const breakCount = activeTechsList.filter(l => l.duty_status === 'lunch').length;
+    const availableCount = activeTechsList.filter(l => !l.is_on_job && l.duty_status !== 'lunch').length;
     const onlineCount = activeTechsList.length;
     const offlineCount = offlineTechsList.length;
 
@@ -432,14 +452,28 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     onClick={() => setStatusFilter('idle')}
                     style={{
                         padding: '8px 16px', borderRadius: 8,
-                        background: statusFilter === 'idle' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${statusFilter === 'idle' ? '#f59e0b' : 'rgba(255,255,255,0.08)'}`,
-                        color: statusFilter === 'idle' ? '#f59e0b' : '#94a3b8',
+                        background: statusFilter === 'idle' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${statusFilter === 'idle' ? '#38bdf8' : 'rgba(255,255,255,0.08)'}`,
+                        color: statusFilter === 'idle' ? '#38bdf8' : '#94a3b8',
                         fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
                     }}
                 >
-                    ⚪ {idleCount} Idle
+                    🟢 {availableCount} Available
                 </button>
+                {breakCount > 0 && (
+                    <button
+                        onClick={() => setStatusFilter('lunch')}
+                        style={{
+                            padding: '8px 16px', borderRadius: 8,
+                            background: statusFilter === 'lunch' ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${statusFilter === 'lunch' ? '#f59e0b' : 'rgba(255,255,255,0.08)'}`,
+                            color: statusFilter === 'lunch' ? '#f59e0b' : '#94a3b8',
+                            fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: 'all 0.2s', outline: 'none'
+                        }}
+                    >
+                        🥪 {breakCount} On break
+                    </button>
+                )}
                 <button
                     onClick={() => setStatusFilter('offline')}
                     style={{
@@ -634,6 +668,12 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                                 🔧 {loc.name}
                                             </div>
                                             <div style={{ fontSize: 11, color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div>💼 Duty: <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                                                    {loc.duty_status === 'lunch' ? 'On Break 🥪' : loc.is_on_job ? 'On Job 💼' : (isTrulyOnline ? 'Available (On Duty) 🟢' : 'Offline 💤')}
+                                                </span></div>
+                                                {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                                    <div>🔋 Battery: <span style={{ fontWeight: 600, color: '#1e293b' }}>{loc.battery_level}%</span></div>
+                                                )}
                                                 {loc.connectivity_status && (
                                                     <div>📶 Connection: <span style={{ fontWeight: 600, color: '#1e293b' }}>{loc.connectivity_status}</span></div>
                                                 )}
@@ -733,7 +773,15 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         </>
                                     )}
                                     <span style={{ opacity: 0.3 }}>·</span>
-                                    <span>{loc.is_on_job ? 'On job' : 'Idle'}</span>
+                                    {loc.duty_status === 'lunch' ? (
+                                        <span style={{ color: '#f59e0b', fontWeight: 600 }}>🥪 On Break</span>
+                                    ) : loc.is_on_job ? (
+                                        <span style={{ color: '#10b981', fontWeight: 600 }}>💼 On Job</span>
+                                    ) : isTrulyOnline ? (
+                                        <span style={{ color: '#38bdf8', fontWeight: 600 }}>🟢 Available (On Duty)</span>
+                                    ) : (
+                                        <span style={{ color: '#94a3b8' }}>⚪ Off Duty</span>
+                                    )}
                                     <span style={{ opacity: 0.3 }}>·</span>
                                     <span style={{ color: '#94a3b8' }}>{formatAge(loc.seconds_ago)}</span>
                                 </div>

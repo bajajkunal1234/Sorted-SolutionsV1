@@ -134,6 +134,7 @@ export async function GET(request) {
             { data: jobs },
             { data: invoices },
             { data: dailyMetrics },
+            { data: marketingExpenses },
             { data: expData },
             { data: pinvData },
             { data: recData },
@@ -165,6 +166,8 @@ export async function GET(request) {
                 .select('*')
                 .gte('date', startYMD)
                 .lte('date', endYMD),
+            // Marketing Expenses (JustDial, Renit, Referrals, etc.)
+            supabase.from('marketing_expenses').select('*').order('payment_date', { ascending: false }),
             // Expenses
             expensesQuery,
             // Purchase Invoices
@@ -378,11 +381,41 @@ export async function GET(request) {
                 jobsCount,
                 completedJobsCount,
                 status: leadStatus,
+                referrer_name: lead.referrer_name || null,
+                tip_amount: parseFloat(lead.tip_amount || '0'),
+                campaign_category: lead.campaign_category || null,
                 journey
             };
         });
 
-        // Calculate aggregate statistics for Google Ads ROI
+        // ── Multi-Marketer ROI & Performance Calculations ───────────────────────────
+        const MARKETER_DEFS = {
+            google_ads: { key: 'google_ads', label: 'Google Ads', color: '#4285f4' },
+            justdial: { key: 'justdial', label: 'JustDial', color: '#f59e0b' },
+            renit: { key: 'renit', label: 'Renit', color: '#8b5cf6' },
+            referral: { key: 'referral', label: 'Personal / Referrals', color: '#10b981' },
+            google_organic: { key: 'google_organic', label: 'Google Organic', color: '#06b6d4' },
+            direct: { key: 'direct', label: 'Direct / Walk-in', color: '#64748b' }
+        };
+
+        const marketerStats = {};
+        Object.keys(MARKETER_DEFS).forEach(k => {
+            marketerStats[k] = {
+                ...MARKETER_DEFS[k],
+                leadsCount: 0,
+                convertedCount: 0,
+                revenue: 0,
+                cost: 0,
+                tipsPaid: 0,
+                cpl: 0,
+                cpa: 0,
+                roas: 0,
+                conversionRate: 0,
+                netProfit: 0
+            };
+        });
+
+        // 1. Tally leads and revenue per marketer
         let adsLeadCount = 0;
         let adsConvertedCount = 0;
         let adsRevenue = 0;
@@ -391,20 +424,144 @@ export async function GET(request) {
         let totalAdsImpressions = 0;
 
         enrichedLeads.forEach(l => {
-            if (l.lead_source === 'google_ads') {
+            let src = l.lead_source || 'direct';
+            if (!marketerStats[src]) {
+                marketerStats[src] = {
+                    key: src,
+                    label: src.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    color: '#6366f1',
+                    leadsCount: 0,
+                    convertedCount: 0,
+                    revenue: 0,
+                    cost: 0,
+                    tipsPaid: 0,
+                    cpl: 0,
+                    cpa: 0,
+                    roas: 0,
+                    conversionRate: 0,
+                    netProfit: 0
+                };
+            }
+
+            marketerStats[src].leadsCount++;
+            const isConverted = l.status === 'converted' || l.jobsCount > 0;
+            if (isConverted) {
+                marketerStats[src].convertedCount++;
+            }
+            marketerStats[src].revenue += l.totalRevenue || 0;
+
+            const tip = parseFloat(l.tip_amount || '0');
+            if (tip > 0) {
+                marketerStats[src].tipsPaid += tip;
+                marketerStats[src].cost += tip;
+            }
+
+            if (src === 'google_ads') {
                 adsLeadCount++;
-                if (l.status === 'converted' || l.jobsCount > 0) {
-                    adsConvertedCount++;
-                }
-                adsRevenue += l.totalRevenue;
+                if (isConverted) adsConvertedCount++;
+                adsRevenue += l.totalRevenue || 0;
             }
         });
 
+        // 2. Google Ads cost from daily metrics
         (dailyMetrics || []).forEach(m => {
             totalAdsSpend += parseFloat(m.amount_spent || '0');
             totalAdsClicks += parseInt(m.clicks || '0');
             totalAdsImpressions += parseInt(m.impressions || '0');
         });
+        if (marketerStats['google_ads']) {
+            marketerStats['google_ads'].cost += totalAdsSpend;
+        }
+
+        // 3. Subscription & non-daily marketing expenses (JustDial period amortization, retainers, etc.)
+        (marketingExpenses || []).forEach(exp => {
+            const mKey = exp.marketer_key || 'other';
+            if (!marketerStats[mKey]) {
+                marketerStats[mKey] = {
+                    key: mKey,
+                    label: exp.marketer_display_name || mKey,
+                    color: '#6366f1',
+                    leadsCount: 0,
+                    convertedCount: 0,
+                    revenue: 0,
+                    cost: 0,
+                    tipsPaid: 0,
+                    cpl: 0,
+                    cpa: 0,
+                    roas: 0,
+                    conversionRate: 0,
+                    netProfit: 0
+                };
+            }
+
+            const expAmount = parseFloat(exp.amount || '0');
+
+            if (exp.period_start && exp.period_end) {
+                // Subscription period with date range: amortize daily rate
+                const pStart = new Date(exp.period_start);
+                const pEnd = new Date(exp.period_end);
+                pEnd.setHours(23, 59, 59, 999);
+                const totalPeriodDays = Math.max(1, Math.round((pEnd.getTime() - pStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                const dailyRate = expAmount / totalPeriodDays;
+
+                if (range === 'all') {
+                    marketerStats[mKey].cost += expAmount;
+                } else {
+                    const overlapStart = new Date(Math.max(pStart.getTime(), startIST.getTime()));
+                    const overlapEnd = new Date(Math.min(pEnd.getTime(), endIST.getTime()));
+                    if (overlapStart <= overlapEnd) {
+                        const overlapDays = Math.max(1, Math.round((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                        marketerStats[mKey].cost += (dailyRate * overlapDays);
+                    }
+                }
+            } else {
+                // Single date payment or tip payout
+                const pDate = exp.payment_date || exp.created_at;
+                const pYMD = pDate ? String(pDate).slice(0, 10) : '';
+                if (range === 'all' || (pYMD >= startYMD && pYMD <= endYMD)) {
+                    marketerStats[mKey].cost += expAmount;
+                }
+            }
+        });
+
+        // 4. Calculate unit economics per marketer and overall blended totals
+        let totalLeads = 0;
+        let totalConverted = 0;
+        let totalRevenue = 0;
+        let totalMarketingCost = 0;
+
+        Object.values(marketerStats).forEach(st => {
+            st.cpl = st.leadsCount > 0 ? (st.cost / st.leadsCount) : 0;
+            st.cpa = st.convertedCount > 0 ? (st.cost / st.convertedCount) : 0;
+            st.roas = st.cost > 0 ? (st.revenue / st.cost) : (st.revenue > 0 ? 999 : 0);
+            st.conversionRate = st.leadsCount > 0 ? (st.convertedCount / st.leadsCount) * 100 : 0;
+            st.netProfit = st.revenue - st.cost;
+
+            totalLeads += st.leadsCount;
+            totalConverted += st.convertedCount;
+            totalRevenue += st.revenue;
+            totalMarketingCost += st.cost;
+        });
+
+        const blendedScorecard = {
+            key: 'total',
+            label: 'Total (All Channels)',
+            color: '#10b981',
+            leadsCount: totalLeads,
+            convertedCount: totalConverted,
+            revenue: totalRevenue,
+            cost: totalMarketingCost,
+            cpl: totalLeads > 0 ? (totalMarketingCost / totalLeads) : 0,
+            cpa: totalConverted > 0 ? (totalMarketingCost / totalConverted) : 0,
+            roas: totalMarketingCost > 0 ? (totalRevenue / totalMarketingCost) : (totalRevenue > 0 ? 999 : 0),
+            conversionRate: totalLeads > 0 ? (totalConverted / totalLeads) * 100 : 0,
+            netProfit: totalRevenue - totalMarketingCost
+        };
+
+        const marketerScorecard = [
+            ...Object.values(marketerStats).filter(st => st.leadsCount > 0 || st.cost > 0 || ['google_ads', 'justdial', 'renit', 'referral'].includes(st.key)),
+            blendedScorecard
+        ];
 
         const summary = {
             adsLeads: adsLeadCount,
@@ -418,7 +575,10 @@ export async function GET(request) {
             cpc: totalAdsClicks > 0 ? (totalAdsSpend / totalAdsClicks) : 0,
             ctr: totalAdsImpressions > 0 ? (totalAdsClicks / totalAdsImpressions) * 100 : 0,
             roas: totalAdsSpend > 0 ? (adsRevenue / totalAdsSpend) : 0,
-            conversionRate: adsLeadCount > 0 ? (adsConvertedCount / adsLeadCount) * 100 : 0
+            conversionRate: adsLeadCount > 0 ? (adsConvertedCount / adsLeadCount) * 100 : 0,
+            marketers: marketerStats,
+            marketerScorecard,
+            marketingExpenses: marketingExpenses || []
         };
 
         const businessStats = {
@@ -454,7 +614,19 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { phone, name, type, date, notes, status = 'interested', lead_source = null, campaign = null } = body;
+        const {
+            phone,
+            name,
+            type,
+            date,
+            notes,
+            status = 'interested',
+            lead_source = null,
+            campaign = null,
+            referrer_name = null,
+            tip_amount = 0,
+            campaign_category = null
+        } = body;
 
         if (!phone || !type) {
             return NextResponse.json({ success: false, error: 'Phone and type are required' }, { status: 400 });
@@ -542,7 +714,10 @@ export async function POST(request) {
             notes: notes || (matchedSessionId ? `Auto-linked to website click session.` : `Manual lead log.`),
             lead_source: forcedSource,
             campaign: campaign,
-            first_contact_at: date
+            first_contact_at: date,
+            referrer_name,
+            tip_amount: parseFloat(tip_amount || 0),
+            campaign_category
         });
 
         if (!result.success) throw new Error(result.error);
@@ -565,7 +740,19 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json();
-        const { phone, status, notes, lead_source, campaign, name, conversion_type, first_contact_at } = body;
+        const {
+            phone,
+            status,
+            notes,
+            lead_source,
+            campaign,
+            name,
+            conversion_type,
+            first_contact_at,
+            referrer_name,
+            tip_amount,
+            campaign_category
+        } = body;
 
         if (!phone) {
             return NextResponse.json({ success: false, error: 'Phone is required' }, { status: 400 });
@@ -587,6 +774,9 @@ export async function PUT(request) {
         if (name !== undefined) updatePayload.name = name;
         if (conversion_type !== undefined) updatePayload.conversion_type = conversion_type;
         if (first_contact_at !== undefined) updatePayload.first_contact_at = first_contact_at ? new Date(first_contact_at).toISOString() : null;
+        if (referrer_name !== undefined) updatePayload.referrer_name = referrer_name;
+        if (tip_amount !== undefined) updatePayload.tip_amount = parseFloat(tip_amount || 0);
+        if (campaign_category !== undefined) updatePayload.campaign_category = campaign_category;
 
         const { data, error } = await supabase
             .from('lead_attributions')

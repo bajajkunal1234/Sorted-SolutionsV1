@@ -340,6 +340,10 @@ export async function POST(request) {
                     ? (body.leadChannel === 'whatsapp' ? 'manual_whatsapp' : 'manual_call')
                     : 'manual_account';
                 const leadNotes = body.mailing_address || body.customerDescription || 'Logged automatically during account creation.';
+                const referrerName = body.referred_by || body.referredBy || null;
+                const tipAmount = parseFloat(body.tip_amount || body.tipAmount || '0');
+                const campaignCategory = body.campaign_category || body.campaignCategory || null;
+
                 try {
                     await trackLeadAttribution(supabase, {
                         phone: rawPhone,
@@ -348,6 +352,9 @@ export async function POST(request) {
                         status: 'converted', // always converted on account creation
                         notes: leadNotes,
                         lead_source: resolvedSource || 'direct',
+                        referrer_name: referrerName,
+                        tip_amount: tipAmount,
+                        campaign_category: campaignCategory,
                         first_contact_at: body.leadArrivalDate ? new Date(`${body.leadArrivalDate}T12:00:00Z`).toISOString() : new Date().toISOString()
                     });
                 } catch (leadError) {
@@ -553,6 +560,9 @@ export async function PUT(request) {
                         status: 'converted',
                         notes: 'Updated during customer account edit.',
                         lead_source: resolvedSource || 'direct',
+                        ...(updates.referred_by || updates.referredBy ? { referrer_name: updates.referred_by || updates.referredBy } : {}),
+                        ...(updates.tip_amount !== undefined || updates.tipAmount !== undefined ? { tip_amount: parseFloat(updates.tip_amount || updates.tipAmount || 0) } : {}),
+                        ...(updates.campaign_category || updates.campaignCategory ? { campaign_category: updates.campaign_category || updates.campaignCategory } : {}),
                         ...(updates.leadArrivalDate ? { first_contact_at: new Date(`${updates.leadArrivalDate}T12:00:00Z`).toISOString() } : {})
                     });
                 } catch (leadError) {

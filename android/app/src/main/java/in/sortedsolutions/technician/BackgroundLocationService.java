@@ -6,10 +6,12 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -68,6 +70,12 @@ public class BackgroundLocationService extends Service {
     }
 
     private boolean isWorkingHours() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String dutyStatus = prefs.getString("duty_status", "");
+        // If technician is actively on duty, always treat as active shift hours 24/7!
+        if ("on_duty".equals(dutyStatus)) {
+            return true;
+        }
         Calendar cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"));
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         return hour >= 8 && hour < 21;
@@ -178,27 +186,14 @@ public class BackgroundLocationService extends Service {
                     manager.notify(1, buildForegroundNotification());
                 }
 
-                // Perform HTTP ping
+                // Perform HTTP ping (sends location fix, or heartbeat telemetry if GPS fix is pending)
                 final Location loc = lastLocation;
-                if (loc != null) {
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            sendLocationToServer(technicianId, loc);
-                        }
-                    }).start();
-                } else {
-                    // Try to get fresh last known location
-                    startLocationUpdates();
-                    if (lastLocation != null) {
-                        new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                sendLocationToServer(technicianId, lastLocation);
-                            }
-                        }).start();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        sendLocationToServer(technicianId, loc);
                     }
-                }
+                }).start();
 
                 // Schedule next run: 1 minute during working hours, 15 minutes outside of working hours
                 long delay = isWorkingHours() ? 1 * 60 * 1000 : 15 * 60 * 1000;
@@ -226,6 +221,7 @@ public class BackgroundLocationService extends Service {
             boolean isOnline = prefs.getBoolean("is_online", true);
             boolean working = isWorkingHours();
             String precision = working ? "precise" : "approx";
+            String dutyStatus = prefs.getString("duty_status", isOnline ? "on_duty" : "offline");
 
             String sessionToken = prefs.getString("session_token", "");
             if (sessionToken != null && !sessionToken.isEmpty()) {
@@ -233,25 +229,26 @@ public class BackgroundLocationService extends Service {
             }
 
             boolean isMocked = false;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            if (loc != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
                 isMocked = loc.isFromMockProvider();
             }
 
             int batteryLevel = -1;
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    android.os.BatteryManager bm = (android.os.BatteryManager) getSystemService(BATTERY_SERVICE);
-                    if (bm != null) {
-                        batteryLevel = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                // Primary: register sticky receiver for ACTION_BATTERY_CHANGED (100% accurate across all Android vendors)
+                Intent batteryIntent = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                if (batteryIntent != null) {
+                    int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                    if (level >= 0 && scale > 0) {
+                        batteryLevel = Math.round((level / (float) scale) * 100f);
                     }
-                } else {
-                    Intent batteryIntent = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-                    if (batteryIntent != null) {
-                        int level = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
-                        int scale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
-                        if (level >= 0 && scale > 0) {
-                            batteryLevel = Math.round((level / (float) scale) * 100);
-                        }
+                }
+                // Fallback to BatteryManager if sticky intent did not return valid level
+                if (batteryLevel < 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
+                    if (bm != null) {
+                        batteryLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
                     }
                 }
             } catch (Exception e) {
@@ -293,11 +290,21 @@ public class BackgroundLocationService extends Service {
                 e.printStackTrace();
             }
 
-            String jsonPayload = String.format(
-                Locale.US,
-                "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"location_precision\":\"%s\",\"session_token\":\"%s\",\"battery_level\":%d,\"connectivity_status\":\"%s\",\"is_mocked\":%b}",
-                technicianId, loc.getLatitude(), loc.getLongitude(), isOnline, precision, sessionToken, batteryLevel, connectivityStatus, isMocked
-            );
+            String jsonPayload;
+            if (loc != null) {
+                jsonPayload = String.format(
+                    Locale.US,
+                    "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"duty_status\":\"%s\",\"location_precision\":\"%s\",\"session_token\":\"%s\",\"battery_level\":%d,\"connectivity_status\":\"%s\",\"is_mocked\":%b}",
+                    technicianId, loc.getLatitude(), loc.getLongitude(), isOnline, dutyStatus, precision, sessionToken, batteryLevel, connectivityStatus, isMocked
+                );
+            } else {
+                // Heartbeat payload without GPS coordinates - keeps battery, connectivity, and duty status fresh
+                jsonPayload = String.format(
+                    Locale.US,
+                    "{\"technician_id\":\"%s\",\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"duty_status\":\"%s\",\"location_precision\":\"%s\",\"session_token\":\"%s\",\"battery_level\":%d,\"connectivity_status\":\"%s\",\"is_mocked\":false}",
+                    technicianId, isOnline, dutyStatus, precision, sessionToken, batteryLevel, connectivityStatus
+                );
+            }
 
             try (OutputStream os = conn.getOutputStream()) {
                 byte[] input = jsonPayload.getBytes("utf-8");

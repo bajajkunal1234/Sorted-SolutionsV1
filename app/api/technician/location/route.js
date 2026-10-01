@@ -19,6 +19,7 @@ export async function POST(request) {
             is_on_job,
             tracking_source,
             is_online,
+            duty_status,
             location_precision,
             session_token,
             battery_level,
@@ -26,8 +27,8 @@ export async function POST(request) {
             is_mocked
         } = body
 
-        if (!technician_id || !latitude || !longitude) {
-            return NextResponse.json({ ok: false }, { status: 400 })
+        if (!technician_id) {
+            return NextResponse.json({ ok: false, error: 'Technician ID is required' }, { status: 400 })
         }
 
         // Get header session token fallback
@@ -56,50 +57,97 @@ export async function POST(request) {
         }
 
         const serverTime = new Date()
-        let finalIsOnline = is_online !== false
-        let finalPrecision = location_precision || 'precise'
+        const finalIsOnline = is_online !== false
+        const finalPrecision = location_precision || 'precise'
+        const hasCoords = latitude != null && longitude != null && !isNaN(Number(latitude)) && !isNaN(Number(longitude))
 
-        const { error } = await supabase
-            .from('technician_live_locations')
-            .upsert(
-                {
+        // Build upsert payload
+        const updatePayload = {
+            technician_id,
+            is_on_job: !!is_on_job,
+            tracking_source: tracking_source || 'web',
+            is_online: finalIsOnline,
+            location_precision: finalPrecision,
+            ip_address: clientIp,
+            updated_at: serverTime.toISOString(),
+        }
+
+        if (hasCoords) {
+            updatePayload.latitude = Number(latitude)
+            updatePayload.longitude = Number(longitude)
+        }
+
+        if (duty_status) {
+            updatePayload.duty_status = duty_status
+        } else if (finalIsOnline && !is_on_job) {
+            // Keep on_duty default if online
+            updatePayload.duty_status = 'on_duty'
+        }
+
+        if (battery_level !== undefined && battery_level !== null && !isNaN(Number(battery_level))) {
+            updatePayload.battery_level = Number(battery_level)
+        }
+
+        if (connectivity_status) {
+            updatePayload.connectivity_status = connectivity_status
+        }
+
+        if (is_mocked !== undefined) {
+            updatePayload.is_mocked = !!is_mocked
+        }
+
+        // If coordinates are missing, check if technician already has a row so we don't fail null constraints
+        if (!hasCoords) {
+            const { data: existingLoc } = await supabase
+                .from('technician_live_locations')
+                .select('latitude, longitude')
+                .eq('technician_id', technician_id)
+                .maybeSingle()
+
+            if (existingLoc && existingLoc.latitude != null && existingLoc.longitude != null) {
+                updatePayload.latitude = existingLoc.latitude
+                updatePayload.longitude = existingLoc.longitude
+            }
+        }
+
+        // Only upsert if we have coordinates (either fresh or preserved)
+        if (updatePayload.latitude != null && updatePayload.longitude != null) {
+            const { error } = await supabase
+                .from('technician_live_locations')
+                .upsert(updatePayload, { onConflict: 'technician_id' })
+
+            if (error) throw error
+        } else {
+            // Update other columns directly
+            const { error } = await supabase
+                .from('technician_live_locations')
+                .update(updatePayload)
+                .eq('technician_id', technician_id)
+
+            if (error) throw error
+        }
+
+        // Also insert into historical logs for routing & timeline review if valid coordinates exist
+        if (hasCoords) {
+            const { error: logError } = await supabase
+                .from('technician_location_logs')
+                .insert({
                     technician_id,
-                    latitude,
-                    longitude,
+                    latitude: Number(latitude),
+                    longitude: Number(longitude),
                     is_on_job: !!is_on_job,
                     tracking_source: tracking_source || 'web',
                     is_online: finalIsOnline,
                     location_precision: finalPrecision,
-                    ip_address: clientIp,
-                    battery_level: battery_level !== undefined ? battery_level : null,
+                    battery_level: battery_level !== undefined && battery_level !== null ? Number(battery_level) : null,
                     connectivity_status: connectivity_status || null,
                     is_mocked: !!is_mocked,
-                    updated_at: serverTime.toISOString(),
-                },
-                { onConflict: 'technician_id' }
-            )
+                    created_at: serverTime.toISOString()
+                })
 
-        if (error) throw error
-
-        // Also insert into historical logs for routing & timeline review
-        const { error: logError } = await supabase
-            .from('technician_location_logs')
-            .insert({
-                technician_id,
-                latitude,
-                longitude,
-                is_on_job: !!is_on_job,
-                tracking_source: tracking_source || 'web',
-                is_online: finalIsOnline,
-                location_precision: finalPrecision,
-                battery_level: battery_level !== undefined ? battery_level : null,
-                connectivity_status: connectivity_status || null,
-                is_mocked: !!is_mocked,
-                created_at: serverTime.toISOString()
-            })
-
-        if (logError) {
-            console.warn('Failed to insert technician location historical log:', logError.message)
+            if (logError) {
+                console.warn('Failed to insert technician location historical log:', logError.message)
+            }
         }
 
         return NextResponse.json({ ok: true })

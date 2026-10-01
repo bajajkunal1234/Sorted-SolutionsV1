@@ -2,8 +2,14 @@ package in.sortedsolutions.technician;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.provider.Settings;
 import com.getcapacitor.JSObject;
@@ -102,9 +108,16 @@ public class GPSBridgePlugin extends Plugin {
         if (isOnline == null) {
             isOnline = true;
         }
+        String dutyStatus = call.getString("dutyStatus");
+
         Context context = getContext();
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putBoolean("is_online", isOnline).apply();
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean("is_online", isOnline);
+        if (dutyStatus != null && !dutyStatus.isEmpty()) {
+            editor.putString("duty_status", dutyStatus);
+        }
+        editor.apply();
 
         // Trigger onStartCommand to apply location listener changes immediately
         String techId = prefs.getString(KEY_TECH_ID, "");
@@ -116,6 +129,108 @@ public class GPSBridgePlugin extends Plugin {
 
         JSObject ret = new JSObject();
         ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void setDutyStatus(PluginCall call) {
+        String dutyStatus = call.getString("dutyStatus");
+        if (dutyStatus == null || dutyStatus.isEmpty()) {
+            dutyStatus = "on_duty";
+        }
+
+        Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString("duty_status", dutyStatus).apply();
+
+        // Wake or update background service
+        String techId = prefs.getString(KEY_TECH_ID, "");
+        if (!techId.isEmpty() && getPermissionState("location") == PermissionState.GRANTED) {
+            startBackgroundServiceInternal();
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        ret.put("dutyStatus", dutyStatus);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void getDeviceStatus(PluginCall call) {
+        Context context = getContext();
+        JSObject ret = new JSObject();
+
+        // 1. Authoritative battery percentage (0-100) via ACTION_BATTERY_CHANGED
+        int batteryLevel = -1;
+        try {
+            Intent batteryIntent = context.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            if (batteryIntent != null) {
+                int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                if (level >= 0 && scale > 0) {
+                    batteryLevel = Math.round((level / (float) scale) * 100f);
+                }
+            }
+            if (batteryLevel < 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                BatteryManager bm = (BatteryManager) context.getSystemService(Context.BATTERY_SERVICE);
+                if (bm != null) {
+                    batteryLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        ret.put("batteryLevel", batteryLevel >= 0 ? batteryLevel : null);
+
+        // 2. Connectivity type (WiFi / Cellular / offline / online)
+        String connectivityStatus = "offline";
+        try {
+            ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Network activeNetwork = cm.getActiveNetwork();
+                    if (activeNetwork != null) {
+                        NetworkCapabilities capabilities = cm.getNetworkCapabilities(activeNetwork);
+                        if (capabilities != null) {
+                            if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                                connectivityStatus = "WiFi";
+                            } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                                connectivityStatus = "Cellular";
+                            } else {
+                                connectivityStatus = "online";
+                            }
+                        }
+                    }
+                } else {
+                    NetworkInfo activeInfo = cm.getActiveNetworkInfo();
+                    if (activeInfo != null && activeInfo.isConnected()) {
+                        if (activeInfo.getType() == ConnectivityManager.TYPE_WIFI) {
+                            connectivityStatus = "WiFi";
+                        } else if (activeInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
+                            connectivityStatus = "Cellular";
+                        } else {
+                            connectivityStatus = "online";
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        ret.put("connectivityStatus", connectivityStatus);
+
+        // 3. Location provider status
+        boolean isGpsEnabled = false;
+        try {
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null) {
+                isGpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        ret.put("isGpsEnabled", isGpsEnabled);
+
         call.resolve(ret);
     }
 

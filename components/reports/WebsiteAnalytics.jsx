@@ -612,6 +612,28 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
     const [dailySpendList, setDailySpendList] = useState([])
     const [dailySpendLoading, setDailySpendLoading] = useState(false)
 
+    // Multi-Marketer state
+    const [marketerFilter, setMarketerFilter] = useState('all')
+    const [spendsSubTab, setSpendsSubTab] = useState('google_ads') // 'google_ads' | 'justdial' | 'referrals'
+    const [marketingExpensesList, setMarketingExpensesList] = useState([])
+    const [marketingExpensesLoading, setMarketingExpensesLoading] = useState(false)
+
+    const [justdialForm, setJustdialForm] = useState({
+        amount: '8600',
+        period_start: new Date().toISOString().split('T')[0],
+        period_end: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        categories_covered: 'AC Repair, Washing Machine',
+        payment_date: new Date().toISOString().split('T')[0],
+        notes: 'Paid 2 months advance @ 4300/mo'
+    })
+
+    const [referralPayoutForm, setReferralPayoutForm] = useState({
+        referrer_name: '',
+        amount: '',
+        payment_date: new Date().toISOString().split('T')[0],
+        notes: ''
+    })
+
     const [manualLeadForm, setManualLeadForm] = useState({
         phone: '',
         name: '',
@@ -620,7 +642,10 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
         notes: '',
         status: 'interested',
         lead_source: 'auto',
-        campaign: ''
+        campaign: '',
+        referrer_name: '',
+        tip_amount: '',
+        campaign_category: ''
     })
     const [manualLeadSubmitting, setManualLeadSubmitting] = useState(false)
     const [manualLeadResult, setManualLeadResult] = useState(null)
@@ -758,11 +783,25 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
         }
     }, [range])
 
-    useEffect(() => {
-        if (leadsTab === 'daily_spend') {
-            loadDailySpends()
+    const loadMarketingExpenses = async () => {
+        setMarketingExpensesLoading(true);
+        try {
+            const res = await fetch('/api/admin/marketing/expenses');
+            const json = await res.json();
+            if (json.success) setMarketingExpensesList(json.data || []);
+        } catch (err) {
+            console.error('Failed to load marketing expenses:', err);
+        } finally {
+            setMarketingExpensesLoading(false);
         }
-    }, [leadsTab])
+    };
+
+    useEffect(() => {
+        if (leadsTab === 'spends' || leadsTab === 'daily_spend' || leadsTab === 'scorecard') {
+            loadDailySpends();
+            loadMarketingExpenses();
+        }
+    }, [leadsTab]);
 
     const openDrawer = useCallback(async (type, filter, title, subtitle) => {
         setDrawer({ type, filter, title, subtitle }); setDrawerRows([]); setDrawerLoading(true)
@@ -830,6 +869,85 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
         }
     }
 
+    // JustDial Subscription Advance Save
+    const handleSaveJustdial = async (e) => {
+        e.preventDefault()
+        try {
+            const res = await fetch('/api/admin/marketing/expenses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    marketer_key: 'justdial',
+                    marketer_display_name: 'JustDial',
+                    payment_type: 'subscription_advance',
+                    amount: parseFloat(justdialForm.amount),
+                    period_start: justdialForm.period_start,
+                    period_end: justdialForm.period_end,
+                    categories_covered: (justdialForm.categories_covered || '').split(',').map(s => s.trim()).filter(Boolean),
+                    payment_date: justdialForm.payment_date,
+                    notes: justdialForm.notes
+                })
+            })
+            const json = await res.json()
+            if (json.success) {
+                loadMarketingExpenses()
+                load(range)
+                alert('JustDial subscription payment recorded successfully!')
+            } else {
+                alert(json.error || 'Failed to save JustDial payment')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Server error saving JustDial payment')
+        }
+    }
+
+    // Referral Payout Save
+    const handleSaveReferralPayout = async (e) => {
+        e.preventDefault()
+        try {
+            const res = await fetch('/api/admin/marketing/expenses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    marketer_key: 'referral',
+                    marketer_display_name: 'Personal / Referral Tip',
+                    payment_type: 'tip_commission',
+                    amount: parseFloat(referralPayoutForm.amount),
+                    payment_date: referralPayoutForm.payment_date,
+                    notes: `Tip to ${referralPayoutForm.referrer_name}${referralPayoutForm.notes ? ' - ' + referralPayoutForm.notes : ''}`
+                })
+            })
+            const json = await res.json()
+            if (json.success) {
+                loadMarketingExpenses()
+                load(range)
+                setReferralPayoutForm({ referrer_name: '', amount: '', payment_date: new Date().toISOString().split('T')[0], notes: '' })
+                alert('Referral tip payment recorded!')
+            } else {
+                alert(json.error || 'Failed to save tip payout')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Server error saving tip payout')
+        }
+    }
+
+    // Delete Marketing Expense
+    const handleDeleteMarketingExpense = async (id) => {
+        if (!confirm('Delete this marketing expense entry?')) return
+        try {
+            const res = await fetch(`/api/admin/marketing/expenses?id=${id}`, { method: 'DELETE' })
+            const json = await res.json()
+            if (json.success) {
+                loadMarketingExpenses()
+                load(range)
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     // Manual lead save
     const handleSaveManualLead = async (e) => {
         e.preventDefault()
@@ -848,8 +966,14 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                     notes: manualLeadForm.notes,
                     status: manualLeadForm.status,
                     lead_source: manualLeadForm.lead_source,
-                    campaign: manualLeadForm.campaign
-                } : manualLeadForm)
+                    campaign: manualLeadForm.campaign,
+                    referrer_name: manualLeadForm.referrer_name,
+                    tip_amount: parseFloat(manualLeadForm.tip_amount || 0),
+                    campaign_category: manualLeadForm.campaign_category
+                } : {
+                    ...manualLeadForm,
+                    tip_amount: parseFloat(manualLeadForm.tip_amount || 0)
+                })
             })
             const json = await res.json()
             if (json.success) {
@@ -868,7 +992,10 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                     notes: '',
                     status: 'interested',
                     lead_source: 'auto',
-                    campaign: ''
+                    campaign: '',
+                    referrer_name: '',
+                    tip_amount: '',
+                    campaign_category: ''
                 })
                 setSelectedCustomer(null)
                 setCustomerSearchTerm('')
@@ -911,7 +1038,10 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
             notes: l.notes || '',
             status: l.status || 'interested',
             lead_source: l.lead_source || 'auto',
-            campaign: l.campaign || ''
+            campaign: l.campaign || '',
+            referrer_name: l.referrer_name || '',
+            tip_amount: l.tip_amount ? String(l.tip_amount) : '',
+            campaign_category: l.campaign_category || ''
         });
 
         setCustomerSearchTerm(l.name ? `${l.name} - ${l.phone}` : l.phone);
@@ -1125,10 +1255,15 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
         const matchesSearch = (
             l.phone.includes(query) ||
             l.name?.toLowerCase().includes(query) ||
-            l.lead_source.toLowerCase().includes(query) ||
-            (l.campaign && l.campaign.toLowerCase().includes(query))
+            l.lead_source?.toLowerCase().includes(query) ||
+            (l.campaign && l.campaign.toLowerCase().includes(query)) ||
+            (l.referrer_name && l.referrer_name.toLowerCase().includes(query)) ||
+            (l.campaign_category && l.campaign_category.toLowerCase().includes(query))
         )
         if (!matchesSearch) return false
+
+        // Marketer quick filter pill
+        if (marketerFilter !== 'all' && l.lead_source !== marketerFilter) return false
 
         // Status filter
         if (filters.status !== 'all' && l.status !== filters.status) return false
@@ -1310,27 +1445,34 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
 
                     {/* Leads sub-tabs */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                        {['directory', 'daily_spend', 'roi_insights'].map(t => (
-                            <button
-                                key={t}
-                                onClick={() => setLeadsTab(t)}
-                                style={{
-                                    padding: '10px 4px',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    fontSize: '13px',
-                                    fontWeight: 700,
-                                    borderBottom: leadsTab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
-                                    color: leadsTab === t ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    flexShrink: 0
-                                }}
-                            >
-                                {t === 'directory' ? 'Leads Directory' : t === 'daily_spend' ? 'Google Ads Spends' : 'ROI & Campaign Insights'}
-                            </button>
-                        ))}
+                        {[
+                            { id: 'directory', label: '📋 Leads Directory' },
+                            { id: 'spends', label: '💳 Marketing Spends & Payments' },
+                            { id: 'scorecard', label: '📊 Marketer ROI Scorecard' },
+                            { id: 'roi_insights', label: '📈 Financial P&L' }
+                        ].map(tab => {
+                            const isActive = leadsTab === tab.id || (tab.id === 'spends' && leadsTab === 'daily_spend');
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setLeadsTab(tab.id)}
+                                    style={{
+                                        padding: '10px 6px',
+                                        border: 'none',
+                                        background: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        borderBottom: isActive ? '2px solid var(--color-primary)' : '2px solid transparent',
+                                        color: isActive ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                        letterSpacing: '0.02em',
+                                        flexShrink: 0
+                                    }}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     {/* TAB Content: Directory */}
@@ -1570,6 +1712,56 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                 </button>
                             </div>
 
+                            {/* Marketer Quick Filter Pills */}
+                            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', padding: '4px 0', alignItems: 'center', scrollbarWidth: 'none' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, marginRight: '2px', flexShrink: 0 }}>Marketer:</span>
+                                {[
+                                    { key: 'all', label: 'All Channels' },
+                                    { key: 'google_ads', label: 'Google Ads' },
+                                    { key: 'justdial', label: 'JustDial' },
+                                    { key: 'renit', label: 'Renit' },
+                                    { key: 'referral', label: 'Personal / Referrals' },
+                                    { key: 'google_organic', label: 'Google Organic' },
+                                    { key: 'direct', label: 'Direct / Offline' }
+                                ].map(pill => {
+                                    const active = marketerFilter === pill.key;
+                                    const count = pill.key === 'all'
+                                        ? allLeads.length
+                                        : allLeads.filter(l => l.lead_source === pill.key).length;
+                                    return (
+                                        <button
+                                            key={pill.key}
+                                            onClick={() => setMarketerFilter(pill.key)}
+                                            style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '16px',
+                                                fontSize: '11px',
+                                                fontWeight: active ? 700 : 500,
+                                                border: active ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                backgroundColor: active ? 'var(--color-primary)' : 'var(--bg-elevated)',
+                                                color: active ? '#ffffff' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                                transition: 'all 0.15s ease'
+                                            }}
+                                        >
+                                            <span>{pill.label}</span>
+                                            <span style={{
+                                                fontSize: '10px',
+                                                padding: '1px 5px',
+                                                borderRadius: '10px',
+                                                backgroundColor: active ? 'rgba(255,255,255,0.25)' : 'var(--bg-secondary)',
+                                                color: active ? '#ffffff' : 'var(--text-tertiary)'
+                                            }}>{count}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
                             {/* Counts row */}
                             {(() => {
                                 const totalRevenue = filteredLeads.reduce((sum, l) => sum + (l.totalRevenue || 0), 0);
@@ -1721,14 +1913,22 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                                 <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
                                                     {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at {new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                                     <span style={{
                                                         fontSize: '9px',
                                                         fontWeight: 700,
                                                         padding: '2px 6px',
                                                         borderRadius: '10px',
-                                                        backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
-                                                        color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-secondary)',
+                                                        backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' 
+                                                            : l.lead_source === 'justdial' ? '#f59e0b15' 
+                                                            : l.lead_source === 'renit' ? '#8b5cf615' 
+                                                            : l.lead_source === 'referral' ? '#10b98115' 
+                                                            : 'var(--bg-secondary)',
+                                                        color: l.lead_source === 'google_ads' ? '#ea4335' 
+                                                            : l.lead_source === 'justdial' ? '#f59e0b' 
+                                                            : l.lead_source === 'renit' ? '#8b5cf6' 
+                                                            : l.lead_source === 'referral' ? '#10b981' 
+                                                            : 'var(--text-secondary)',
                                                         textTransform: 'capitalize'
                                                     }}>
                                                         {l.lead_source?.replace(/_/g, ' ') || 'direct'}
@@ -1759,7 +1959,7 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                                 </div>
                                             </div>
 
-                                            {/* Campaign & UTM Info if Google Ads */}
+                                            {/* Channel details */}
                                             {l.lead_source === 'google_ads' && (
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
                                                     <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>Campaign:</span>
@@ -1781,6 +1981,22 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                                             color: 'var(--text-primary)'
                                                         }}
                                                     />
+                                                </div>
+                                            )}
+                                            {l.lead_source === 'justdial' && (
+                                                <div style={{ fontSize: '11px', color: '#0284c7' }}>
+                                                    <strong>JustDial:</strong> {l.campaign_category || 'Appliance Repair'}
+                                                </div>
+                                            )}
+                                            {l.lead_source === 'referral' && (
+                                                <div style={{ fontSize: '11px', color: '#10b981' }}>
+                                                    <strong>Referred By:</strong> {l.referrer_name || 'Personal contact'}
+                                                    {l.tip_amount > 0 ? ` · Tip: ₹${l.tip_amount}` : ''}
+                                                </div>
+                                            )}
+                                            {l.lead_source === 'renit' && (
+                                                <div style={{ fontSize: '11px', color: '#8b5cf6' }}>
+                                                    <strong>Renit Partner (₹0 Cost Lead)</strong>
                                                 </div>
                                             )}
 
@@ -1956,15 +2172,25 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                                                             onChange={e => handleUpdateLeadSource(l.phone, e.target.value)}
                                                                             style={{
                                                                                 padding: '4px 8px', borderRadius: '4px',
-                                                                                backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
-                                                                                color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-primary)',
+                                                                                backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' 
+                                                                                    : l.lead_source === 'justdial' ? '#f59e0b15' 
+                                                                                    : l.lead_source === 'renit' ? '#8b5cf615' 
+                                                                                    : l.lead_source === 'referral' ? '#10b98115' 
+                                                                                    : 'var(--bg-secondary)',
+                                                                                color: l.lead_source === 'google_ads' ? '#ea4335' 
+                                                                                    : l.lead_source === 'justdial' ? '#f59e0b' 
+                                                                                    : l.lead_source === 'renit' ? '#8b5cf6' 
+                                                                                    : l.lead_source === 'referral' ? '#10b981' 
+                                                                                    : 'var(--text-primary)',
                                                                                 border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600,
                                                                                 cursor: 'pointer', maxWidth: '100%'
                                                                             }}
                                                                         >
                                                                             <option value="google_ads">Google Ads</option>
-                                                                            <option value="google_organic">Google Search (Organic)</option>
+                                                                            <option value="justdial">JustDial</option>
+                                                                            <option value="renit">Renit</option>
                                                                             <option value="referral">Referral / Word of Mouth</option>
+                                                                            <option value="google_organic">Google Search (Organic)</option>
                                                                             <option value="direct">Direct / Offline</option>
                                                                             <option value="social">Social Media</option>
                                                                             <option value="website">Website (Organic)</option>
@@ -1992,6 +2218,19 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                                                                         color: 'var(--text-primary)'
                                                                                     }}
                                                                                 />
+                                                                            </div>
+                                                                        ) : l.lead_source === 'justdial' ? (
+                                                                            <div style={{ fontSize: '10px', color: '#0284c7', marginTop: '4px', fontWeight: 600 }}>
+                                                                                {l.campaign_category ? `Cat: ${l.campaign_category}` : 'General'}
+                                                                            </div>
+                                                                        ) : l.lead_source === 'referral' ? (
+                                                                            <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px', fontWeight: 600 }}>
+                                                                                {l.referrer_name ? `By: ${l.referrer_name}` : 'Personal'}
+                                                                                {l.tip_amount > 0 ? ` (₹${l.tip_amount})` : ''}
+                                                                            </div>
+                                                                        ) : l.lead_source === 'renit' ? (
+                                                                            <div style={{ fontSize: '10px', color: '#8b5cf6', marginTop: '4px', fontWeight: 600 }}>
+                                                                                Partner (₹0 cost)
                                                                             </div>
                                                                         ) : (
                                                                             l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>
@@ -2126,123 +2365,631 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                         </div>
                     )}
 
-                    {/* TAB Content: Daily Spend Manager */}
-                    {leadsTab === 'daily_spend' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', alignItems: 'start' }}>
-                            {/* Input Form */}
-                            <form onSubmit={handleSaveSpend} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
-                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Enter Daily Ad Spend</div>
-                                
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date</label>
-                                    <input type="date" required value={dailySpendForm.date} onChange={e => setDailySpendForm({ ...dailySpendForm, date: e.target.value })}
-                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Spent (₹)</label>
-                                    <input type="number" step="0.01" required placeholder="0.00" value={dailySpendForm.amount_spent} onChange={e => setDailySpendForm({ ...dailySpendForm, amount_spent: e.target.value })}
-                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', marginTop: '2px' }}>
-                                        <input type="checkbox" checked={includeGST} onChange={e => setIncludeGST(e.target.checked)} />
-                                        Auto-add 18% GST (Indian tax)
-                                    </label>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Clicks</label>
-                                        <input type="number" required placeholder="0" value={dailySpendForm.clicks} onChange={e => setDailySpendForm({ ...dailySpendForm, clicks: e.target.value })}
-                                            style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                    </div>
-                                    <div style={{ display: 'grid', gap: '4px' }}>
-                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Impressions</label>
-                                        <input type="number" required placeholder="0" value={dailySpendForm.impressions} onChange={e => setDailySpendForm({ ...dailySpendForm, impressions: e.target.value })}
-                                            style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Conversions (Google Ads reported)</label>
-                                    <input type="number" placeholder="0" value={dailySpendForm.conversions_recorded} onChange={e => setDailySpendForm({ ...dailySpendForm, conversions_recorded: e.target.value })}
-                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                                </div>
-
-                                <button type="submit" style={{ padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
-                                    <Plus size={14} /> Save Metrics
-                                </button>
-                            </form>
-
-                            {/* Spends Directory List */}
-                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
-                                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span>Daily Metric Records</span>
-                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                        <select
-                                            value={range}
-                                            onChange={e => setRange(e.target.value)}
+                    {/* TAB Content: Marketing Spends & Payments Manager */}
+                    {(leadsTab === 'spends' || leadsTab === 'daily_spend') && (
+                        <div style={{ display: 'grid', gap: '16px' }}>
+                            {/* Spends Sub-Tab Selector */}
+                            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px', overflowX: 'auto' }}>
+                                {[
+                                    { id: 'google_ads', label: '🎯 Google Ads (Daily Spend)' },
+                                    { id: 'justdial', label: '📞 JustDial (Subscription Advances)' },
+                                    { id: 'referrals', label: '🤝 Referral Tips & Payouts' }
+                                ].map(st => {
+                                    const active = spendsSubTab === st.id;
+                                    return (
+                                        <button
+                                            key={st.id}
+                                            onClick={() => setSpendsSubTab(st.id)}
                                             style={{
-                                                padding: '2px 6px',
-                                                borderRadius: 'var(--radius-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                backgroundColor: 'var(--bg-primary)',
-                                                color: 'var(--text-primary)',
-                                                fontSize: '11px',
-                                                outline: 'none',
-                                                height: '24px'
+                                                padding: '6px 12px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: active ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                backgroundColor: active ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-elevated)',
+                                                color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                                fontSize: '12px',
+                                                fontWeight: active ? 700 : 500,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap'
                                             }}
                                         >
-                                            <option value="today">Today</option>
-                                            <option value="yesterday">Yesterday</option>
-                                            <option value="7d">Last 7 Days</option>
-                                            <option value="30d">Last 30 Days</option>
-                                            <option value="90d">Last 90 Days</option>
-                                            <option value="all">All Time</option>
-                                        </select>
-                                        <button onClick={() => load(range)} disabled={loading}
-                                            style={{ padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: '24px', width: '24px', justifyContent: 'center' }}>
-                                            <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                                            {st.label}
                                         </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* SUBTAB 1: Google Ads Daily Spend */}
+                            {spendsSubTab === 'google_ads' && (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', alignItems: 'start' }}>
+                                    {/* Input Form */}
+                                    <form onSubmit={handleSaveSpend} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Enter Daily Google Ad Spend</div>
+                                        
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date</label>
+                                            <input type="date" required value={dailySpendForm.date} onChange={e => setDailySpendForm({ ...dailySpendForm, date: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Spent (₹)</label>
+                                            <input type="number" step="0.01" required placeholder="0.00" value={dailySpendForm.amount_spent} onChange={e => setDailySpendForm({ ...dailySpendForm, amount_spent: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', marginTop: '2px' }}>
+                                                <input type="checkbox" checked={includeGST} onChange={e => setIncludeGST(e.target.checked)} />
+                                                Auto-add 18% GST (Indian tax)
+                                            </label>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                            <div style={{ display: 'grid', gap: '4px' }}>
+                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Clicks</label>
+                                                <input type="number" required placeholder="0" value={dailySpendForm.clicks} onChange={e => setDailySpendForm({ ...dailySpendForm, clicks: e.target.value })}
+                                                    style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                            </div>
+                                            <div style={{ display: 'grid', gap: '4px' }}>
+                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Impressions</label>
+                                                <input type="number" required placeholder="0" value={dailySpendForm.impressions} onChange={e => setDailySpendForm({ ...dailySpendForm, impressions: e.target.value })}
+                                                    style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Conversions (Google Ads reported)</label>
+                                            <input type="number" placeholder="0" value={dailySpendForm.conversions_recorded} onChange={e => setDailySpendForm({ ...dailySpendForm, conversions_recorded: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                        </div>
+
+                                        <button type="submit" style={{ padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                                            <Plus size={14} /> Save Metrics
+                                        </button>
+                                    </form>
+
+                                    {/* Spends Directory List */}
+                                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
+                                        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span>Daily Metric Records</span>
+                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                                <select
+                                                    value={range}
+                                                    onChange={e => setRange(e.target.value)}
+                                                    style={{
+                                                        padding: '2px 6px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-primary)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '11px',
+                                                        outline: 'none',
+                                                        height: '24px'
+                                                    }}
+                                                >
+                                                    <option value="today">Today</option>
+                                                    <option value="yesterday">Yesterday</option>
+                                                    <option value="7d">Last 7 Days</option>
+                                                    <option value="30d">Last 30 Days</option>
+                                                    <option value="90d">Last 90 Days</option>
+                                                    <option value="all">All Time</option>
+                                                </select>
+                                                <button onClick={() => load(range)} disabled={loading}
+                                                    style={{ padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: '24px', width: '24px', justifyContent: 'center' }}>
+                                                    <RefreshCw size={10} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {dailySpendLoading ? (
+                                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading spends...</div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                        {['Date', 'Spent', 'Clicks', 'Impr.', 'CPC', 'Actions'].map(h => (
+                                                            <th key={h} style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {dailySpendList.map(s => {
+                                                        const cpc = s.clicks > 0 ? (s.amount_spent / s.clicks) : 0;
+                                                        return (
+                                                            <tr key={s.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                                <td style={{ padding: '10px 12px', fontWeight: 600 }}>{s.date}</td>
+                                                                <td style={{ padding: '10px 12px', fontWeight: 700 }}>₹{parseFloat(s.amount_spent).toLocaleString()}</td>
+                                                                <td style={{ padding: '10px 12px' }}>{s.clicks}</td>
+                                                                <td style={{ padding: '10px 12px' }}>{s.impressions}</td>
+                                                                <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>₹{cpc.toFixed(1)}</td>
+                                                                <td style={{ padding: '10px 12px' }}>
+                                                                    <button onClick={() => handleDeleteSpend(s.date)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                    {dailySpendList.length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No spend records registered.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        )}
                                     </div>
                                 </div>
-                                {dailySpendLoading ? (
-                                    <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading spends...</div>
-                                ) : (
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                                {['Date', 'Spent', 'Clicks', 'Impr.', 'CPC', 'Actions'].map(h => (
-                                                    <th key={h} style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {dailySpendList.map(s => {
-                                                const cpc = s.clicks > 0 ? (s.amount_spent / s.clicks) : 0;
-                                                return (
-                                                    <tr key={s.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{s.date}</td>
-                                                        <td style={{ padding: '10px 12px', fontWeight: 700 }}>₹{parseFloat(s.amount_spent).toLocaleString()}</td>
-                                                        <td style={{ padding: '10px 12px' }}>{s.clicks}</td>
-                                                        <td style={{ padding: '10px 12px' }}>{s.impressions}</td>
-                                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>₹{cpc.toFixed(1)}</td>
-                                                        <td style={{ padding: '10px 12px' }}>
-                                                            <button onClick={() => handleDeleteSpend(s.date)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
-                                                                <Trash2 size={14} />
-                                                            </button>
+                            )}
+
+                            {/* SUBTAB 2: JustDial Subscriptions */}
+                            {spendsSubTab === 'justdial' && (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', alignItems: 'start' }}>
+                                    {/* JustDial Input Form */}
+                                    <form onSubmit={handleSaveJustdial} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '16px' }}>📞</span>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Log JustDial Subscription Advance</div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Tracks monthly/advance payments & amortizes cost daily</div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Paid (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                placeholder="e.g. 8600"
+                                                value={justdialForm.amount}
+                                                onChange={e => setJustdialForm({ ...justdialForm, amount: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600 }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                            <div style={{ display: 'grid', gap: '4px' }}>
+                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Period Start *</label>
+                                                <input
+                                                    type="date"
+                                                    required
+                                                    value={justdialForm.period_start}
+                                                    onChange={e => setJustdialForm({ ...justdialForm, period_start: e.target.value })}
+                                                    style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gap: '4px' }}>
+                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Period End *</label>
+                                                <input
+                                                    type="date"
+                                                    required
+                                                    value={justdialForm.period_end}
+                                                    onChange={e => setJustdialForm({ ...justdialForm, period_end: e.target.value })}
+                                                    style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Categories Covered</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. AC Repair, Washing Machine, Microwave"
+                                                value={justdialForm.categories_covered}
+                                                onChange={e => setJustdialForm({ ...justdialForm, categories_covered: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Payment Date</label>
+                                            <input
+                                                type="date"
+                                                value={justdialForm.payment_date}
+                                                onChange={e => setJustdialForm({ ...justdialForm, payment_date: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Plan Details</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Paid 2 months advance @ 4300/mo"
+                                                value={justdialForm.notes}
+                                                onChange={e => setJustdialForm({ ...justdialForm, notes: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-primary)' }}>
+                                            💡 <strong>Daily Amortization:</strong> ₹{parseFloat(justdialForm.amount || 0).toLocaleString()} across period will be amortized automatically day-by-day in your ROI reports.
+                                        </div>
+
+                                        <button type="submit" style={{ padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: '#f59e0b', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                                            <Plus size={14} /> Save JustDial Payment
+                                        </button>
+                                    </form>
+
+                                    {/* JustDial Records Table */}
+                                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
+                                        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span>Recorded JustDial Subscriptions</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                                {marketingExpensesList.filter(e => e.marketer_key === 'justdial').length} periods
+                                            </span>
+                                        </div>
+
+                                        {marketingExpensesLoading ? (
+                                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading subscriptions...</div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                        {['Payment Date', 'Coverage Period', 'Categories', 'Amount', 'Daily Rate', 'Notes', 'Actions'].map(h => (
+                                                            <th key={h} style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {marketingExpensesList.filter(e => e.marketer_key === 'justdial').map(exp => {
+                                                        const pStart = new Date(exp.period_start);
+                                                        const pEnd = new Date(exp.period_end);
+                                                        const days = Math.max(1, Math.round((pEnd.getTime() - pStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                                                        const dailyRate = parseFloat(exp.amount || 0) / days;
+
+                                                        return (
+                                                            <tr key={exp.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                                <td style={{ padding: '10px 12px', fontWeight: 600 }}>{exp.payment_date || exp.created_at?.slice(0, 10)}</td>
+                                                                <td style={{ padding: '10px 12px' }}>
+                                                                    <div style={{ fontWeight: 600 }}>{exp.period_start} → {exp.period_end}</div>
+                                                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{days} days</div>
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px' }}>
+                                                                    {Array.isArray(exp.categories_covered) ? exp.categories_covered.join(', ') : (exp.categories_covered || 'All')}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', fontWeight: 700, color: '#f59e0b' }}>
+                                                                    ₹{parseFloat(exp.amount).toLocaleString()}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                                                                    ₹{dailyRate.toFixed(1)}/day
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px', color: 'var(--text-secondary)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    {exp.notes || '—'}
+                                                                </td>
+                                                                <td style={{ padding: '10px 12px' }}>
+                                                                    <button onClick={() => handleDeleteMarketingExpense(exp.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                    {marketingExpensesList.filter(e => e.marketer_key === 'justdial').length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="7" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No JustDial payments registered yet.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SUBTAB 3: Referral Tips & Payouts */}
+                            {spendsSubTab === 'referrals' && (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '20px', alignItems: 'start' }}>
+                                    {/* Referral Payout Input Form */}
+                                    <form onSubmit={handleSaveReferralPayout} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '16px' }}>🤝</span>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Log Referral Tip / Commission</div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Records tips paid to friends, partners, or client staff</div>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Referrer Contact Name *</label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. Ramesh (Society Guard) or Rahul (Friend)"
+                                                value={referralPayoutForm.referrer_name}
+                                                onChange={e => setReferralPayoutForm({ ...referralPayoutForm, referrer_name: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Tip / Commission Amount (₹) *</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                placeholder="e.g. 500"
+                                                value={referralPayoutForm.amount}
+                                                onChange={e => setReferralPayoutForm({ ...referralPayoutForm, amount: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600 }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Payment Date</label>
+                                            <input
+                                                type="date"
+                                                value={referralPayoutForm.payment_date}
+                                                onChange={e => setReferralPayoutForm({ ...referralPayoutForm, payment_date: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Client Reference</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Lead for AC Installation at Bandra West"
+                                                value={referralPayoutForm.notes}
+                                                onChange={e => setReferralPayoutForm({ ...referralPayoutForm, notes: e.target.value })}
+                                                style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '12px' }}
+                                            />
+                                        </div>
+
+                                        <button type="submit" style={{ padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '4px' }}>
+                                            <Plus size={14} /> Record Tip Payout
+                                        </button>
+                                    </form>
+
+                                    {/* Referral Records Table */}
+                                    <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
+                                        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span>Referral Tip Records</span>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                                {marketingExpensesList.filter(e => e.marketer_key === 'referral').length} payouts
+                                            </span>
+                                        </div>
+
+                                        {marketingExpensesLoading ? (
+                                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading payouts...</div>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                        {['Date', 'Referrer / Beneficiary', 'Amount Paid', 'Notes', 'Actions'].map(h => (
+                                                            <th key={h} style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{h}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {marketingExpensesList.filter(e => e.marketer_key === 'referral').map(exp => (
+                                                        <tr key={exp.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>{exp.payment_date || exp.created_at?.slice(0, 10)}</td>
+                                                            <td style={{ padding: '10px 12px', fontWeight: 600 }}>
+                                                                {exp.notes?.startsWith('Tip to ') ? exp.notes.split(' - ')[0].replace('Tip to ', '') : (exp.marketer_display_name || 'Referrer')}
+                                                            </td>
+                                                            <td style={{ padding: '10px 12px', fontWeight: 700, color: '#10b981' }}>
+                                                                ₹{parseFloat(exp.amount).toLocaleString()}
+                                                            </td>
+                                                            <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                                                                {exp.notes || '—'}
+                                                            </td>
+                                                            <td style={{ padding: '10px 12px' }}>
+                                                                <button onClick={() => handleDeleteMarketingExpense(exp.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                    {marketingExpensesList.filter(e => e.marketer_key === 'referral').length === 0 && (
+                                                        <tr>
+                                                            <td colSpan="5" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No referral tips recorded yet.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* TAB Content: Marketer ROI Scorecard */}
+                    {leadsTab === 'scorecard' && (
+                        <div style={{ display: 'grid', gap: '20px' }}>
+                            {(() => {
+                                const scorecard = leadsData?.summary?.marketerScorecard;
+                                const marketers = scorecard?.marketers || [];
+                                const blended = scorecard?.blended || {
+                                    cost: 0,
+                                    revenue: 0,
+                                    leadsCount: 0,
+                                    convertedCount: 0,
+                                    roas: 0,
+                                    cpl: 0,
+                                    cpa: 0,
+                                    netProfit: 0
+                                };
+
+                                return (
+                                    <>
+                                        {/* 4 Key Performance Indicators */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '12px' }}>
+                                            <div style={{ padding: '14px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Marketing Spend</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                    ₹{Math.round(blended.cost || 0).toLocaleString()}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Across all active channels</div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total Pipeline Revenue</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+                                                    ₹{Math.round(blended.revenue || 0).toLocaleString()}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>{blended.convertedCount || 0} converted jobs</div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Blended ROAS</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 800, color: blended.roas >= 3 ? '#10b981' : blended.roas >= 1 ? '#f59e0b' : '#ef4444', marginTop: '4px' }}>
+                                                    {blended.cost > 0 ? `${(blended.roas || 0).toFixed(2)}x` : blended.revenue > 0 ? '∞ Free' : '0.00x'}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Revenue ÷ Marketing Cost</div>
+                                            </div>
+
+                                            <div style={{ padding: '14px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Blended CPA</div>
+                                                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+                                                    ₹{Math.round(blended.cpa || 0).toLocaleString()}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Cost per converted job</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Marketer Performance Comparison Table */}
+                                        <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflowX: 'auto' }}>
+                                            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Channel Performance & Economics</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginLeft: '8px' }}>Google, JustDial, Renit, Referrals & Organic</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                                    <select
+                                                        value={range}
+                                                        onChange={e => setRange(e.target.value)}
+                                                        style={{
+                                                            padding: '2px 8px',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            border: '1px solid var(--border-primary)',
+                                                            backgroundColor: 'var(--bg-primary)',
+                                                            color: 'var(--text-primary)',
+                                                            fontSize: '11px',
+                                                            outline: 'none',
+                                                            height: '26px'
+                                                        }}
+                                                    >
+                                                        <option value="today">Today</option>
+                                                        <option value="yesterday">Yesterday</option>
+                                                        <option value="7d">Last 7 Days</option>
+                                                        <option value="30d">Last 30 Days</option>
+                                                        <option value="90d">Last 90 Days</option>
+                                                        <option value="all">All Time</option>
+                                                    </select>
+                                                    <button onClick={() => load(range)} disabled={loading}
+                                                        style={{ padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', height: '26px', width: '26px', justifyContent: 'center' }}>
+                                                        <RefreshCw size={11} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Marketer Channel</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Leads</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Converted</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'center' }}>Conv %</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Revenue (₹)</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Marketing Cost (₹)</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>CPL (₹)</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>CPA (₹)</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>ROAS</th>
+                                                        <th style={{ padding: '10px 14px', color: 'var(--text-tertiary)', fontWeight: 600, textAlign: 'right' }}>Net Margin (₹)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {marketers.map(m => {
+                                                        const isZeroCost = m.cost === 0;
+                                                        const roasDisplay = isZeroCost ? (m.revenue > 0 ? '∞ Free' : '0.00x') : `${m.roas.toFixed(2)}x`;
+                                                        const roasColor = isZeroCost && m.revenue > 0 ? '#10b981' : m.roas >= 3 ? '#10b981' : m.roas >= 1 ? '#f59e0b' : '#ef4444';
+
+                                                        return (
+                                                            <tr key={m.key} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                                <td style={{ padding: '12px 14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: m.color || '#6366f1' }} />
+                                                                    <span>{m.label}</span>
+                                                                    {m.key === 'renit' && (
+                                                                        <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '10px', backgroundColor: '#8b5cf620', color: '#8b5cf6', fontWeight: 700 }}>Brand Partner</span>
+                                                                    )}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600 }}>{m.leadsCount}</td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 600, color: m.convertedCount > 0 ? '#10b981' : 'var(--text-secondary)' }}>{m.convertedCount}</td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                                    {m.conversionRate.toFixed(1)}%
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: m.revenue > 0 ? '#10b981' : 'var(--text-primary)' }}>
+                                                                    ₹{Math.round(m.revenue).toLocaleString()}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: m.cost > 0 ? '#ef4444' : 'var(--text-tertiary)' }}>
+                                                                    {m.cost > 0 ? `₹${Math.round(m.cost).toLocaleString()}` : '₹0 (Free)'}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                                                                    {m.cost > 0 ? `₹${Math.round(m.cpl).toLocaleString()}` : '—'}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', color: 'var(--text-secondary)' }}>
+                                                                    {m.cost > 0 ? `₹${Math.round(m.cpa).toLocaleString()}` : '—'}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: roasColor }}>
+                                                                    {roasDisplay}
+                                                                </td>
+                                                                <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: m.netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                                                                    {m.netProfit >= 0 ? `+₹${Math.round(m.netProfit).toLocaleString()}` : `-₹${Math.round(Math.abs(m.netProfit)).toLocaleString()}`}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+
+                                                    {/* Blended / Total Row */}
+                                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', fontWeight: 800 }}>
+                                                        <td style={{ padding: '12px 14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                            ⭐ Blended Totals
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800 }}>{blended.leadsCount}</td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800, color: '#10b981' }}>{blended.convertedCount}</td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800 }}>
+                                                            {blended.conversionRate.toFixed(1)}%
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#10b981' }}>
+                                                            ₹{Math.round(blended.revenue).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#ef4444' }}>
+                                                            ₹{Math.round(blended.cost).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800 }}>
+                                                            ₹{Math.round(blended.cpl).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800 }}>
+                                                            ₹{Math.round(blended.cpa).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: blended.roas >= 2 ? '#10b981' : '#f59e0b' }}>
+                                                            {blended.cost > 0 ? `${blended.roas.toFixed(2)}x` : blended.revenue > 0 ? '∞ Free' : '0.00x'}
+                                                        </td>
+                                                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: blended.netProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                                                            {blended.netProfit >= 0 ? `+₹${Math.round(blended.netProfit).toLocaleString()}` : `-₹${Math.round(Math.abs(blended.netProfit)).toLocaleString()}`}
                                                         </td>
                                                     </tr>
-                                                )
-                                            })}
-                                            {dailySpendList.length === 0 && (
-                                                <tr>
-                                                    <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No spend records registered.</td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                )}
-                            </div>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Explanatory notes */}
+                                        <div style={{ padding: '14px 16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                            <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <Info size={14} style={{ color: 'var(--color-primary)' }} />
+                                                How Marketer Metrics Are Calculated:
+                                            </div>
+                                            <div>• <strong>Google Ads:</strong> Daily ad spends logged in Spends tab matching this date range. Clicks &amp; conversions tied to website visitor GCLIDs.</div>
+                                            <div>• <strong>JustDial:</strong> Advance subscription payments (e.g. ₹8,600 / 2 months) are amortized into a daily rate and multiplied by the active filter days.</div>
+                                            <div>• <strong>Renit:</strong> Free brand partner leads with ₹0 marketing cost. Pure revenue yield.</div>
+                                            <div>• <strong>Personal / Referrals:</strong> Cumulative tips and commissions paid to friends or staff.</div>
+                                            <div>• <strong>ROAS (Return on Ad Spend):</strong> Total Pipeline Revenue ÷ Total Marketing Spend.</div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     )}
 
@@ -2726,25 +3473,70 @@ export default function WebsiteAnalytics({ subSection, setSubSection, initialSub
                                 style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: manualLeadForm.lead_source === 'referral' ? '1fr' : '1fr 1fr', gap: '12px' }}>
                             <div style={{ display: 'grid', gap: '4px' }}>
                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Attribution Source</label>
                                 <select value={manualLeadForm.lead_source} onChange={e => setManualLeadForm({ ...manualLeadForm, lead_source: e.target.value })}
                                     style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                                     <option value="auto">Auto-detect (Website click)</option>
                                     <option value="google_ads">Google Ads (Paid)</option>
+                                    <option value="justdial">JustDial</option>
+                                    <option value="renit">Renit (Brand Partner)</option>
+                                    <option value="referral">Personal Referral / Friend</option>
                                     <option value="google_organic">Google Search (Organic)</option>
-                                    <option value="referral">Referral / Word of Mouth</option>
                                     <option value="direct">Direct / Walk-in</option>
                                     <option value="social_media">Social Media</option>
                                 </select>
                             </div>
-                            <div style={{ display: 'grid', gap: '4px' }}>
-                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Campaign Name (Optional)</label>
-                                <input type="text" placeholder="e.g. OTG_Repair" value={manualLeadForm.campaign} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign: e.target.value })}
-                                    style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
-                            </div>
+
+                            {manualLeadForm.lead_source === 'google_ads' && (
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Campaign Name (Optional)</label>
+                                    <input type="text" placeholder="e.g. OTG_Repair" value={manualLeadForm.campaign} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
+                                </div>
+                            )}
+
+                            {manualLeadForm.lead_source === 'justdial' && (
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Appliance Category</label>
+                                    <input type="text" placeholder="e.g. AC Repair, Microwave" value={manualLeadForm.campaign_category} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign_category: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
+                                </div>
+                            )}
+
+                            {manualLeadForm.lead_source === 'renit' && (
+                                <div style={{ display: 'flex', alignItems: 'center', padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', border: '1px solid var(--border-primary)', fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>
+                                    ✓ Renit leads tracked with ₹0 marketing cost.
+                                </div>
+                            )}
                         </div>
+
+                        {manualLeadForm.lead_source === 'referral' && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Referred By (Friend / Contact Name) *</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Rahul or Ramesh (Security)"
+                                        value={manualLeadForm.referrer_name}
+                                        onChange={e => setManualLeadForm({ ...manualLeadForm, referrer_name: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
+                                    />
+                                </div>
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Tip / Commission Paid (₹)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="e.g. 500 (or leave 0 if free)"
+                                        value={manualLeadForm.tip_amount}
+                                        onChange={e => setManualLeadForm({ ...manualLeadForm, tip_amount: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div style={{ display: 'grid', gap: '4px' }}>
                             <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Enquiry description</label>

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export async function POST(request) {
     try {
-        const { technician_id, action } = await request.json();
+        const { technician_id, action, battery_level, connectivity_status, latitude, longitude } = await request.json();
         const sessionToken = request.headers.get('x-session-token');
 
         if (!technician_id || !action || !['start', 'end'].includes(action)) {
@@ -60,14 +60,36 @@ export async function POST(request) {
 
         // 2. Update Live Locations status (on_duty or lunch)
         const nextDutyStatus = action === 'start' ? 'lunch' : 'on_duty';
+        const locPayload = {
+            technician_id,
+            is_online: true,
+            duty_status: nextDutyStatus,
+            updated_at: timestampStr
+        };
+        if (battery_level !== undefined && battery_level !== null && !isNaN(Number(battery_level))) {
+            locPayload.battery_level = Number(battery_level);
+        }
+        if (connectivity_status) {
+            locPayload.connectivity_status = connectivity_status;
+        }
+        if (latitude != null && longitude != null && !isNaN(Number(latitude)) && !isNaN(Number(longitude))) {
+            locPayload.latitude = Number(latitude);
+            locPayload.longitude = Number(longitude);
+        } else {
+            const { data: existingLoc } = await supabase
+                .from('technician_live_locations')
+                .select('latitude, longitude')
+                .eq('technician_id', technician_id)
+                .maybeSingle();
+            if (existingLoc && existingLoc.latitude != null) {
+                locPayload.latitude = existingLoc.latitude;
+                locPayload.longitude = existingLoc.longitude;
+            }
+        }
+
         const { error: locError } = await supabase
             .from('technician_live_locations')
-            .upsert({
-                technician_id,
-                is_online: true,
-                duty_status: nextDutyStatus,
-                updated_at: timestampStr
-            }, {
+            .upsert(locPayload, {
                 onConflict: 'technician_id'
             });
 

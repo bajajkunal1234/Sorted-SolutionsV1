@@ -52,7 +52,9 @@ export async function GET() {
                     tracking_source: r.tracking_source || 'web',
                     last_seen: r.updated_at,
                     is_online: isOnline,
-                    duty_status: isOnline ? (r.duty_status || (r.is_on_job ? 'on_duty' : 'idle')) : 'offline',
+                    duty_status: isOnline 
+                        ? (r.duty_status === 'lunch' ? 'lunch' : (r.is_on_job ? 'on_duty' : (r.duty_status && r.duty_status !== 'offline' ? r.duty_status : 'on_duty'))) 
+                        : 'offline',
                     location_precision: r.location_precision || 'precise',
                     ip_address: r.ip_address,
                     battery_level: r.battery_level,
