@@ -59,10 +59,9 @@ export default function LinkSystemEntryModal({
                 supabase
                     .from('sales_invoices')
                     .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name')
-                    .eq('account_id', selectedAccountId)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false })
-                    .limit(40)
+                    .limit(60)
             ]);
 
             const list = [];

@@ -7,10 +7,12 @@ import {
     ChevronDown, ChevronUp, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle,
     Calendar, FileSpreadsheet, Link2, Unlink, Clock, Search, Filter,
     ShieldAlert, Sparkles, ExternalLink, ArrowUpRight, ArrowDownLeft, X,
-    ArrowUpDown
+    ArrowUpDown, FileText, ShoppingCart, Receipt, CreditCard
 } from 'lucide-react';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
+import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
+import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
 import LinkSystemEntryModal from './LinkSystemEntryModal';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
@@ -76,6 +78,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showVoucherForm, setShowVoucherForm] = useState(null);
     const [showLinkModal, setShowLinkModal] = useState(null);
+    const [createChooserRow, setCreateChooserRow] = useState(null);
     const [testStatus, setTestStatus] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -279,8 +282,29 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const computedStartBalance = (balanceType === 'dr' ? baseOpening : -baseOpening) + priorInflow - priorOutflow;
             setAccountOpeningBal(computedStartBalance);
 
-            // 3. Fetch All System Entries for the selected bank account within range
-            const [payRes, recRes, purRes, salRes, alertRes, stmtRes] = await Promise.all([
+            // 3. Fetch Bank Statements & Statement Transactions first
+            const { data: stmtList } = await supabase
+                .from('bank_statements')
+                .select('*')
+                .eq('bank_account_id', accountId)
+                .order('to_date', { ascending: false });
+
+            const active = (stmtList || []).find(s => s.from_date <= toDate && s.to_date >= fromDate) || stmtList?.[0] || null;
+            setActiveStatement(active);
+
+            let txList = [];
+            if (active) {
+                const { data: fetchedTxList } = await supabase
+                    .from('bank_statement_transactions')
+                    .select('*')
+                    .eq('bank_statement_id', active.id)
+                    .order('date', { ascending: false });
+                txList = fetchedTxList || [];
+            }
+            setStatementTransactions(txList);
+
+            // Fetch System Entries & Bank Alerts concurrently
+            const [payRes, recRes, purRes, salRes, alertRes] = await Promise.all([
                 supabase
                     .from('payment_vouchers')
                     .select('id, payment_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, reference_number')
@@ -299,8 +323,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .order('date', { ascending: false }),
                 supabase
                     .from('purchase_invoices')
-                    .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, paid_by, po_reference')
-                    .or(`paid_by.eq.${accountId},account_id.eq.${accountId}`)
+                    .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, paid_by, po_reference, account_id')
                     .gte('date', fromDate)
                     .lte('date', toDate)
                     .neq('status', 'cancelled')
@@ -308,7 +331,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 supabase
                     .from('sales_invoices')
                     .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, account_id')
-                    .eq('account_id', accountId)
                     .gte('date', fromDate)
                     .lte('date', toDate)
                     .neq('status', 'cancelled')
@@ -319,13 +341,22 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .eq('bank_account_id', accountId)
                     .gte('date', fromDate)
                     .lte('date', toDate)
-                    .order('date', { ascending: false }),
-                supabase
-                    .from('bank_statements')
-                    .select('*')
-                    .eq('bank_account_id', accountId)
-                    .order('to_date', { ascending: false })
+                    .order('date', { ascending: false })
             ]);
+
+            const alerts = alertRes.data || [];
+            setBankAlerts(alerts);
+
+            // Collect all linked IDs from statement transactions and alerts
+            const linkedVoucherIds = new Set();
+            txList.forEach(t => {
+                if (t.voucher_id) linkedVoucherIds.add(t.voucher_id);
+                if (t.system_entry_id) linkedVoucherIds.add(t.system_entry_id);
+            });
+            alerts.forEach(a => {
+                if (a.voucher_id) linkedVoucherIds.add(a.voucher_id);
+                if (a.system_entry_id) linkedVoucherIds.add(a.system_entry_id);
+            });
 
             // Unify system vouchers
             const systemList = [];
@@ -365,6 +396,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
 
             (purRes.data || []).forEach(pu => {
+                const belongsToBank = pu.paid_by === accountId || pu.account_id === accountId || linkedVoucherIds.has(pu.id);
+                if (!belongsToBank) return;
+
                 systemList.push({
                     id: pu.id,
                     systemId: pu.id,
@@ -382,6 +416,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
 
             (salRes.data || []).forEach(s => {
+                const belongsToBank = s.account_id === accountId || linkedVoucherIds.has(s.id);
+                if (!belongsToBank) return;
+
                 systemList.push({
                     id: s.id,
                     systemId: s.id,
@@ -399,25 +436,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
 
             setSystemVouchers(systemList);
-            setBankAlerts(alertRes.data || []);
-
-            // 4. Fetch Bank Statement Data
-            const stmtList = stmtRes.data || [];
-            const active = stmtList.find(s => s.from_date <= toDate && s.to_date >= fromDate) || stmtList[0] || null;
-
-            if (active) {
-                setActiveStatement(active);
-                const { data: txList } = await supabase
-                    .from('bank_statement_transactions')
-                    .select('*')
-                    .eq('bank_statement_id', active.id)
-                    .order('date', { ascending: false });
-
-                setStatementTransactions(txList || []);
-            } else {
-                setActiveStatement(null);
-                setStatementTransactions([]);
-            }
 
         } catch (err) {
             console.error('Failed to fetch comprehensive bank data:', err);
@@ -841,32 +859,124 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         }
     };
 
-    // Open Voucher form to create entry from bank transaction
-    const handleCreateVoucherFromRow = (row) => {
-        const isDeposit = row.type === 'receipt';
-        setShowVoucherForm({
-            type: isDeposit ? 'receipt' : 'payment',
-            alertId: row.isAlert ? row.id : null,
-            statementTxId: row.origin === 'statement' ? row.id : null,
-            data: {
-                date: row.date,
-                amount: row.amount,
-                narration: `Bank Reconciled: ${row.particulars}. Ref: ${row.refNo || ''}`,
-                reference_number: row.refNo || '',
-                payment_mode: 'bank_transfer',
-                payment_account_id: selectedAccountId,
-                account_id: ''
-            }
-        });
+    // Open entry form (Sales, Purchase, Receipt, or Payment) from bank transaction
+    const openEntryForm = (row, type) => {
+        setCreateChooserRow(null);
+        const alertId = row.isAlert ? row.id : null;
+        const statementTxId = row.origin === 'statement' ? row.id : null;
+
+        if (type === 'sales') {
+            setShowVoucherForm({
+                type: 'sales',
+                alertId,
+                statementTxId,
+                data: {
+                    date: row.date,
+                    notes: `Bank Reconciled: ${row.particulars}. Ref: ${row.refNo || ''}`,
+                    showTax: false,
+                    account_id: '',
+                    account_name: '',
+                    items: [
+                        {
+                            id: 1,
+                            productId: '',
+                            description: row.particulars || 'Customer UPI / Bank Payment',
+                            hsn: '',
+                            qty: 1,
+                            rate: row.amount,
+                            discount: 0,
+                            taxRate: 0,
+                            unit: 'Nos',
+                            total: row.amount
+                        }
+                    ]
+                },
+                prefillItems: [
+                    {
+                        description: row.particulars || 'Customer UPI / Bank Payment',
+                        qty: 1,
+                        rate: row.amount,
+                        taxRate: 0,
+                        unit: 'Nos',
+                        total: row.amount
+                    }
+                ]
+            });
+        } else if (type === 'purchase') {
+            setShowVoucherForm({
+                type: 'purchase',
+                alertId,
+                statementTxId,
+                data: {
+                    date: row.date,
+                    vendor_invoice_number: row.refNo || '',
+                    notes: `Bank Reconciled: ${row.particulars}. Ref: ${row.refNo || ''}`,
+                    paid_by: 'company',
+                    account_id: '',
+                    account_name: '',
+                    category: 'spare-parts',
+                    showTax: false,
+                    items: [
+                        {
+                            id: 1,
+                            productId: '',
+                            description: row.particulars || 'Direct Bank Purchase',
+                            hsn: '',
+                            qty: 1,
+                            rate: row.amount,
+                            discount: 0,
+                            taxRate: 0,
+                            total: row.amount
+                        }
+                    ]
+                }
+            });
+        } else if (type === 'receipt' || type === 'payment') {
+            setShowVoucherForm({
+                type,
+                alertId,
+                statementTxId,
+                data: {
+                    date: row.date,
+                    amount: row.amount,
+                    narration: `Bank Reconciled: ${row.particulars}. Ref: ${row.refNo || ''}`,
+                    reference_number: row.refNo || '',
+                    payment_mode: 'bank_transfer',
+                    payment_account_id: selectedAccountId,
+                    account_id: ''
+                }
+            });
+        }
     };
 
-    // Save Voucher Callback
+    const handleCreateVoucherFromRow = (row) => {
+        setCreateChooserRow(row);
+    };
+
+    // Save Voucher / Invoice Callback
     const handleVoucherSave = async (voucherData) => {
         try {
             setSaving(true);
             const type = showVoucherForm.type;
-            const res = await transactionsAPI.create(voucherData, type);
-            const voucherId = res.data?.id;
+
+            // Strip internal/non-db fields
+            const cleanData = { ...voucherData };
+            delete cleanData.__formType;
+            delete cleanData.billing_address;
+            delete cleanData.shipping_address;
+            delete cleanData.charges;
+            if (type === 'receipt' || type === 'payment') {
+                delete cleanData.cgst;
+                delete cleanData.sgst;
+                delete cleanData.igst;
+                delete cleanData.total_tax;
+                delete cleanData.items_subtotal;
+                delete cleanData.charges_total;
+                delete cleanData.items;
+            }
+
+            const res = await transactionsAPI.create(cleanData, type);
+            const voucherId = res.data?.id || res?.id;
 
             if (showVoucherForm.alertId) {
                 await supabase
@@ -893,12 +1003,18 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .eq('id', showVoucherForm.statementTxId);
             }
 
-            alert('Voucher recorded and linked successfully!');
+            const labelMap = {
+                sales: 'Sales Invoice',
+                purchase: 'Purchase Invoice',
+                receipt: 'Receipt Voucher',
+                payment: 'Payment Voucher'
+            };
+            alert(`${labelMap[type] || 'Entry'} recorded and linked successfully!`);
             setShowVoucherForm(null);
             fetchComprehensiveData(selectedAccountId);
         } catch (err) {
-            console.error('Failed to save voucher:', err);
-            alert('Failed to save voucher: ' + err.message);
+            console.error('Failed to save entry:', err);
+            alert('Failed to save entry: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -2219,21 +2335,301 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 />
             )}
 
-            {/* INLINE RECONCILIATION VOUCHER FORM */}
+            {/* CREATE SYSTEM ENTRY TYPE CHOOSER MODAL */}
+            {createChooserRow && (
+                <div
+                    onClick={() => setCreateChooserRow(null)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1050,
+                        padding: '16px'
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            width: '100%',
+                            maxWidth: '430px',
+                            padding: '16px',
+                            boxShadow: 'var(--shadow-xl)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                        }}
+                    >
+                        {/* Modal Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
+                            <div>
+                                <h3 style={{ fontSize: '14px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                                    Create System Entry
+                                </h3>
+                                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                                    Select what type of system entry to create for this bank transaction
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setCreateChooserRow(null)}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px' }}
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Bank Transaction Summary Card */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '10px',
+                            border: '1px solid var(--border-primary)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            fontSize: '11px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Date: {createChooserRow.date}</span>
+                                <span style={{
+                                    fontWeight: 800,
+                                    fontSize: '13px',
+                                    color: createChooserRow.type === 'receipt' ? '#10b981' : '#ef4444'
+                                }}>
+                                    {createChooserRow.type === 'receipt' ? `+₹${createChooserRow.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Deposit)` : `-₹${createChooserRow.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Withdrawal)`}
+                                </span>
+                            </div>
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>
+                                {createChooserRow.particulars}
+                            </div>
+                            {createChooserRow.refNo && (
+                                <div style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                                    Ref / UPI: {createChooserRow.refNo}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Primary Options depending on Debit / Credit */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                Recommended entry types:
+                            </span>
+
+                            {createChooserRow.type === 'receipt' ? (
+                                <>
+                                    {/* Sales Invoice (Direct UPI / Bank Sale) */}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEntryForm(createChooserRow, 'sales')}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '10px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid #10b981',
+                                            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', flexShrink: 0 }}>
+                                            <FileText size={18} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Sales Invoice (Direct Customer UPI / Bank Sale)
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                Customer paid directly via UPI/Bank for repair, service, or parts
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* Receipt Voucher */}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEntryForm(createChooserRow, 'receipt')}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '10px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6', flexShrink: 0 }}>
+                                            <Receipt size={18} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Receipt Voucher (Customer Ledger Payment)
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                Payment received against existing customer ledger or advance
+                                            </div>
+                                        </div>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Purchase Invoice */}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEntryForm(createChooserRow, 'purchase')}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '10px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid #f59e0b',
+                                            backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', flexShrink: 0 }}>
+                                            <ShoppingCart size={18} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Purchase Invoice (Parts / Material / Equipment)
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                Direct purchase of spares, tools, or supplies paid via bank
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* Payment Voucher */}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEntryForm(createChooserRow, 'payment')}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '10px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444', flexShrink: 0 }}>
+                                            <CreditCard size={18} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                Payment Voucher (Expense or Vendor Payment)
+                                            </div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                Payment made to vendor, contractor, rent, or business expense
+                                            </div>
+                                        </div>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Expandable all entry types option */}
+                        <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '8px' }}>
+                            <details style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Other Entry Types</summary>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+                                    {createChooserRow.type !== 'receipt' ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEntryForm(createChooserRow, 'sales')}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '11px', padding: '6px 8px', justifyContent: 'center' }}
+                                            >
+                                                🛍️ Sales Invoice
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEntryForm(createChooserRow, 'receipt')}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '11px', padding: '6px 8px', justifyContent: 'center' }}
+                                            >
+                                                📥 Receipt Voucher
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEntryForm(createChooserRow, 'purchase')}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '11px', padding: '6px 8px', justifyContent: 'center' }}
+                                            >
+                                                📦 Purchase Invoice
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEntryForm(createChooserRow, 'payment')}
+                                                className="btn btn-secondary"
+                                                style={{ fontSize: '11px', padding: '6px 8px', justifyContent: 'center' }}
+                                            >
+                                                💸 Payment Voucher
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* INLINE RECONCILIATION FORMS (PAYMENT, RECEIPT, SALES, PURCHASE) */}
             {showVoucherForm && (
                 showVoucherForm.type === 'payment' ? (
                     <PaymentVoucherForm
                         onClose={() => setShowVoucherForm(null)}
                         existingPayment={showVoucherForm.data}
                         onSave={handleVoucherSave}
+                        saving={saving}
                     />
-                ) : (
+                ) : showVoucherForm.type === 'receipt' ? (
                     <ReceiptVoucherForm
                         onClose={() => setShowVoucherForm(null)}
                         existingReceipt={showVoucherForm.data}
                         onSave={handleVoucherSave}
+                        saving={saving}
                     />
-                )
+                ) : showVoucherForm.type === 'sales' ? (
+                    <SalesInvoiceForm
+                        onClose={() => setShowVoucherForm(null)}
+                        existingInvoice={showVoucherForm.data}
+                        prefillItems={showVoucherForm.prefillItems}
+                        onSave={handleVoucherSave}
+                        saving={saving}
+                    />
+                ) : showVoucherForm.type === 'purchase' ? (
+                    <PurchaseInvoiceForm
+                        onClose={() => setShowVoucherForm(null)}
+                        existingInvoice={showVoucherForm.data}
+                        onSave={handleVoucherSave}
+                        saving={saving}
+                    />
+                ) : null
             )}
         </div>
     );
