@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard, Briefcase, DollarSign, Package, FileText } from 'lucide-react'
+import { LayoutDashboard, Briefcase, DollarSign, Package, FileText, LogOut } from 'lucide-react'
 import JobsTab from './components/JobsTab'
 import AccountsTab from './components/AccountsTab'
 import InventoryTab from './components/InventoryTab'
@@ -47,28 +47,58 @@ export default function AdminApp() {
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
 
+    const purgeAndRedirectToLogin = () => {
+        try {
+            localStorage.removeItem('user_session');
+            sessionStorage.removeItem('user_session');
+            localStorage.removeItem('isAdmin');
+            sessionStorage.removeItem('isAdmin');
+            document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
+        } catch { }
+        router.replace('/login');
+    };
+
+    const handleAdminLogout = () => {
+        if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out of Admin?')) {
+            purgeAndRedirectToLogin();
+        }
+    };
+
     // ── Auth Guard ─────────────────────────────────────────────────────────
     useEffect(() => {
         const raw =
             localStorage.getItem('user_session') ||
-            sessionStorage.getItem('user_session')
+            sessionStorage.getItem('user_session');
+
         if (!raw) {
-            router.replace('/login')
-            return
+            purgeAndRedirectToLogin();
+            return;
         }
+
         try {
-            const session = JSON.parse(raw)
+            const session = JSON.parse(raw);
             if (session?.role !== 'admin') {
-                router.replace('/login')
-                return
+                purgeAndRedirectToLogin();
+                return;
             }
+
             try {
+                // Ensure persistent storage for Admin so Android WebView restarts keep the session
+                if (!localStorage.getItem('user_session') && sessionStorage.getItem('user_session')) {
+                    localStorage.setItem('user_session', sessionStorage.getItem('user_session'));
+                }
                 localStorage.setItem('isAdmin', 'true');
+                document.cookie = 'admin_auth=1; path=/; max-age=2592000; SameSite=Lax';
                 localStorage.removeItem('customerId');
+                sessionStorage.removeItem('customerId');
                 localStorage.removeItem('customerData');
+                sessionStorage.removeItem('customerData');
                 localStorage.removeItem('technicianSession');
+                sessionStorage.removeItem('technicianSession');
                 localStorage.removeItem('technicianData');
+                sessionStorage.removeItem('technicianData');
             } catch { }
+
             setAdminId('admin') // Always use 'admin' as the recipient_id so it matches app_notifications
             
             // Log active session for Installed Devices report
@@ -103,12 +133,13 @@ export default function AdminApp() {
                 }
             };
             logAdminSession();
-        } catch {
-            router.replace('/login')
-            return
+        } catch (e) {
+            console.error('[AdminAuth] Invalid session data:', e);
+            purgeAndRedirectToLogin();
+            return;
         }
-        setAuthChecked(true)
-    }, [])
+        setAuthChecked(true);
+    }, [router]);
 
     // ── Request push notification permission after login ────────────────────
     const { needsPrompt: needsNotifPrompt, promptNow: enableNotifications } =
@@ -335,11 +366,33 @@ export default function AdminApp() {
                     <div className="dashboard-placeholder" style={{ position: 'relative' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '600px', margin: '0 auto 20px auto', position: 'relative', zIndex: 9999 }}>
                             <h2 style={{ margin: 0 }}>Dashboard</h2>
-                            {adminId && (
-                                <div style={{ transform: 'scale(1.2)' }}>
-                                    <NotificationBell recipientId={adminId} recipientType="admin" theme="dark" />
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                {adminId && (
+                                    <div style={{ transform: 'scale(1.2)' }}>
+                                        <NotificationBell recipientId={adminId} recipientType="admin" theme="dark" />
+                                    </div>
+                                )}
+                                <button
+                                    onClick={handleAdminLogout}
+                                    title="Log Out"
+                                    style={{
+                                        background: 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                                        borderRadius: 8,
+                                        color: '#94a3b8',
+                                        padding: '5px 9px',
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 5
+                                    }}
+                                >
+                                    <LogOut size={13} />
+                                    <span>Logout</span>
+                                </button>
+                            </div>
                         </div>
                         
                         <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>

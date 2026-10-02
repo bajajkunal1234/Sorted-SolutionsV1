@@ -30,12 +30,9 @@ export default function CustomerPage() {
                     }
                     return;
                 }
-            }
-            if (localStorage.getItem('isAdmin') === 'true') {
-                localStorage.removeItem('customerId');
-                localStorage.removeItem('customerData');
-                router.replace('/admin');
-                return;
+            } else {
+                localStorage.removeItem('isAdmin');
+                sessionStorage.removeItem('isAdmin');
             }
             const customerId = localStorage.getItem('customerId');
             if (customerId) {

@@ -63,12 +63,9 @@ export default function CustomerApp() {
                     window.location.href = '/technician';
                     return;
                 }
-            }
-            if (localStorage.getItem('isAdmin') === 'true') {
-                localStorage.removeItem('customerId');
-                localStorage.removeItem('customerData');
-                window.location.href = '/admin';
-                return;
+            } else {
+                localStorage.removeItem('isAdmin');
+                sessionStorage.removeItem('isAdmin');
             }
         } catch { }
 

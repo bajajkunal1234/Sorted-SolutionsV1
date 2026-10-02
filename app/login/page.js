@@ -36,34 +36,55 @@ async function registerPushToken(userId, userType) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function saveSession(user, persist) {
+    const isNative = typeof window !== 'undefined' && (
+        window.Capacitor !== undefined || 
+        window.location.protocol === 'capacitor:' ||
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1'
+    );
+    // Native mobile app sessions and admin sessions must always persist across process restarts
+    const shouldPersist = persist || isNative || user.role === 'admin';
     const session = JSON.stringify({ ...user, token: 'sorted-auth-v2' });
-    const storage = persist ? localStorage : sessionStorage;
+    const storage = shouldPersist ? localStorage : sessionStorage;
 
     const performSave = () => {
         storage.setItem('user_session', session);
 
         if (user.role === 'admin') {
-            storage.setItem('isAdmin', 'true');
+            localStorage.setItem('user_session', session);
+            localStorage.setItem('isAdmin', 'true');
             // Explicitly purge customer & technician keys so an admin is never misidentified
-            storage.removeItem('customerId');
-            storage.removeItem('customerData');
-            storage.removeItem('technicianSession');
-            storage.removeItem('technicianData');
-            const maxAge = persist ? 60 * 60 * 24 * 30 : ''; 
-            document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
+            localStorage.removeItem('customerId');
+            sessionStorage.removeItem('customerId');
+            localStorage.removeItem('customerData');
+            sessionStorage.removeItem('customerData');
+            localStorage.removeItem('technicianSession');
+            sessionStorage.removeItem('technicianSession');
+            localStorage.removeItem('technicianData');
+            sessionStorage.removeItem('technicianData');
+            const maxAge = 60 * 60 * 24 * 30; // 30 days
+            document.cookie = `admin_auth=1; path=/; SameSite=Lax; max-age=${maxAge}`;
         } else if (user.role === 'technician') {
             const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
             storage.setItem('technicianSession', techSession);
             storage.setItem('technicianData', JSON.stringify(user));
             storage.removeItem('customerId');
+            sessionStorage.removeItem('customerId');
             storage.removeItem('customerData');
+            sessionStorage.removeItem('customerData');
             storage.removeItem('isAdmin');
+            sessionStorage.removeItem('isAdmin');
+            document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
         } else {
             storage.setItem('customerData', session);
             storage.setItem('customerId', user.id);
             storage.removeItem('technicianSession');
+            sessionStorage.removeItem('technicianSession');
             storage.removeItem('technicianData');
+            sessionStorage.removeItem('technicianData');
             storage.removeItem('isAdmin');
+            sessionStorage.removeItem('isAdmin');
+            document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
         }
     };
 
@@ -230,55 +251,72 @@ function LoginContent() {
                 localStorage.removeItem('customerData');
                 sessionStorage.removeItem('customerData');
                 localStorage.removeItem('isAdmin');
+                sessionStorage.removeItem('isAdmin');
+                document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
                 return;
             }
 
             const raw = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
             if (raw) {
-                const s = JSON.parse(raw);
-                if (s?.role === 'admin') {
-                    if (localStorage.getItem('isAdmin') === 'true') {
+                try {
+                    const s = JSON.parse(raw);
+                    if (s?.role === 'admin') {
+                        // Confirm admin flag & cookie, then go to admin
+                        localStorage.setItem('isAdmin', 'true');
+                        document.cookie = 'admin_auth=1; path=/; max-age=2592000; SameSite=Lax';
                         router.replace('/admin');
                         return;
-                    } else {
+                    } else if (s?.role === 'technician') {
+                        const techSession = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                        if (techSession) {
+                            try {
+                                const parsed = JSON.parse(techSession);
+                                if (parsed && parsed.technicianId) {
+                                    router.replace('/technician/dashboard');
+                                    return;
+                                }
+                            } catch {}
+                        }
+                        // Stale or invalid technician session: clear keys so user can see login screen
                         localStorage.removeItem('user_session');
                         sessionStorage.removeItem('user_session');
+                        localStorage.removeItem('technicianSession');
+                        sessionStorage.removeItem('technicianSession');
+                        localStorage.removeItem('technicianData');
+                        sessionStorage.removeItem('technicianData');
+                    } else if (s?.role === 'customer') {
+                        const customerId = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
+                        if (customerId) {
+                            router.replace('/customer/dashboard');
+                            return;
+                        } else {
+                            localStorage.removeItem('user_session');
+                            sessionStorage.removeItem('user_session');
+                        }
                     }
-                } else if (s?.role === 'technician') {
-                    const techSession = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
-                    if (techSession) {
-                        try {
-                            const parsed = JSON.parse(techSession);
-                            if (parsed && parsed.technicianId) {
-                                router.replace('/technician/dashboard');
-                                return;
-                            }
-                        } catch {}
-                    }
-                    // Stale or invalid technician session: clear keys so user can see login screen
+                } catch (parseErr) {
+                    console.warn('[Login] Corrupted user_session JSON, clearing:', parseErr);
                     localStorage.removeItem('user_session');
                     sessionStorage.removeItem('user_session');
-                    localStorage.removeItem('technicianSession');
-                    sessionStorage.removeItem('technicianSession');
-                    localStorage.removeItem('technicianData');
-                    sessionStorage.removeItem('technicianData');
-                } else if (s?.role === 'customer') {
-                    const customerId = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
-                    if (customerId) {
-                        router.replace('/customer/dashboard');
-                        return;
-                    } else {
-                        localStorage.removeItem('user_session');
-                        sessionStorage.removeItem('user_session');
-                    }
                 }
             }
-            if (localStorage.getItem('isAdmin') === 'true') {
-                router.replace('/admin');
-                return;
-            }
+
+            // CRITICAL: If there is NO active admin user_session, purge any stale/orphaned
+            // isAdmin flag and admin_auth cookie to prevent infinite redirect loops!
+            localStorage.removeItem('isAdmin');
+            sessionStorage.removeItem('isAdmin');
+            document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
+
+            // Only redirect to customer if customerId AND valid customer session exist
             const id = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
-            if (id) { router.replace('/customer/dashboard'); return; }
+            const custData = localStorage.getItem('customerData') || sessionStorage.getItem('customerData');
+            if (id && custData) { 
+                router.replace('/customer/dashboard'); 
+                return; 
+            } else if (id && !custData) {
+                localStorage.removeItem('customerId');
+                sessionStorage.removeItem('customerId');
+            }
         } catch (e) {
             console.warn('Error in login auth check:', e);
         }

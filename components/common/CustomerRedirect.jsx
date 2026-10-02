@@ -28,15 +28,13 @@ export default function CustomerRedirect() {
                     router.replace('/technician');
                     return;
                 }
-            }
-            if (localStorage.getItem('isAdmin') === 'true') {
-                localStorage.removeItem('customerId');
-                localStorage.removeItem('customerData');
-                router.replace('/admin');
-                return;
+            } else {
+                localStorage.removeItem('isAdmin');
+                sessionStorage.removeItem('isAdmin');
             }
             const id = localStorage.getItem('customerId');
-            if (id) router.replace('/customer/dashboard');
+            const custData = localStorage.getItem('customerData');
+            if (id && custData) router.replace('/customer/dashboard');
         } catch { }
     }, [router])
     return null
