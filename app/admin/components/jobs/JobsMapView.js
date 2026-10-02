@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { User, Briefcase, Calendar, Loader2, Phone, Map } from 'lucide-react';
@@ -228,18 +228,38 @@ function createSmallThinPinIcon(color, strokeColor = '#ffffff') {
     });
 }
 
-// Helper to center the map when jobs change
-function MapCenterController({ groups }) {
+// Helper to center the map when jobs change or filter changes
+function MapCenterController({ groups, filterKey, recenterTrigger }) {
     const map = useMap();
+    const hasCenteredRef = useRef(false);
+    const prevFilterKeyRef = useRef(null);
+
     useEffect(() => {
         if (!groups || groups.length === 0) return;
         const validCoords = groups.map(g => [g.lat, g.lng]);
+        if (validCoords.length === 0) return;
 
+        const isFirstFit = !hasCenteredRef.current;
+        const isFilterChange = filterKey !== undefined && filterKey !== null && filterKey !== prevFilterKeyRef.current;
+
+        if (isFirstFit || isFilterChange) {
+            hasCenteredRef.current = true;
+            prevFilterKeyRef.current = filterKey;
+            const bounds = L.latLngBounds(validCoords);
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+        }
+    }, [groups, map, filterKey]);
+
+    // Handle manual recenter trigger
+    useEffect(() => {
+        if (!recenterTrigger || !groups || groups.length === 0) return;
+        const validCoords = groups.map(g => [g.lat, g.lng]);
         if (validCoords.length > 0) {
             const bounds = L.latLngBounds(validCoords);
             map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
         }
-    }, [groups, map]);
+    }, [recenterTrigger, groups, map]);
+
     return null;
 }
 
@@ -306,11 +326,12 @@ const formatDuration = (totalMins) => {
     return `${mins} min${mins > 1 ? 's' : ''}`;
 };
 
-export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
+export default function JobsMapView({ jobs, onUpdateJob, onJobClick, filterKey }) {
     const [technicians, setTechnicians] = useState([]);
     const [fleetLocations, setFleetLocations] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [loadingTechs, setLoadingTechs] = useState(false);
+    const [recenterTrigger, setRecenterTrigger] = useState(0);
     
     // Technician timeline tracking overlay states
     const [selectedTechTimeline, setSelectedTechTimeline] = useState(null);
@@ -390,9 +411,9 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
         loadConfigs();
     }, []);
 
-    // Fetch technicians, live locations, and suppliers on mount
-    const fetchMapAccountsData = async () => {
-        setLoadingTechs(true);
+    // Fetch technicians, live locations, and suppliers on mount (silent on intervals)
+    const fetchMapAccountsData = async (isBackground = false) => {
+        if (!isBackground) setLoadingTechs(true);
         try {
             const [techRes, fleetRes, supplierRes] = await Promise.all([
                 techniciansAPI.getAll(),
@@ -410,13 +431,13 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
         } catch (err) {
             console.error('Failed to load map tracking accounts:', err);
         } finally {
-            setLoadingTechs(false);
+            if (!isBackground) setLoadingTechs(false);
         }
     };
 
     useEffect(() => {
-        fetchMapAccountsData();
-        const timer = setInterval(fetchMapAccountsData, 45000);
+        fetchMapAccountsData(false);
+        const timer = setInterval(() => fetchMapAccountsData(true), 60000);
         return () => clearInterval(timer);
     }, []);
 
@@ -1126,7 +1147,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                     attribution='&copy; Google Maps'
                 />
 
-                <MapCenterController groups={propertiesGroup} />
+                <MapCenterController groups={propertiesGroup} filterKey={filterKey} recenterTrigger={recenterTrigger} />
                 <MapInteractionController activeRoute={activeRoute} />
 
                 {/* Polyline Route Overlay */}
@@ -1758,6 +1779,29 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick }) {
                         {opt.label}
                     </button>
                 ))}
+                <div style={{ width: '100%', height: '1px', backgroundColor: 'rgba(255,255,255,0.1)', margin: '2px 0' }} />
+                <button
+                    onClick={() => setRecenterTrigger(Date.now())}
+                    style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '6px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                    }}
+                    title="Fit / Recenter All Markers"
+                    type="button"
+                >
+                    🎯
+                </button>
             </div>
         </div>
     );

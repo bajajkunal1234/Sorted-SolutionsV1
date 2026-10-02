@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Plus, Grid, Columns, Table as TableIcon, List, Settings, Map } from 'lucide-react';
+import { Plus, Grid, Columns, Table as TableIcon, List, Settings, Map, Loader2 } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import dynamic from 'next/dynamic';
@@ -141,6 +141,11 @@ function applyTags(jobs, tags, searchTerm) {
 function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, initialViewNameToOpen, onClearInitial }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const jobsCountRef = useRef(0);
+    useEffect(() => {
+        jobsCountRef.current = jobs.length;
+    }, [jobs.length]);
     const [error, setError] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [editJobFormJob, setEditJobFormJob] = useState(null);
@@ -325,26 +330,35 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
     };
 
     // ── Fetch jobs ────────────────────────────────────────────────
-    const fetchJobs = useCallback(async (force = false) => {
+    const fetchJobs = useCallback(async (force = false, isBackground = false) => {
         try {
-            setLoading(true);
+            if (!isBackground && jobsCountRef.current === 0) {
+                setLoading(true);
+            } else if (isBackground) {
+                setIsSyncing(true);
+            }
             const data = await jobsAPI.getAll(force ? { _t: Date.now() } : {});
             setJobs(data || []);
             setError(null);
         } catch (err) {
-            setError(`Failed to load jobs: ${err.message || 'Unknown error'}`);
+            if (jobsCountRef.current === 0) {
+                setError(`Failed to load jobs: ${err.message || 'Unknown error'}`);
+            } else {
+                console.warn('[JobsTab] Background jobs sync failed:', err);
+            }
         } finally {
             setLoading(false);
+            setIsSyncing(false);
         }
     }, []);
 
     useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-    // Real-time synchronization & auto-refresh for Admin
+    // Real-time synchronization & auto-refresh for Admin (silent in background)
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        // 1. Supabase Postgres changes for instantaneous updates
+        // 1. Supabase Postgres changes for instantaneous updates (silent background update)
         const channel = supabase
             .channel('admin:jobs-realtime-feed')
             .on(
@@ -352,20 +366,20 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                 { event: '*', schema: 'public', table: 'jobs' },
                 (payload) => {
                     console.log('[JobsTab] Real-time job event received:', payload.eventType, payload.new?.job_number);
-                    fetchJobs(true);
+                    fetchJobs(true, true);
                 }
             )
             .subscribe();
 
-        // 2. 30-second polling safety net
+        // 2. 60-second polling safety net (silent background update, doesn't reload or unmount views)
         const pollInterval = setInterval(() => {
-            fetchJobs(true);
-        }, 30000);
+            fetchJobs(true, true);
+        }, 60000);
 
-        // 3. Tab resume / focus refresh
+        // 3. Tab resume / focus refresh (silent background update)
         const handleRefresh = () => {
-            console.log('[JobsTab] Resume/focus detected, auto-refreshing jobs...');
-            fetchJobs(true);
+            console.log('[JobsTab] Resume/focus detected, auto-refreshing jobs in background...');
+            fetchJobs(true, true);
         };
         window.addEventListener('refresh-active-tab', handleRefresh);
 
@@ -464,6 +478,10 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
         const filtered = applyTags(jobs, activeTags, searchTerm);
         return sortJobs(filtered, sortBy, sortOrder);
     }, [jobs, activeTags, searchTerm, sortBy, sortOrder]);
+
+    const filterKey = useMemo(() => {
+        return `${searchTerm}_${activeTags.join(',')}_${sortBy}_${sortOrder}`;
+    }, [searchTerm, activeTags, sortBy, sortOrder]);
 
     const effectiveGroupBy = viewType === 'kanban' && (groupBy === 'none' || !groupBy) ? 'status' : (groupBy || 'none');
 
@@ -584,11 +602,11 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
                 {/* Refresh + Count */}
                 <button
-                    onClick={() => fetchJobs(true)}
+                    onClick={() => fetchJobs(true, false)}
                     title="Refresh jobs"
-                    style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}
                 >
-                    ↻ Refresh
+                    {isSyncing ? <Loader2 size={12} className="animate-spin" /> : '↻'} Refresh
                 </button>
 
                 {/* Columns Selection Dropdown (Table View only) */}
@@ -682,9 +700,9 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
 
             {/* ── Content ── */}
             <div style={{ flex: 1, overflow: 'auto' }}>
-                {loading && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>Loading jobs...</div>}
-                {!loading && error && <div style={{ textAlign: 'center', padding: '3rem', color: '#ef4444' }}>{error}</div>}
-                {!loading && !error && (
+                {loading && jobs.length === 0 && <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>Loading jobs...</div>}
+                {!loading && error && jobs.length === 0 && <div style={{ textAlign: 'center', padding: '3rem', color: '#ef4444' }}>{error}</div>}
+                {(!loading || jobs.length > 0) && (
                     <>
                         {viewType === 'card' && <JobsCardView jobs={processedJobs} onJobClick={handleJobClick} />}
                         {viewType === 'kanban' && (
@@ -723,7 +741,14 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                             />
                         )}
                         {viewType === 'list'  && <JobsListView  jobs={processedJobs} onJobClick={handleJobClick} />}
-                        {viewType === 'map'   && <JobsMapView   jobs={processedJobs} onUpdateJob={handleUpdateJob} onJobClick={handleJobClick} />}
+                        {viewType === 'map'   && (
+                            <JobsMapView 
+                                jobs={processedJobs} 
+                                filterKey={filterKey}
+                                onUpdateJob={handleUpdateJob} 
+                                onJobClick={handleJobClick} 
+                            />
+                        )}
                     </>
                 )}
             </div>
