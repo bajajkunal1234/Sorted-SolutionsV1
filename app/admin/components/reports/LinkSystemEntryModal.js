@@ -217,8 +217,9 @@ export default function LinkSystemEntryModal({
 
                 if (stErr) throw stErr;
 
-                // Also auto-reconcile matching bank alert if one exists with same ref_no or date+amount
-                if (bankTx.ref_no) {
+                // Also auto-reconcile matching bank alert if one exists
+                const alertId = bankTx.matchedAlert?.id || bankTx.matchedAlertId;
+                if (alertId) {
                     await supabase
                         .from('bank_alerts_log')
                         .update({
@@ -227,9 +228,23 @@ export default function LinkSystemEntryModal({
                             system_entry_type: entryType,
                             system_entry_id: entryId
                         })
-                        .eq('bank_account_id', selectedAccountId)
-                        .eq('reference_number', bankTx.ref_no)
-                        .eq('status', 'unreconciled');
+                        .eq('id', alertId);
+                } else if (bankTx.ref_no || bankTx.refNo) {
+                    const rawRef = (bankTx.ref_no || bankTx.refNo || '').toString().trim();
+                    const cleanRef = rawRef.replace(/^0+/, '');
+                    if (cleanRef) {
+                        await supabase
+                            .from('bank_alerts_log')
+                            .update({
+                                status: 'reconciled',
+                                voucher_id: entryId,
+                                system_entry_type: entryType,
+                                system_entry_id: entryId
+                            })
+                            .eq('bank_account_id', selectedAccountId)
+                            .or(`reference_number.eq.${rawRef},reference_number.eq.${cleanRef}`)
+                            .eq('status', 'unreconciled');
+                    }
                 }
             }
 

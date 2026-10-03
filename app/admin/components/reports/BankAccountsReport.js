@@ -19,7 +19,7 @@ import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
 
 const DEFAULT_COLUMN_WIDTHS = {
     date: 90,
-    source: 95,
+    source: 110,
     voucherNo: 110,
     particulars: 240,
     deposit: 100,
@@ -55,7 +55,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [toDate, setToDate] = useState(initialRange.to);
 
     // Filter and Sort states
-    const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unassigned' | 'uncleared' | 'duplicate' | 'reconciled'
+    const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'missed_by_scraper' | 'unassigned' | 'uncleared' | 'duplicate' | 'reconciled'
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'desc' });
 
@@ -293,12 +293,17 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             setActiveStatement(active);
 
             let txList = [];
-            if (active) {
-                const { data: fetchedTxList } = await supabase
+            if (stmtList && stmtList.length > 0) {
+                const stmtIds = stmtList.map(s => s.id);
+                let query = supabase
                     .from('bank_statement_transactions')
                     .select('*')
-                    .eq('bank_statement_id', active.id)
-                    .order('date', { ascending: false });
+                    .in('bank_statement_id', stmtIds);
+
+                if (fromDate) query = query.gte('date', fromDate);
+                if (toDate) query = query.lte('date', toDate);
+
+                const { data: fetchedTxList } = await query.order('date', { ascending: false });
                 txList = fetchedTxList || [];
             }
             setStatementTransactions(txList);
@@ -475,6 +480,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             }
         });
 
+        // Helper to normalize reference numbers by stripping leading zeros and punctuation
+        const normRef = (s) => (s || '').toString().trim().replace(/^0+/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
         // 2. Detect Duplicates in Statement Transactions
         const stmtDuplicateIds = new Set();
         const stmtKeyCount = {};
@@ -489,19 +497,56 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             }
         });
 
-        // 3. Build unified rows
+        // 3. Match Bank Statement Transactions with Gmail Alerts and Build Unified Rows
+        const matchedAlertIds = new Set();
         const rows = [];
 
-        // A. Add Statement Transactions
+        // A. Add Statement Transactions (authoritative source)
         statementTransactions.forEach(st => {
-            const isReconciled = st.status === 'reconciled' || !!st.voucher_id || !!st.system_entry_id;
             const isDuplicate = stmtDuplicateIds.has(st.id);
-            const linkedVoucher = systemVouchers.find(v => v.id === st.voucher_id || v.id === st.system_entry_id);
+            const stAmount = parseFloat(st.amount) || 0;
+            const cleanStRef = normRef(st.ref_no);
+            const stParticulars = (st.particulars || '').toLowerCase();
+
+            // Find matching Gmail alert
+            const matchedAlert = bankAlerts.find(a => {
+                if (matchedAlertIds.has(a.id)) return false;
+                const cleanAlertRef = normRef(a.reference_number);
+                const aAmount = parseFloat(a.amount) || 0;
+                const isSameAmt = Math.abs(aAmount - stAmount) < 0.01;
+                const isSameDir = (st.type === 'receipt' && a.type === 'credit') || (st.type === 'payment' && a.type === 'debit');
+
+                // 1. Normalized Reference number match (min 4 characters)
+                if (cleanStRef && cleanAlertRef && cleanStRef.length >= 4 && (cleanStRef === cleanAlertRef || cleanStRef.endsWith(cleanAlertRef) || cleanAlertRef.endsWith(cleanStRef))) {
+                    return true;
+                }
+                // 2. Statement particulars contains alert reference number (min 6 characters)
+                if (cleanAlertRef && cleanAlertRef.length >= 6 && stParticulars.includes(cleanAlertRef)) {
+                    return true;
+                }
+                // 3. Exact date + amount + direction match heuristic
+                if (isSameAmt && isSameDir && st.date === a.date) {
+                    return true;
+                }
+                return false;
+            });
+
+            if (matchedAlert) {
+                matchedAlertIds.add(matchedAlert.id);
+            }
+
+            const hasEmailAlert = !!matchedAlert;
+            const isMissedByScraper = !hasEmailAlert;
+
+            // Inherit voucher link from statement OR from matched alert
+            const voucherId = st.voucher_id || st.system_entry_id || (matchedAlert ? (matchedAlert.voucher_id || matchedAlert.system_entry_id) : null);
+            const isReconciled = st.status === 'reconciled' || !!st.voucher_id || !!st.system_entry_id || (matchedAlert && (matchedAlert.status === 'reconciled' || !!matchedAlert.voucher_id || !!matchedAlert.system_entry_id));
+            const linkedVoucher = voucherId ? systemVouchers.find(v => v.id === voucherId) : null;
 
             let potentialMatch = null;
             if (!isReconciled) {
                 potentialMatch = systemVouchers.find(v => {
-                    const amtMatch = Math.abs(v.amount - parseFloat(st.amount)) < 0.01;
+                    const amtMatch = Math.abs(v.amount - stAmount) < 0.01;
                     const dirMatch = (st.type === 'receipt' && v.direction === 'inflow') || (st.type === 'payment' && v.direction === 'outflow');
                     if (!amtMatch || !dirMatch) return false;
                     const daysDiff = Math.abs(new Date(v.date) - new Date(st.date)) / (1000 * 60 * 60 * 24);
@@ -514,13 +559,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 origin: 'statement',
                 id: st.id,
                 statementTxId: st.id,
+                matchedAlert,
+                hasEmailAlert,
+                isMissedByScraper,
                 date: st.date,
                 type: st.type,
                 sourceLabel: 'BANK STMT',
                 voucherNo: linkedVoucher ? linkedVoucher.number : '—',
                 particulars: st.particulars,
                 refNo: st.ref_no || '',
-                amount: parseFloat(st.amount) || 0,
+                amount: stAmount,
                 balance: parseFloat(st.balance) || 0,
                 isReconciled,
                 linkedEntry: linkedVoucher,
@@ -531,18 +579,33 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             });
         });
 
-        // B. Add Gmail Alerts
+        // B. Add Gmail Alerts (ONLY if not already covered/matched by statement transactions)
         bankAlerts.forEach(alert => {
-            const isReconciled = alert.status === 'reconciled' || !!alert.voucher_id;
-            const linkedVoucher = systemVouchers.find(v => v.id === alert.voucher_id || v.id === alert.system_entry_id);
+            if (matchedAlertIds.has(alert.id)) return;
 
-            const coveredByStatement = alert.reference_number && statementTransactions.some(st => st.ref_no === alert.reference_number);
+            // Secondary check if covered by any statement transaction in date range
+            const cleanAlertRef = normRef(alert.reference_number);
+            const alertAmount = parseFloat(alert.amount) || 0;
+            const coveredByStatement = statementTransactions.some(st => {
+                const cleanStRef = normRef(st.ref_no);
+                const stParticulars = (st.particulars || '').toLowerCase();
+                const isSameAmt = Math.abs(parseFloat(st.amount || 0) - alertAmount) < 0.01;
+                const isSameDir = (st.type === 'receipt' && alert.type === 'credit') || (st.type === 'payment' && alert.type === 'debit');
+
+                if (cleanStRef && cleanAlertRef && cleanStRef.length >= 4 && (cleanStRef === cleanAlertRef || cleanStRef.endsWith(cleanAlertRef) || cleanAlertRef.endsWith(cleanStRef))) return true;
+                if (cleanAlertRef && cleanAlertRef.length >= 6 && stParticulars.includes(cleanAlertRef)) return true;
+                if (isSameAmt && isSameDir && st.date === alert.date) return true;
+                return false;
+            });
             if (coveredByStatement) return;
+
+            const isReconciled = alert.status === 'reconciled' || !!alert.voucher_id || !!alert.system_entry_id;
+            const linkedVoucher = systemVouchers.find(v => v.id === alert.voucher_id || v.id === alert.system_entry_id);
 
             let potentialMatch = null;
             if (!isReconciled) {
                 potentialMatch = systemVouchers.find(v => {
-                    const amtMatch = Math.abs(v.amount - parseFloat(alert.amount)) < 0.01;
+                    const amtMatch = Math.abs(v.amount - alertAmount) < 0.01;
                     const dirMatch = (alert.type === 'credit' && v.direction === 'inflow') || (alert.type === 'debit' && v.direction === 'outflow');
                     if (!amtMatch || !dirMatch) return false;
                     const daysDiff = Math.abs(new Date(v.date) - new Date(alert.date)) / (1000 * 60 * 60 * 24);
@@ -555,13 +618,15 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 origin: 'alert',
                 id: alert.id,
                 isAlert: true,
+                hasEmailAlert: true,
+                isMissedByScraper: false,
                 date: alert.date,
                 type: alert.type === 'credit' ? 'receipt' : 'payment',
                 sourceLabel: 'GMAIL ALERT',
                 voucherNo: linkedVoucher ? linkedVoucher.number : 'GMAIL-ALERT',
                 particulars: alert.narration || `Alert: ${alert.party_name}`,
                 refNo: alert.reference_number || '',
-                amount: parseFloat(alert.amount) || 0,
+                amount: alertAmount,
                 balance: 0,
                 isReconciled,
                 linkedEntry: linkedVoucher,
@@ -652,6 +717,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             daysSinceReconciliation = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
         }
 
+        const missedByScraperCount = rows.filter(r => r.origin === 'statement' && r.isMissedByScraper).length;
         const unassignedCount = rows.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled).length;
         const unclearedCount = rows.filter(r => r.origin === 'system' && !r.isReconciled).length;
         const duplicateCount = rows.filter(r => r.isDuplicate).length;
@@ -661,6 +727,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             unifiedLedger: rows,
             stats: {
                 totalCount: rows.length,
+                missedByScraperCount,
                 unassignedCount,
                 unclearedCount,
                 duplicateCount,
@@ -691,7 +758,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const sortedRows = useMemo(() => {
         let list = [...unifiedLedger];
 
-        if (activeFilter === 'unassigned') {
+        if (activeFilter === 'missed_by_scraper') {
+            list = list.filter(r => r.origin === 'statement' && r.isMissedByScraper);
+        } else if (activeFilter === 'unassigned') {
             list = list.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled);
         } else if (activeFilter === 'uncleared') {
             list = list.filter(r => r.origin === 'system' && !r.isReconciled);
@@ -739,9 +808,15 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 return (amtA - amtB) * factor;
             }
             if (key === 'status') {
-                const statusA = a.isReconciled ? 3 : (a.isDuplicate ? 0 : (a.isUnassigned ? 1 : 2));
-                const statusB = b.isReconciled ? 3 : (b.isDuplicate ? 0 : (b.isUnassigned ? 1 : 2));
-                return (statusA - statusB) * factor;
+                const getStatusScore = (r) => {
+                    if (r.isDuplicate) return 0;
+                    if (r.isMissedByScraper) return 1;
+                    if ((r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled) return 2;
+                    if (r.origin === 'system' && !r.isReconciled) return 3;
+                    if (r.isReconciled) return 4;
+                    return 5;
+                };
+                return (getStatusScore(a) - getStatusScore(b)) * factor;
             }
             return 0;
         });
@@ -862,7 +937,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     // Open entry form (Sales, Purchase, Receipt, or Payment) from bank transaction
     const openEntryForm = (row, type) => {
         setCreateChooserRow(null);
-        const alertId = row.isAlert ? row.id : null;
+        const alertId = row.isAlert ? row.id : (row.matchedAlert ? row.matchedAlert.id : null);
         const statementTxId = row.origin === 'statement' ? row.id : null;
 
         if (type === 'sales') {
@@ -1035,6 +1110,18 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         reconciled_at: null
                     })
                     .eq('id', row.id);
+
+                if (row.matchedAlert?.id) {
+                    await supabase
+                        .from('bank_alerts_log')
+                        .update({
+                            status: 'unreconciled',
+                            voucher_id: null,
+                            system_entry_id: null,
+                            system_entry_type: null
+                        })
+                        .eq('id', row.matchedAlert.id);
+                }
             } else if (row.isAlert) {
                 await supabase
                     .from('bank_alerts_log')
@@ -1628,6 +1715,24 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     </button>
 
                                     <button
+                                        onClick={() => setActiveFilter('missed_by_scraper')}
+                                        style={{
+                                            padding: '4px 8px',
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                                            backgroundColor: activeFilter === 'missed_by_scraper' ? '#3b82f6' : 'rgba(59, 130, 246, 0.1)',
+                                            color: activeFilter === 'missed_by_scraper' ? '#fff' : '#3b82f6',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                        title="Transactions in bank statement that the Gmail scraper missed"
+                                    >
+                                        📬 Missed by Scraper ({stats.missedByScraperCount})
+                                    </button>
+
+                                    <button
                                         onClick={() => setActiveFilter('unassigned')}
                                         style={{
                                             padding: '4px 8px',
@@ -1928,11 +2033,13 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                         borderBottom: '1px solid var(--border-primary)',
                                                         backgroundColor: isDuplicate
                                                             ? 'rgba(239, 68, 68, 0.08)'
-                                                            : (isUnassigned
-                                                                ? 'rgba(245, 158, 11, 0.04)'
-                                                                : (isUncleared
-                                                                    ? 'rgba(139, 92, 246, 0.03)'
-                                                                    : 'transparent')),
+                                                            : (row.isMissedByScraper && activeFilter === 'missed_by_scraper'
+                                                                ? 'rgba(245, 158, 11, 0.08)'
+                                                                : (isUnassigned
+                                                                    ? 'rgba(245, 158, 11, 0.04)'
+                                                                    : (isUncleared
+                                                                        ? 'rgba(139, 92, 246, 0.03)'
+                                                                        : 'transparent'))),
                                                         transition: 'background-color 0.15s'
                                                     }}
                                                 >
@@ -1943,17 +2050,83 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                                                     {/* Source & Type */}
                                                     <td style={{ padding: '7px 10px', verticalAlign: 'top' }}>
-                                                        <span style={{
-                                                            fontSize: '9px',
-                                                            fontWeight: 800,
-                                                            padding: '2px 5px',
-                                                            borderRadius: '3px',
-                                                            textTransform: 'uppercase',
-                                                            backgroundColor: row.origin === 'statement' ? 'rgba(59, 130, 246, 0.15)' : (row.isAlert ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'),
-                                                            color: row.origin === 'statement' ? '#3b82f6' : (row.isAlert ? '#ef4444' : '#10b981')
-                                                        }}>
-                                                            {row.sourceLabel}
-                                                        </span>
+                                                        {row.origin === 'statement' ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                                                <span style={{
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 800,
+                                                                    padding: '2px 5px',
+                                                                    borderRadius: '3px',
+                                                                    textTransform: 'uppercase',
+                                                                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                                                    color: '#3b82f6'
+                                                                }}>
+                                                                    BANK STMT
+                                                                </span>
+                                                                {row.hasEmailAlert ? (
+                                                                    <span style={{
+                                                                        fontSize: '8.5px',
+                                                                        fontWeight: 700,
+                                                                        padding: '1px 4px',
+                                                                        borderRadius: '2px',
+                                                                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                                        color: '#10b981',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }} title="Matched with Gmail transaction alert">
+                                                                        ✉️ Scraped
+                                                                    </span>
+                                                                ) : row.isMissedByScraper ? (
+                                                                    <span style={{
+                                                                        fontSize: '8.5px',
+                                                                        fontWeight: 800,
+                                                                        padding: '1px 4px',
+                                                                        borderRadius: '2px',
+                                                                        backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                                                                        color: '#d97706',
+                                                                        whiteSpace: 'nowrap'
+                                                                    }} title="Gmail scraper missed this transaction — uploaded via statement">
+                                                                        📬 Missed by Scraper
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        ) : row.isAlert ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                                                                <span style={{
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 800,
+                                                                    padding: '2px 5px',
+                                                                    borderRadius: '3px',
+                                                                    textTransform: 'uppercase',
+                                                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                                    color: '#ef4444'
+                                                                }}>
+                                                                    GMAIL ALERT
+                                                                </span>
+                                                                <span style={{
+                                                                    fontSize: '8.5px',
+                                                                    fontWeight: 600,
+                                                                    padding: '1px 4px',
+                                                                    borderRadius: '2px',
+                                                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                                                    color: '#ef4444',
+                                                                    whiteSpace: 'nowrap'
+                                                                }}>
+                                                                    ⚡ Realtime
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span style={{
+                                                                fontSize: '9px',
+                                                                fontWeight: 800,
+                                                                padding: '2px 5px',
+                                                                borderRadius: '3px',
+                                                                textTransform: 'uppercase',
+                                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                                color: '#10b981'
+                                                            }}>
+                                                                {row.sourceLabel}
+                                                            </span>
+                                                        )}
                                                     </td>
 
                                                     {/* Voucher Number */}
@@ -1971,6 +2144,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                                                             {row.particulars}
                                                         </div>
+                                                        {row.isMissedByScraper && (
+                                                            <div style={{ fontSize: '9px', color: '#d97706', fontWeight: 600, marginTop: '2px' }}>
+                                                                📬 Not captured by Gmail scraper (present in statement only)
+                                                            </div>
+                                                        )}
+                                                        {row.hasEmailAlert && row.matchedAlert?.party_name && row.matchedAlert.party_name !== row.particulars && (
+                                                            <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
+                                                                ✉️ Alert Party: {row.matchedAlert.party_name}
+                                                            </div>
+                                                        )}
                                                         {row.suggestedAccount && (
                                                             <div style={{ fontSize: '9px', color: 'var(--primary-color)', fontWeight: 600, marginTop: '2px' }}>
                                                                 💡 Suggested Ledger: {row.suggestedAccount}
