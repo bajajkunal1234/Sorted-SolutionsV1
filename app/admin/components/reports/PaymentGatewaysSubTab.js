@@ -7,7 +7,7 @@ import {
     Briefcase, FileText, Check, AlertCircle, ChevronDown,
     Search, Download, ExternalLink, Calendar, PlusCircle,
     Landmark, AlertTriangle, Sparkles, CheckCircle, ChevronUp,
-    HelpCircle, Eye, ShieldCheck, ArrowUpRight
+    HelpCircle, Eye, ShieldCheck, ArrowUpRight, X
 } from 'lucide-react';
 
 const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -17,6 +17,57 @@ const fmtDate = (d) => {
     if (isNaN(dt)) return d;
     return dt.toLocaleDateString('en-GB');
 };
+
+function findBestMatchingSubset(items, target) {
+    if (!items || items.length === 0) return [];
+    
+    // 1. Exact single match
+    const exactSingle = items.find(r => Math.abs((parseFloat(r.amount) || 0) - target) < 0.05);
+    if (exactSingle) return [exactSingle.id];
+    
+    // 2. Exact sum of all items in list
+    const totalSum = items.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    if (Math.abs(totalSum - target) < 1.0) {
+        return items.map(r => r.id);
+    }
+    
+    // 3. Combinations search (up to 16 items)
+    const sorted = [...items].sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0));
+    if (sorted.length <= 16) {
+        const n = sorted.length;
+        let bestSubset = [];
+        let bestDiff = Infinity;
+        for (let mask = 1; mask < (1 << n); mask++) {
+            let sum = 0;
+            const sub = [];
+            for (let i = 0; i < n; i++) {
+                if ((mask >> i) & 1) {
+                    sum += (parseFloat(sorted[i].amount) || 0);
+                    sub.push(sorted[i].id);
+                }
+            }
+            const diff = Math.abs(sum - target);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestSubset = sub;
+                if (diff < 0.05) break;
+            }
+        }
+        if (bestSubset.length > 0) return bestSubset;
+    }
+    
+    // 4. Greedy match
+    let curr = 0;
+    const gSub = [];
+    for (const r of sorted) {
+        const amt = parseFloat(r.amount) || 0;
+        if (curr + amt <= target + 5) {
+            curr += amt;
+            gSub.push(r.id);
+        }
+    }
+    return gSub.length > 0 ? gSub : [sorted[0].id];
+}
 
 export default function PaymentGatewaysSubTab({ isMobile = false }) {
     const [loading, setLoading] = useState(true);
@@ -48,6 +99,8 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
     const [reconcileModal, setReconcileModal] = useState({
         open: false,
         payout: null,
+        selectedReceiptIds: new Set(),
+        searchCandidate: '',
         autoBalanceMissing: true,
         createCommission: false,
         commissionFee: '',
@@ -295,22 +348,44 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
 
     // ── Open 1-Click Match & Reconcile Modal ────────────────────────────────────
     const openReconcileModalFor = (payout) => {
-        const isMissing = payout.variance > 0;
-        const isShort = payout.variance < 0;
+        const candidates = payout.candidateReceipts || [];
+        const bestIds = findBestMatchingSubset(candidates, payout.amount);
+        const initialSelectedIds = new Set(bestIds.length > 0 ? bestIds : candidates.map(r => r.id));
+
+        const selectedRecs = candidates.filter(r => initialSelectedIds.has(r.id));
+        const selectedTotal = selectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+        const variance = +(payout.amount - selectedTotal).toFixed(2);
+        const absDiff = Math.abs(variance);
+        const diffPct = selectedTotal > 0 ? (absDiff / selectedTotal) * 100 : 0;
+        const isReasonableFee = variance < 0 && diffPct <= 5.0;
+
         setReconcileModal({
             open: true,
             payout,
-            autoBalanceMissing: isMissing,
-            createCommission: isShort,
-            commissionFee: isShort ? Math.abs(payout.variance).toString() : '',
-            notes: `Bank payout reconciliation ${payout.ref_no}`
+            selectedReceiptIds: initialSelectedIds,
+            searchCandidate: '',
+            autoBalanceMissing: variance > 0,
+            createCommission: isReasonableFee,
+            commissionFee: isReasonableFee ? absDiff.toFixed(2) : '',
+            notes: `Bank payout reconciliation ${payout.ref_no || ''}`
         });
     };
 
     // Submit 1-Click Match & Reconcile
     const handleReconcilePayout = async () => {
-        const { payout, autoBalanceMissing, createCommission, commissionFee, notes } = reconcileModal;
+        const { payout, selectedReceiptIds, autoBalanceMissing, createCommission, commissionFee, notes } = reconcileModal;
         if (!payout) return;
+
+        const candidateReceipts = payout.candidateReceipts || [];
+        const selectedRecs = candidateReceipts.filter(r => selectedReceiptIds?.has(r.id));
+        const selectedTotal = selectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+        const variance = +(payout.amount - selectedTotal).toFixed(2);
+        const receiptIds = Array.from(selectedReceiptIds || []);
+
+        if (receiptIds.length === 0 && !autoBalanceMissing) {
+            alert('Please select at least one customer collection receipt to settle, or check auto-balance.');
+            return;
+        }
 
         try {
             setProcessingAction(true);
@@ -323,23 +398,24 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                     bank_payout_id: payout.id,
                     payout_source: payout.origin,
                     gateway_account_id: payout.gatewayAccountId,
-                    receipt_ids: (payout.candidateReceipts || []).map(r => r.id),
+                    receipt_ids: receiptIds,
                     bank_amount: payout.amount,
+                    gross_amount: selectedTotal,
                     settlement_ref: payout.ref_no,
                     settlement_date: payout.date,
                     create_missing_voucher: autoBalanceMissing,
-                    missing_amount: payout.variance > 0 ? payout.variance : 0,
+                    missing_amount: variance > 0 ? variance : 0,
                     create_commission_voucher: createCommission && feeNum > 0,
                     fee_amount: feeNum,
                     tax_amount: 0,
-                    notes: notes || `Reconciled HDFC bank payout ${payout.ref_no}`
+                    notes: notes || `Reconciled HDFC bank payout ${payout.ref_no || ''}`
                 })
             });
 
             const json = await res.json();
             if (json.success) {
                 setActionMessage({ type: 'success', text: json.message });
-                setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' });
+                setReconcileModal({ open: false, payout: null, selectedReceiptIds: new Set(), searchCandidate: '', autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' });
                 fetchData();
             } else {
                 alert(json.error || 'Failed to reconcile payout');
@@ -1144,167 +1220,374 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
             {/* ═══════════════════════════════════════════════════════════════════════ */}
             {/* ⚡ MODAL: 1-CLICK MATCH & RECONCILE BANK PAYOUT                         */}
             {/* ═══════════════════════════════════════════════════════════════════════ */}
-            {reconcileModal.open && reconcileModal.payout && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.6)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1400, padding: '16px'
-                }}>
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
+            {/* ⚡ MODAL: 1-CLICK MATCH & RECONCILE BANK PAYOUT                         */}
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
+            {reconcileModal.open && reconcileModal.payout && (() => {
+                const payout = reconcileModal.payout;
+                const candidateReceipts = payout.candidateReceipts || [];
+                const selectedIds = reconcileModal.selectedReceiptIds || new Set();
+                const selectedRecs = candidateReceipts.filter(r => selectedIds.has(r.id));
+                const selectedCount = selectedRecs.length;
+                const selectedTotal = selectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+
+                const variance = +(payout.amount - selectedTotal).toFixed(2);
+                const absDiff = Math.abs(variance);
+                const diffPct = selectedTotal > 0 ? (absDiff / selectedTotal) * 100 : 0;
+                const isExact = Math.abs(variance) < 0.05;
+                const isReasonableFee = variance < 0 && diffPct <= 5.0;
+                const isExcessive = variance < 0 && diffPct > 5.0;
+
+                const q = (reconcileModal.searchCandidate || '').toLowerCase();
+                const visibleCandidates = candidateReceipts.filter(r => {
+                    if (!q) return true;
+                    return (
+                        (r.receipt_number || '').toLowerCase().includes(q) ||
+                        (r.narration || '').toLowerCase().includes(q) ||
+                        (r.account_name || '').toLowerCase().includes(q) ||
+                        (r.technicianName || '').toLowerCase().includes(q) ||
+                        (r.amount?.toString() || '').includes(q)
+                    );
+                });
+
+                const toggleReceipt = (id) => {
+                    const next = new Set(selectedIds);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+
+                    const newRecs = candidateReceipts.filter(r => next.has(r.id));
+                    const newTot = newRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                    const newVar = +(payout.amount - newTot).toFixed(2);
+                    const newDiff = Math.abs(newVar);
+                    const newPct = newTot > 0 ? (newDiff / newTot) * 100 : 0;
+                    const newIsFee = newVar < 0 && newPct <= 5.0;
+
+                    setReconcileModal(prev => ({
+                        ...prev,
+                        selectedReceiptIds: next,
+                        autoBalanceMissing: newVar > 0,
+                        createCommission: newIsFee,
+                        commissionFee: newIsFee ? newDiff.toFixed(2) : ''
+                    }));
+                };
+
+                const updateSelection = (next) => {
+                    const newRecs = candidateReceipts.filter(r => next.has(r.id));
+                    const newTot = newRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                    const newVar = +(payout.amount - newTot).toFixed(2);
+                    const newDiff = Math.abs(newVar);
+                    const newPct = newTot > 0 ? (newDiff / newTot) * 100 : 0;
+                    const newIsFee = newVar < 0 && newPct <= 5.0;
+
+                    setReconcileModal(prev => ({
+                        ...prev,
+                        selectedReceiptIds: next,
+                        autoBalanceMissing: newVar > 0,
+                        createCommission: newIsFee,
+                        commissionFee: newIsFee ? newDiff.toFixed(2) : ''
+                    }));
+                };
+
+                return (
                     <div style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        borderRadius: '10px',
-                        width: '100%',
-                        maxWidth: '560px',
-                        border: '1px solid var(--border-primary)',
-                        boxShadow: 'var(--shadow-xl)',
-                        overflow: 'hidden'
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        zIndex: 1400, padding: '16px'
                     }}>
                         <div style={{
-                            padding: '12px 16px',
-                            borderBottom: '1px solid var(--border-primary)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                            backgroundColor: 'var(--bg-primary)',
+                            borderRadius: '10px',
+                            width: '100%',
+                            maxWidth: '640px',
+                            maxHeight: '92vh',
+                            border: '1px solid var(--border-primary)',
+                            boxShadow: 'var(--shadow-xl)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            overflow: 'hidden'
                         }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Sparkles size={16} /> Match & Reconcile Bank Payout
-                                </h4>
-                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                    Ref: {reconcileModal.payout.ref_no || '—'} · Date: {fmtDate(reconcileModal.payout.date)}
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '16px' }}
-                            >✕</button>
-                        </div>
-
-                        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {/* Comparison summary in modal */}
                             <div style={{
-                                padding: '10px 12px', borderRadius: '6px',
-                                backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
-                                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'
+                                padding: '12px 16px',
+                                borderBottom: '1px solid var(--border-primary)',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                             }}>
                                 <div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>HDFC Bank Credit</div>
-                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>₹{fmt(reconcileModal.payout.amount)}</div>
+                                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Sparkles size={16} /> Reconcile {payout.provider || 'Gateway'} Bank Payout
+                                    </h4>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                        Ref: {payout.ref_no || '—'} · Date: {fmtDate(payout.date)} · Particulars: {payout.particulars}
+                                    </p>
                                 </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>System Receipts in Batch</div>
-                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>₹{fmt(reconcileModal.payout.candidateTotal)}</div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{reconcileModal.payout.candidateCount} receipt vouchers</div>
-                                </div>
+                                <button
+                                    onClick={() => setReconcileModal({ open: false, payout: null, selectedReceiptIds: new Set(), searchCandidate: '', autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '18px', padding: '2px' }}
+                                >✕</button>
                             </div>
 
-                            {/* Discrepancy diagnosis box */}
-                            {reconcileModal.payout.variance > 0 ? (
+                            <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+                                {/* Comparison summary in modal */}
                                 <div style={{
-                                    padding: '10px 12px', borderRadius: '6px',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    display: 'flex', flexDirection: 'column', gap: '6px'
+                                    padding: '10px 14px', borderRadius: '8px',
+                                    backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: 700, fontSize: '13px' }}>
-                                        <AlertTriangle size={15} /> Missing System Receipts: +₹{fmt(reconcileModal.payout.variance)}
+                                    <div>
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>HDFC Bank Credit Received</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>+₹{fmt(payout.amount)}</div>
                                     </div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        HDFC Bank received ₹{fmt(reconcileModal.payout.variance)} more than what staff/technicians punched in Sorted.
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Selected Collections in Batch</div>
+                                        <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>₹{fmt(selectedTotal)}</div>
+                                        <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)' }}>{selectedCount} of {candidateReceipts.length} collections selected</div>
+                                    </div>
+                                </div>
+
+                                {/* Candidate Receipts Checklist */}
+                                <div style={{
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: '8px',
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                        <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            Candidate Receipts ({selectedCount} selected · ₹{fmt(selectedTotal)})
+                                        </span>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const best = findBestMatchingSubset(visibleCandidates.length > 0 ? visibleCandidates : candidateReceipts, payout.amount);
+                                                    updateSelection(new Set(best));
+                                                }}
+                                                style={{
+                                                    padding: '3px 8px', fontSize: '10.5px', fontWeight: 600,
+                                                    borderRadius: '4px', border: '1px solid #10b981',
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                                }}
+                                            >
+                                                🎯 Auto-Match Total
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateSelection(new Set(visibleCandidates.map(r => r.id)))}
+                                                style={{
+                                                    padding: '3px 6px', fontSize: '10.5px', borderRadius: '4px',
+                                                    border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)',
+                                                    color: 'var(--text-secondary)', cursor: 'pointer'
+                                                }}
+                                            >
+                                                Select All
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => updateSelection(new Set())}
+                                                style={{
+                                                    padding: '3px 6px', fontSize: '10.5px', borderRadius: '4px',
+                                                    border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)',
+                                                    color: 'var(--text-secondary)', cursor: 'pointer'
+                                                }}
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* Auto-balance checkbox */}
-                                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={reconcileModal.autoBalanceMissing}
-                                            onChange={e => setReconcileModal(prev => ({ ...prev, autoBalanceMissing: e.target.checked }))}
-                                            style={{ marginTop: '2px' }}
-                                        />
-                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                                            <strong>Auto-create balancing receipt voucher for ₹{fmt(reconcileModal.payout.variance)}</strong>
-                                            <br />
-                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-                                                Credits Sales Revenue under Google Pay Business so your books balance with HDFC immediately without manual ledger adjustments.
+                                    {/* Search input for candidates */}
+                                    {candidateReceipts.length > 5 && (
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={12} style={{ position: 'absolute', left: '8px', top: '7px', color: 'var(--text-tertiary)' }} />
+                                            <input
+                                                type="text"
+                                                value={reconcileModal.searchCandidate || ''}
+                                                onChange={e => setReconcileModal(prev => ({ ...prev, searchCandidate: e.target.value }))}
+                                                placeholder="Filter candidate receipts by receipt #, customer, tech..."
+                                                style={{
+                                                    width: '100%', padding: '4px 8px 4px 26px', fontSize: '11px',
+                                                    borderRadius: '4px', border: '1px solid var(--border-primary)',
+                                                    backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)'
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Scrollable list */}
+                                    <div style={{
+                                        maxHeight: '180px',
+                                        overflowY: 'auto',
+                                        border: '1px solid var(--border-secondary)',
+                                        borderRadius: '4px',
+                                        backgroundColor: 'var(--bg-primary)'
+                                    }}>
+                                        {visibleCandidates.length === 0 ? (
+                                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
+                                                No receipts found matching criteria.
+                                            </div>
+                                        ) : (
+                                            visibleCandidates.map(r => {
+                                                const isChecked = selectedIds.has(r.id);
+                                                return (
+                                                    <div
+                                                        key={r.id}
+                                                        onClick={() => toggleReceipt(r.id)}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                            padding: '6px 10px',
+                                                            borderBottom: '1px solid var(--border-secondary)',
+                                                            backgroundColor: isChecked ? 'rgba(16, 185, 129, 0.06)' : 'transparent',
+                                                            cursor: 'pointer', fontSize: '11px'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => toggleReceipt(r.id)}
+                                                                onClick={e => e.stopPropagation()}
+                                                            />
+                                                            <div>
+                                                                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{r.receipt_number || 'RC-—'}</span>
+                                                                <span style={{ color: 'var(--text-tertiary)', marginLeft: '6px' }}>{fmtDate(r.date)}</span>
+                                                                <span style={{
+                                                                    marginLeft: '6px', fontSize: '9.5px', padding: '1px 5px', borderRadius: '3px',
+                                                                    backgroundColor: r.channelType === 'pos' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(168, 85, 247, 0.12)',
+                                                                    color: r.channelType === 'pos' ? '#2563eb' : '#9333ea', fontWeight: 600
+                                                                }}>
+                                                                    {r.channelType === 'pos' ? 'Store POS' : (r.technicianName || 'Technician')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                            ₹{fmt(r.amount)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Discrepancy diagnosis box */}
+                                {isExact ? (
+                                    <div style={{
+                                        padding: '10px 12px', borderRadius: '6px',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                        display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '12px', fontWeight: 600
+                                    }}>
+                                        <CheckCircle size={15} /> Selected customer collections match bank payout deposit exactly (₹{fmt(payout.amount)})!
+                                    </div>
+                                ) : variance > 0 ? (
+                                    <div style={{
+                                        padding: '10px 12px', borderRadius: '6px',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                        display: 'flex', flexDirection: 'column', gap: '6px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: 700, fontSize: '12.5px' }}>
+                                            <AlertTriangle size={15} /> Missing System Receipts: +₹{fmt(variance)}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                            HDFC Bank received ₹{fmt(variance)} more than the selected customer receipts punched in Sorted.
+                                        </div>
+
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={reconcileModal.autoBalanceMissing}
+                                                onChange={e => setReconcileModal(prev => ({ ...prev, autoBalanceMissing: e.target.checked }))}
+                                                style={{ marginTop: '2px' }}
+                                            />
+                                            <span style={{ fontSize: '11.5px', color: 'var(--text-primary)' }}>
+                                                <strong>Auto-create balancing receipt voucher for ₹{fmt(variance)}</strong>
+                                                <br />
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                    Credits Sales Revenue so your books balance with HDFC immediately without manual ledger adjustments.
+                                                </span>
                                             </span>
-                                        </span>
-                                    </label>
-                                </div>
-                            ) : reconcileModal.payout.variance < 0 ? (
-                                <div style={{
-                                    padding: '10px 12px', borderRadius: '6px',
-                                    backgroundColor: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)',
-                                    display: 'flex', flexDirection: 'column', gap: '6px'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d97706', fontWeight: 700, fontSize: '13px' }}>
-                                        <AlertTriangle size={15} /> Short Settlement / Fee: -₹{fmt(Math.abs(reconcileModal.payout.variance))}
+                                        </label>
                                     </div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                        System receipts exceed bank credit by ₹{fmt(Math.abs(reconcileModal.payout.variance))}. This difference could be Gateway MDR processing fees or cut-off rollovers.
+                                ) : (
+                                    <div style={{
+                                        padding: '10px 12px', borderRadius: '6px',
+                                        backgroundColor: isExcessive ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                                        border: `1px solid ${isExcessive ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                                        display: 'flex', flexDirection: 'column', gap: '6px'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isExcessive ? '#ef4444' : '#d97706', fontWeight: 700, fontSize: '12.5px' }}>
+                                            <AlertTriangle size={15} />
+                                            {isExcessive
+                                                ? `Collections Exceed Bank Credit: -₹${fmt(absDiff)} (${diffPct.toFixed(0)}% extra)`
+                                                : `Gateway MDR Commission: -₹${fmt(absDiff)} (~${diffPct.toFixed(2)}%)`}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                            {isExcessive
+                                                ? `Selected collections exceed the bank payout by ₹${fmt(absDiff)}. Some of these receipts likely belong to another day or batch. Please uncheck receipts or click "🎯 Auto-Match Total".`
+                                                : `Selected receipts exceed bank credit by ₹${fmt(absDiff)}. This difference corresponds to payment gateway MDR transaction processing fees.`}
+                                        </div>
+
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={reconcileModal.createCommission}
+                                                onChange={e => setReconcileModal(prev => ({ ...prev, createCommission: e.target.checked }))}
+                                                style={{ marginTop: '2px' }}
+                                            />
+                                            <span style={{ fontSize: '11.5px', color: 'var(--text-primary)' }}>
+                                                <strong>Auto-create Purchase Voucher for Gateway Commission (₹{fmt(absDiff)})</strong>
+                                            </span>
+                                        </label>
                                     </div>
+                                )}
 
-                                    {/* Commission purchase voucher checkbox */}
-                                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={reconcileModal.createCommission}
-                                            onChange={e => setReconcileModal(prev => ({ ...prev, createCommission: e.target.checked }))}
-                                            style={{ marginTop: '2px' }}
-                                        />
-                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
-                                            <strong>Record Gateway MDR Commission Purchase Voucher for fee difference (₹{fmt(Math.abs(reconcileModal.payout.variance))})</strong>
-                                        </span>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                        Reconciliation Narration / Notes
                                     </label>
+                                    <input
+                                        type="text"
+                                        value={reconcileModal.notes}
+                                        onChange={e => setReconcileModal(prev => ({ ...prev, notes: e.target.value }))}
+                                        style={{ width: '100%', padding: '6px 8px', fontSize: '11px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                    />
                                 </div>
-                            ) : (
-                                <div style={{
-                                    padding: '10px 12px', borderRadius: '6px',
-                                    backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)',
-                                    display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '12px', fontWeight: 600
-                                }}>
-                                    <CheckCircle size={15} /> System receipts match bank payout deposit exactly!
-                                </div>
-                            )}
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                    Reconciliation Narration / Notes
-                                </label>
-                                <input
-                                    type="text"
-                                    value={reconcileModal.notes}
-                                    onChange={e => setReconcileModal(prev => ({ ...prev, notes: e.target.value }))}
-                                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                                />
                             </div>
-                        </div>
 
-                        <div style={{
-                            padding: '10px 16px',
-                            borderTop: '1px solid var(--border-primary)',
-                            display: 'flex', justifyContent: 'flex-end', gap: '8px'
-                        }}>
-                            <button
-                                onClick={() => setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleReconcilePayout}
-                                disabled={processingAction}
-                                style={{
-                                    padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                                    border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', gap: '6px'
-                                }}
-                            >
-                                {processingAction ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
-                                Confirm & Reconcile (₹{fmt(reconcileModal.payout.amount)})
-                            </button>
+                            <div style={{
+                                padding: '10px 16px',
+                                borderTop: '1px solid var(--border-primary)',
+                                display: 'flex', justifyContent: 'flex-end', gap: '8px',
+                                backgroundColor: 'var(--bg-secondary)'
+                            }}>
+                                <button
+                                    onClick={() => setReconcileModal({ open: false, payout: null, selectedReceiptIds: new Set(), searchCandidate: '', autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '11px' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleReconcilePayout}
+                                    disabled={processingAction || (selectedCount === 0 && !reconcileModal.autoBalanceMissing)}
+                                    style={{
+                                        padding: '6px 16px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                                        border: 'none', backgroundColor: '#10b981', color: 'white', cursor: (selectedCount === 0 && !reconcileModal.autoBalanceMissing) ? 'not-allowed' : 'pointer',
+                                        opacity: (selectedCount === 0 && !reconcileModal.autoBalanceMissing) ? 0.5 : 1,
+                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                    }}
+                                >
+                                    {processingAction ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+                                    Confirm Settlement ({selectedCount} items · ₹{fmt(selectedTotal)})
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* ── Modal: Manual Commission Purchase Voucher ── */}
             {commissionModal.open && (

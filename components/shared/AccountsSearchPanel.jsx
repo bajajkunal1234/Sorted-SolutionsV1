@@ -9,14 +9,21 @@ const ACCOUNT_FILTER_FIELDS = [
     { key: 'type',         label: 'Account Type',   type: 'select', options: ['customer','supplier','technician','cash','bank','expense','income','asset','liability'] },
     { key: 'group',        label: 'Group',          type: 'text' },
     { key: 'has_balance',  label: 'Has Balance',    type: 'select', options: ['yes','no'] },
+    { key: 'updated_at',   label: 'Last Modified',  type: 'date' },
+    { key: 'updated_from', label: 'Modified From',  type: 'date' },
+    { key: 'updated_to',   label: 'Modified To',    type: 'date' },
 ];
 
 const TX_FILTER_FIELDS = [
     { key: 'account_name', label: 'Account / Party', type: 'text' },
     { key: 'status',       label: 'Status',          type: 'select', options: ['Draft','Pending','Paid','Overdue','Partial','Sent','Accepted','Declined','Cancelled'] },
     { key: 'payment_mode', label: 'Payment Method',  type: 'select', options: ['Cash','UPI','Card','Bank Transfer','Cheque','Online'] },
+    { key: 'date',         label: 'Date',            type: 'date' },
     { key: 'date_from',    label: 'Date From',       type: 'date' },
     { key: 'date_to',      label: 'Date To',         type: 'date' },
+    { key: 'updated_at',   label: 'Last Modified',   type: 'date' },
+    { key: 'updated_from', label: 'Modified From',   type: 'date' },
+    { key: 'updated_to',   label: 'Modified To',     type: 'date' },
     { key: 'amount_min',   label: 'Amount ≥',        type: 'number' },
     { key: 'amount_max',   label: 'Amount ≤',        type: 'number' },
     { key: 'reference',    label: 'Reference No.',   type: 'text' },
@@ -100,16 +107,19 @@ const ACCOUNT_SORT_BY = [
     { value: 'balance_asc',  label: 'Balance ↑' },
     { value: 'opening_desc', label: 'Opening Balance' },
     { value: 'jobs',         label: 'Jobs Done' },
-    { value: 'updated_desc', label: 'Last Updated' },
+    { value: 'updated_desc', label: 'Last Modified (Newest)' },
+    { value: 'updated_asc',  label: 'Last Modified (Oldest)' },
 ];
 
 const TX_SORT_BY = [
-    { value: 'date',    label: 'Date (Newest)' },
-    { value: 'date_asc',label: 'Date (Oldest)' },
-    { value: 'amount',  label: 'Amount ↓' },
-    { value: 'amount_asc', label: 'Amount ↑' },
-    { value: 'number',  label: 'Reference No.' },
-    { value: 'account', label: 'Account Name' },
+    { value: 'date',         label: 'Date (Newest)' },
+    { value: 'date_asc',     label: 'Date (Oldest)' },
+    { value: 'updated_desc', label: 'Last Modified (Newest)' },
+    { value: 'updated_asc',  label: 'Last Modified (Oldest)' },
+    { value: 'amount',       label: 'Amount ↓' },
+    { value: 'amount_asc',   label: 'Amount ↑' },
+    { value: 'number',       label: 'Reference No.' },
+    { value: 'account',      label: 'Account Name' },
 ];
 
 // ─── Sub-components ═══════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
 import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package, Archive } from 'lucide-react';
 import AccountsSearchPanel from '@/components/shared/AccountsSearchPanel';
 import ImportExportButtons from './shared/ImportExportButtons';
@@ -179,103 +179,112 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
     // Column picker
     const DEFAULT_CONFIG = {
         accounts: [
-            { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true  },
-            { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true  },
-            { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
-            { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
-            { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true  },
-            { id: 'source',          label: 'Created By',    align: 'left',   defaultOn: true  },
-            { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false },
-            { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false },
-            { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false },
-            { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false },
-            { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
-            { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false },
-            { id: 'is_claimed',      label: 'Claimed',       align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true,  width: 120 },
+            { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true,  width: 130 },
+            { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true,  width: 110 },
+            { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true,  width: 120 },
+            { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true,  width: 70 },
+            { id: 'source',          label: 'Created By',    align: 'left',   defaultOn: true,  width: 130 },
+            { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false, width: 120 },
+            { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false, width: 150 },
+            { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false, width: 140 },
+            { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false, width: 110 },
+            { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false, width: 100 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: false, width: 90 },
+            { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false, width: 80 },
+            { id: 'is_claimed',      label: 'Claimed',       align: 'center', defaultOn: true,  width: 80 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true,  width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true,  width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true,  width: 100 }
         ],
         sales: [
-            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'account_name',    label: 'Ledger Name',   align: 'left',   defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'account_name',    label: 'Ledger Name',   align: 'left',   defaultOn: true, width: 180 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true, width: 100 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 160 }
         ],
         purchases: [
-            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'account_name',    label: 'Supplier',      align: 'left',   defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'account_name',    label: 'Supplier',      align: 'left',   defaultOn: true, width: 180 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true, width: 100 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 140 }
         ],
         quotations: [
-            { id: 'number',          label: 'Quote No',      align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'number',          label: 'Quote No',      align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true, width: 180 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true, width: 100 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 160 }
         ],
         receipts: [
-            { id: 'number',          label: 'Receipt No',    align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'account_name',    label: 'From Account',  align: 'left',   defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'number',          label: 'Receipt No',    align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'account_name',    label: 'From Account',  align: 'left',   defaultOn: true, width: 180 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true, width: 100 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 140 }
         ],
         payments: [
-            { id: 'number',          label: 'Payment No',    align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'account_name',    label: 'To Account',    align: 'left',   defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'number',          label: 'Payment No',    align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'account_name',    label: 'To Account',    align: 'left',   defaultOn: true, width: 180 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true, width: 100 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 140 }
         ],
         journals: [
-            { id: 'entry_number',    label: 'Entry No',      align: 'left',   defaultOn: true },
-            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
-            { id: 'reference_type',  label: 'Type',          align: 'center', defaultOn: true },
-            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'entry_number',    label: 'Entry No',      align: 'left',   defaultOn: true, width: 140 },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'reference_type',  label: 'Type',          align: 'center', defaultOn: true, width: 110 },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true, width: 120 },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true, width: 130 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 100 }
         ],
         amc: [
-            { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true },
-            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
-            { id: 'product',         label: 'Product',       align: 'left',   defaultOn: true },
-            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
-            { id: 'end_date',        label: 'End',           align: 'center', defaultOn: true },
-            { id: 'amc_amount',      label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true, width: 150 },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true, width: 180 },
+            { id: 'product',         label: 'Product',       align: 'left',   defaultOn: true, width: 140 },
+            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true, width: 110 },
+            { id: 'end_date',        label: 'End',           align: 'center', defaultOn: true, width: 110 },
+            { id: 'amc_amount',      label: 'Amount',        align: 'right',  defaultOn: true, width: 110 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true, width: 90 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 180 }
         ],
         rentals: [
-            { id: 'product_name',    label: 'Product',       align: 'left',   defaultOn: true },
-            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
-            { id: 'monthly_rent',    label: 'Monthly Rent',  align: 'right',  defaultOn: true },
-            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
-            { id: 'next_due',        label: 'Next Due',      align: 'center', defaultOn: true },
-            { id: 'security_deposit',label: 'Deposit',       align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
-            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+            { id: 'product_name',    label: 'Product',       align: 'left',   defaultOn: true, width: 160 },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true, width: 180 },
+            { id: 'monthly_rent',    label: 'Monthly Rent',  align: 'right',  defaultOn: true, width: 120 },
+            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true, width: 110 },
+            { id: 'next_due',        label: 'Next Due',      align: 'center', defaultOn: true, width: 110 },
+            { id: 'security_deposit',label: 'Deposit',       align: 'right',  defaultOn: true, width: 110 },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true, width: 90 },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true, width: 140 },
+            { id: 'updated_at',      label: 'Last Modified', align: 'center', defaultOn: true, width: 140 },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true, width: 180 }
         ]
     };
 
@@ -288,6 +297,44 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         return initial;
     });
 
+    const [columnWidths, setColumnWidths] = useState({});
+
+    const getColWidth = (tab, colId, defaultWidth = 120) => {
+        return columnWidths[tab]?.[colId] || defaultWidth;
+    };
+
+    const handleColResizeMouseDown = (e, colId, currentWidth) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const initialWidth = currentWidth || 120;
+        
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+
+        const handleMouseMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const newWidth = Math.max(50, Math.round(initialWidth + deltaX));
+            setColumnWidths(prev => ({
+                ...prev,
+                [activeTab]: {
+                    ...(prev[activeTab] || {}),
+                    [colId]: newWidth
+                }
+            }));
+        };
+
+        const handleMouseUp = () => {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
     useEffect(() => {
         if (typeof window !== "undefined") {
             try {
@@ -295,6 +342,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     
+                    if (parsed.columnWidths) {
+                        setColumnWidths(parsed.columnWidths);
+                    }
+
                     if (parsed.tabColumns) {
                         // Smart merge to preserve user sorting but inject new schema columns
                         const mergedColumns = {};
@@ -305,7 +356,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                 const savedTab = parsed.tabColumns[tab];
                                 const savedIds = new Set(savedTab.map(c => c.id));
                                 const newCols = DEFAULT_CONFIG[tab].filter(c => !savedIds.has(c.id));
-                                mergedColumns[tab] = [...savedTab, ...newCols];
+                                const enrichedSavedTab = savedTab.map(sc => {
+                                    const def = DEFAULT_CONFIG[tab].find(dc => dc.id === sc.id);
+                                    return def ? { ...def, ...sc, width: sc.width || def.width } : sc;
+                                });
+                                mergedColumns[tab] = [...enrichedSavedTab, ...newCols];
                             }
                         }
                         setTabColumns(mergedColumns);
@@ -326,7 +381,6 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     }
                                 });
                             } else {
-                                // If the tab did not exist in saved columns, turn on its defaults
                                 DEFAULT_CONFIG[tab].forEach(c => {
                                     if (c.defaultOn) savedSet.add(c.id);
                                 });
@@ -356,11 +410,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 serializedVis[tab] = Array.from(visibleColumns[tab]);
             }
             if (typeof window !== "undefined") {
-                localStorage.setItem('accounts_configurable_tables', JSON.stringify({ tabColumns, visibleColumns: serializedVis }));
+                localStorage.setItem('accounts_configurable_tables', JSON.stringify({ tabColumns, visibleColumns: serializedVis, columnWidths }));
             }
         }, 300);
         return () => clearTimeout(timeout);
-    }, [tabColumns, visibleColumns]);
+    }, [tabColumns, visibleColumns, columnWidths]);
 
 
 
@@ -387,6 +441,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
     const resetColumnsToDefault = (tab) => {
         setTabColumns(prev => ({ ...prev, [tab]: DEFAULT_CONFIG[tab] }));
         setVisibleColumns(prev => ({ ...prev, [tab]: new Set(DEFAULT_CONFIG[tab].filter(c => c.defaultOn).map(c => c.id)) }));
+        setColumnWidths(prev => {
+            const next = { ...prev };
+            delete next[tab];
+            return next;
+        });
     };
 
     // Multi-select state
@@ -733,8 +792,41 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             case 'account_name': fv = item.account_name || ''; break;
                             case 'status':       fv = item.status || ''; break;
                             case 'payment_mode': fv = item.payment_mode || ''; break;
+                            case 'date': {
+                                if (!cond.value || !item.date) return true;
+                                const itemD = new Date(item.date);
+                                const condD = new Date(cond.value);
+                                if (cond.operator === 'before') return itemD < condD;
+                                if (cond.operator === 'after') {
+                                    const targetD = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                    return itemD > targetD;
+                                }
+                                return itemD.toISOString().slice(0, 10) === cond.value.slice(0, 10);
+                            }
                             case 'date_from':    return !cond.value || (item.date && new Date(item.date) >= new Date(cond.value));
-                            case 'date_to':      return !cond.value || (item.date && new Date(item.date) <= new Date(cond.value));
+                            case 'date_to': {
+                                if (!cond.value) return true;
+                                const targetDate = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                return item.date && new Date(item.date) <= targetDate;
+                            }
+                            case 'updated_at': {
+                                const raw = item.updated_at || item.created_at;
+                                if (!cond.value || !raw) return true;
+                                const itemD = new Date(raw);
+                                const condD = new Date(cond.value);
+                                if (cond.operator === 'before') return itemD < condD;
+                                if (cond.operator === 'after') {
+                                    const targetD = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                    return itemD > targetD;
+                                }
+                                return itemD.toISOString().slice(0, 10) === cond.value.slice(0, 10);
+                            }
+                            case 'updated_from': return !cond.value || ((item.updated_at || item.created_at) && new Date(item.updated_at || item.created_at) >= new Date(cond.value));
+                            case 'updated_to': {
+                                if (!cond.value) return true;
+                                const targetDate = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                return (item.updated_at || item.created_at) && new Date(item.updated_at || item.created_at) <= targetDate;
+                            }
                             case 'amount_min':   return !cond.value || getAmt(item) >= parseFloat(cond.value);
                             case 'amount_max':   return !cond.value || getAmt(item) <= parseFloat(cond.value);
                             case 'reference':    fv = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || ''; break;
@@ -773,6 +865,24 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             case 'type':         fv = l.type || ''; break;
                             case 'group':        fv = l.under || ''; break;
                             case 'has_balance':  return cond.value === 'yes' ? (l.closing_balance || l.closingBalance || 0) !== 0 : (l.closing_balance || l.closingBalance || 0) === 0;
+                            case 'updated_at': {
+                                const raw = l.updated_at || l.created_at;
+                                if (!cond.value || !raw) return true;
+                                const itemD = new Date(raw);
+                                const condD = new Date(cond.value);
+                                if (cond.operator === 'before') return itemD < condD;
+                                if (cond.operator === 'after') {
+                                    const targetD = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                    return itemD > targetD;
+                                }
+                                return itemD.toISOString().slice(0, 10) === cond.value.slice(0, 10);
+                            }
+                            case 'updated_from': return !cond.value || ((l.updated_at || l.created_at) && new Date(l.updated_at || l.created_at) >= new Date(cond.value));
+                            case 'updated_to': {
+                                if (!cond.value) return true;
+                                const targetDate = new Date(cond.value.length === 10 ? `${cond.value}T23:59:59.999` : cond.value);
+                                return (l.updated_at || l.created_at) && new Date(l.updated_at || l.created_at) <= targetDate;
+                            }
                             default:             return true;
                         }
                         const v = (cond.value || '').toLowerCase(), val = fv.toLowerCase();
@@ -798,10 +908,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
             switch (txSortBy) {
                 case 'amount':    case 'amount_asc': { const va = isVoucher ? (a.amount||0):(a.total_amount||0), vb = isVoucher ? (b.amount||0):(b.total_amount||0); return txSortBy === 'amount_asc' ? va-vb : vb-va; }
-                case 'account':  { const va = a.account_name||'', vb = b.account_name||''; return va.localeCompare(vb); }
-                case 'number':   { const va = a.invoice_number||a.quote_number||a.receipt_number||a.payment_number||'', vb = b.invoice_number||b.quote_number||b.receipt_number||b.payment_number||''; return va.localeCompare(vb); }
-                case 'date_asc': { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return va-vb; }
-                default:         { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return vb-va; } // newest first
+                case 'account':      { const va = a.account_name||'', vb = b.account_name||''; return va.localeCompare(vb); }
+                case 'number':       { const va = a.invoice_number||a.quote_number||a.receipt_number||a.payment_number||'', vb = b.invoice_number||b.quote_number||b.receipt_number||b.payment_number||''; return va.localeCompare(vb); }
+                case 'date_asc':     { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return va-vb; }
+                case 'updated_desc': { const va = (a.updated_at||a.created_at)?new Date(a.updated_at||a.created_at).getTime():0, vb = (b.updated_at||b.created_at)?new Date(b.updated_at||b.created_at).getTime():0; return vb-va; }
+                case 'updated_asc':  { const va = (a.updated_at||a.created_at)?new Date(a.updated_at||a.created_at).getTime():0, vb = (b.updated_at||b.created_at)?new Date(b.updated_at||b.created_at).getTime():0; return va-vb; }
+                default:             { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return vb-va; } // newest first
             }
         });
     };
@@ -856,7 +968,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             if (sortBy === 'jobs')         return (b.jobs_done||b.jobsDone||0) - (a.jobs_done||a.jobsDone||0);
             if (sortBy === 'opening_desc') return (b.opening_balance||b.openingBalance||0) - (a.opening_balance||a.openingBalance||0);
             if (sortBy === 'name_desc')    return (b.name || '').localeCompare(a.name || '');
-            if (sortBy === 'updated_desc') return new Date(b.updated_at||0) - new Date(a.updated_at||0);
+            if (sortBy === 'updated_desc') return new Date(b.updated_at||b.created_at||0) - new Date(a.updated_at||a.created_at||0);
+            if (sortBy === 'updated_asc')  return new Date(a.updated_at||a.created_at||0) - new Date(b.updated_at||b.created_at||0);
             return (a.name || '').localeCompare(b.name || '');
         });
     })() : [];
@@ -1464,12 +1577,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     {viewType === 'table' && (() => {
                         const activeCols = tabColumns.accounts.filter(c => visibleColumns.accounts.has(c.id));
                         const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
-                        const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
+                        const nameColWidth = getColWidth('accounts', 'name', 200);
+                        const totalTableWidth = 40 + nameColWidth + activeCols.reduce((sum, col) => sum + getColWidth('accounts', col.id, col.width || 120), 0);
+
                         const renderCell = (col, ledger) => {
+                            const colWidth = getColWidth('accounts', col.id, col.width || 120);
+                            const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer', width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
                             switch (col.id) {
-                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
+                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }} title={ledger.sku}>{ledger.sku || '—'}</td>;
                                 case 'type':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
-                                case 'group':           return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
+                                case 'group':           return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }} title={getGroupName(ledger.under)}>{getGroupName(ledger.under)}</td>;
                                 case 'opening_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
                                 case 'closing_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
                                 case 'jobs':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
@@ -1493,7 +1611,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     );
                                 }
                                 case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile ? formatMobileNumber(ledger.mobile) : '—'}</td>;
-                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
+                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }} title={ledger.email}>{ledger.email || '—'}</td>;
                                 case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
                                 case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : '—'}</td>;
                                 case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : '—'}</td>;
@@ -1508,8 +1626,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     const d = ledger.created_at ? new Date(ledger.created_at) : null;
                                     return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                 }
+                                case 'updated_at': {
+                                    const d = (ledger.updated_at || ledger.created_at) ? new Date(ledger.updated_at || ledger.created_at) : null;
+                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                }
                                 case 'actions': return (
-                                    <td key={col.id} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                    <td key={col.id} style={{ ...tdBase, padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                             <button title="New Receipt" onClick={e => { e.stopPropagation(); setActiveTab('receipts'); setActiveForm('receipt-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#10b98115', border: 'none', borderRadius: '4px', color: '#10b981', padding: '4px', cursor: 'pointer' }}>Rec</button>
                                             <button title="New Payment" onClick={e => { e.stopPropagation(); setActiveTab('payments'); setActiveForm('payment-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#ef444415', border: 'none', borderRadius: '4px', color: '#ef4444', padding: '4px', cursor: 'pointer' }}>Pay</button>
@@ -1520,14 +1642,43 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             }
                         };
                         return (
-                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <table className="data-table" style={{ width: `max(100%, ${totalTableWidth}px)`, tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', width: '40px' }}>
+                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', width: '40px', minWidth: '40px', maxWidth: '40px', boxSizing: 'border-box' }}>
                                         <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(filteredLedgers)} />
                                     </th>
-                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Ledger Name</th>
-                                    {activeCols.map(col => <th key={col.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{col.label}</th>)}
+                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: nameColWidth, minWidth: nameColWidth, maxWidth: nameColWidth, boxSizing: 'border-box' }}>
+                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Ledger Name</div>
+                                        <div
+                                            onMouseDown={(e) => {
+                                                e.stopPropagation();
+                                                handleColResizeMouseDown(e, 'name', nameColWidth);
+                                            }}
+                                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        />
+                                    </th>
+                                    {activeCols.map(col => {
+                                        const colWidth = getColWidth('accounts', col.id, col.width || 120);
+                                        return (
+                                            <th key={col.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {col.label}
+                                                </div>
+                                                <div
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleColResizeMouseDown(e, col.id, colWidth);
+                                                    }}
+                                                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                />
+                                            </th>
+                                        );
+                                    })}
                                 </tr>
                             </thead>
                             <tbody>
@@ -1540,20 +1691,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                         onMouseEnter={e => { if (!selectedItems.has(ledger.id)) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
                                         onMouseLeave={e => { if (!selectedItems.has(ledger.id)) e.currentTarget.style.backgroundColor = rowBg; }}
                                     >
-                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', width: '40px', minWidth: '40px', maxWidth: '40px', boxSizing: 'border-box' }}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(ledger.id)} onChange={e => toggleItem(ledger.id, e)} onClick={e => e.stopPropagation()} />
                                         </td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                {ledger.name}
-                                                {isNewAccount && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: '#10b981', color: '#fff', textTransform: 'uppercase' }}>New</span>}
+                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer', width: nameColWidth, minWidth: nameColWidth, maxWidth: nameColWidth, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ledger.name}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.name}</span>
+                                                {isNewAccount && <span style={{ flexShrink: 0, padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: '#10b981', color: '#fff', textTransform: 'uppercase' }}>New</span>}
                                             </div>
                                         </td>
                                         {activeCols.map(col => renderCell(col, ledger))}
                                     </tr>
                                     );
                                 })}
-                                {filteredLedgers.length === 0 && <tr><td colSpan={activeCols.length + 3} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No accounts found.</td></tr>}
+                                {filteredLedgers.length === 0 && <tr><td colSpan={activeCols.length + 2} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No accounts found.</td></tr>}
                             </tbody>
                         </table>
                         );
@@ -1583,6 +1734,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 return d <= next && d >= now;
             }).length;
             const activeCols = (tabColumns.amc || []).filter(c => (visibleColumns.amc || new Set()).has(c.id));
+            const totalAmcTableWidth = activeCols.reduce((sum, col) => sum + getColWidth('amc', col.id, col.width || 120), 0);
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', minHeight: 0 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
@@ -1594,9 +1746,27 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                         ))}
                     </div>
                     <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
-                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <table className="data-table" style={{ width: `max(100%, ${totalAmcTableWidth}px)`, tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                {activeCols.map(c => {
+                                    const colWidth = getColWidth('amc', c.id, c.width || 120);
+                                    return (
+                                        <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {c.label}
+                                            </div>
+                                            <div
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    handleColResizeMouseDown(e, c.id, colWidth);
+                                                }}
+                                                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                            />
+                                        </th>
+                                    );
+                                })}
                             </tr></thead>
                             <tbody>
                                 {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
@@ -1605,7 +1775,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     return (
                                         <tr key={amc.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                             {activeCols.map(col => {
-                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
+                                                const colWidth = getColWidth('amc', col.id, col.width || 120);
+                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
                                                 switch (col.id) {
                                                     case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || '—'}</td>;
                                                     case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || '—'}</td>;
@@ -1618,8 +1789,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                                         const d = amc.created_at ? new Date(amc.created_at) : null;
                                                         return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
+                                                    case 'updated_at': {
+                                                        const d = (amc.updated_at || amc.created_at) ? new Date(amc.updated_at || amc.created_at) : null;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    }
                                                     case 'actions': return (
-                                                        <td key={col.id} style={{ padding: 'var(--spacing-sm)' }}>
+                                                        <td key={col.id} style={{ ...td, padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                                 <button onClick={() => { setSelectedAgreementItem(amc); setSelectedAgreementType('amc'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /> Print</button>
                                                                 <button onClick={() => alert(`Schedule next service for ${amc.accounts?.name || 'Customer'}`)} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Schedule</button>
@@ -1658,6 +1833,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
             const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
             const activeCols = (tabColumns.rentals || []).filter(c => (visibleColumns.rentals || new Set()).has(c.id));
+            const totalRentalsTableWidth = activeCols.reduce((sum, col) => sum + getColWidth('rentals', col.id, col.width || 120), 0);
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', minHeight: 0 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
@@ -1669,9 +1845,27 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                         ))}
                     </div>
                     <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
-                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <table className="data-table" style={{ width: `max(100%, ${totalRentalsTableWidth}px)`, tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                {activeCols.map(c => {
+                                    const colWidth = getColWidth('rentals', c.id, c.width || 120);
+                                    return (
+                                        <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {c.label}
+                                            </div>
+                                            <div
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    handleColResizeMouseDown(e, c.id, colWidth);
+                                                }}
+                                                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                            />
+                                        </th>
+                                    );
+                                })}
                             </tr></thead>
                             <tbody>
                                 {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
@@ -1680,7 +1874,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     return (
                                         <tr key={rental.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                             {activeCols.map(col => {
-                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
+                                                const colWidth = getColWidth('rentals', col.id, col.width || 120);
+                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
                                                 switch (col.id) {
                                                     case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || '—'}</td>;
                                                     case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || '—'}</td>;
@@ -1693,8 +1888,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                                         const d = rental.created_at ? new Date(rental.created_at) : null;
                                                         return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
+                                                    case 'updated_at': {
+                                                        const d = (rental.updated_at || rental.created_at) ? new Date(rental.updated_at || rental.created_at) : null;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    }
                                                     case 'actions': return (
-                                                        <td key={col.id} style={{ padding: 'var(--spacing-sm)' }}>
+                                                        <td key={col.id} style={{ ...td, padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                                 <button onClick={() => { setSelectedRentalForPayment({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name, monthlyRent: Number(rental.monthly_rent), securityDeposit: Number(rental.security_deposit) }); setShowRentReceipts(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Receipts</button>
                                                                 <button onClick={() => { setSelectedRentalForDetails({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setShowRentalDetails(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#3b82f615', color: '#3b82f6', cursor: 'pointer', fontSize: '11px' }}>Details</button>
@@ -1752,26 +1951,64 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         );
 
         const activeTxCols = tabColumns[activeTab].filter(c => visibleColumns[activeTab].has(c.id));
+        const totalTxTableWidth = 40 + activeTxCols.reduce((sum, col) => sum + getColWidth(activeTab, col.id, col.width || 120), 0);
         const thBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' };
         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
 
         return (
             <div style={{ flex: 1, overflow: 'auto', position: 'relative' }} onScroll={handleTableScroll}>
-                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="data-table" style={{ width: `max(100%, ${totalTxTableWidth}px)`, tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
-                            <th style={{ ...thBase, width: '40px', textAlign: 'center' }}>
+                            <th style={{ ...thBase, width: '40px', minWidth: '40px', maxWidth: '40px', boxSizing: 'border-box', textAlign: 'center' }}>
                                 <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(processedData)} />
                             </th>
-                            {activeTxCols.map(col => <th key={col.id} style={{ ...thBase, textAlign: col.align }}>{col.label}</th>)}
+                            {activeTxCols.map(col => {
+                                const colWidth = getColWidth(activeTab, col.id, col.width || 120);
+                                return (
+                                    <th
+                                        key={col.id}
+                                        style={{
+                                            ...thBase,
+                                            textAlign: col.align,
+                                            width: colWidth,
+                                            minWidth: colWidth,
+                                            maxWidth: colWidth,
+                                            boxSizing: 'border-box'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {col.label}
+                                        </div>
+                                        <div
+                                            onMouseDown={(e) => {
+                                                e.stopPropagation();
+                                                handleColResizeMouseDown(e, col.id, colWidth);
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                right: 0,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: '6px',
+                                                cursor: 'col-resize',
+                                                zIndex: 15,
+                                                userSelect: 'none'
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        />
+                                    </th>
+                                );
+                            })}
                         </tr>
                     </thead>
                     <tbody>
                         {groupedData.map(({ label, items }) => (
-                            <>
+                            <Fragment key={label !== null ? `grp-${label}` : 'grp-all'}>
                                 {label !== null && (
-                                    <tr key={`grp-${label}`}>
-                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
+                                    <tr>
+                                        <td colSpan={activeTxCols.length + 1} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
                                     </tr>
                                 )}
                                 {items.map(item => {
@@ -1786,42 +2023,47 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = hoverBgColor}
                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = baseBgColor}
                                     >
-                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', width: '40px', minWidth: '40px', maxWidth: '40px', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(item.id)} onChange={e => toggleItem(item.id, e)} />
                                         </td>
                                         {activeTxCols.map(col => {
+                                            const colWidth = getColWidth(activeTab, col.id, col.width || 120);
+                                            const cellTd = { ...tdBase, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
                                             switch (col.id) {
                                                 case 'number': 
                                                     const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
                                                     return (
-                                                        <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <span>{no}</span>
+                                                        <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }} title={no}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{no}</span>
                                                                 {item.status === 'pending_verification' && (
-                                                                    <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eab30820', color: '#eab308', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</span>
+                                                                    <span style={{ flexShrink: 0, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eab30820', color: '#eab308', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</span>
                                                                 )}
                                                                 {activeTab === 'purchases' && item.paid_by === 'technician' && (
-                                                                    <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f59e0b20', color: '#f59e0b', fontSize: '10px', fontWeight: 600 }}>Paid by Tech</span>
+                                                                    <span style={{ flexShrink: 0, padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f59e0b20', color: '#f59e0b', fontSize: '10px', fontWeight: 600 }}>Paid by Tech</span>
                                                                 )}
                                                             </div>
                                                         </td>
                                                     );
                                                 case 'entry_number': 
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{item.entry_number || '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }} title={item.entry_number}>{item.entry_number || '—'}</td>;
                                                 case 'reference_type':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, textTransform: 'capitalize' }}>{item.reference_type?.replace('_', ' ') || 'Journal'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align, textTransform: 'capitalize' }}>{item.reference_type?.replace('_', ' ') || 'Journal'}</td>;
                                                 case 'date':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
-                                                case 'account_name':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || item.accounts?.name || '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}>{item.date || '—'}</td>;
+                                                case 'account_name': {
+                                                    const accName = item.account_name || item.accounts?.name || '—';
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }} title={accName}>{accName}</td>;
+                                                }
                                                 case 'amount':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
                                                 case 'status': {
                                                     const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
                                                     if (isVoucher) {
-                                                        return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td>;
+                                                        return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td>;
                                                     }
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{renderStatusBadge(item.status, item)}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}>{renderStatusBadge(item.status, item)}</td>;
                                                 }
                                                 case 'created_by': {
                                                     const isTech = item.technician_name || item.jobs?.technician_name;
@@ -1829,16 +2071,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                                     const badgeColor = isTech ? '#10b981' : '#6366f1';
                                                     const badgeBg = isTech ? '#10b98115' : '#6366f115';
                                                     const emoji = isTech ? '👤' : '🛡️';
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}>
                                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: badgeBg, color: badgeColor, fontWeight: 600, whiteSpace: 'nowrap' }}>{emoji} {srcText}</span>
                                                     </td>;
                                                 }
                                                 case 'created_at': {
                                                     const d = item.created_at ? new Date(item.created_at) : null;
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                }
+                                                case 'updated_at': {
+                                                    const d = (item.updated_at || item.created_at) ? new Date(item.updated_at || item.created_at) : null;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...cellTd, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                 }
                                                 case 'actions': return (
-                                                    <td key={col.id} style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                                                    <td key={col.id} style={{ ...cellTd, padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                                                         <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
                                                             <button
                                                                 title="Edit"
@@ -1860,7 +2106,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                                                 style={{ background: 'rgba(245,158,11,0.1)', border: 'none', borderRadius: '6px', color: '#f59e0b', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                             >
                                                                 <Share2 size={13} />
-                                                             </button>
+                                                            </button>
                                                             <button
                                                                 title="Delete"
                                                                 onClick={e => { e.stopPropagation(); handleDeleteTransaction(item, activeTab); }}
@@ -1876,9 +2122,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                         })}
                                     </tr>
                                 )})}
-                            </>
+                            </Fragment>
                         ))}
-                        {processedData.length === 0 && <tr><td colSpan={10} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No records found.</td></tr>}
+                        {processedData.length === 0 && <tr><td colSpan={activeTxCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No records found.</td></tr>}
                     </tbody>
                 </table>
             </div>
@@ -1974,7 +2220,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 </select>
 
                 {/* Column Picker */}
-                {(activeTab === 'accounts' || ['sales','purchases','quotations','receipts','payments','journals'].includes(activeTab)) && (
+                {tabColumns[activeTab] && (
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowColumnPicker(p => !p)}
                             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>

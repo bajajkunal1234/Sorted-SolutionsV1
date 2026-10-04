@@ -29,6 +29,57 @@ const DEFAULT_COLUMN_WIDTHS = {
     action: 140
 };
 
+function findBestMatchingSubset(items, target) {
+    if (!items || items.length === 0) return [];
+    
+    // 1. Exact single match
+    const exactSingle = items.find(r => Math.abs((parseFloat(r.amount) || 0) - target) < 0.05);
+    if (exactSingle) return [exactSingle.id];
+    
+    // 2. Exact sum of all items in list
+    const totalSum = items.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    if (Math.abs(totalSum - target) < 1.0) {
+        return items.map(r => r.id);
+    }
+    
+    // 3. Combinations search (up to 16 items)
+    const sorted = [...items].sort((a, b) => (parseFloat(b.amount) || 0) - (parseFloat(a.amount) || 0));
+    if (sorted.length <= 16) {
+        const n = sorted.length;
+        let bestSubset = [];
+        let bestDiff = Infinity;
+        for (let mask = 1; mask < (1 << n); mask++) {
+            let sum = 0;
+            const sub = [];
+            for (let i = 0; i < n; i++) {
+                if ((mask >> i) & 1) {
+                    sum += (parseFloat(sorted[i].amount) || 0);
+                    sub.push(sorted[i].id);
+                }
+            }
+            const diff = Math.abs(sum - target);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestSubset = sub;
+                if (diff < 0.05) break;
+            }
+        }
+        if (bestSubset.length > 0) return bestSubset;
+    }
+    
+    // 4. Greedy match
+    let curr = 0;
+    const gSub = [];
+    for (const r of sorted) {
+        const amt = parseFloat(r.amount) || 0;
+        if (curr + amt <= target + 5) {
+            curr += amt;
+            gSub.push(r.id);
+        }
+    }
+    return gSub.length > 0 ? gSub : [sorted[0].id];
+}
+
 export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
     // Default to 'transactions' subtab as requested
     const [localSubTab, setLocalSubTab] = useState('transactions');
@@ -1114,25 +1165,40 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const res = await fetch(`/api/admin/gateway-settlements?gateway_account_id=${gwId}&to=${row.date}&status=unsettled`);
             const json = await res.json();
 
-            const candidates = (json.receipts || []).filter(r => !r.is_settled && r.date <= row.date);
-            const candidateTotal = candidates.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-            const posTotal = candidates.filter(r => r.channelType === 'pos').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-            const techTotal = candidates.filter(r => r.channelType === 'technician').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-            const variance = +(row.amount - candidateTotal).toFixed(2);
+            const allCandidates = (json.receipts || []).filter(r => !r.is_settled && r.date <= row.date);
+
+            // Compute batch window: row.date - 3 days to row.date
+            const pDate = new Date(row.date);
+            const minBatchDate = new Date(pDate);
+            minBatchDate.setDate(minBatchDate.getDate() - 3);
+            const minBatchStr = minBatchDate.toISOString().split('T')[0];
+
+            const batchCandidates = allCandidates.filter(r => r.date >= minBatchStr && r.date <= row.date);
+            const defaultMode = batchCandidates.length > 0 ? 'batch' : 'all';
+            const initialPool = defaultMode === 'batch' ? batchCandidates : allCandidates;
+
+            // Smart subset selection: find combination matching closest to payout amount
+            const bestIds = findBestMatchingSubset(initialPool, row.amount);
+            const initialSelectedIds = new Set(bestIds);
+
+            const initialSelectedRecs = initialPool.filter(r => initialSelectedIds.has(r.id));
+            const initialSelectedTotal = initialSelectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const initialVariance = +(row.amount - initialSelectedTotal).toFixed(2);
+            const absDiff = Math.abs(initialVariance);
+            const diffPct = initialSelectedTotal > 0 ? (absDiff / initialSelectedTotal) * 100 : 0;
+            const isReasonableFee = initialVariance < 0 && diffPct <= 5.0;
 
             setGatewaySettleModal({
                 row,
                 gatewayAccount: targetGw,
                 gatewayAccountId: gwId,
-                candidates,
-                candidateCount: candidates.length,
-                candidateTotal,
-                posTotal,
-                techTotal,
-                variance,
-                autoBalanceMissing: variance > 0,
-                createCommission: variance < 0,
-                commissionFee: variance < 0 ? Math.abs(variance).toString() : '',
+                allCandidates,
+                windowMode: defaultMode,
+                selectedReceiptIds: initialSelectedIds,
+                searchQuery: '',
+                autoBalanceMissing: initialVariance > 0,
+                createCommission: isReasonableFee,
+                commissionFee: isReasonableFee ? absDiff.toFixed(2) : '',
                 notes: `Gateway settlement payout ${row.refNo || ''}`
             });
         } catch (err) {
@@ -1147,8 +1213,18 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         if (!gatewaySettleModal) return;
         try {
             setSaving(true);
-            const { row, gatewayAccountId, candidates, variance, autoBalanceMissing, createCommission, commissionFee, notes } = gatewaySettleModal;
+            const { row, gatewayAccountId, allCandidates, selectedReceiptIds, autoBalanceMissing, createCommission, commissionFee, notes } = gatewaySettleModal;
+            const selectedRecs = allCandidates.filter(r => selectedReceiptIds.has(r.id));
+            const selectedTotal = selectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const variance = +(row.amount - selectedTotal).toFixed(2);
             const feeNum = parseFloat(commissionFee) || 0;
+            const receiptIdList = Array.from(selectedReceiptIds);
+
+            if (receiptIdList.length === 0 && !autoBalanceMissing) {
+                alert('Please select at least one collection receipt to settle, or check auto-balance.');
+                setSaving(false);
+                return;
+            }
 
             const res = await fetch('/api/admin/gateway-settlements', {
                 method: 'POST',
@@ -1159,8 +1235,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     payout_source: row.origin === 'statement' ? 'statement' : 'alert',
                     gateway_account_id: gatewayAccountId,
                     destination_account_id: selectedAccountId,
-                    receipt_ids: candidates.map(r => r.id),
+                    receipt_ids: receiptIdList,
                     bank_amount: row.amount,
+                    gross_amount: selectedTotal,
                     settlement_ref: row.refNo,
                     settlement_date: row.date,
                     create_missing_voucher: autoBalanceMissing,
@@ -3179,229 +3256,495 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             )}
 
             {/* GATEWAY SETTLEMENT & BATCH RECONCILIATION MODAL */}
-            {gatewaySettleModal && (
-                <div
-                    onClick={() => setGatewaySettleModal(null)}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                        backdropFilter: 'blur(3px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 1100,
-                        padding: '16px'
-                    }}
-                >
+            {gatewaySettleModal && (() => {
+                const pDate = new Date(gatewaySettleModal.row.date);
+                const minBatchDate = new Date(pDate);
+                minBatchDate.setDate(minBatchDate.getDate() - 3);
+                const minBatchStr = minBatchDate.toISOString().split('T')[0];
+
+                const batchCount = gatewaySettleModal.allCandidates.filter(r => r.date >= minBatchStr && r.date <= gatewaySettleModal.row.date).length;
+                const dayCount = gatewaySettleModal.allCandidates.filter(r => r.date === gatewaySettleModal.row.date).length;
+
+                let visibleList = gatewaySettleModal.allCandidates;
+                if (gatewaySettleModal.windowMode === 'batch') {
+                    visibleList = visibleList.filter(r => r.date >= minBatchStr && r.date <= gatewaySettleModal.row.date);
+                } else if (gatewaySettleModal.windowMode === 'day') {
+                    visibleList = visibleList.filter(r => r.date === gatewaySettleModal.row.date);
+                }
+
+                if (gatewaySettleModal.searchQuery?.trim()) {
+                    const q = gatewaySettleModal.searchQuery.toLowerCase().trim();
+                    visibleList = visibleList.filter(r => 
+                        (r.receipt_number || '').toLowerCase().includes(q) ||
+                        (r.account_name || '').toLowerCase().includes(q) ||
+                        (r.narration || '').toLowerCase().includes(q) ||
+                        (r.technicianName || '').toLowerCase().includes(q) ||
+                        (r.jobNumber || '').toLowerCase().includes(q)
+                    );
+                }
+
+                const selectedRecs = gatewaySettleModal.allCandidates.filter(r => gatewaySettleModal.selectedReceiptIds.has(r.id));
+                const selectedTotal = selectedRecs.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                const selectedCount = selectedRecs.length;
+                const posSelectedTotal = selectedRecs.filter(r => r.channelType === 'pos').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                const techSelectedTotal = selectedRecs.filter(r => r.channelType === 'technician').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+
+                const variance = +(gatewaySettleModal.row.amount - selectedTotal).toFixed(2);
+                const absDiff = Math.abs(variance);
+                const diffPct = selectedTotal > 0 ? (absDiff / selectedTotal) * 100 : 0;
+                const isReasonableFee = variance < 0 && diffPct <= 5.0;
+                const isExcessiveDiff = variance < 0 && diffPct > 5.0;
+
+                const toggleReceipt = (id) => {
+                    const next = new Set(gatewaySettleModal.selectedReceiptIds);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+
+                    const newSel = gatewaySettleModal.allCandidates.filter(r => next.has(r.id));
+                    const newTot = newSel.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                    const newVar = +(gatewaySettleModal.row.amount - newTot).toFixed(2);
+                    const newDiff = Math.abs(newVar);
+                    const newPct = newTot > 0 ? (newDiff / newTot) * 100 : 0;
+                    const isFee = newVar < 0 && newPct <= 5.0;
+
+                    setGatewaySettleModal({
+                        ...gatewaySettleModal,
+                        selectedReceiptIds: next,
+                        autoBalanceMissing: newVar > 0,
+                        createCommission: isFee,
+                        commissionFee: isFee ? newDiff.toFixed(2) : ''
+                    });
+                };
+
+                const updateSelection = (nextIds) => {
+                    const newSel = gatewaySettleModal.allCandidates.filter(r => nextIds.has(r.id));
+                    const newTot = newSel.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+                    const newVar = +(gatewaySettleModal.row.amount - newTot).toFixed(2);
+                    const newDiff = Math.abs(newVar);
+                    const newPct = newTot > 0 ? (newDiff / newTot) * 100 : 0;
+                    const isFee = newVar < 0 && newPct <= 5.0;
+
+                    setGatewaySettleModal({
+                        ...gatewaySettleModal,
+                        selectedReceiptIds: nextIds,
+                        autoBalanceMissing: newVar > 0,
+                        createCommission: isFee,
+                        commissionFee: isFee ? newDiff.toFixed(2) : ''
+                    });
+                };
+
+                return (
                     <div
-                        onClick={e => e.stopPropagation()}
+                        onClick={() => setGatewaySettleModal(null)}
                         style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            width: '100%',
-                            maxWidth: '560px',
-                            maxHeight: '90vh',
-                            overflowY: 'auto',
-                            padding: '18px',
-                            boxShadow: 'var(--shadow-xl)',
+                            position: 'fixed',
+                            inset: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                            backdropFilter: 'blur(3px)',
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: '14px'
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1100,
+                            padding: '16px'
                         }}
                     >
-                        {/* Modal Header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
-                            <div>
-                                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Sparkles size={16} style={{ color: '#0ea5e9' }} />
-                                    <span>Reconcile {gatewaySettleModal.gatewayAccount?.name || 'Gateway'} Payout</span>
-                                </h3>
-                                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
-                                    Double-entry settlement: clears gateway ledger, records MDR fees, credits bank
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setGatewaySettleModal(null)}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px' }}
-                            >
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        {/* Bank Payout Details Card */}
-                        <div style={{
-                            backgroundColor: 'rgba(14, 165, 233, 0.08)',
-                            border: '1px solid rgba(14, 165, 233, 0.25)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '6px',
-                            fontSize: '11.5px'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Statement Credit</span>
-                                <span style={{ fontWeight: 800, fontSize: '15px', color: '#10b981' }}>
-                                    +₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
-                            <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word', fontSize: '11px' }}>
-                                {gatewaySettleModal.row.particulars}
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-tertiary)', fontSize: '10px' }}>
-                                <span>Date: {gatewaySettleModal.row.date}</span>
-                                <span>Ref: {gatewaySettleModal.row.refNo || 'NEFT/CMS'}</span>
-                            </div>
-                        </div>
-
-                        {/* Candidate Receipts Summary Card */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-secondary)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px',
-                            fontSize: '11.5px'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                    Unsettled Customer Collections ({gatewaySettleModal.candidateCount} found)
-                                </span>
-                                <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-primary)' }}>
-                                    ₹{gatewaySettleModal.candidateTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', fontSize: '11px', flexWrap: 'wrap' }}>
-                                <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 600 }}>
-                                    🛒 POS Sales: ₹{gatewaySettleModal.posTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </span>
-                                <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontWeight: 600 }}>
-                                    🔧 Technician: ₹{gatewaySettleModal.techTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </span>
-                            </div>
-
-                            {/* Variance Diagnosis */}
-                            <div style={{
-                                marginTop: '4px',
-                                padding: '8px 10px',
-                                borderRadius: 'var(--radius-sm)',
-                                backgroundColor: Math.abs(gatewaySettleModal.variance) < 0.01
-                                    ? 'rgba(16, 185, 129, 0.1)'
-                                    : gatewaySettleModal.variance < 0
-                                        ? 'rgba(245, 158, 11, 0.1)'
-                                        : 'rgba(239, 68, 68, 0.1)',
-                                border: `1px solid ${Math.abs(gatewaySettleModal.variance) < 0.01
-                                    ? 'rgba(16, 185, 129, 0.3)'
-                                    : gatewaySettleModal.variance < 0
-                                        ? 'rgba(245, 158, 11, 0.3)'
-                                        : 'rgba(239, 68, 68, 0.3)'}`,
+                        <div
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                width: '100%',
+                                maxWidth: '680px',
+                                maxHeight: '92vh',
+                                overflowY: 'auto',
+                                padding: '18px',
+                                boxShadow: 'var(--shadow-xl)',
                                 display: 'flex',
+                                flexDirection: 'column',
+                                gap: '12px'
+                            }}
+                        >
+                            {/* Modal Header */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Sparkles size={16} style={{ color: '#0ea5e9' }} />
+                                        <span>Reconcile {gatewaySettleModal.gatewayAccount?.name || 'Gateway'} Payout</span>
+                                    </h3>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+                                        Double-entry settlement: clears selected customer collections from gateway ledger, records MDR fees, credits bank
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setGatewaySettleModal(null)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px' }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Bank Statement Credit Card */}
+                            <div style={{
+                                backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                                border: '1px solid rgba(14, 165, 233, 0.25)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: '10px 12px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
                                 alignItems: 'center',
-                                justifyContent: 'space-between'
+                                fontSize: '11.5px'
                             }}>
-                                <span style={{ fontWeight: 600, fontSize: '11px' }}>
-                                    {Math.abs(gatewaySettleModal.variance) < 0.01
-                                        ? '✅ Exact Match: Bank credit matches collections perfectly!'
-                                        : gatewaySettleModal.variance < 0
-                                            ? `💡 Fee / Commission: ₹${Math.abs(gatewaySettleModal.variance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} deducted by gateway`
-                                            : `⚠️ Unrecorded: ₹${gatewaySettleModal.variance.toLocaleString('en-IN', { minimumFractionDigits: 2 })} more in bank than recorded`}
-                                </span>
-                                <span style={{ fontWeight: 800, fontSize: '12px' }}>
-                                    Diff: ₹{Math.abs(gatewaySettleModal.variance).toFixed(2)}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Variance Auto-Resolutions */}
-                        {gatewaySettleModal.variance < 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={gatewaySettleModal.createCommission}
-                                        onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, createCommission: e.target.checked })}
-                                    />
-                                    <span>Auto-create Purchase Voucher for Gateway Commission (MDR Charges)</span>
-                                </label>
-                                {gatewaySettleModal.createCommission && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '22px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>MDR Amount: ₹</span>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            value={gatewaySettleModal.commissionFee}
-                                            onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, commissionFee: e.target.value })}
-                                            style={{ width: '100px', padding: '3px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
-                                        />
+                                <div>
+                                    <div style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: '10.5px', textTransform: 'uppercase' }}>
+                                        Bank Statement Deposit Received
                                     </div>
-                                )}
+                                    <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '11px', marginTop: '2px', wordBreak: 'break-word', maxWidth: '420px' }}>
+                                        {gatewaySettleModal.row.particulars}
+                                    </div>
+                                    <div style={{ color: 'var(--text-tertiary)', fontSize: '10px', marginTop: '2px' }}>
+                                        Date: {gatewaySettleModal.row.date} · Ref: {gatewaySettleModal.row.refNo || 'NEFT/CMS'}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontWeight: 800, fontSize: '18px', color: '#10b981' }}>
+                                        +₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
                             </div>
-                        )}
 
-                        {gatewaySettleModal.variance > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
+                            {/* Candidate Receipts Selection Card */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-secondary)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                padding: '12px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                fontSize: '11.5px'
+                            }}>
+                                {/* Checklist Top Controls */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '12px' }}>
+                                        Select Collections in this Batch ({selectedCount} of {visibleList.length} checked)
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const best = findBestMatchingSubset(visibleList.length > 0 ? visibleList : gatewaySettleModal.allCandidates, gatewaySettleModal.row.amount);
+                                                updateSelection(new Set(best));
+                                            }}
+                                            style={{
+                                                padding: '3px 8px', fontSize: '10.5px', fontWeight: 600,
+                                                borderRadius: '4px', border: '1px solid #0ea5e9',
+                                                backgroundColor: 'rgba(14, 165, 233, 0.12)', color: '#0ea5e9',
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px'
+                                            }}
+                                        >
+                                            🎯 Auto-Match Total
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const next = new Set(gatewaySettleModal.selectedReceiptIds);
+                                                visibleList.forEach(r => next.add(r.id));
+                                                updateSelection(next);
+                                            }}
+                                            style={{ padding: '3px 7px', fontSize: '10.5px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                        >
+                                            Select All
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateSelection(new Set())}
+                                            style={{ padding: '3px 7px', fontSize: '10.5px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Date Window Filters & Search */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGatewaySettleModal({ ...gatewaySettleModal, windowMode: 'batch' })}
+                                            style={{
+                                                padding: '3px 8px', fontSize: '10.5px', borderRadius: '4px',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: gatewaySettleModal.windowMode === 'batch' ? 'var(--primary-color)' : 'var(--bg-elevated)',
+                                                color: gatewaySettleModal.windowMode === 'batch' ? '#fff' : 'var(--text-secondary)',
+                                                fontWeight: 600, cursor: 'pointer'
+                                            }}
+                                        >
+                                            Batch Window (±3 Days) ({batchCount})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGatewaySettleModal({ ...gatewaySettleModal, windowMode: 'day' })}
+                                            style={{
+                                                padding: '3px 8px', fontSize: '10.5px', borderRadius: '4px',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: gatewaySettleModal.windowMode === 'day' ? 'var(--primary-color)' : 'var(--bg-elevated)',
+                                                color: gatewaySettleModal.windowMode === 'day' ? '#fff' : 'var(--text-secondary)',
+                                                fontWeight: 600, cursor: 'pointer'
+                                            }}
+                                        >
+                                            Same Day ({dayCount})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGatewaySettleModal({ ...gatewaySettleModal, windowMode: 'all' })}
+                                            style={{
+                                                padding: '3px 8px', fontSize: '10.5px', borderRadius: '4px',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: gatewaySettleModal.windowMode === 'all' ? 'var(--primary-color)' : 'var(--bg-elevated)',
+                                                color: gatewaySettleModal.windowMode === 'all' ? '#fff' : 'var(--text-secondary)',
+                                                fontWeight: 600, cursor: 'pointer'
+                                            }}
+                                        >
+                                            All Unsettled ({gatewaySettleModal.allCandidates.length})
+                                        </button>
+                                    </div>
                                     <input
-                                        type="checkbox"
-                                        checked={gatewaySettleModal.autoBalanceMissing}
-                                        onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, autoBalanceMissing: e.target.checked })}
+                                        type="text"
+                                        placeholder="Filter receipts..."
+                                        value={gatewaySettleModal.searchQuery}
+                                        onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, searchQuery: e.target.value })}
+                                        style={{
+                                            padding: '3px 8px', fontSize: '11px', borderRadius: '4px',
+                                            border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)',
+                                            color: 'var(--text-primary)', width: '130px'
+                                        }}
                                     />
-                                    <span>Auto-create balancing receipt voucher for ₹{gatewaySettleModal.variance} unrecorded collections</span>
-                                </label>
-                            </div>
-                        )}
+                                </div>
 
-                        {/* Settlement Accounting Breakdown Note */}
-                        <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
-                            <strong>Accounting Entries upon confirmation:</strong>
-                            <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
-                                <li>Debit: {selectedAccount?.name || 'HDFC Current A/c'} (+₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
-                                <li>Credit: {gatewaySettleModal.gatewayAccount?.name || 'Google Pay Business Clearing'} (-₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
-                                {gatewaySettleModal.createCommission && (
-                                    <li>Debit: Payment Gateway MDR Fee | Credit: {gatewaySettleModal.gatewayAccount?.name} (₹{gatewaySettleModal.commissionFee})</li>
-                                )}
-                                <li>Status: {gatewaySettleModal.candidateCount} receipts marked as Settled (Cleared)</li>
-                            </ul>
-                        </div>
+                                {/* Scrollable Checklist Table */}
+                                <div style={{
+                                    maxHeight: '180px',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: 'var(--bg-elevated)'
+                                }}>
+                                    {visibleList.length === 0 ? (
+                                        <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '11px' }}>
+                                            No receipts found for this filter. Try switching to "All Unsettled".
+                                        </div>
+                                    ) : (
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left', color: 'var(--text-secondary)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                                    <th style={{ padding: '5px 8px', width: '28px' }}></th>
+                                                    <th style={{ padding: '5px 8px', width: '75px' }}>Date</th>
+                                                    <th style={{ padding: '5px 8px', width: '85px' }}>Channel</th>
+                                                    <th style={{ padding: '5px 8px' }}>Customer / Narration</th>
+                                                    <th style={{ padding: '5px 8px', textAlign: 'right', width: '85px' }}>Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {visibleList.map(r => {
+                                                    const isChecked = gatewaySettleModal.selectedReceiptIds.has(r.id);
+                                                    return (
+                                                        <tr
+                                                            key={r.id}
+                                                            onClick={() => toggleReceipt(r.id)}
+                                                            style={{
+                                                                borderBottom: '1px solid var(--border-primary)',
+                                                                cursor: 'pointer',
+                                                                backgroundColor: isChecked ? 'rgba(14, 165, 233, 0.08)' : 'transparent'
+                                                            }}
+                                                        >
+                                                            <td style={{ padding: '6px 8px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isChecked}
+                                                                    onChange={() => toggleReceipt(r.id)}
+                                                                    style={{ cursor: 'pointer' }}
+                                                                />
+                                                            </td>
+                                                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                                                                {r.date}
+                                                            </td>
+                                                            <td style={{ padding: '6px 8px' }}>
+                                                                {r.channelType === 'pos' ? (
+                                                                    <span style={{ padding: '1px 5px', borderRadius: '3px', backgroundColor: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', fontWeight: 600, fontSize: '9.5px' }}>
+                                                                        🏪 POS
+                                                                    </span>
+                                                                ) : r.channelType === 'technician' ? (
+                                                                    <span style={{ padding: '1px 5px', borderRadius: '3px', backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981', fontWeight: 600, fontSize: '9.5px' }}>
+                                                                        💼 Tech: {r.technicianName?.split(' ')[0] || 'Staff'}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ padding: '1px 5px', borderRadius: '3px', backgroundColor: 'rgba(107, 114, 128, 0.12)', color: '#6b7280', fontWeight: 600, fontSize: '9.5px' }}>
+                                                                        Direct
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: '6px 8px', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                                                                <span style={{ fontWeight: 600 }}>{r.account_name || 'Customer'}</span>
+                                                                <span style={{ fontSize: '9.5px', color: 'var(--text-tertiary)', marginLeft: '4px' }}>
+                                                                    ({r.receipt_number || r.jobNumber || 'REC'})
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                ₹{(parseFloat(r.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
 
-                        {/* Modal Actions */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
-                            <button
-                                type="button"
-                                onClick={() => setGatewaySettleModal(null)}
-                                disabled={saving}
-                                className="btn btn-secondary"
-                                style={{ fontSize: '11px', padding: '6px 12px' }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleConfirmGatewaySettle}
-                                disabled={saving}
-                                className="btn btn-primary"
-                                style={{
-                                    fontSize: '11px',
-                                    padding: '6px 14px',
-                                    backgroundColor: '#0ea5e9',
-                                    color: '#fff',
-                                    fontWeight: 700,
+                                {/* Dynamic Selection Totals */}
+                                <div style={{
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)',
+                                    fontSize: '11px'
+                                }}>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <span><strong>Selected:</strong> {selectedCount} receipts</span>
+                                        <span style={{ color: '#3b82f6' }}>POS: ₹{posSelectedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span style={{ color: '#10b981' }}>Tech: ₹{techSelectedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-primary)' }}>
+                                        Total: ₹{selectedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </div>
+                                </div>
+
+                                {/* Variance Diagnosis Alert */}
+                                <div style={{
+                                    padding: '8px 10px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: Math.abs(variance) < 0.05
+                                        ? 'rgba(16, 185, 129, 0.1)'
+                                        : isReasonableFee
+                                            ? 'rgba(245, 158, 11, 0.1)'
+                                            : isExcessiveDiff
+                                                ? 'rgba(239, 68, 68, 0.1)'
+                                                : 'rgba(59, 130, 246, 0.1)',
+                                    border: `1px solid ${Math.abs(variance) < 0.05
+                                        ? 'rgba(16, 185, 129, 0.3)'
+                                        : isReasonableFee
+                                            ? 'rgba(245, 158, 11, 0.3)'
+                                            : isExcessiveDiff
+                                                ? 'rgba(239, 68, 68, 0.3)'
+                                                : 'rgba(59, 130, 246, 0.3)'}`,
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px'
-                                }}
-                            >
-                                {saving && <Loader2 size={12} className="spin" />}
-                                Confirm Settlement & Transfer to Bank
-                            </button>
+                                    justifyContent: 'space-between',
+                                    fontSize: '11px'
+                                }}>
+                                    <span style={{ fontWeight: 600 }}>
+                                        {Math.abs(variance) < 0.05
+                                            ? '✅ Exact Match: Selected receipts match bank payout deposit perfectly!'
+                                            : isReasonableFee
+                                                ? `💡 Gateway MDR Commission: ₹${absDiff.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (~${diffPct.toFixed(2)}%) deducted by gateway`
+                                                : isExcessiveDiff
+                                                    ? `⚠️ Selected receipts exceed bank payout by ₹${absDiff.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (${diffPct.toFixed(0)}% extra). Uncheck receipts from other dates.`
+                                                    : `⚠️ Unrecorded: ₹${variance.toLocaleString('en-IN', { minimumFractionDigits: 2 })} more in bank credit than selected receipts.`}
+                                    </span>
+                                    <span style={{ fontWeight: 800, fontSize: '12px' }}>
+                                        Diff: ₹{absDiff.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Variance Auto-Resolutions */}
+                            {variance < 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={gatewaySettleModal.createCommission}
+                                            onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, createCommission: e.target.checked })}
+                                        />
+                                        <span>Auto-create Purchase Voucher for Gateway Commission (MDR Charges)</span>
+                                    </label>
+                                    {gatewaySettleModal.createCommission && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '22px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>MDR Amount: ₹</span>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={gatewaySettleModal.commissionFee}
+                                                onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, commissionFee: e.target.value })}
+                                                style={{ width: '100px', padding: '3px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {variance > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={gatewaySettleModal.autoBalanceMissing}
+                                            onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, autoBalanceMissing: e.target.checked })}
+                                        />
+                                        <span>Auto-create balancing receipt voucher for ₹{absDiff} unrecorded collections</span>
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Settlement Accounting Breakdown Note */}
+                            <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
+                                <strong>Accounting Entries upon confirmation:</strong>
+                                <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                                    <li>Debit: {selectedAccount?.name || 'HDFC Current A/c'} (+₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
+                                    <li>Credit: {gatewaySettleModal.gatewayAccount?.name || 'Google Pay Business Clearing'} (-₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
+                                    {gatewaySettleModal.createCommission && (
+                                        <li>Debit: Payment Gateway MDR Fee | Credit: {gatewaySettleModal.gatewayAccount?.name} (₹{gatewaySettleModal.commissionFee})</li>
+                                    )}
+                                    <li>Status: {selectedCount} receipts marked as Settled (Cleared)</li>
+                                </ul>
+                            </div>
+
+                            {/* Modal Actions */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setGatewaySettleModal(null)}
+                                    disabled={saving}
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: '11px', padding: '6px 12px' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmGatewaySettle}
+                                    disabled={saving || (selectedCount === 0 && !gatewaySettleModal.autoBalanceMissing)}
+                                    className="btn btn-primary"
+                                    style={{
+                                        fontSize: '11px',
+                                        padding: '6px 14px',
+                                        backgroundColor: '#0ea5e9',
+                                        color: '#fff',
+                                        fontWeight: 700,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        opacity: (selectedCount === 0 && !gatewaySettleModal.autoBalanceMissing) ? 0.5 : 1,
+                                        cursor: (selectedCount === 0 && !gatewaySettleModal.autoBalanceMissing) ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {saving && <Loader2 size={12} className="spin" />}
+                                    Confirm Settlement ({selectedCount} items · ₹{selectedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })})
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* INLINE RECONCILIATION FORMS (PAYMENT, RECEIPT, SALES, PURCHASE) */}
             {showVoucherForm && (
