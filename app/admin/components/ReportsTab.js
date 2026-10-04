@@ -24,7 +24,6 @@ import AdminPropertiesTab from './reports/AdminPropertiesTab';
 import CustomerAppSettings from './reports/CustomerAppSettings';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import AdminSupportPanel from '@/components/admin/support/AdminSupportPanel';
-import CustomerPayments from './reports/CustomerPayments';
 import SupportInbox from './reports/SupportInbox';
 import MapSettingsTab from './reports/MapSettingsTab';
 import InstalledDevicesReport from './reports/InstalledDevicesReport';
@@ -45,7 +44,12 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
 
     useEffect(() => {
         if (initialSection) {
-            setActiveSection(initialSection);
+            if (initialSection === 'customer-payments') {
+                setActiveSection('bank-accounts');
+                setBankAccountsSubTab('collections');
+            } else {
+                setActiveSection(initialSection);
+            }
             if (initialSubSection) {
                 setSubSection(initialSubSection);
             }
@@ -82,8 +86,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
         { id: 'notifications', label: 'Notification Center', icon: Bell, component: NotificationCenter, color: '#f59e0b', description: 'Manage push, WhatsApp notifications, templates and triggers' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
         { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
-        { id: 'bank-accounts', label: 'Bank Accounts', icon: Building2, component: BankAccountsReport, color: '#10b981', description: 'Manage bank settings and view transaction logs' },
-        { id: 'customer-payments', label: 'Customer Payments (Pending)', icon: DollarSign, component: CustomerPayments, color: '#f59e0b', description: 'Verify tracking of payments collected by technicians' },
+        { id: 'bank-accounts', label: 'Bank Accounts', icon: Building2, component: BankAccountsReport, color: '#10b981', description: 'Manage bank settings, customer collections, gateway clearing, and reconciliation' },
         { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
         { id: 'support-inbox', label: 'Support Inbox', icon: Mail, component: SupportInbox, color: '#3b82f6', description: 'Manage customer emails sent to support@sortedsolutions.in and other mailboxes' },
         { id: 'map-settings', label: 'Map Settings', icon: Globe, component: MapSettingsTab, color: '#06b6d4', description: 'Configure satellite views, marker styles, overlays and routing for maps' },
@@ -93,6 +96,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     // Create searchable index of all settings
     const searchSuggestions = [
         ...sections.map(s => ({ ...s, type: 'section' })),
+        { id: 'bank-accounts', subTab: 'collections', label: 'Customer Payments (Collections)', icon: DollarSign, color: '#f59e0b', description: 'Verify tracking of payments collected by technicians', type: 'section' },
         { id: 'pos-sales', label: 'Frequently Sold POS Items & Quantities', icon: Store, color: '#f59e0b', description: 'Fastest-moving items, quantities and sales analytics', type: 'section' },
         { id: 'pos-sales', label: 'Store POS Sales Summary', icon: Store, color: '#f59e0b', description: 'Over-the-counter sales, bills, and UPI vs cash split', type: 'section' },
         { id: 'day-planner', label: 'Payment Reminders (Planner)', icon: DollarSign, color: '#10b981', description: 'Schedule and manage payment due dates', type: 'section' },
@@ -122,9 +126,18 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
 
     const handleSelect = (item) => {
         if (item.type === 'section') {
-            setActiveSection(item.id);
+            if (item.id === 'customer-payments') {
+                setActiveSection('bank-accounts');
+                setBankAccountsSubTab('collections');
+            } else {
+                setActiveSection(item.id);
+                if (item.subTab) {
+                    if (item.id === 'bank-accounts') setBankAccountsSubTab(item.subTab);
+                    else setCustomSubTab(item.subTab);
+                }
+            }
             setSubSection(null);
-            setCustomSubTab(null);
+            if (!item.subTab) setCustomSubTab(null);
         } else if (item.type === 'website-setting') {
             setActiveSection(item.parentId);
             setSubSection(item.id);
@@ -377,6 +390,19 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                         >
                             <History size={12} style={{ opacity: 0.8 }} />
                             Transactions
+                        </button>
+                        <button
+                            onClick={() => setBankAccountsSubTab('collections')}
+                            style={{
+                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                backgroundColor: bankAccountsSubTab === 'collections' ? 'var(--bg-elevated)' : 'transparent',
+                                color: bankAccountsSubTab === 'collections' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <DollarSign size={12} style={{ opacity: 0.8 }} />
+                            Collections
                         </button>
                         <button
                             onClick={() => setBankAccountsSubTab('gateways')}
