@@ -91,9 +91,11 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                 setSelectedIds(new Set());
             } else {
                 console.error('Failed to load gateway data:', json.error);
+                setActionMessage({ type: 'error', text: json.error || 'Failed to load gateway transactions' });
             }
         } catch (err) {
             console.error('Fetch error:', err);
+            setActionMessage({ type: 'error', text: err.message || 'Network error fetching gateway transactions' });
         } finally {
             setLoading(false);
         }

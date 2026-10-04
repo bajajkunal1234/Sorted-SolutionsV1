@@ -54,7 +54,7 @@ export async function GET(request) {
                 id, receipt_number, reference, reference_number, date, amount,
                 payment_mode, narration, account_id, account_name, job_id,
                 payment_account_id, is_settled, settlement_ref, settled_at, source, created_by,
-                jobs:jobs(job_number, technician_id, technicians(id, name, mobile))
+                jobs:jobs(job_number, technician_id, technicians:technicians(id, name, phone))
             `)
             .in('payment_account_id', gatewayIds)
             .neq('status', 'cancelled')
