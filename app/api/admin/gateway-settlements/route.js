@@ -99,15 +99,84 @@ export async function GET(request) {
         const posTotal = unsettledOnly.filter(r => r.channelType === 'pos').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
         const techTotal = unsettledOnly.filter(r => r.channelType === 'technician').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
 
-        // 3. Fetch past settlements
+        // 3. Fetch past settlements with enriched accounts and linked receipts
         let settlementsQuery = supabase
             .from('gateway_settlements')
             .select('*')
             .order('settlement_date', { ascending: false })
-            .limit(50);
+            .limit(100);
 
         if (gatewayId) settlementsQuery = settlementsQuery.eq('gateway_account_id', gatewayId);
-        const { data: settlements } = await settlementsQuery;
+        const { data: rawSettlements } = await settlementsQuery;
+
+        // Collect all linked receipt IDs, account IDs, and purchase invoice IDs
+        const allLinkedReceiptIds = Array.from(new Set(
+            (rawSettlements || []).flatMap(s => Array.isArray(s.receipt_ids) ? s.receipt_ids : [])
+        ));
+        const allAccIds = Array.from(new Set(
+            (rawSettlements || []).flatMap(s => [s.gateway_account_id, s.destination_account_id].filter(Boolean))
+        ));
+        const allPiIds = Array.from(new Set(
+            (rawSettlements || []).map(s => s.purchase_invoice_id).filter(Boolean)
+        ));
+
+        const [linkedRecsRes, extraAccsRes, linkedPisRes] = await Promise.all([
+            allLinkedReceiptIds.length > 0
+                ? supabase
+                    .from('receipt_vouchers')
+                    .select(`
+                        id, receipt_number, reference, reference_number, date, amount,
+                        payment_mode, narration, account_id, account_name, job_id,
+                        payment_account_id, is_settled, settlement_ref, settled_at, source,
+                        jobs:jobs(job_number, technician_id, technicians:technicians(id, name, phone))
+                    `)
+                    .in('id', allLinkedReceiptIds)
+                : Promise.resolve({ data: [] }),
+            allAccIds.length > 0
+                ? supabase
+                    .from('accounts')
+                    .select('id, name, code, type')
+                    .in('id', allAccIds)
+                : Promise.resolve({ data: [] }),
+            allPiIds.length > 0
+                ? supabase
+                    .from('purchase_invoices')
+                    .select('id, invoice_number, total_amount, subtotal, date, status, notes')
+                    .in('id', allPiIds)
+                : Promise.resolve({ data: [] })
+        ]);
+
+        const linkedRecsMap = {};
+        (linkedRecsRes.data || []).forEach(r => {
+            const narr = (r.narration || '').toLowerCase();
+            const isPos = r.source === 'POS' || narr.includes('store pos') || (!r.job_id && (narr.includes('pos') || narr.includes('walk-in')));
+            const isTech = !!r.job_id || !!r.jobs?.technicians?.name || narr.includes('technician');
+            linkedRecsMap[r.id] = {
+                ...r,
+                channelType: isPos ? 'pos' : (isTech ? 'technician' : 'direct'),
+                technicianName: r.jobs?.technicians?.name || (isTech ? 'Field Technician' : null),
+                jobNumber: r.jobs?.job_number || null,
+            };
+        });
+
+        const accMap = {};
+        (extraAccsRes.data || []).forEach(a => { accMap[a.id] = a; });
+
+        const piMap = {};
+        (linkedPisRes.data || []).forEach(p => { piMap[p.id] = p; });
+
+        const settlements = (rawSettlements || []).map(s => {
+            const ids = Array.isArray(s.receipt_ids) ? s.receipt_ids : [];
+            const linkedReceipts = ids.map(id => linkedRecsMap[id]).filter(Boolean);
+            return {
+                ...s,
+                gatewayAccount: accMap[s.gateway_account_id] || null,
+                destinationAccount: accMap[s.destination_account_id] || null,
+                purchaseInvoice: s.purchase_invoice_id ? piMap[s.purchase_invoice_id] || null : null,
+                receipts: linkedReceipts,
+                receiptCount: ids.length
+            };
+        });
 
         // 4. DETECT BANK SETTLEMENT PAYOUTS (from HDFC Statements & Gmail Alerts)
         // Match statement inflows containing gateway keywords
@@ -753,6 +822,218 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
     } catch (err) {
         console.error('Error processing gateway settlement:', err);
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+}
+
+// PUT: Edit existing settlement (update metadata, adjust linked receipts, adjust commission fee)
+export async function PUT(request) {
+    try {
+        const supabase = createServerSupabase();
+        const body = await request.json();
+        const {
+            id,
+            settlement_ref,
+            settlement_date,
+            notes,
+            fee_amount = 0,
+            tax_amount = 0,
+            receipt_ids = []
+        } = body;
+
+        if (!id) {
+            return NextResponse.json({ success: false, error: 'Settlement ID is required' }, { status: 400 });
+        }
+
+        // 1. Fetch current settlement record
+        const { data: current, error: getErr } = await supabase
+            .from('gateway_settlements')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (getErr || !current) {
+            return NextResponse.json({ success: false, error: 'Settlement not found' }, { status: 404 });
+        }
+
+        const oldReceiptIds = Array.isArray(current.receipt_ids) ? current.receipt_ids : [];
+        const newReceiptIds = Array.isArray(receipt_ids) ? receipt_ids : [];
+
+        // Identify added and removed receipts
+        const removedIds = oldReceiptIds.filter(rid => !newReceiptIds.includes(rid));
+        const addedIds = newReceiptIds.filter(rid => !oldReceiptIds.includes(rid));
+
+        // Un-settle removed receipts
+        if (removedIds.length > 0) {
+            await supabase
+                .from('receipt_vouchers')
+                .update({ is_settled: false, settlement_ref: null, settled_at: null })
+                .in('id', removedIds);
+        }
+
+        // Mark added receipts as settled
+        if (addedIds.length > 0) {
+            await supabase
+                .from('receipt_vouchers')
+                .update({
+                    is_settled: true,
+                    settlement_ref: settlement_ref || current.settlement_ref,
+                    settled_at: new Date().toISOString()
+                })
+                .in('id', addedIds);
+        }
+
+        // Compute new gross amount from all newReceiptIds
+        let newGross = 0;
+        if (newReceiptIds.length > 0) {
+            const { data: recs } = await supabase
+                .from('receipt_vouchers')
+                .select('amount')
+                .in('id', newReceiptIds);
+            newGross = (recs || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+        }
+
+        const newFee = parseFloat(fee_amount) || 0;
+        const newTax = parseFloat(tax_amount) || 0;
+        const totalCommission = newFee + newTax;
+        const newNet = +(newGross - totalCommission).toFixed(2);
+
+        // Update or create Purchase Invoice for gateway commission
+        let purchaseInvoiceId = current.purchase_invoice_id;
+        if (totalCommission > 0) {
+            if (purchaseInvoiceId) {
+                await supabase
+                    .from('purchase_invoices')
+                    .update({
+                        subtotal: newFee,
+                        total_tax: newTax,
+                        total_amount: totalCommission,
+                        date: settlement_date || current.settlement_date,
+                        notes: `Updated gateway commission on settlement ${settlement_ref || current.settlement_ref}`
+                    })
+                    .eq('id', purchaseInvoiceId);
+            } else {
+                const yy = new Date().getFullYear().toString().slice(-2);
+                const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                const { data: newPi } = await supabase
+                    .from('purchase_invoices')
+                    .insert([{
+                        invoice_number: invoiceNumber,
+                        account_id: current.gateway_account_id,
+                        account_name: 'Payment Gateway (MDR Fee)',
+                        date: settlement_date || current.settlement_date,
+                        subtotal: newFee,
+                        total_tax: newTax,
+                        total_amount: totalCommission,
+                        status: 'paid',
+                        category: 'Gateway Processing Charges',
+                        notes: `Gateway MDR processing fee on settlement ${settlement_ref || current.settlement_ref}`
+                    }])
+                    .select()
+                    .single();
+                if (newPi) purchaseInvoiceId = newPi.id;
+            }
+        } else if (totalCommission === 0 && purchaseInvoiceId) {
+            await supabase.from('purchase_invoices').delete().eq('id', purchaseInvoiceId);
+            purchaseInvoiceId = null;
+        }
+
+        // Update settlement record
+        const { data: updated, error: updErr } = await supabase
+            .from('gateway_settlements')
+            .update({
+                settlement_ref: settlement_ref || current.settlement_ref,
+                settlement_date: settlement_date || current.settlement_date,
+                gross_amount: newGross,
+                fee_amount: newFee,
+                tax_amount: newTax,
+                net_amount: newNet,
+                purchase_invoice_id: purchaseInvoiceId,
+                receipt_ids: newReceiptIds,
+                notes: notes !== undefined ? notes : current.notes
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (updErr) throw updErr;
+
+        return NextResponse.json({
+            success: true,
+            message: `Settlement ${updated.settlement_ref || ''} updated successfully (${newReceiptIds.length} collections linked)`,
+            settlement: updated
+        });
+    } catch (err) {
+        console.error('Error updating settlement:', err);
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+}
+
+// DELETE: Un-settle / Rollback a settlement
+export async function DELETE(request) {
+    try {
+        const supabase = createServerSupabase();
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+
+        if (!id) {
+            return NextResponse.json({ success: false, error: 'Settlement ID is required' }, { status: 400 });
+        }
+
+        const { data: current, error: getErr } = await supabase
+            .from('gateway_settlements')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (getErr || !current) {
+            return NextResponse.json({ success: false, error: 'Settlement not found' }, { status: 404 });
+        }
+
+        // 1. Un-settle all linked receipt vouchers
+        const receiptIds = Array.isArray(current.receipt_ids) ? current.receipt_ids : [];
+        if (receiptIds.length > 0) {
+            await supabase
+                .from('receipt_vouchers')
+                .update({ is_settled: false, settlement_ref: null, settled_at: null })
+                .in('id', receiptIds);
+        }
+
+        // 2. Delete linked purchase invoice voucher if any
+        if (current.purchase_invoice_id) {
+            await supabase
+                .from('purchase_invoices')
+                .delete()
+                .eq('id', current.purchase_invoice_id);
+        }
+
+        // 3. Revert linked bank statement transaction status if matching
+        if (current.settlement_ref) {
+            await supabase
+                .from('bank_statement_transactions')
+                .update({ status: 'unreconciled', voucher_id: null, reconciled_at: null })
+                .eq('ref_no', current.settlement_ref);
+
+            await supabase
+                .from('bank_alerts_log')
+                .update({ status: 'unreconciled', voucher_id: null })
+                .eq('reference_number', current.settlement_ref);
+        }
+
+        // 4. Delete the settlement record
+        const { error: delErr } = await supabase
+            .from('gateway_settlements')
+            .delete()
+            .eq('id', id);
+
+        if (delErr) throw delErr;
+
+        return NextResponse.json({
+            success: true,
+            message: `Settlement ${current.settlement_ref || ''} deleted and rolled back. All ${receiptIds.length} customer collections returned to holding.`
+        });
+    } catch (err) {
+        console.error('Error deleting settlement:', err);
         return NextResponse.json({ success: false, error: err.message }, { status: 500 });
     }
 }

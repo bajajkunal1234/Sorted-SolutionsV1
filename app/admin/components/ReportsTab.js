@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, CalendarClock, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download, Store, CreditCard } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, CalendarClock, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail, Download, Store, CreditCard, CheckCircle2 } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import StorePOSReport from './reports/StorePOSReport';
 import DayPlannerTab from './reports/DayPlannerTab';
@@ -390,6 +390,19 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                         >
                             <CreditCard size={12} style={{ opacity: 0.8 }} />
                             Payment Gateways
+                        </button>
+                        <button
+                            onClick={() => setBankAccountsSubTab('settlements')}
+                            style={{
+                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                backgroundColor: bankAccountsSubTab === 'settlements' ? 'var(--bg-elevated)' : 'transparent',
+                                color: bankAccountsSubTab === 'settlements' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <CheckCircle2 size={12} style={{ opacity: 0.8 }} />
+                            Settlements
                         </button>
                     </div>
                 )}

@@ -15,6 +15,7 @@ import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
 import LinkSystemEntryModal from './LinkSystemEntryModal';
 import PaymentGatewaysSubTab from './PaymentGatewaysSubTab';
+import SettlementsSubTab from './SettlementsSubTab';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
 
@@ -1603,6 +1604,17 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 Gateways
                             </button>
                             <button
+                                onClick={() => setActiveSubTab('settlements')}
+                                style={{
+                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                    backgroundColor: activeSubTab === 'settlements' ? 'var(--color-primary)' : 'transparent',
+                                    color: activeSubTab === 'settlements' ? 'white' : 'var(--text-secondary)',
+                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
+                                }}
+                            >
+                                Settlements
+                            </button>
+                            <button
                                 onClick={() => setActiveSubTab('setup')}
                                 style={{
                                     flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
@@ -1616,7 +1628,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         </div>
                     )}
 
-                    {activeSubTab !== 'gateways' && (
+                    {activeSubTab !== 'gateways' && activeSubTab !== 'settlements' && (
                         /* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row) */
                         <div style={{
                             display: 'flex',
@@ -1951,6 +1963,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     ) : activeSubTab === 'gateways' ? (
                         /* PAYMENT GATEWAYS TAB */
                         <PaymentGatewaysSubTab isMobile={isMobile} />
+                    ) : activeSubTab === 'settlements' ? (
+                        /* SETTLEMENTS & AUDIT RECONCILIATIONS TAB */
+                        <SettlementsSubTab isMobile={isMobile} />
                     ) : (
                         /* TRANSACTIONS RECONCILIATION TABLE & LEDGER VIEW (MOBILE FIRST) */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0 }}>
