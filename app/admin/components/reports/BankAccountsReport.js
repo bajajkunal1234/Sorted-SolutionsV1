@@ -457,6 +457,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         }
     };
 
+    const selectedAccount = useMemo(() => accounts.find(a => a.id === selectedAccountId), [accounts, selectedAccountId]);
+    const isCurrentGateway = useMemo(() => {
+        const name = (selectedAccount?.name || '').toLowerCase();
+        return name.includes('clearing') || name.includes('google pay') || name.includes('gpay') || name.includes('razorpay') || name.includes('pine');
+    }, [selectedAccount]);
+
     // Duplicate detection and unified ledger computation
     const {
         unifiedLedger,
@@ -508,10 +514,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         // 3. Match Bank Statement Transactions with Gmail Alerts and Build Unified Rows
         const matchedAlertIds = new Set();
         const rows = [];
-
-        const currentAccount = accounts.find(a => a.id === selectedAccountId);
-        const currentAccName = (currentAccount?.name || '').toLowerCase();
-        const isCurrentGateway = currentAccName.includes('clearing') || currentAccName.includes('google pay') || currentAccName.includes('gpay') || currentAccName.includes('razorpay') || currentAccName.includes('pine');
 
         // Helper to detect gateway provider from text
         const detectGateway = (text) => {
@@ -890,7 +892,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         });
 
         return list;
-    }, [unifiedLedger, activeFilter, searchTerm, sortConfig]);
+    }, [unifiedLedger, activeFilter, searchTerm, sortConfig, isCurrentGateway]);
 
     // Handle Bank Statement Upload
     const handleFileUpload = async (e) => {
@@ -1439,8 +1441,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             setTesting(false);
         }
     };
-
-    const selectedAccount = accounts.find(a => a.id === selectedAccountId);
 
     if (loading && accounts.length === 0) {
         return (
