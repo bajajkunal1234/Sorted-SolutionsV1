@@ -90,13 +90,17 @@ async function syncJournalEntry(type, txData) {
         } else if (type === 'receipt') {
             const total = amt(txData.amount);
             const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
-            const recAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
+            const mode = (txData.payment_mode || '').toLowerCase();
+            const isCash = mode === 'cash';
+            const recAcc = explicitAcc || (isCash ? cashAcc : bankAcc);
             if (recAcc) lines.push({ account_id: recAcc.id, debit: total, credit: 0 });
             lines.push({ account_id: txData.account_id, debit: 0, credit: total });
         } else if (type === 'payment') {
             const total = amt(txData.amount);
             const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
-            const payAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
+            const mode = (txData.payment_mode || '').toLowerCase();
+            const isCash = mode === 'cash';
+            const payAcc = explicitAcc || (isCash ? cashAcc : bankAcc);
             lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
             if (payAcc) lines.push({ account_id: payAcc.id, debit: 0, credit: total });
         }
@@ -122,8 +126,9 @@ async function syncJournalEntry(type, txData) {
             }
             const entry_number = `JV-${yy}-${String(nextSeq).padStart(4, '0')}`;
             
+            const noteText = txData.narration || txData.notes || `${type === 'receipt' ? 'Receipt Voucher' : type === 'payment' ? 'Payment Voucher' : `${type.toUpperCase()} Invoice`}`;
             const { data: jeData, error } = await supabase.from('journal_entries').insert([{
-                entry_number, date: txData.date, reference_type: `${type}_invoice`, reference_id: txData.id, notes: `Auto-journal for ${type}`
+                entry_number, date: txData.date, reference_type: `${type}_invoice`, reference_id: txData.id, notes: noteText
             }]).select().single();
 
             if (jeData && !error) {
@@ -323,6 +328,16 @@ export async function POST(request) {
                 console.log(`[DUPLICATE CHECK] Payment already exists: ${existingPayment.payment_number}`);
                 return NextResponse.json({ success: true, data: existingPayment });
             }
+        }
+
+        // Auto-assign payment_account_id for receipts and payments if not explicitly passed
+        if ((type === 'receipt' || type === 'payment') && !payload.payment_account_id) {
+            const { data: allAccs } = await supabase.from('accounts').select('id, name, under');
+            const isCashMode = (payload.payment_mode || '').toLowerCase() === 'cash';
+            const fallbackAcc = isCashMode
+                ? (allAccs?.find(a => a.under?.toLowerCase().includes('cash') || a.name?.toLowerCase().includes('cash')))
+                : (allAccs?.find(a => a.under?.toLowerCase().includes('bank') && a.name?.toLowerCase().includes('current')) || allAccs?.find(a => a.under?.toLowerCase().includes('bank')));
+            if (fallbackAcc) payload.payment_account_id = fallbackAcc.id;
         }
 
         const { data, error } = await supabase
@@ -626,6 +641,15 @@ export async function PUT(request) {
             Object.keys(updates).forEach(key => {
                 if (updates[key] === '') updates[key] = null;
             });
+        }
+
+        if ((type === 'receipt' || type === 'payment') && !updates.payment_account_id && updates.payment_mode) {
+            const { data: allAccs } = await supabase.from('accounts').select('id, name, under');
+            const isCashMode = (updates.payment_mode || '').toLowerCase() === 'cash';
+            const fallbackAcc = isCashMode
+                ? (allAccs?.find(a => a.under?.toLowerCase().includes('cash') || a.name?.toLowerCase().includes('cash')))
+                : (allAccs?.find(a => a.under?.toLowerCase().includes('bank') && a.name?.toLowerCase().includes('current')) || allAccs?.find(a => a.under?.toLowerCase().includes('bank')));
+            if (fallbackAcc) updates.payment_account_id = fallbackAcc.id;
         }
 
         const { data, error } = await supabase

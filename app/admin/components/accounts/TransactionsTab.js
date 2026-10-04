@@ -231,11 +231,13 @@ function TransactionsTab({ accountId, accountName, account }) {
                 const amt = parseFloat(r.amount) || 0;
                 coveredRefs.add(r.id);
                 // For the bank account: receipt = debit (money came into bank)
+                const party = r.account_name || 'Customer';
+                const desc = r.narration ? `${party} — ${r.narration}` : `${party} (Receipt via ${r.payment_mode || 'Bank'})`;
                 addIfNew(key, {
                     id: r.id, originalId: r.id,
                     date: r.date, type: 'receipt',
                     reference: r.receipt_number || r.reference || '—',
-                    description: r.narration || `Receipt via ${r.payment_mode || ''}`,
+                    description: desc,
                     debit: amt, credit: 0,
                     balance: 0, status: r.status || 'finalized',
                     canEdit: true, isNonFinancial: false, rawData: r,
@@ -265,11 +267,13 @@ function TransactionsTab({ accountId, accountName, account }) {
                 const amt = parseFloat(p.amount) || 0;
                 coveredRefs.add(p.id);
                 // For the bank account: payment = credit (money left the bank)
+                const party = p.account_name || 'Vendor / Payee';
+                const desc = p.narration ? `${party} — ${p.narration}` : `${party} (Payment via ${p.payment_mode || 'Bank'})`;
                 addIfNew(key, {
                     id: p.id, originalId: p.id,
                     date: p.date, type: 'payment',
                     reference: p.payment_number || p.reference || '—',
-                    description: p.narration || `Payment via ${p.payment_mode || ''}`,
+                    description: desc,
                     debit: 0, credit: amt,
                     balance: 0, status: p.status || 'finalized',
                     canEdit: true, isNonFinancial: false, rawData: p,
@@ -326,6 +330,56 @@ function TransactionsTab({ accountId, accountName, account }) {
             });
 
             // ── Layer 2: add journal lines NOT already covered by Layer 1 ────
+            // Collect any uncovered reference_ids so we can resolve real voucher numbers & party names
+            const uncovReceiptIds = [];
+            const uncovPaymentIds = [];
+            const uncovSalesIds = [];
+            const uncovPurchIds = [];
+
+            (journalLines || []).forEach(line => {
+                const je = line.journal_entries;
+                if (!je || !je.reference_id) return;
+                if (coveredRefs.has(je.reference_id)) return;
+                if (je.reference_type === 'receipt_invoice') uncovReceiptIds.push(je.reference_id);
+                else if (je.reference_type === 'payment_invoice') uncovPaymentIds.push(je.reference_id);
+                else if (je.reference_type === 'sales_invoice') uncovSalesIds.push(je.reference_id);
+                else if (je.reference_type === 'purchase_invoice') uncovPurchIds.push(je.reference_id);
+            });
+
+            const refDataMap = new Map();
+            const fetchPromises = [];
+            if (uncovReceiptIds.length > 0) {
+                fetchPromises.push(
+                    supabase.from('receipt_vouchers').select('id, receipt_number, reference, narration, payment_mode, account_name').in('id', uncovReceiptIds).then(({ data }) => {
+                        (data || []).forEach(d => refDataMap.set(`receipt:${d.id}`, d));
+                    })
+                );
+            }
+            if (uncovPaymentIds.length > 0) {
+                fetchPromises.push(
+                    supabase.from('payment_vouchers').select('id, payment_number, reference, narration, payment_mode, account_name').in('id', uncovPaymentIds).then(({ data }) => {
+                        (data || []).forEach(d => refDataMap.set(`payment:${d.id}`, d));
+                    })
+                );
+            }
+            if (uncovSalesIds.length > 0) {
+                fetchPromises.push(
+                    supabase.from('sales_invoices').select('id, invoice_number, reference, notes, account_name').in('id', uncovSalesIds).then(({ data }) => {
+                        (data || []).forEach(d => refDataMap.set(`sales:${d.id}`, d));
+                    })
+                );
+            }
+            if (uncovPurchIds.length > 0) {
+                fetchPromises.push(
+                    supabase.from('purchase_invoices').select('id, invoice_number, reference, notes, account_name').in('id', uncovPurchIds).then(({ data }) => {
+                        (data || []).forEach(d => refDataMap.set(`purch:${d.id}`, d));
+                    })
+                );
+            }
+            if (fetchPromises.length > 0) {
+                await Promise.all(fetchPromises);
+            }
+
             (journalLines || []).forEach(line => {
                 const je = line.journal_entries;
                 if (!je) return;
@@ -334,18 +388,51 @@ function TransactionsTab({ accountId, accountName, account }) {
                 if (refId && coveredRefs.has(refId)) return;
 
                 const key = `jl:${line.id}`;
-                // Determine type from reference_type
                 let type = 'journal';
-                if (je.reference_type === 'sales_invoice') type = 'sales_invoice';
-                else if (je.reference_type === 'purchase_invoice') type = 'purchase_invoice';
-                else if (je.reference_type === 'receipt_invoice') type = 'receipt';
-                else if (je.reference_type === 'payment_invoice') type = 'payment';
+                let refNum = je.entry_number || '—';
+                let desc = je.notes || '—';
+
+                if (je.reference_type === 'receipt_invoice' && refId) {
+                    type = 'receipt';
+                    const doc = refDataMap.get(`receipt:${refId}`);
+                    if (doc) {
+                        refNum = doc.receipt_number || doc.reference || refNum;
+                        const party = doc.account_name || 'Customer';
+                        desc = doc.narration ? `${party} — ${doc.narration}` : `${party} (Receipt via ${doc.payment_mode || 'Bank'})`;
+                    }
+                } else if (je.reference_type === 'payment_invoice' && refId) {
+                    type = 'payment';
+                    const doc = refDataMap.get(`payment:${refId}`);
+                    if (doc) {
+                        refNum = doc.payment_number || doc.reference || refNum;
+                        const party = doc.account_name || 'Vendor / Payee';
+                        desc = doc.narration ? `${party} — ${doc.narration}` : `${party} (Payment via ${doc.payment_mode || 'Bank'})`;
+                    }
+                } else if (je.reference_type === 'sales_invoice' && refId) {
+                    type = 'sales_invoice';
+                    const doc = refDataMap.get(`sales:${refId}`);
+                    if (doc) {
+                        refNum = doc.invoice_number || doc.reference || refNum;
+                        desc = doc.notes || `Sales to ${doc.account_name || ''}`;
+                    }
+                } else if (je.reference_type === 'purchase_invoice' && refId) {
+                    type = 'purchase_invoice';
+                    const doc = refDataMap.get(`purch:${refId}`);
+                    if (doc) {
+                        refNum = doc.invoice_number || doc.reference || refNum;
+                        desc = doc.notes || `Purchase from ${doc.account_name || ''}`;
+                    }
+                } else {
+                    type = 'journal';
+                    refNum = je.entry_number || '—';
+                    desc = je.notes || 'Journal Entry';
+                }
 
                 addIfNew(key, {
                     id: line.id, originalId: refId || null,
                     date: je.date, type,
-                    reference: je.entry_number || '—',
-                    description: je.notes || '—',
+                    reference: refNum,
+                    description: desc,
                     debit: parseFloat(line.debit) || 0,
                     credit: parseFloat(line.credit) || 0,
                     balance: 0,
