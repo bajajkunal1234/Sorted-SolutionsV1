@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Search, CheckCircle, AlertCircle, Loader2, ArrowRight, Link2, CreditCard, Receipt, FileText, ShoppingCart } from 'lucide-react';
+import { X, Search, CheckCircle, AlertCircle, Loader2, ArrowRight, Link2, CreditCard, Receipt, FileText, ShoppingCart, Sparkles } from 'lucide-react';
 
 export default function LinkSystemEntryModal({
     isOpen,
@@ -33,22 +33,39 @@ export default function LinkSystemEntryModal({
         if (!selectedAccountId || !bankTx) return;
         setLoading(true);
         try {
+            const part = (bankTx.particulars || '').toLowerCase();
+            const isGatewayPayout = bankTx.isGatewayPayout ||
+                                    part.includes('google') ||
+                                    part.includes('gpay') ||
+                                    part.includes('razorpay') ||
+                                    part.includes('pine') ||
+                                    part.includes('utib0000553');
+
+            const gatewayAccountIds = ['8eaf830c-547b-411c-b93b-f3912e995206', '3070761d-3529-4038-8eda-a4c7728a41c6'];
+
+            let recQuery = supabase
+                .from('receipt_vouchers')
+                .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, is_settled, settlement_ref')
+                .neq('status', 'cancelled')
+                .order('date', { ascending: false })
+                .limit(100);
+
+            if (isGatewayPayout) {
+                recQuery = recQuery.or(`payment_account_id.eq.${selectedAccountId},account_id.eq.${selectedAccountId},payment_account_id.in.(${gatewayAccountIds.join(',')})`);
+            } else {
+                recQuery = recQuery.or(`payment_account_id.eq.${selectedAccountId},account_id.eq.${selectedAccountId}`);
+            }
+
             // Fetch unlinked or recent entries across payments, receipts, purchases, sales
             const [payRes, recRes, purRes, salRes] = await Promise.all([
                 supabase
                     .from('payment_vouchers')
-                    .select('id, payment_number, date, amount, payment_mode, narration, account_name, status, payment_account_id')
+                    .select('id, payment_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, account_id')
                     .or(`payment_account_id.eq.${selectedAccountId},account_id.eq.${selectedAccountId}`)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false })
                     .limit(60),
-                supabase
-                    .from('receipt_vouchers')
-                    .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status, payment_account_id')
-                    .or(`payment_account_id.eq.${selectedAccountId},account_id.eq.${selectedAccountId}`)
-                    .neq('status', 'cancelled')
-                    .order('date', { ascending: false })
-                    .limit(60),
+                recQuery,
                 supabase
                     .from('purchase_invoices')
                     .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, paid_by')
@@ -81,15 +98,18 @@ export default function LinkSystemEntryModal({
             });
 
             (recRes.data || []).forEach(r => {
+                const isGatewayLedger = gatewayAccountIds.includes(r.payment_account_id);
                 list.push({
                     id: r.id,
                     type: 'receipt',
                     number: r.receipt_number,
                     date: r.date,
                     amount: parseFloat(r.amount) || 0,
-                    party: r.account_name,
+                    party: isGatewayLedger ? `[Google Pay / Gateway] ${r.account_name}` : r.account_name,
                     narration: r.narration,
                     status: r.status,
+                    isGatewayReceipt: isGatewayLedger,
+                    paymentAccountId: r.payment_account_id,
                     raw: r
                 });
             });
@@ -255,9 +275,35 @@ export default function LinkSystemEntryModal({
                     .update({ status: 'cleared' })
                     .eq('id', entryId);
             } else if (entryType === 'receipt') {
+                const updatePayload = { status: 'cleared' };
+                if (entry.isGatewayReceipt || (entry.paymentAccountId && entry.paymentAccountId !== selectedAccountId)) {
+                    updatePayload.is_settled = true;
+                    updatePayload.settlement_ref = bankTx.ref_no || bankTx.refNo || 'Linked Payout';
+                    updatePayload.settled_at = new Date().toISOString();
+
+                    // Create transfer voucher to maintain double entry balance
+                    const yy = new Date().getFullYear().toString().slice(-2);
+                    const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                    await supabase
+                        .from('payment_vouchers')
+                        .insert([{
+                            payment_number: transferVoucherNumber,
+                            reference: bankTx.ref_no || bankTx.refNo || 'Gateway Settlement Link',
+                            reference_number: bankTx.ref_no || bankTx.refNo || null,
+                            account_id: selectedAccountId,
+                            account_name: 'HDFC Current A/c',
+                            payment_account_id: entry.paymentAccountId,
+                            date: bankTx.date || entry.date,
+                            amount: entry.amount,
+                            payment_mode: 'bank_transfer',
+                            narration: `Gateway settlement link: ${entry.number} transferred from Gateway Clearing to Bank`,
+                            status: 'cleared'
+                        }]);
+                }
+
                 await supabase
                     .from('receipt_vouchers')
-                    .update({ status: 'cleared' })
+                    .update(updatePayload)
                     .eq('id', entryId);
             }
 
@@ -395,6 +441,24 @@ export default function LinkSystemEntryModal({
                         </div>
                     </div>
                 </div>
+
+                {((bankTx.particulars || '').toLowerCase().includes('google') || (bankTx.particulars || '').toLowerCase().includes('gpay') || (bankTx.particulars || '').toLowerCase().includes('razorpay') || (bankTx.particulars || '').toLowerCase().includes('pine') || (bankTx.particulars || '').toLowerCase().includes('utib0000553') || bankTx.isGatewayPayout) && (
+                    <div style={{
+                        margin: '10px 18px 0 18px',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                        border: '1px solid rgba(14, 165, 233, 0.3)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '11px',
+                        color: '#0284c7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}>
+                        <Sparkles size={14} style={{ flexShrink: 0 }} />
+                        <span><strong>Payment Gateway Payout:</strong> Candidate customer collections from Google Pay &amp; Razorpay Clearing accounts are included in Receipts (RV).</span>
+                    </div>
+                )}
 
                 {/* Filter Tabs & Search Bar */}
                 <div style={{

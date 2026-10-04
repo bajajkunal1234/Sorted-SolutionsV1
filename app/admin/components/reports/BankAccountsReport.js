@@ -80,6 +80,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [showVoucherForm, setShowVoucherForm] = useState(null);
     const [showLinkModal, setShowLinkModal] = useState(null);
     const [createChooserRow, setCreateChooserRow] = useState(null);
+    const [gatewaySettleModal, setGatewaySettleModal] = useState(null);
+    const [loadingGatewayModal, setLoadingGatewayModal] = useState(false);
     const [testStatus, setTestStatus] = useState(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -321,7 +323,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .order('date', { ascending: false }),
                 supabase
                     .from('receipt_vouchers')
-                    .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, reference_number')
+                    .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, reference_number, is_settled, settlement_ref, settled_at')
                     .or(`payment_account_id.eq.${accountId},account_id.eq.${accountId}`)
                     .gte('date', fromDate)
                     .lte('date', toDate)
@@ -368,6 +370,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const systemList = [];
 
             (payRes.data || []).forEach(p => {
+                const isTransferIn = p.account_id === accountId && p.payment_account_id !== accountId;
                 systemList.push({
                     id: p.id,
                     systemId: p.id,
@@ -375,8 +378,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     number: p.payment_number,
                     date: p.date,
                     amount: parseFloat(p.amount) || 0,
-                    direction: 'outflow',
-                    party: p.account_name || 'Vendor / Payee',
+                    direction: isTransferIn ? 'inflow' : 'outflow',
+                    party: isTransferIn ? (p.account_name || 'Transfer In') : (p.account_name || 'Vendor / Payee'),
                     narration: p.narration,
                     refNo: p.reference_number || '',
                     status: p.status,
@@ -397,7 +400,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     narration: r.narration,
                     refNo: r.reference_number || '',
                     status: r.status,
-                    mode: r.payment_mode || 'Bank Transfer'
+                    mode: r.payment_mode || 'Bank Transfer',
+                    is_settled: r.is_settled,
+                    settlement_ref: r.settlement_ref,
+                    settled_at: r.settled_at,
+                    raw: r
                 });
             });
 
@@ -502,6 +509,28 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         const matchedAlertIds = new Set();
         const rows = [];
 
+        const currentAccount = accounts.find(a => a.id === selectedAccountId);
+        const currentAccName = (currentAccount?.name || '').toLowerCase();
+        const isCurrentGateway = currentAccName.includes('clearing') || currentAccName.includes('google pay') || currentAccName.includes('gpay') || currentAccName.includes('razorpay') || currentAccName.includes('pine');
+
+        // Helper to detect gateway provider from text
+        const detectGateway = (text) => {
+            const t = (text || '').toLowerCase();
+            if (t.includes('google') || t.includes('gpay') || t.includes('nod-perfect')) {
+                const gw = accounts.find(a => (a.name || '').toLowerCase().includes('google') || (a.name || '').toLowerCase().includes('gpay'));
+                return { isGateway: true, provider: 'Google Pay Business', account: gw };
+            }
+            if (t.includes('razorpay')) {
+                const gw = accounts.find(a => (a.name || '').toLowerCase().includes('razorpay'));
+                return { isGateway: true, provider: 'Razorpay', account: gw };
+            }
+            if (t.includes('pine') && (t.includes('settle') || t.includes('cr') || t.includes('nod'))) {
+                const gw = accounts.find(a => (a.name || '').toLowerCase().includes('pine'));
+                return { isGateway: true, provider: 'Pine Labs', account: gw };
+            }
+            return { isGateway: false, provider: null, account: null };
+        };
+
         // A. Add Statement Transactions (authoritative source)
         statementTransactions.forEach(st => {
             const isDuplicate = stmtDuplicateIds.has(st.id);
@@ -555,6 +584,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 });
             }
 
+            // Detect gateway settlement
+            const gwInfo = st.type === 'receipt' ? detectGateway(st.particulars) : { isGateway: false, provider: null, account: null };
+            const suggestedAccount = gwInfo.isGateway 
+                ? (gwInfo.account ? `${gwInfo.account.name} (${gwInfo.account.sku || 'B103'})` : gwInfo.provider)
+                : st.suggested_account;
+
             rows.push({
                 rowId: `stmt-${st.id}`,
                 origin: 'statement',
@@ -575,7 +610,10 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 linkedEntry: linkedVoucher,
                 potentialMatch,
                 isDuplicate,
-                suggestedAccount: st.suggested_account,
+                suggestedAccount,
+                isGatewayPayout: gwInfo.isGateway,
+                gatewayProvider: gwInfo.provider,
+                matchedGatewayAccount: gwInfo.account,
                 raw: st
             });
         });
@@ -614,6 +652,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 });
             }
 
+            const alertText = (alert.narration || '') + ' ' + (alert.party_name || '');
+            const gwInfo = alert.type === 'credit' ? detectGateway(alertText) : { isGateway: false, provider: null, account: null };
+            const suggestedAccount = gwInfo.isGateway 
+                ? (gwInfo.account ? `${gwInfo.account.name} (${gwInfo.account.sku || 'B103'})` : gwInfo.provider)
+                : null;
+
             rows.push({
                 rowId: `alert-${alert.id}`,
                 origin: 'alert',
@@ -633,6 +677,10 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 linkedEntry: linkedVoucher,
                 potentialMatch,
                 isDuplicate: false,
+                suggestedAccount,
+                isGatewayPayout: gwInfo.isGateway,
+                gatewayProvider: gwInfo.provider,
+                matchedGatewayAccount: gwInfo.account,
                 raw: alert
             });
         });
@@ -644,6 +692,10 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const representedInAlert = bankAlerts.some(ba => ba.voucher_id === sv.id || ba.system_entry_id === sv.id);
 
             if (!representedInStmt && !representedInAlert) {
+                const isSettled = sv.is_settled || sv.raw?.is_settled || false;
+                const isUncleared = !isCurrentGateway;
+                const isReconciled = isCurrentGateway ? isSettled : false;
+
                 rows.push({
                     rowId: `sys-${sv.id}`,
                     origin: 'system',
@@ -658,8 +710,10 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     refNo: sv.refNo || '',
                     amount: sv.amount,
                     balance: 0,
-                    isReconciled: false,
-                    isUncleared: true,
+                    isReconciled,
+                    isUncleared,
+                    is_settled: isSettled,
+                    settlement_ref: sv.settlement_ref || sv.raw?.settlement_ref || '',
                     isDuplicate,
                     raw: sv
                 });
@@ -675,9 +729,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         let statementClosing = 0;
         let statementInflows = 0;
         let statementOutflows = 0;
-        let hasStatement = !!activeStatement;
+        let hasStatement = isCurrentGateway ? false : !!activeStatement;
 
-        if (activeStatement) {
+        if (activeStatement && !isCurrentGateway) {
             statementOpening = parseFloat(activeStatement.opening_balance) || 0;
             statementClosing = parseFloat(activeStatement.closing_balance) || 0;
 
@@ -704,7 +758,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
         // 5. Weekly Reconciliation Tracking
         let latestReconciledDate = null;
-        if (activeStatement?.to_date) {
+        if (activeStatement?.to_date && !isCurrentGateway) {
             latestReconciledDate = activeStatement.to_date;
         } else {
             const lastReconciledTx = rows.find(r => r.isReconciled);
@@ -720,19 +774,26 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
         const missedByScraperCount = rows.filter(r => r.origin === 'statement' && r.isMissedByScraper).length;
         const unassignedCount = rows.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled).length;
-        const unclearedCount = rows.filter(r => r.origin === 'system' && !r.isReconciled).length;
+        const unclearedCount = rows.filter(r => r.origin === 'system' && !r.isReconciled && !isCurrentGateway).length;
         const duplicateCount = rows.filter(r => r.isDuplicate).length;
         const reconciledCount = rows.filter(r => r.isReconciled).length;
+        const gatewayPayoutsCount = rows.filter(r => r.isGatewayPayout && !r.isReconciled).length;
+        const holdingCount = rows.filter(r => isCurrentGateway && !r.is_settled).length;
+        const settledCount = rows.filter(r => isCurrentGateway && r.is_settled).length;
 
         return {
             unifiedLedger: rows,
+            isCurrentGateway,
             stats: {
                 totalCount: rows.length,
                 missedByScraperCount,
                 unassignedCount,
                 unclearedCount,
                 duplicateCount,
-                reconciledCount
+                reconciledCount,
+                gatewayPayoutsCount,
+                holdingCount,
+                settledCount
             },
             closingComparison: {
                 hasStatement,
@@ -745,15 +806,15 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 systemInflows,
                 systemOutflows,
                 discrepancy,
-                isDiscrepancy
+                isDiscrepancy: isCurrentGateway ? false : isDiscrepancy
             },
             weeklyStatus: {
                 daysSince: daysSinceReconciliation,
-                isOverdue: daysSinceReconciliation !== null ? daysSinceReconciliation > 7 : true,
+                isOverdue: isCurrentGateway ? false : (daysSinceReconciliation !== null ? daysSinceReconciliation > 7 : true),
                 latestDate: latestReconciledDate
             }
         };
-    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement]);
+    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement, isCurrentGateway]);
 
     // Filter and Sort rows
     const sortedRows = useMemo(() => {
@@ -763,8 +824,14 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             list = list.filter(r => r.origin === 'statement' && r.isMissedByScraper);
         } else if (activeFilter === 'unassigned') {
             list = list.filter(r => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled);
+        } else if (activeFilter === 'gateway_payouts') {
+            list = list.filter(r => r.isGatewayPayout && !r.isReconciled);
+        } else if (activeFilter === 'holding') {
+            list = list.filter(r => isCurrentGateway && !r.is_settled);
+        } else if (activeFilter === 'settled') {
+            list = list.filter(r => isCurrentGateway && r.is_settled);
         } else if (activeFilter === 'uncleared') {
-            list = list.filter(r => r.origin === 'system' && !r.isReconciled);
+            list = list.filter(r => r.origin === 'system' && !r.isReconciled && !isCurrentGateway);
         } else if (activeFilter === 'duplicate') {
             list = list.filter(r => r.isDuplicate);
         } else if (activeFilter === 'reconciled') {
@@ -1027,6 +1094,96 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
     const handleCreateVoucherFromRow = (row) => {
         setCreateChooserRow(row);
+    };
+
+    const handleOpenGatewaySettle = async (row) => {
+        try {
+            setLoadingGatewayModal(true);
+            const part = (row.particulars || '').toLowerCase();
+            let targetGw = accounts.find(a => (a.name || '').toLowerCase().includes('google') || (a.name || '').toLowerCase().includes('gpay'));
+            if (part.includes('razorpay')) {
+                targetGw = accounts.find(a => (a.name || '').toLowerCase().includes('razorpay'));
+            } else if (part.includes('pine')) {
+                targetGw = accounts.find(a => (a.name || '').toLowerCase().includes('pine'));
+            }
+            const gwId = targetGw?.id || '8eaf830c-547b-411c-b93b-f3912e995206';
+
+            // Query gateway settlements endpoint for unsettled receipts up to this row's date
+            const res = await fetch(`/api/admin/gateway-settlements?gateway_account_id=${gwId}&to=${row.date}&status=unsettled`);
+            const json = await res.json();
+
+            const candidates = (json.receipts || []).filter(r => !r.is_settled && r.date <= row.date);
+            const candidateTotal = candidates.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const posTotal = candidates.filter(r => r.channelType === 'pos').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const techTotal = candidates.filter(r => r.channelType === 'technician').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const variance = +(row.amount - candidateTotal).toFixed(2);
+
+            setGatewaySettleModal({
+                row,
+                gatewayAccount: targetGw,
+                gatewayAccountId: gwId,
+                candidates,
+                candidateCount: candidates.length,
+                candidateTotal,
+                posTotal,
+                techTotal,
+                variance,
+                autoBalanceMissing: variance > 0,
+                createCommission: variance < 0,
+                commissionFee: variance < 0 ? Math.abs(variance).toString() : '',
+                notes: `Gateway settlement payout ${row.refNo || ''}`
+            });
+        } catch (err) {
+            console.error('Error opening gateway settle modal:', err);
+            alert(err.message || 'Failed to prepare gateway settlement');
+        } finally {
+            setLoadingGatewayModal(false);
+        }
+    };
+
+    const handleConfirmGatewaySettle = async () => {
+        if (!gatewaySettleModal) return;
+        try {
+            setSaving(true);
+            const { row, gatewayAccountId, candidates, variance, autoBalanceMissing, createCommission, commissionFee, notes } = gatewaySettleModal;
+            const feeNum = parseFloat(commissionFee) || 0;
+
+            const res = await fetch('/api/admin/gateway-settlements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'reconcile_bank_payout',
+                    bank_payout_id: row.origin === 'statement' ? row.id : (row.raw?.id || null),
+                    payout_source: row.origin === 'statement' ? 'statement' : 'alert',
+                    gateway_account_id: gatewayAccountId,
+                    destination_account_id: selectedAccountId,
+                    receipt_ids: candidates.map(r => r.id),
+                    bank_amount: row.amount,
+                    settlement_ref: row.refNo,
+                    settlement_date: row.date,
+                    create_missing_voucher: autoBalanceMissing,
+                    missing_amount: variance > 0 ? variance : 0,
+                    create_commission_voucher: createCommission && feeNum > 0,
+                    fee_amount: feeNum,
+                    tax_amount: 0,
+                    notes: notes || `Reconciled HDFC bank payout ${row.refNo || ''}`
+                })
+            });
+
+            const json = await res.json();
+            if (json.success) {
+                setGatewaySettleModal(null);
+                await fetchComprehensiveData(selectedAccountId);
+                alert(`✅ ${json.message}`);
+            } else {
+                alert(json.error || 'Failed to reconcile settlement');
+            }
+        } catch (err) {
+            console.error('Settlement error:', err);
+            alert(err.message || 'Error reconciling settlement');
+        } finally {
+            setSaving(false);
+        }
     };
 
     // Save Voucher / Invoice Callback
@@ -1759,91 +1916,172 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                         All ({stats.totalCount})
                                     </button>
 
-                                    <button
-                                        onClick={() => setActiveFilter('missed_by_scraper')}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid rgba(59, 130, 246, 0.4)',
-                                            backgroundColor: activeFilter === 'missed_by_scraper' ? '#3b82f6' : 'rgba(59, 130, 246, 0.1)',
-                                            color: activeFilter === 'missed_by_scraper' ? '#fff' : '#3b82f6',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                        title="Transactions in bank statement that the Gmail scraper missed"
-                                    >
-                                        📬 Missed by Scraper ({stats.missedByScraperCount})
-                                    </button>
+                                    {isCurrentGateway ? (
+                                        <>
+                                            <button
+                                                onClick={() => setActiveFilter('holding')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                    backgroundColor: activeFilter === 'holding' ? '#f59e0b' : 'rgba(245, 158, 11, 0.1)',
+                                                    color: activeFilter === 'holding' ? '#000' : '#f59e0b',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                                title="Customer receipts held in gateway awaiting bank payout"
+                                            >
+                                                🟡 Holding in Gateway ({stats.holdingCount})
+                                            </button>
 
-                                    <button
-                                        onClick={() => setActiveFilter('unassigned')}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid rgba(245, 158, 11, 0.4)',
-                                            backgroundColor: activeFilter === 'unassigned' ? '#f59e0b' : 'rgba(245, 158, 11, 0.1)',
-                                            color: activeFilter === 'unassigned' ? '#000' : '#f59e0b',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        ⚠️ Needs System Entry ({stats.unassignedCount})
-                                    </button>
+                                            <button
+                                                onClick={() => setActiveFilter('settled')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                    backgroundColor: activeFilter === 'settled' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
+                                                    color: activeFilter === 'settled' ? '#fff' : '#10b981',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                                title="Collections transferred and settled to HDFC Bank"
+                                            >
+                                                🟢 Settled to HDFC ({stats.settledCount})
+                                            </button>
 
-                                    <button
-                                        onClick={() => setActiveFilter('uncleared')}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid rgba(139, 92, 246, 0.4)',
-                                            backgroundColor: activeFilter === 'uncleared' ? '#8b5cf6' : 'rgba(139, 92, 246, 0.1)',
-                                            color: activeFilter === 'uncleared' ? '#fff' : '#8b5cf6',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        ⚠️ Not in Statement ({stats.unclearedCount})
-                                    </button>
+                                            {stats.duplicateCount > 0 && (
+                                                <button
+                                                    onClick={() => setActiveFilter('duplicate')}
+                                                    style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                        backgroundColor: activeFilter === 'duplicate' ? '#ef4444' : 'rgba(239, 68, 68, 0.1)',
+                                                        color: activeFilter === 'duplicate' ? '#fff' : '#ef4444',
+                                                        cursor: 'pointer',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                >
+                                                    🚨 Duplicates ({stats.duplicateCount})
+                                                </button>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {stats.gatewayPayoutsCount > 0 && (
+                                                <button
+                                                    onClick={() => setActiveFilter('gateway_payouts')}
+                                                    style={{
+                                                        padding: '4px 8px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 700,
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        border: '1px solid rgba(14, 165, 233, 0.5)',
+                                                        backgroundColor: activeFilter === 'gateway_payouts' ? '#0ea5e9' : 'rgba(14, 165, 233, 0.12)',
+                                                        color: activeFilter === 'gateway_payouts' ? '#fff' : '#0284c7',
+                                                        cursor: 'pointer',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                    title="Bank payouts detected from Google Pay / Razorpay / Pine Labs"
+                                                >
+                                                    🏦 Gateway Payouts ({stats.gatewayPayoutsCount})
+                                                </button>
+                                            )}
 
-                                    <button
-                                        onClick={() => setActiveFilter('duplicate')}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 700,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid rgba(239, 68, 68, 0.4)',
-                                            backgroundColor: activeFilter === 'duplicate' ? '#ef4444' : 'rgba(239, 68, 68, 0.1)',
-                                            color: activeFilter === 'duplicate' ? '#fff' : '#ef4444',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        🚨 Duplicates ({stats.duplicateCount})
-                                    </button>
+                                            <button
+                                                onClick={() => setActiveFilter('missed_by_scraper')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                                                    backgroundColor: activeFilter === 'missed_by_scraper' ? '#3b82f6' : 'rgba(59, 130, 246, 0.1)',
+                                                    color: activeFilter === 'missed_by_scraper' ? '#fff' : '#3b82f6',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                                title="Transactions in bank statement that the Gmail scraper missed"
+                                            >
+                                                📬 Missed by Scraper ({stats.missedByScraperCount})
+                                            </button>
 
-                                    <button
-                                        onClick={() => setActiveFilter('reconciled')}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: '11px',
-                                            fontWeight: 600,
-                                            borderRadius: 'var(--radius-sm)',
-                                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                                            backgroundColor: activeFilter === 'reconciled' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
-                                            color: activeFilter === 'reconciled' ? '#fff' : '#10b981',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                    >
-                                        ✅ Reconciled ({stats.reconciledCount})
-                                    </button>
+                                            <button
+                                                onClick={() => setActiveFilter('unassigned')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                    backgroundColor: activeFilter === 'unassigned' ? '#f59e0b' : 'rgba(245, 158, 11, 0.1)',
+                                                    color: activeFilter === 'unassigned' ? '#000' : '#f59e0b',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                ⚠️ Needs System Entry ({stats.unassignedCount})
+                                            </button>
+
+                                            <button
+                                                onClick={() => setActiveFilter('uncleared')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                                                    backgroundColor: activeFilter === 'uncleared' ? '#8b5cf6' : 'rgba(139, 92, 246, 0.1)',
+                                                    color: activeFilter === 'uncleared' ? '#fff' : '#8b5cf6',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                ⚠️ Not in Statement ({stats.unclearedCount})
+                                            </button>
+
+                                            <button
+                                                onClick={() => setActiveFilter('duplicate')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 700,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                    backgroundColor: activeFilter === 'duplicate' ? '#ef4444' : 'rgba(239, 68, 68, 0.1)',
+                                                    color: activeFilter === 'duplicate' ? '#fff' : '#ef4444',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                🚨 Duplicates ({stats.duplicateCount})
+                                            </button>
+
+                                            <button
+                                                onClick={() => setActiveFilter('reconciled')}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 600,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                                    backgroundColor: activeFilter === 'reconciled' ? '#10b981' : 'rgba(16, 185, 129, 0.1)',
+                                                    color: activeFilter === 'reconciled' ? '#fff' : '#10b981',
+                                                    cursor: 'pointer',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                ✅ Reconciled ({stats.reconciledCount})
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Search Bar */}
@@ -2186,6 +2424,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                                                     {/* Party / Particulars */}
                                                     <td style={{ padding: '7px 10px', verticalAlign: 'top' }}>
+                                                        {row.isGatewayPayout && (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.3)', color: '#0284c7', fontSize: '9.5px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', marginBottom: '3px' }}>
+                                                                🏦 {row.gatewayProvider} Settlement Payout
+                                                            </div>
+                                                        )}
+                                                        {isCurrentGateway && (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', fontWeight: 600, color: row.is_settled ? '#10b981' : '#d97706', marginBottom: '2px' }}>
+                                                                {row.is_settled ? `🟢 Settled to Bank (Ref: ${row.settlement_ref || 'Payout'})` : '🟡 Holding in Gateway (Awaiting bank payout)'}
+                                                            </div>
+                                                        )}
                                                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                                                             {row.particulars}
                                                         </div>
@@ -2223,7 +2471,37 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                                                     {/* Reconciliation Status & Flags */}
                                                     <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'top' }}>
-                                                        {isReconciled ? (
+                                                        {isCurrentGateway ? (
+                                                            row.is_settled ? (
+                                                                <span style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px',
+                                                                    padding: '2px 5px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 700,
+                                                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                                    color: '#10b981'
+                                                                }}>
+                                                                    <CheckCircle size={10} /> Settled
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '3px',
+                                                                    padding: '2px 5px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '9px',
+                                                                    fontWeight: 700,
+                                                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                                                    color: '#d97706'
+                                                                }}>
+                                                                    🟡 Holding
+                                                                </span>
+                                                            )
+                                                        ) : isReconciled ? (
                                                             <span style={{
                                                                 display: 'inline-flex',
                                                                 alignItems: 'center',
@@ -2251,6 +2529,21 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                 animation: 'pulse-red 2s infinite'
                                                             }}>
                                                                 🚨 Duplicate
+                                                            </span>
+                                                        ) : row.isGatewayPayout ? (
+                                                            <span style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px',
+                                                                padding: '2px 5px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '9px',
+                                                                fontWeight: 800,
+                                                                backgroundColor: 'rgba(14, 165, 233, 0.15)',
+                                                                color: '#0284c7',
+                                                                border: '1px solid rgba(14, 165, 233, 0.3)'
+                                                            }}>
+                                                                🏦 Gateway Payout
                                                             </span>
                                                         ) : isUnassigned ? (
                                                             <span style={{
@@ -2288,6 +2581,30 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     {/* Actions */}
                                                     <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'top' }}>
                                                         <div style={{ display: 'flex', gap: '3px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                                            {row.isGatewayPayout && !isReconciled && (
+                                                                <button
+                                                                    onClick={() => handleOpenGatewaySettle(row)}
+                                                                    disabled={loadingGatewayModal}
+                                                                    className="btn btn-primary"
+                                                                    style={{
+                                                                        padding: '2px 7px',
+                                                                        fontSize: '10px',
+                                                                        fontWeight: 700,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '3px',
+                                                                        backgroundColor: '#0ea5e9',
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                    title={`Settle ${row.gatewayProvider} collections to this bank account`}
+                                                                >
+                                                                    <Sparkles size={10} />
+                                                                    Settle {row.gatewayProvider?.split(' ')[0]}
+                                                                </button>
+                                                            )}
+
                                                             {isUnassigned && (
                                                                 <>
                                                                     <button
@@ -2650,6 +2967,41 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                             {createChooserRow.type === 'receipt' ? (
                                 <>
+                                    {createChooserRow.isGatewayPayout && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const r = createChooserRow;
+                                                setCreateChooserRow(null);
+                                                handleOpenGatewaySettle(r);
+                                            }}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                padding: '10px 12px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '2px solid #0ea5e9',
+                                                backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                                                cursor: 'pointer',
+                                                textAlign: 'left',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(14, 165, 233, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0, fontWeight: 800 }}>
+                                                🏦
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0284c7' }}>
+                                                    Settle {createChooserRow.gatewayProvider} Collections to Bank (Transfer Voucher)
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                    Batch settle customer collections from {createChooserRow.suggestedAccount || 'Gateway Clearing'} into {selectedAccount?.name || 'Bank'} and clear commissions
+                                                </div>
+                                            </div>
+                                        </button>
+                                    )}
+
                                     {/* Sales Invoice (Direct UPI / Bank Sale) */}
                                     <button
                                         type="button"
@@ -2821,6 +3173,231 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     )}
                                 </div>
                             </details>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GATEWAY SETTLEMENT & BATCH RECONCILIATION MODAL */}
+            {gatewaySettleModal && (
+                <div
+                    onClick={() => setGatewaySettleModal(null)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        backdropFilter: 'blur(3px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1100,
+                        padding: '16px'
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            width: '100%',
+                            maxWidth: '560px',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            padding: '18px',
+                            boxShadow: 'var(--shadow-xl)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '14px'
+                        }}
+                    >
+                        {/* Modal Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
+                            <div>
+                                <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Sparkles size={16} style={{ color: '#0ea5e9' }} />
+                                    <span>Reconcile {gatewaySettleModal.gatewayAccount?.name || 'Gateway'} Payout</span>
+                                </h3>
+                                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>
+                                    Double-entry settlement: clears gateway ledger, records MDR fees, credits bank
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setGatewaySettleModal(null)}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '4px' }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Bank Payout Details Card */}
+                        <div style={{
+                            backgroundColor: 'rgba(14, 165, 233, 0.08)',
+                            border: '1px solid rgba(14, 165, 233, 0.25)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            fontSize: '11.5px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Bank Statement Credit</span>
+                                <span style={{ fontWeight: 800, fontSize: '15px', color: '#10b981' }}>
+                                    +₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word', fontSize: '11px' }}>
+                                {gatewaySettleModal.row.particulars}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                                <span>Date: {gatewaySettleModal.row.date}</span>
+                                <span>Ref: {gatewaySettleModal.row.refNo || 'NEFT/CMS'}</span>
+                            </div>
+                        </div>
+
+                        {/* Candidate Receipts Summary Card */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            fontSize: '11.5px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                    Unsettled Customer Collections ({gatewaySettleModal.candidateCount} found)
+                                </span>
+                                <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-primary)' }}>
+                                    ₹{gatewaySettleModal.candidateTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', fontSize: '11px', flexWrap: 'wrap' }}>
+                                <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 600 }}>
+                                    🛒 POS Sales: ₹{gatewaySettleModal.posTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                                <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontWeight: 600 }}>
+                                    🔧 Technician: ₹{gatewaySettleModal.techTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+
+                            {/* Variance Diagnosis */}
+                            <div style={{
+                                marginTop: '4px',
+                                padding: '8px 10px',
+                                borderRadius: 'var(--radius-sm)',
+                                backgroundColor: Math.abs(gatewaySettleModal.variance) < 0.01
+                                    ? 'rgba(16, 185, 129, 0.1)'
+                                    : gatewaySettleModal.variance < 0
+                                        ? 'rgba(245, 158, 11, 0.1)'
+                                        : 'rgba(239, 68, 68, 0.1)',
+                                border: `1px solid ${Math.abs(gatewaySettleModal.variance) < 0.01
+                                    ? 'rgba(16, 185, 129, 0.3)'
+                                    : gatewaySettleModal.variance < 0
+                                        ? 'rgba(245, 158, 11, 0.3)'
+                                        : 'rgba(239, 68, 68, 0.3)'}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                            }}>
+                                <span style={{ fontWeight: 600, fontSize: '11px' }}>
+                                    {Math.abs(gatewaySettleModal.variance) < 0.01
+                                        ? '✅ Exact Match: Bank credit matches collections perfectly!'
+                                        : gatewaySettleModal.variance < 0
+                                            ? `💡 Fee / Commission: ₹${Math.abs(gatewaySettleModal.variance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} deducted by gateway`
+                                            : `⚠️ Unrecorded: ₹${gatewaySettleModal.variance.toLocaleString('en-IN', { minimumFractionDigits: 2 })} more in bank than recorded`}
+                                </span>
+                                <span style={{ fontWeight: 800, fontSize: '12px' }}>
+                                    Diff: ₹{Math.abs(gatewaySettleModal.variance).toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Variance Auto-Resolutions */}
+                        {gatewaySettleModal.variance < 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={gatewaySettleModal.createCommission}
+                                        onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, createCommission: e.target.checked })}
+                                    />
+                                    <span>Auto-create Purchase Voucher for Gateway Commission (MDR Charges)</span>
+                                </label>
+                                {gatewaySettleModal.createCommission && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '22px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>MDR Amount: ₹</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={gatewaySettleModal.commissionFee}
+                                            onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, commissionFee: e.target.value })}
+                                            style={{ width: '100px', padding: '3px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {gatewaySettleModal.variance > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', backgroundColor: 'var(--bg-secondary)', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '11.5px', fontWeight: 600 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={gatewaySettleModal.autoBalanceMissing}
+                                        onChange={e => setGatewaySettleModal({ ...gatewaySettleModal, autoBalanceMissing: e.target.checked })}
+                                    />
+                                    <span>Auto-create balancing receipt voucher for ₹{gatewaySettleModal.variance} unrecorded collections</span>
+                                </label>
+                            </div>
+                        )}
+
+                        {/* Settlement Accounting Breakdown Note */}
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-tertiary)', lineHeight: 1.4 }}>
+                            <strong>Accounting Entries upon confirmation:</strong>
+                            <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                                <li>Debit: {selectedAccount?.name || 'HDFC Current A/c'} (+₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
+                                <li>Credit: {gatewaySettleModal.gatewayAccount?.name || 'Google Pay Business Clearing'} (-₹{gatewaySettleModal.row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</li>
+                                {gatewaySettleModal.createCommission && (
+                                    <li>Debit: Payment Gateway MDR Fee | Credit: {gatewaySettleModal.gatewayAccount?.name} (₹{gatewaySettleModal.commissionFee})</li>
+                                )}
+                                <li>Status: {gatewaySettleModal.candidateCount} receipts marked as Settled (Cleared)</li>
+                            </ul>
+                        </div>
+
+                        {/* Modal Actions */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
+                            <button
+                                type="button"
+                                onClick={() => setGatewaySettleModal(null)}
+                                disabled={saving}
+                                className="btn btn-secondary"
+                                style={{ fontSize: '11px', padding: '6px 12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmGatewaySettle}
+                                disabled={saving}
+                                className="btn btn-primary"
+                                style={{
+                                    fontSize: '11px',
+                                    padding: '6px 14px',
+                                    backgroundColor: '#0ea5e9',
+                                    color: '#fff',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                            >
+                                {saving && <Loader2 size={12} className="spin" />}
+                                Confirm Settlement & Transfer to Bank
+                            </button>
                         </div>
                     </div>
                 </div>
