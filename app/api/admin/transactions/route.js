@@ -159,6 +159,37 @@ const editedInteractionMap = {
     payment: { type: 'payment-voucher-edited', category: 'sales', label: 'Payment Voucher' },
 };
 
+async function fetchAllRows(queryBuilder, limit = null) {
+    if (limit) {
+        const { data, error } = await queryBuilder.limit(limit);
+        if (error) throw error;
+        return data || [];
+    }
+
+    const CHUNK_SIZE = 1000;
+    let allData = [];
+    let page = 0;
+    let keepFetching = true;
+
+    while (keepFetching) {
+        const from = page * CHUNK_SIZE;
+        const to = from + CHUNK_SIZE - 1;
+        const { data, error } = await queryBuilder.range(from, to);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allData.push(...data);
+            if (data.length < CHUNK_SIZE) {
+                keepFetching = false;
+            } else {
+                page++;
+            }
+        } else {
+            keepFetching = false;
+        }
+    }
+    return allData;
+}
+
 // GET - Fetch transactions based on type
 export async function GET(request) {
     try {
@@ -169,6 +200,8 @@ export async function GET(request) {
         const startDate = searchParams.get('start_date')
         const endDate = searchParams.get('end_date')
         const jobId = searchParams.get('job_id')
+        const limitParam = searchParams.get('limit')
+        const limit = limitParam ? parseInt(limitParam, 10) : null
 
         const isUUID = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
@@ -184,16 +217,16 @@ export async function GET(request) {
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
                 const fkAlias = table === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : (table === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : 'accounts(name, mobile, email, address, gstin)');
-                let query = supabase.from(table).select(`*, ${fkAlias}, jobs(job_number, technician_name)`)
+                let query = supabase.from(table).select(`*, ${fkAlias}, jobs(job_number, technician_name)`).order('date', { ascending: false });
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
                 if (endDate) query = query.lte('date', endDate)
-                const { data } = await query.limit(100)
+                const data = await fetchAllRows(query, limit);
                 return (data || []).map(item => ({ ...item, type: table.split('_')[0] }))
             }));
 
             const merged = results.flat().sort((a, b) => new Date(b.date) - new Date(a.date))
-            return NextResponse.json({ success: true, data: merged })
+            return NextResponse.json({ success: true, data: limit ? merged.slice(0, limit) : merged })
         }
 
         if (!tableMap[type]) {
@@ -213,9 +246,6 @@ export async function GET(request) {
 
         if (hasStatusFilter) {
             query = query.in('status', status.split(','))
-            query = query.limit(1000)
-        } else {
-            query = query.limit(100)
         }
 
         const txId = searchParams.get('id')
@@ -223,6 +253,7 @@ export async function GET(request) {
         if (customerId) query = query.eq('account_id', customerId)
         if (accountId) query = query.eq('account_id', accountId)
         if (startDate) query = query.gte('date', startDate)
+        if (endDate) query = query.lte('date', endDate)
         if (jobId) query = query.eq('job_id', jobId)
         const poReference = searchParams.get('po_reference')
         if (poReference) query = query.eq('po_reference', poReference)
@@ -232,9 +263,7 @@ export async function GET(request) {
             query = query.neq('status', 'archived');
         }
 
-        const { data, error } = await query
-
-        if (error) throw error
+        const data = await fetchAllRows(query, limit);
 
         return NextResponse.json({ success: true, data })
     } catch (error) {

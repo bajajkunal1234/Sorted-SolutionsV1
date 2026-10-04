@@ -584,7 +584,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             } else if (activeTab === 'rentals') {
                 fetch('/api/admin/rentals?type=active').then(r => r.json()).then(d => { if (d.success) setRentalAgreements(d.data || []); });
             } else {
-                const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab] });
+                const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab], include_archived: true });
                 switch (activeTab) {
                     case 'sales': setSalesInvoices(data || []); break;
                     case 'purchases': setPurchaseInvoices(data || []); break;
@@ -645,7 +645,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     setJournals((res.data || []).map(j => ({ ...j, amount: j.lines?.filter(l => l.debit > 0).reduce((s, l) => s + Number(l.debit), 0) || 0 })));
                 }
             } else {
-                const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab] });
+                const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab], include_archived: true });
                 switch (activeTab) {
                     case 'sales': setSalesInvoices(data || []); break;
                     case 'purchases': setPurchaseInvoices(data || []); break;
@@ -965,8 +965,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 const type2 = data?.__formType || tabToTypeMap[activeTab];
                 const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type2] || activeTab;
                 const [transRes2, ledgerRes] = await Promise.all([
-                    type2 && !['amc', 'rentals', 'accounts'].includes(tabKey) ? transactionsAPI.getAll({ type: type2 }) : Promise.resolve(null),
-                    accountsAPI.getAll()
+                    type2 && !['amc', 'rentals', 'accounts'].includes(tabKey) ? transactionsAPI.getAll({ type: type2, include_archived: true }) : Promise.resolve(null),
+                    accountsAPI.getAll('all', true)
                 ]);
                 if (ledgerRes) setLedgers(ledgerRes);
                 if (transRes2) {

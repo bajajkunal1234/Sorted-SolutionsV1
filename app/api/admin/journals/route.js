@@ -4,14 +4,63 @@ import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
+async function fetchAllRows(queryBuilder, limit = null) {
+    if (limit) {
+        const { data, error } = await queryBuilder.limit(limit);
+        if (error) throw error;
+        return data || [];
+    }
+
+    const CHUNK_SIZE = 1000;
+    let allData = [];
+    let page = 0;
+    let keepFetching = true;
+
+    while (keepFetching) {
+        const from = page * CHUNK_SIZE;
+        const to = from + CHUNK_SIZE - 1;
+        const { data, error } = await queryBuilder.range(from, to);
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allData.push(...data);
+            if (data.length < CHUNK_SIZE) {
+                keepFetching = false;
+            } else {
+                page++;
+            }
+        } else {
+            keepFetching = false;
+        }
+    }
+    return allData;
+}
+
 // GET - Fetch all journal entries with lines
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
         const type = searchParams.get('type')
-        const startDate = searchParams.get('start_date')
-        const endDate = searchParams.get('end_date')
+        const startDate = searchParams.get('start_date') || searchParams.get('from')
+        const endDate = searchParams.get('end_date') || searchParams.get('to')
+        const limitParam = searchParams.get('limit')
+        const limit = limitParam ? parseInt(limitParam, 10) : null
+
+        if (id) {
+            const { data, error } = await supabase
+                .from('journal_entries')
+                .select(`
+                    *,
+                    lines:journal_entry_lines(
+                        *,
+                        account:accounts(id, name, under, sku)
+                    )
+                `)
+                .eq('id', id)
+                .single()
+            if (error) throw error
+            return NextResponse.json({ success: true, data })
+        }
 
         let query = supabase
             .from('journal_entries')
@@ -24,21 +73,12 @@ export async function GET(request) {
             `)
             .order('date', { ascending: false })
             .order('created_at', { ascending: false })
-            .limit(100)
-
-        if (id) {
-            query = query.eq('id', id).single()
-            const { data, error } = await query
-            if (error) throw error
-            return NextResponse.json({ success: true, data })
-        }
 
         if (type) query = query.eq('reference_type', type)
         if (startDate) query = query.gte('date', startDate)
         if (endDate) query = query.lte('date', endDate)
 
-        const { data, error } = await query
-        if (error) throw error
+        const data = await fetchAllRows(query, limit);
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
