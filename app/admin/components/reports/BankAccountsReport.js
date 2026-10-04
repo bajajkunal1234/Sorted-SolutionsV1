@@ -14,6 +14,7 @@ import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
 import LinkSystemEntryModal from './LinkSystemEntryModal';
+import PaymentGatewaysSubTab from './PaymentGatewaysSubTab';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { parseBankCSV, parseBankExcel } from '@/utils/bankParser';
 
@@ -1342,17 +1343,57 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '10px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row) */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '6px',
-                        backgroundColor: 'var(--bg-elevated)',
-                        padding: '6px 8px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-primary)'
-                    }}>
+                    {/* Mobile Quick Subtab Switcher */}
+                    {isMobile && (
+                        <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                            <button
+                                onClick={() => setActiveSubTab('transactions')}
+                                style={{
+                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                    backgroundColor: activeSubTab === 'transactions' ? 'var(--color-primary)' : 'transparent',
+                                    color: activeSubTab === 'transactions' ? 'white' : 'var(--text-secondary)',
+                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
+                                }}
+                            >
+                                Reconcile
+                            </button>
+                            <button
+                                onClick={() => setActiveSubTab('gateways')}
+                                style={{
+                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                    backgroundColor: activeSubTab === 'gateways' ? 'var(--color-primary)' : 'transparent',
+                                    color: activeSubTab === 'gateways' ? 'white' : 'var(--text-secondary)',
+                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
+                                }}
+                            >
+                                Gateways
+                            </button>
+                            <button
+                                onClick={() => setActiveSubTab('setup')}
+                                style={{
+                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
+                                    backgroundColor: activeSubTab === 'setup' ? 'var(--color-primary)' : 'transparent',
+                                    color: activeSubTab === 'setup' ? 'white' : 'var(--text-secondary)',
+                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
+                                }}
+                            >
+                                Setup
+                            </button>
+                        </div>
+                    )}
+
+                    {activeSubTab !== 'gateways' && (
+                        /* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row) */
+                        <div style={{
+                            display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '6px',
+                                backgroundColor: 'var(--bg-elevated)',
+                                padding: '6px 8px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border-primary)'
+                            }}>
                         {/* Bank Account Selector Dropdown */}
                         <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                             <select
@@ -1439,6 +1480,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                             </div>
                         )}
                     </div>
+                    )}
 
                     {/* Date Presets Strip & Custom Date Picker */}
                     {activeSubTab === 'transactions' && (
@@ -1590,7 +1632,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         </div>
                     )}
 
-                    {/* Subtab Content: Setup vs Transactions */}
+                    {/* Subtab Content: Setup vs Gateways vs Transactions */}
                     {activeSubTab === 'setup' ? (
                         /* SETUP TAB */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1672,6 +1714,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 </div>
                             </form>
                         </div>
+                    ) : activeSubTab === 'gateways' ? (
+                        /* PAYMENT GATEWAYS TAB */
+                        <PaymentGatewaysSubTab isMobile={isMobile} />
                     ) : (
                         /* TRANSACTIONS RECONCILIATION TABLE & LEDGER VIEW (MOBILE FIRST) */
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0 }}>

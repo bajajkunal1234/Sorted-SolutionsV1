@@ -512,6 +512,18 @@ export async function PUT(request) {
             }
         }
 
+        // Auto-sync type if under was updated
+        if (cleanUpdates.under && (!updates.type || updates.type === before?.type)) {
+            const u = cleanUpdates.under.toLowerCase();
+            if (u === 'bank-accounts' || u.includes('bank')) cleanUpdates.type = 'bank';
+            else if (u === 'cash-in-hand' || u.includes('cash')) cleanUpdates.type = 'cash';
+            else if (u.includes('customer') || u.includes('debtor')) cleanUpdates.type = 'customer';
+            else if (u.includes('supplier') || u.includes('vendor') || u.includes('creditor')) cleanUpdates.type = 'vendor';
+            else if (u.includes('technician')) cleanUpdates.type = 'technician';
+            else if (u.includes('expense')) cleanUpdates.type = 'expense';
+            else if (u.includes('income') || u.includes('sales')) cleanUpdates.type = 'income';
+        }
+
         const { data, error } = await supabase
             .from('accounts')
             .update(cleanUpdates)

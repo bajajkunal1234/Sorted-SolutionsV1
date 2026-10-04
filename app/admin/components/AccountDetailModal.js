@@ -275,8 +275,22 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         const cleanMobile = editedAccount.mobile ? editedAccount.mobile.replace(/\D/g, '').slice(-10) : '';
         const cleanAltMobile = editedAccount.alternateMobile ? editedAccount.alternateMobile.replace(/\D/g, '').slice(-10) : '';
 
+        // Auto-synchronize type with account group
+        let derivedType = editedAccount.type;
+        if (editedAccount.under) {
+            const u = editedAccount.under.toLowerCase();
+            if (u === 'bank-accounts' || u.includes('bank')) derivedType = 'bank';
+            else if (u === 'cash-in-hand' || u.includes('cash')) derivedType = 'cash';
+            else if (u.includes('customer') || u.includes('debtor')) derivedType = 'customer';
+            else if (u.includes('supplier') || u.includes('vendor') || u.includes('creditor')) derivedType = 'vendor';
+            else if (u.includes('technician')) derivedType = 'technician';
+            else if (u.includes('expense')) derivedType = 'expense';
+            else if (u.includes('income') || u.includes('sales')) derivedType = 'income';
+        }
+
         const payloadToSave = {
             ...editedAccount,
+            type: derivedType,
             mobile: cleanMobile,
             alternate_mobile: cleanAltMobile,
             contact_person: editedAccount.contactPerson,
