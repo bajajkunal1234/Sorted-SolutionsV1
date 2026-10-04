@@ -8,18 +8,20 @@ export async function GET(request) {
     try {
         const supabase = createServerSupabase();
         const { searchParams } = new URL(request.url);
-        const gatewayId = searchParams.get('gateway_account_id');
+        const gatewayId = searchParams.get('gateway_account_id') || searchParams.get('gateway_id');
         const status = searchParams.get('status') || 'unsettled'; // 'unsettled' | 'settled' | 'all'
         const channel = searchParams.get('channel') || 'all'; // 'all' | 'pos' | 'technician'
         const fromDate = searchParams.get('from');
         const toDate = searchParams.get('to');
 
-        // 1. Identify all gateway / clearing accounts
-        const { data: allBankAccounts } = await supabase
+        // 1. Identify all gateway / clearing accounts & destination bank accounts
+        const { data: allBankAccounts, error: accsErr } = await supabase
             .from('accounts')
             .select('id, name, type, under, sku')
             .or('under.eq.bank-accounts,type.eq.bank')
             .neq('status', 'archived');
+
+        if (accsErr) console.error('Error fetching bank accounts:', accsErr);
 
         const gatewayAccounts = (allBankAccounts || []).filter(a => {
             const name = (a.name || '').toLowerCase();
@@ -32,6 +34,10 @@ export async function GET(request) {
                    name.includes('paytm');
         });
 
+        const bankAccounts = (allBankAccounts || []).filter(a => {
+            return !gatewayAccounts.some(g => g.id === a.id);
+        });
+
         const gatewayIds = gatewayId 
             ? [gatewayId] 
             : gatewayAccounts.map(g => g.id);
@@ -40,6 +46,7 @@ export async function GET(request) {
             return NextResponse.json({
                 success: true,
                 gatewayAccounts: [],
+                bankAccounts: bankAccounts || [],
                 receipts: [],
                 bankPayouts: [],
                 settlements: [],
@@ -135,7 +142,7 @@ export async function GET(request) {
             allAccIds.length > 0
                 ? supabase
                     .from('accounts')
-                    .select('id, name, code, type')
+                    .select('id, name, sku, type')
                     .in('id', allAccIds)
                 : Promise.resolve({ data: [] }),
             allPiIds.length > 0
@@ -338,6 +345,7 @@ export async function GET(request) {
         return NextResponse.json({
             success: true,
             gatewayAccounts,
+            bankAccounts,
             receipts,
             bankPayouts,
             settlements: settlements || [],

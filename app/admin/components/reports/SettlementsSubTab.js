@@ -126,25 +126,30 @@ export default function SettlementsSubTab({ isMobile = false }) {
             setLoading(true);
             setActionMessage(null);
 
-            const [settleRes, accRes] = await Promise.all([
-                fetch(`/api/admin/gateway-settlements${selectedGatewayId ? `?gateway_id=${selectedGatewayId}` : ''}`),
-                fetch('/api/accounts')
-            ]);
+            const params = new URLSearchParams();
+            if (selectedGatewayId) params.append('gateway_account_id', selectedGatewayId);
+            params.append('status', 'unsettled');
 
-            const settleData = await settleRes.json();
-            const accData = await accRes.json();
-
-            if (settleData.success) {
-                setSettlements(settleData.settlements || []);
-                setGatewayAccounts(settleData.gatewayAccounts || []);
-                setAllUnsettledReceipts((settleData.receipts || []).filter(r => !r.is_settled));
+            const settleRes = await fetch(`/api/admin/gateway-settlements?${params.toString()}`);
+            if (!settleRes.ok) {
+                const text = await settleRes.text();
+                throw new Error(`Failed to load settlements (${settleRes.status}): ${text.slice(0, 100)}`);
             }
 
-            const rawAccs = accData.accounts || accData || [];
-            const banks = Array.isArray(rawAccs)
-                ? rawAccs.filter(a => a.type === 'bank' || (a.name || '').toLowerCase().includes('bank') || (a.name || '').toLowerCase().includes('hdfc'))
-                : [];
-            setBankAccounts(banks);
+            const settleData = await settleRes.json();
+
+            if (settleData.success) {
+                const gws = settleData.gatewayAccounts || [];
+                const banks = settleData.bankAccounts && settleData.bankAccounts.length > 0
+                    ? settleData.bankAccounts
+                    : [{ id: 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6', name: 'HDFC Current A/c' }];
+                setSettlements(settleData.settlements || []);
+                setGatewayAccounts(gws);
+                setBankAccounts(banks);
+                setAllUnsettledReceipts((settleData.receipts || []).filter(r => !r.is_settled));
+            } else {
+                throw new Error(settleData.error || 'Failed to load settlements');
+            }
         } catch (err) {
             console.error('Error fetching settlements:', err);
             setActionMessage({ type: 'error', text: err.message || 'Failed to load settlements' });
@@ -236,6 +241,28 @@ export default function SettlementsSubTab({ isMobile = false }) {
             notes: ''
         });
     };
+
+    // Auto-sync manual modal gateway and bank account selection once accounts are loaded
+    useEffect(() => {
+        if (manualModal.open) {
+            setManualModal(prev => {
+                let updated = false;
+                const next = { ...prev };
+                if (!next.gatewayAccountId && gatewayAccounts.length > 0) {
+                    next.gatewayAccountId = (selectedGatewayId && gatewayAccounts.some(g => g.id === selectedGatewayId))
+                        ? selectedGatewayId
+                        : gatewayAccounts[0].id;
+                    updated = true;
+                }
+                if (!next.destinationAccountId && bankAccounts.length > 0) {
+                    const hdfc = bankAccounts.find(b => (b.name || '').toLowerCase().includes('hdfc'))?.id || bankAccounts[0].id;
+                    next.destinationAccountId = hdfc;
+                    updated = true;
+                }
+                return updated ? next : prev;
+            });
+        }
+    }, [manualModal.open, gatewayAccounts, bankAccounts, selectedGatewayId]);
 
     // Candidate receipts for Manual Modal
     const manualCandidateReceipts = useMemo(() => {
@@ -986,6 +1013,7 @@ export default function SettlementsSubTab({ isMobile = false }) {
                                             onChange={e => setManualModal(prev => ({ ...prev, gatewayAccountId: e.target.value, selectedReceiptIds: new Set() }))}
                                             style={{ width: '100%', padding: '5px 8px', fontSize: '11.5px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                         >
+                                            {!manualModal.gatewayAccountId && <option value="">-- Select Gateway Clearing Account --</option>}
                                             {gatewayAccounts.map(g => (
                                                 <option key={g.id} value={g.id}>{g.name}</option>
                                             ))}
@@ -1001,6 +1029,7 @@ export default function SettlementsSubTab({ isMobile = false }) {
                                             onChange={e => setManualModal(prev => ({ ...prev, destinationAccountId: e.target.value }))}
                                             style={{ width: '100%', padding: '5px 8px', fontSize: '11.5px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                         >
+                                            {!manualModal.destinationAccountId && <option value="">-- Select Bank Account --</option>}
                                             {bankAccounts.map(b => (
                                                 <option key={b.id} value={b.id}>{b.name}</option>
                                             ))}
