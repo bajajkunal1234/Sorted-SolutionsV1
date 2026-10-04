@@ -5,7 +5,9 @@ import {
     CreditCard, Smartphone, CheckCircle2, Clock, Filter,
     RefreshCw, Loader2, ArrowRight, DollarSign, Store,
     Briefcase, FileText, Check, AlertCircle, ChevronDown,
-    Search, Download, ExternalLink, Calendar, PlusCircle
+    Search, Download, ExternalLink, Calendar, PlusCircle,
+    Landmark, AlertTriangle, Sparkles, CheckCircle, ChevronUp,
+    HelpCircle, Eye, ShieldCheck, ArrowUpRight
 } from 'lucide-react';
 
 const fmt = (n) => (parseFloat(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,10 +22,15 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
     const [loading, setLoading] = useState(true);
     const [receipts, setReceipts] = useState([]);
     const [gatewayAccounts, setGatewayAccounts] = useState([]);
+    const [bankPayouts, setBankPayouts] = useState([]);
     const [settlements, setSettlements] = useState([]);
     const [summary, setSummary] = useState({ totalUnsettled: 0, posTotal: 0, techTotal: 0, count: 0 });
 
-    // Filters
+    // Bank Payouts Matcher controls
+    const [payoutFilter, setPayoutFilter] = useState('pending'); // 'pending' | 'all'
+    const [isPayoutsCollapsed, setIsPayoutsCollapsed] = useState(false);
+
+    // Filters for Receipts Table
     const [selectedGatewayId, setSelectedGatewayId] = useState('');
     const [statusFilter, setStatusFilter] = useState('unsettled'); // 'unsettled' | 'settled' | 'all'
     const [channelFilter, setChannelFilter] = useState('all'); // 'all' | 'pos' | 'technician'
@@ -38,6 +45,14 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
     // Modals
     const [commissionModal, setCommissionModal] = useState({ open: false, items: [], gross: 0 });
     const [settleModal, setSettleModal] = useState({ open: false, items: [], gross: 0 });
+    const [reconcileModal, setReconcileModal] = useState({
+        open: false,
+        payout: null,
+        autoBalanceMissing: true,
+        createCommission: false,
+        commissionFee: '',
+        notes: ''
+    });
 
     // Form inputs for modals
     const [commRate, setCommRate] = useState('2.0'); // default 2%
@@ -53,7 +68,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
     const [settleFeePercent, setSettleFeePercent] = useState('2.0');
     const [createCommWithSettle, setCreateCommWithSettle] = useState(true);
 
-    // ── Fetch Gateway Data ──────────────────────────────────────────────────────
+    // ── Fetch Gateway & Bank Payout Data ─────────────────────────────────────────
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -70,6 +85,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
             if (json.success) {
                 setReceipts(json.receipts || []);
                 setGatewayAccounts(json.gatewayAccounts || []);
+                setBankPayouts(json.bankPayouts || []);
                 setSettlements(json.settlements || []);
                 setSummary(json.summary || { totalUnsettled: 0, posTotal: 0, techTotal: 0, count: 0 });
                 setSelectedIds(new Set());
@@ -179,19 +195,22 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
     const handleCreateCommissionVoucher = async () => {
         try {
             setProcessingAction(true);
-            const items = commissionModal.items;
-            const targetGatewayId = selectedGatewayId || items[0]?.payment_account_id || gatewayAccounts[0]?.id;
+            const targetGwId = selectedGatewayId || gatewayAccounts[0]?.id;
+            if (!targetGwId) {
+                alert('Please select a payment gateway account');
+                return;
+            }
 
             const res = await fetch('/api/admin/gateway-settlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'create_commission_voucher',
-                    gateway_account_id: targetGatewayId,
+                    gateway_account_id: targetGwId,
                     gross_amount: commissionModal.gross,
                     fee_amount: commissionCalc.baseFee,
                     tax_amount: commissionCalc.tax,
-                    voucher_ids: items.map(r => r.id),
+                    voucher_ids: commissionModal.items.map(r => r.id),
                     notes: commNotes
                 })
             });
@@ -202,55 +221,57 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                 setCommissionModal({ open: false, items: [], gross: 0 });
                 fetchData();
             } else {
-                alert('Failed to create purchase voucher: ' + json.error);
+                alert(json.error || 'Failed to create commission voucher');
             }
         } catch (err) {
-            alert('Error: ' + err.message);
+            console.error('Error creating commission voucher:', err);
+            alert(err.message || 'Error creating commission voucher');
         } finally {
             setProcessingAction(false);
         }
     };
 
-    // ── Open Settlement Modal ──────────────────────────────────────────────────
+    // ── Open Settle Modal ──────────────────────────────────────────────────────
     const openSettleModalFor = (items) => {
         const gross = items.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
         setSettleModal({ open: true, items, gross });
-        setSettleRef(`SETTLE-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`);
+        setSettleRef(`SETTLE-${new Date().toISOString().split('T')[0]}`);
     };
 
-    // Settle modal calculations
     const settleCalc = useMemo(() => {
         const gross = settleModal.gross || 0;
-        const pct = parseFloat(settleFeePercent) || 0;
-        const baseFee = createCommWithSettle ? +(gross * (pct / 100)).toFixed(2) : 0;
-        const tax = createCommWithSettle ? +(baseFee * 0.18).toFixed(2) : 0;
-        const totalComm = +(baseFee + tax).toFixed(2);
-        const net = +(gross - totalComm).toFixed(2);
-        return { baseFee, tax, totalComm, net };
+        const feePct = createCommWithSettle ? (parseFloat(settleFeePercent) || 0) : 0;
+        const baseFee = +(gross * (feePct / 100)).toFixed(2);
+        const tax = +(baseFee * 0.18).toFixed(2);
+        const totalFee = baseFee + tax;
+        const net = +(gross - totalFee).toFixed(2);
+        return { baseFee, tax, totalFee, net };
     }, [settleModal.gross, settleFeePercent, createCommWithSettle]);
 
-    // Submit Settlement
-    const handleExecuteSettlement = async () => {
+    const handleSettleBatch = async () => {
         try {
             setProcessingAction(true);
-            const items = settleModal.items;
-            const targetGatewayId = selectedGatewayId || items[0]?.payment_account_id || gatewayAccounts[0]?.id;
+            const targetGwId = selectedGatewayId || gatewayAccounts[0]?.id;
+            if (!targetGwId) {
+                alert('Please select a payment gateway account');
+                return;
+            }
 
             const res = await fetch('/api/admin/gateway-settlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'settle_batch',
-                    gateway_account_id: targetGatewayId,
-                    receipt_ids: items.map(r => r.id),
+                    gateway_account_id: targetGwId,
+                    receipt_ids: settleModal.items.map(r => r.id),
                     gross_amount: settleModal.gross,
                     fee_amount: settleCalc.baseFee,
                     tax_amount: settleCalc.tax,
                     net_amount: settleCalc.net,
                     settlement_ref: settleRef,
                     settlement_date: settleDate,
-                    create_commission_voucher: createCommWithSettle,
-                    notes: `Settled ${items.length} transactions via Payment Gateways subtab`
+                    create_commission_voucher: createCommWithSettle && settleCalc.totalFee > 0,
+                    notes: `Settled ${settleModal.items.length} collections into HDFC Bank`
                 })
             });
 
@@ -260,42 +281,116 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                 setSettleModal({ open: false, items: [], gross: 0 });
                 fetchData();
             } else {
-                alert('Settlement failed: ' + json.error);
+                alert(json.error || 'Failed to settle transactions');
             }
         } catch (err) {
-            alert('Error: ' + err.message);
+            console.error('Error settling transactions:', err);
+            alert(err.message || 'Error settling transactions');
         } finally {
             setProcessingAction(false);
         }
     };
 
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    // ── Open 1-Click Match & Reconcile Modal ────────────────────────────────────
+    const openReconcileModalFor = (payout) => {
+        const isMissing = payout.variance > 0;
+        const isShort = payout.variance < 0;
+        setReconcileModal({
+            open: true,
+            payout,
+            autoBalanceMissing: isMissing,
+            createCommission: isShort,
+            commissionFee: isShort ? Math.abs(payout.variance).toString() : '',
+            notes: `Bank payout reconciliation ${payout.ref_no}`
+        });
+    };
 
-            {/* Notification alert banner */}
+    // Submit 1-Click Match & Reconcile
+    const handleReconcilePayout = async () => {
+        const { payout, autoBalanceMissing, createCommission, commissionFee, notes } = reconcileModal;
+        if (!payout) return;
+
+        try {
+            setProcessingAction(true);
+            const feeNum = parseFloat(commissionFee) || 0;
+            const res = await fetch('/api/admin/gateway-settlements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'reconcile_bank_payout',
+                    bank_payout_id: payout.id,
+                    payout_source: payout.origin,
+                    gateway_account_id: payout.gatewayAccountId,
+                    receipt_ids: (payout.candidateReceipts || []).map(r => r.id),
+                    bank_amount: payout.amount,
+                    settlement_ref: payout.ref_no,
+                    settlement_date: payout.date,
+                    create_missing_voucher: autoBalanceMissing,
+                    missing_amount: payout.variance > 0 ? payout.variance : 0,
+                    create_commission_voucher: createCommission && feeNum > 0,
+                    fee_amount: feeNum,
+                    tax_amount: 0,
+                    notes: notes || `Reconciled HDFC bank payout ${payout.ref_no}`
+                })
+            });
+
+            const json = await res.json();
+            if (json.success) {
+                setActionMessage({ type: 'success', text: json.message });
+                setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' });
+                fetchData();
+            } else {
+                alert(json.error || 'Failed to reconcile payout');
+            }
+        } catch (err) {
+            console.error('Reconcile error:', err);
+            alert(err.message || 'Error reconciling payout');
+        } finally {
+            setProcessingAction(false);
+        }
+    };
+
+    // Filter payouts according to tab toggle
+    const visiblePayouts = useMemo(() => {
+        if (payoutFilter === 'pending') {
+            return bankPayouts.filter(p => !p.isReconciled);
+        }
+        return bankPayouts;
+    }, [bankPayouts, payoutFilter]);
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* ── Action Notification Banner ── */}
             {actionMessage && (
                 <div style={{
                     padding: '10px 14px',
                     borderRadius: '8px',
-                    backgroundColor: actionMessage.type === 'success' ? '#10b98115' : '#ef444415',
-                    border: `1px solid ${actionMessage.type === 'success' ? '#10b98140' : '#ef444440'}`,
+                    backgroundColor: actionMessage.type === 'success' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                    border: `1px solid ${actionMessage.type === 'success' ? '#10b981' : '#ef4444'}`,
                     color: actionMessage.type === 'success' ? '#10b981' : '#ef4444',
-                    fontSize: '12px',
-                    fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between'
+                    justifyContent: 'space-between',
+                    fontSize: '13px',
+                    fontWeight: 500
                 }}>
-                    <span>✓ {actionMessage.text}</span>
-                    <button onClick={() => setActionMessage(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px' }}>✕</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {actionMessage.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                        <span>{actionMessage.text}</span>
+                    </div>
+                    <button
+                        onClick={() => setActionMessage(null)}
+                        style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '14px' }}
+                    >✕</button>
                 </div>
             )}
 
-            {/* ── Summary KPI Cards ── */}
+            {/* ── Top Overview Summary KPIs ── */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-                gap: '8px'
+                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                gap: '12px'
             }}>
                 {/* Card 1: Holding / Unsettled */}
                 <div style={{
@@ -354,7 +449,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                     </div>
                 </div>
 
-                {/* Card 4: Est. Commission */}
+                {/* Card 4: Detected Payouts Pending Reconcile */}
                 <div style={{
                     padding: '12px 14px',
                     borderRadius: '8px',
@@ -363,28 +458,325 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                     borderLeft: '4px solid #8b5cf6'
                 }}>
                     <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <DollarSign size={12} color="#8b5cf6" /> Est. Commission (~2%)
+                        <Landmark size={12} color="#8b5cf6" /> HDFC Payouts Detected
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6', marginTop: '4px' }}>
-                        ₹{fmt(summary.totalUnsettled * 0.02)}
+                        {bankPayouts.filter(p => !p.isReconciled).length} Pending
                     </div>
                     <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                        Eligible for Purchase Voucher
+                        From Statement / Scraper
                     </div>
                 </div>
             </div>
 
-            {/* ── Filter Bar ── */}
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
+            {/* 🏦 DAILY BANK SETTLEMENT RECONCILIATION MATCHER                        */}
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
             <div style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '8px',
-                alignItems: 'center',
+                borderRadius: '10px',
                 backgroundColor: 'var(--bg-elevated)',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-primary)'
+                border: '1px solid var(--border-primary)',
+                overflow: 'hidden',
+                boxShadow: 'var(--shadow-sm)'
             }}>
+                {/* Matcher Header */}
+                <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderBottom: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                            width: '32px', height: '32px', borderRadius: '8px',
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#3b82f6'
+                        }}>
+                            <Landmark size={18} />
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    Daily Bank Settlement Matcher
+                                </span>
+                                <span style={{
+                                    fontSize: '10px', padding: '2px 8px', borderRadius: '12px',
+                                    backgroundColor: bankPayouts.filter(p => !p.isReconciled).length > 0 ? '#fef3c7' : '#dcfce7',
+                                    color: bankPayouts.filter(p => !p.isReconciled).length > 0 ? '#92400e' : '#166534',
+                                    fontWeight: 600
+                                }}>
+                                    {bankPayouts.filter(p => !p.isReconciled).length} Payout(s) Awaiting Match
+                                </span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                Compares actual HDFC settlement deposits (from Bank Statement / Gmail scraper) against Store POS & Technician receipts
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Toggle Pending vs All */}
+                        <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
+                            <button
+                                onClick={() => setPayoutFilter('pending')}
+                                style={{
+                                    padding: '4px 10px', fontSize: '11px', fontWeight: 600,
+                                    border: 'none', cursor: 'pointer',
+                                    backgroundColor: payoutFilter === 'pending' ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                                    color: payoutFilter === 'pending' ? 'var(--primary)' : 'var(--text-secondary)'
+                                }}
+                            >
+                                Pending ({bankPayouts.filter(p => !p.isReconciled).length})
+                            </button>
+                            <button
+                                onClick={() => setPayoutFilter('all')}
+                                style={{
+                                    padding: '4px 10px', fontSize: '11px', fontWeight: 600,
+                                    border: 'none', cursor: 'pointer',
+                                    backgroundColor: payoutFilter === 'all' ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                                    color: payoutFilter === 'all' ? 'var(--primary)' : 'var(--text-secondary)'
+                                }}
+                            >
+                                All ({bankPayouts.length})
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setIsPayoutsCollapsed(!isPayoutsCollapsed)}
+                            style={{
+                                background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'var(--text-secondary)', padding: '4px', display: 'flex', alignItems: 'center'
+                            }}
+                            title={isPayoutsCollapsed ? 'Expand Matcher' : 'Collapse Matcher'}
+                        >
+                            {isPayoutsCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Matcher Content */}
+                {!isPayoutsCollapsed && (
+                    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {visiblePayouts.length === 0 ? (
+                            <div style={{
+                                padding: '24px', textAlign: 'center',
+                                backgroundColor: 'var(--bg-secondary)', borderRadius: '8px',
+                                border: '1px dashed var(--border-primary)', color: 'var(--text-secondary)'
+                            }}>
+                                <CheckCircle2 size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
+                                <div style={{ fontSize: '13px', fontWeight: 600 }}>All Bank Payouts Reconciled!</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', maxWidth: '420px', margin: '4px auto 0' }}>
+                                    When new settlement credits hit HDFC (e.g. from Google India Digital Services or Razorpay) via your statement upload or Gmail scraper, they will appear here with automatic variance analysis.
+                                </div>
+                            </div>
+                        ) : (
+                            visiblePayouts.map(payout => {
+                                const isMissing = payout.discrepancyType === 'missing_receipts';
+                                const isShort = payout.discrepancyType === 'short_settlement';
+                                const isMatched = payout.discrepancyType === 'matched';
+                                const isReconciled = payout.isReconciled;
+
+                                const borderColor = isReconciled ? 'var(--border-primary)' : (isMissing ? '#ef4444' : (isShort ? '#f59e0b' : '#10b981'));
+                                const badgeBg = isReconciled ? 'rgba(100, 116, 139, 0.12)' : (isMissing ? 'rgba(239, 68, 68, 0.12)' : (isShort ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)'));
+                                const badgeColor = isReconciled ? '#64748b' : (isMissing ? '#ef4444' : (isShort ? '#f59e0b' : '#10b981'));
+
+                                return (
+                                    <div
+                                        key={`${payout.origin}-${payout.id}`}
+                                        style={{
+                                            borderRadius: '8px',
+                                            backgroundColor: 'var(--bg-primary)',
+                                            border: `1px solid ${borderColor}`,
+                                            padding: '12px 16px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '10px'
+                                        }}
+                                    >
+                                        {/* Card Top Row: Meta info & Origin */}
+                                        <div style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '8px',
+                                            borderBottom: '1px solid var(--border-primary)',
+                                            paddingBottom: '8px'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                    {payout.provider}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>•</span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                    Date: <strong>{fmtDate(payout.date)}</strong>
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>•</span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>
+                                                    Ref/UTR: {payout.ref_no || '—'}
+                                                </span>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{
+                                                    fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                                                    backgroundColor: payout.origin === 'statement' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(139, 92, 246, 0.12)',
+                                                    color: payout.origin === 'statement' ? '#3b82f6' : '#8b5cf6',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {payout.origin === 'statement' ? '📄 HDFC STATEMENT' : '📬 GMAIL ALERT'}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '10px', padding: '2px 8px', borderRadius: '12px',
+                                                    backgroundColor: badgeBg, color: badgeColor, fontWeight: 700
+                                                }}>
+                                                    {isReconciled ? '✅ RECONCILED' : (isMissing ? '🚨 MISSING RECEIPTS' : (isShort ? '⚠️ SHORT / ROLLOVER' : '✅ MATCHED'))}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Comparison 3-Column Grid */}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.3fr 1.5fr',
+                                            gap: '12px',
+                                            alignItems: 'stretch'
+                                        }}>
+                                            {/* Column 1: Bank Inflow */}
+                                            <div style={{
+                                                padding: '10px 12px', borderRadius: '6px',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)'
+                                            }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                    1. HDFC Bank Credit (Actual)
+                                                </div>
+                                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
+                                                    ₹{fmt(payout.amount)}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={payout.particulars}>
+                                                    {payout.particulars}
+                                                </div>
+                                            </div>
+
+                                            {/* Column 2: Operations Receipts */}
+                                            <div style={{
+                                                padding: '10px 12px', borderRadius: '6px',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)'
+                                            }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                    2. System Collections (Batch Window)
+                                                </div>
+                                                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+                                                    ₹{fmt(payout.candidateTotal)}
+                                                </div>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                    🏪 POS: <strong>₹{fmt(payout.candidatePos)}</strong> · 💼 Tech: <strong>₹{fmt(payout.candidateTech)}</strong> ({payout.candidateCount} vouchers)
+                                                </div>
+                                            </div>
+
+                                            {/* Column 3: Variance & Financial Diagnosis */}
+                                            <div style={{
+                                                padding: '10px 12px', borderRadius: '6px',
+                                                backgroundColor: isReconciled ? 'var(--bg-secondary)' : (isMissing ? 'rgba(239, 68, 68, 0.06)' : (isShort ? 'rgba(245, 158, 11, 0.06)' : 'rgba(16, 185, 129, 0.06)')),
+                                                border: `1px solid ${borderColor}`,
+                                                display: 'flex', flexDirection: 'column', justifyContent: 'center'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                        3. Variance & Diagnosis
+                                                    </span>
+                                                    <span style={{ fontSize: '14px', fontWeight: 800, color: badgeColor }}>
+                                                        {payout.variance > 0 ? `+₹${fmt(payout.variance)}` : `₹${fmt(payout.variance)}`}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.3 }}>
+                                                    {isReconciled ? (
+                                                        <span style={{ color: '#64748b' }}>✅ Successfully linked with vouchers and reconciled in HDFC ledger.</span>
+                                                    ) : isMissing ? (
+                                                        <span style={{ color: '#ef4444' }}>
+                                                            <strong>🚨 Missing in System:</strong> Bank received ₹{fmt(payout.variance)} more than booked receipts. Technician or POS staff collected payment without punching a voucher!
+                                                        </span>
+                                                    ) : isShort ? (
+                                                        <span style={{ color: '#d97706' }}>
+                                                            <strong>⚠️ Short / Rollover:</strong> Receipts exceed bank payout by ₹{fmt(Math.abs(payout.variance))}. Check late cut-offs or gateway MDR commission deductions.
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#10b981' }}>
+                                                            <strong>✅ Balanced:</strong> System receipts match bank payout perfectly!
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Card Footer: Action Buttons */}
+                                        <div style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            justifyContent: 'flex-end',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            paddingTop: '4px'
+                                        }}>
+                                            <button
+                                                onClick={() => {
+                                                    // Highlight candidate receipts in table below
+                                                    if (payout.candidateReceipts && payout.candidateReceipts.length > 0) {
+                                                        setSelectedIds(new Set(payout.candidateReceipts.map(r => r.id)));
+                                                        document.getElementById('gateway-receipts-table')?.scrollIntoView({ behavior: 'smooth' });
+                                                    } else {
+                                                        alert('No candidate receipts found in batch window.');
+                                                    }
+                                                }}
+                                                className="btn btn-secondary"
+                                                style={{ padding: '5px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                            >
+                                                <Eye size={12} /> Inspect {payout.candidateCount} Receipts in Table
+                                            </button>
+
+                                            {!isReconciled && (
+                                                <button
+                                                    onClick={() => openReconcileModalFor(payout)}
+                                                    style={{
+                                                        padding: '5px 12px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                                                        border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer',
+                                                        display: 'flex', alignItems: 'center', gap: '5px'
+                                                    }}
+                                                >
+                                                    <Sparkles size={12} /> 1-Click Match & Reconcile
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Filter Bar for Receipts Table ── */}
+            <div
+                id="gateway-receipts-table"
+                style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    alignItems: 'center',
+                    backgroundColor: 'var(--bg-elevated)',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-primary)'
+                }}
+            >
                 {/* Gateway Selector */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Gateway:</span>
@@ -449,9 +841,9 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                     </select>
                 </div>
 
-                {/* Date presets */}
+                {/* Date Presets */}
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    {['all', 'month', '7days', 'today'].map(p => (
+                    {['all', 'today', '7days', 'month'].map(p => (
                         <button
                             key={p}
                             onClick={() => handlePresetChange(p)}
@@ -460,305 +852,459 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                 fontSize: '11px',
                                 borderRadius: '4px',
                                 border: '1px solid var(--border-primary)',
-                                backgroundColor: datePreset === p ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                backgroundColor: datePreset === p ? 'var(--primary)' : 'var(--bg-secondary)',
                                 color: datePreset === p ? 'white' : 'var(--text-secondary)',
                                 cursor: 'pointer',
                                 textTransform: 'capitalize'
                             }}
                         >
-                            {p === '7days' ? 'Last 7d' : p === 'month' ? 'This Month' : p}
+                            {p === '7days' ? 'Last 7 Days' : p}
                         </button>
                     ))}
                 </div>
 
                 {/* Search */}
-                <div style={{ position: 'relative', flex: '1 1 180px', minWidth: '150px' }}>
-                    <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                    <input
-                        type="text"
-                        placeholder="Search receipt, cx, job..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+                    <div style={{ position: 'relative' }}>
+                        <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                        <input
+                            type="text"
+                            placeholder="Search customer, UTR, job..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            style={{
+                                padding: '5px 8px 5px 26px',
+                                fontSize: '12px',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                                color: 'var(--text-primary)',
+                                width: isMobile ? '130px' : '200px'
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        onClick={fetchData}
                         style={{
-                            width: '100%',
-                            padding: '5px 8px 5px 26px',
-                            fontSize: '12px',
+                            padding: '5px 8px',
                             borderRadius: '6px',
                             border: '1px solid var(--border-primary)',
                             backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-primary)'
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer'
                         }}
-                    />
+                        title="Refresh"
+                    >
+                        <RefreshCw size={13} className={loading ? 'spin' : ''} />
+                    </button>
                 </div>
-
-                {/* Refresh */}
-                <button
-                    onClick={fetchData}
-                    disabled={loading}
-                    className="btn btn-secondary"
-                    style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    title="Refresh transactions"
-                >
-                    <RefreshCw size={13} className={loading ? 'spin' : ''} />
-                </button>
             </div>
 
-            {/* ── Selection Action Strip ── */}
-            {selectedIds.size > 0 && (
+            {/* ── Selection Action Bar (when rows are selected) ── */}
+            {selectedItems.length > 0 && (
                 <div style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid #3b82f6',
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '8px',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                    border: '1px solid rgba(99, 102, 241, 0.35)'
+                    gap: '10px'
                 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>✓ <strong>{selectedIds.size}</strong> selected</span>
-                        <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-                        <span>Gross: <strong style={{ color: '#10b981' }}>₹{fmt(selectedGross)}</strong></span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {selectedItems.length} selected
+                        </span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
+                            Gross: ₹{fmt(selectedGross)}
+                        </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        {/* Auto-create commission purchase voucher */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button
                             onClick={() => openCommissionModalFor(selectedItems)}
                             style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '6px 12px',
+                                padding: '5px 12px',
                                 borderRadius: '6px',
                                 fontSize: '12px',
                                 fontWeight: 600,
-                                border: 'none',
-                                backgroundColor: '#8b5cf6',
-                                color: 'white',
-                                cursor: 'pointer'
+                                border: '1px solid #8b5cf6',
+                                backgroundColor: 'transparent',
+                                color: '#8b5cf6',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
                             }}
                         >
-                            <PlusCircle size={13} /> Auto-Create Commission Voucher
+                            <DollarSign size={13} /> Commission Voucher
                         </button>
 
-                        {/* Settle to HDFC Bank */}
                         <button
                             onClick={() => openSettleModalFor(selectedItems)}
                             style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                padding: '6px 12px',
+                                padding: '5px 12px',
                                 borderRadius: '6px',
                                 fontSize: '12px',
                                 fontWeight: 600,
                                 border: 'none',
                                 backgroundColor: '#10b981',
                                 color: 'white',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
                             }}
                         >
-                            <ArrowRight size={13} /> Settle to HDFC Bank
-                        </button>
-
-                        <button
-                            onClick={() => setSelectedIds(new Set())}
-                            style={{
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                border: '1px solid var(--border-primary)',
-                                backgroundColor: 'transparent',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Clear
+                            <Check size={13} /> Settle to Bank
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* ── Table View ── */}
+            {/* ── Receipts Table ── */}
             <div style={{
-                overflowX: 'auto',
-                backgroundColor: 'var(--bg-elevated)',
                 borderRadius: '8px',
-                border: '1px solid var(--border-primary)'
+                border: '1px solid var(--border-primary)',
+                backgroundColor: 'var(--bg-elevated)',
+                overflow: 'hidden'
             }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                            <th style={{ padding: '8px 10px', width: '36px', textAlign: 'center' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedIds.size === filteredReceipts.length && filteredReceipts.length > 0}
-                                    onChange={toggleSelectAll}
-                                />
-                            </th>
-                            <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Date</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Gateway</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Voucher No</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Customer / Party</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--text-secondary)' }}>Channel</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: 'var(--text-secondary)' }}>Amount</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
-                            <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                                    <Loader2 size={20} className="spin" style={{ margin: '0 auto 8px' }} />
-                                    Loading gateway transactions...
-                                </td>
+                <div style={{ overflowX: 'auto', maxHeight: '550px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                <th style={{ padding: '8px 10px', width: '36px' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.size === filteredReceipts.length && filteredReceipts.length > 0}
+                                        onChange={toggleSelectAll}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                </th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Date</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Voucher #</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Channel</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Party / Customer</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Job ID</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Mode</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Ref / UTR</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right' }}>Amount</th>
                             </tr>
-                        ) : filteredReceipts.length === 0 ? (
-                            <tr>
-                                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                                    <CreditCard size={32} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
-                                    <p style={{ margin: 0, fontWeight: 500 }}>No gateway transactions found</p>
-                                    <p style={{ margin: '4px 0 0', fontSize: '11px' }}>
-                                        {statusFilter === 'unsettled' ? 'All gateway collections are settled into bank!' : 'Try adjusting the filters.'}
-                                    </p>
-                                </td>
-                            </tr>
-                        ) : (
-                            filteredReceipts.map((r, idx) => {
-                                const isChecked = selectedIds.has(r.id);
-                                const isSettled = !!r.is_settled;
-                                return (
-                                    <tr
-                                        key={r.id}
-                                        style={{
-                                            borderBottom: '1px solid var(--border-primary)',
-                                            backgroundColor: isChecked ? 'rgba(99, 102, 241, 0.05)' : (idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)')
-                                        }}
-                                    >
-                                        <td style={{ padding: '7px 10px', textAlign: 'center' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={isChecked}
-                                                onChange={() => toggleSelectRow(r.id)}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                            {fmtDate(r.date)}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                                            <span style={{
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                fontSize: '10px',
-                                                fontWeight: 600,
-                                                backgroundColor: r.narration?.toLowerCase().includes('razorpay') ? '#3b82f615' : '#10b98115',
-                                                color: r.narration?.toLowerCase().includes('razorpay') ? '#3b82f6' : '#10b981'
-                                            }}>
-                                                {r.narration?.toLowerCase().includes('razorpay') ? 'Razorpay' : 'Google Pay QR'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                            {r.receipt_number || r.reference || '—'}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{r.account_name || 'Customer'}</span>
-                                            {r.narration && (
-                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {r.narration}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', whiteSpace: 'nowrap' }}>
-                                            {r.channelType === 'pos' ? (
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                                    padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                                                    backgroundColor: '#3b82f615', color: '#3b82f6'
-                                                }}>
-                                                    🏪 Store POS
-                                                </span>
-                                            ) : r.channelType === 'technician' ? (
-                                                <span style={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                                    padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                                                    backgroundColor: '#6366f115', color: '#6366f1'
-                                                }}>
-                                                    💼 {r.jobNumber ? `#${r.jobNumber}` : 'Job'} ({r.technicianName || 'Tech'})
-                                                </span>
-                                            ) : (
-                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Direct</span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#10b981', whiteSpace: 'nowrap' }}>
-                                            ₹{fmt(r.amount)}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                            {isSettled ? (
-                                                <span style={{
-                                                    padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                                                    backgroundColor: '#10b98115', color: '#10b981'
-                                                }}>
-                                                    ✓ Settled ({r.settlement_ref || 'Bank'})
-                                                </span>
-                                            ) : (
-                                                <span style={{
-                                                    padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 600,
-                                                    backgroundColor: '#f59e0b15', color: '#f59e0b'
-                                                }}>
-                                                    ⏳ Holding in Gateway
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                                            <div style={{ display: 'inline-flex', gap: '4px' }}>
-                                                <button
-                                                    onClick={() => openCommissionModalFor([r])}
-                                                    style={{
-                                                        padding: '3px 6px',
-                                                        borderRadius: '4px',
-                                                        fontSize: '10px',
-                                                        fontWeight: 600,
-                                                        border: '1px solid rgba(139, 92, 246, 0.4)',
-                                                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                                                        color: '#8b5cf6',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                    title="Auto-create commission purchase voucher"
-                                                >
-                                                    🏷️ Commission
-                                                </button>
-                                                {!isSettled && (
-                                                    <button
-                                                        onClick={() => openSettleModalFor([r])}
-                                                        style={{
-                                                            padding: '3px 6px',
-                                                            borderRadius: '4px',
-                                                            fontSize: '10px',
-                                                            fontWeight: 600,
-                                                            border: '1px solid rgba(16, 185, 129, 0.4)',
-                                                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                                            color: '#10b981',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                        title="Settle to bank"
-                                                    >
-                                                        🏦 Settle
-                                                    </button>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={10} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                        <Loader2 size={20} className="spin" style={{ margin: '0 auto 6px' }} />
+                                        Loading gateway transactions...
+                                    </td>
+                                </tr>
+                            ) : filteredReceipts.length === 0 ? (
+                                <tr>
+                                    <td colSpan={10} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                        No transactions found for the selected filters.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredReceipts.map(r => {
+                                    const isSelected = selectedIds.has(r.id);
+                                    const isPos = r.channelType === 'pos';
+                                    const isTech = r.channelType === 'technician';
+
+                                    return (
+                                        <tr
+                                            key={r.id}
+                                            onClick={() => toggleSelectRow(r.id)}
+                                            style={{
+                                                borderBottom: '1px solid var(--border-primary)',
+                                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.06)' : 'transparent',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.15s ease'
+                                            }}
+                                        >
+                                            <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelectRow(r.id)}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                                                {fmtDate(r.date)}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                {r.receipt_number || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                {isPos ? (
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                        padding: '2px 6px', borderRadius: '4px',
+                                                        backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6',
+                                                        fontSize: '10px', fontWeight: 600
+                                                    }}>
+                                                        <Store size={10} /> POS
+                                                    </span>
+                                                ) : isTech ? (
+                                                    <span style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                        padding: '2px 6px', borderRadius: '4px',
+                                                        backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                                                        fontSize: '10px', fontWeight: 600
+                                                    }}>
+                                                        <Briefcase size={10} /> TECH
+                                                    </span>
+                                                ) : (
+                                                    <span style={{
+                                                        padding: '2px 6px', borderRadius: '4px',
+                                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)',
+                                                        fontSize: '10px'
+                                                    }}>
+                                                        DIRECT
+                                                    </span>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
-                    </tbody>
-                </table>
+                                            </td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                    {r.account_name || 'Customer'}
+                                                </div>
+                                                {r.technicianName && (
+                                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                        By: {r.technicianName}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                                                {r.jobNumber || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontSize: '11px' }}>
+                                                {r.payment_mode || 'UPI'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)', fontSize: '11px', fontFamily: 'monospace' }}>
+                                                {r.reference_number || r.reference || '—'}
+                                            </td>
+                                            <td style={{ padding: '8px 10px' }}>
+                                                {r.is_settled ? (
+                                                    <span style={{
+                                                        padding: '2px 6px', borderRadius: '4px',
+                                                        backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981',
+                                                        fontSize: '10px', fontWeight: 600
+                                                    }}>
+                                                        SETTLED
+                                                    </span>
+                                                ) : (
+                                                    <span style={{
+                                                        padding: '2px 6px', borderRadius: '4px',
+                                                        backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b',
+                                                        fontSize: '10px', fontWeight: 600
+                                                    }}>
+                                                        HOLDING
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                ₹{fmt(r.amount)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Table Footer */}
+                <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderTop: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '11px',
+                    color: 'var(--text-secondary)'
+                }}>
+                    <div>
+                        Showing <strong>{filteredReceipts.length}</strong> transactions
+                    </div>
+                    <div>
+                        Total In View: <strong>₹{fmt(filteredReceipts.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0))}</strong>
+                    </div>
+                </div>
             </div>
 
-            {/* ── Modal 1: Auto-Create Commission Purchase Voucher ── */}
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
+            {/* ⚡ MODAL: 1-CLICK MATCH & RECONCILE BANK PAYOUT                         */}
+            {/* ═══════════════════════════════════════════════════════════════════════ */}
+            {reconcileModal.open && reconcileModal.payout && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1400, padding: '16px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--bg-primary)',
+                        borderRadius: '10px',
+                        width: '100%',
+                        maxWidth: '560px',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-xl)',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            padding: '12px 16px',
+                            borderBottom: '1px solid var(--border-primary)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                        }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Sparkles size={16} /> Match & Reconcile Bank Payout
+                                </h4>
+                                <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                    Ref: {reconcileModal.payout.ref_no || '—'} · Date: {fmtDate(reconcileModal.payout.date)}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '16px' }}
+                            >✕</button>
+                        </div>
+
+                        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {/* Comparison summary in modal */}
+                            <div style={{
+                                padding: '10px 12px', borderRadius: '6px',
+                                backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
+                                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px'
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>HDFC Bank Credit</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981' }}>₹{fmt(reconcileModal.payout.amount)}</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>System Receipts in Batch</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)' }}>₹{fmt(reconcileModal.payout.candidateTotal)}</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{reconcileModal.payout.candidateCount} receipt vouchers</div>
+                                </div>
+                            </div>
+
+                            {/* Discrepancy diagnosis box */}
+                            {reconcileModal.payout.variance > 0 ? (
+                                <div style={{
+                                    padding: '10px 12px', borderRadius: '6px',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    display: 'flex', flexDirection: 'column', gap: '6px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontWeight: 700, fontSize: '13px' }}>
+                                        <AlertTriangle size={15} /> Missing System Receipts: +₹{fmt(reconcileModal.payout.variance)}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        HDFC Bank received ₹{fmt(reconcileModal.payout.variance)} more than what staff/technicians punched in Sorted.
+                                    </div>
+
+                                    {/* Auto-balance checkbox */}
+                                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={reconcileModal.autoBalanceMissing}
+                                            onChange={e => setReconcileModal(prev => ({ ...prev, autoBalanceMissing: e.target.checked }))}
+                                            style={{ marginTop: '2px' }}
+                                        />
+                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                                            <strong>Auto-create balancing receipt voucher for ₹{fmt(reconcileModal.payout.variance)}</strong>
+                                            <br />
+                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                                                Credits Sales Revenue under Google Pay Business so your books balance with HDFC immediately without manual ledger adjustments.
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            ) : reconcileModal.payout.variance < 0 ? (
+                                <div style={{
+                                    padding: '10px 12px', borderRadius: '6px',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    display: 'flex', flexDirection: 'column', gap: '6px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d97706', fontWeight: 700, fontSize: '13px' }}>
+                                        <AlertTriangle size={15} /> Short Settlement / Fee: -₹{fmt(Math.abs(reconcileModal.payout.variance))}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        System receipts exceed bank credit by ₹{fmt(Math.abs(reconcileModal.payout.variance))}. This difference could be Gateway MDR processing fees or cut-off rollovers.
+                                    </div>
+
+                                    {/* Commission purchase voucher checkbox */}
+                                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', marginTop: '4px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={reconcileModal.createCommission}
+                                            onChange={e => setReconcileModal(prev => ({ ...prev, createCommission: e.target.checked }))}
+                                            style={{ marginTop: '2px' }}
+                                        />
+                                        <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                                            <strong>Record Gateway MDR Commission Purchase Voucher for fee difference (₹{fmt(Math.abs(reconcileModal.payout.variance))})</strong>
+                                        </span>
+                                    </label>
+                                </div>
+                            ) : (
+                                <div style={{
+                                    padding: '10px 12px', borderRadius: '6px',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    display: 'flex', alignItems: 'center', gap: '6px', color: '#10b981', fontSize: '12px', fontWeight: 600
+                                }}>
+                                    <CheckCircle size={15} /> System receipts match bank payout deposit exactly!
+                                </div>
+                            )}
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                                    Reconciliation Narration / Notes
+                                </label>
+                                <input
+                                    type="text"
+                                    value={reconcileModal.notes}
+                                    onChange={e => setReconcileModal(prev => ({ ...prev, notes: e.target.value }))}
+                                    style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{
+                            padding: '10px 16px',
+                            borderTop: '1px solid var(--border-primary)',
+                            display: 'flex', justifyContent: 'flex-end', gap: '8px'
+                        }}>
+                            <button
+                                onClick={() => setReconcileModal({ open: false, payout: null, autoBalanceMissing: true, createCommission: false, commissionFee: '', notes: '' })}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReconcilePayout}
+                                disabled={processingAction}
+                                style={{
+                                    padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                                    border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                {processingAction ? <Loader2 size={13} className="spin" /> : <Sparkles size={13} />}
+                                Confirm & Reconcile (₹{fmt(reconcileModal.payout.amount)})
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Modal: Manual Commission Purchase Voucher ── */}
             {commissionModal.open && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -770,7 +1316,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                         backgroundColor: 'var(--bg-primary)',
                         borderRadius: '10px',
                         width: '100%',
-                        maxWidth: '520px',
+                        maxWidth: '480px',
                         border: '1px solid var(--border-primary)',
                         boxShadow: 'var(--shadow-xl)',
                         overflow: 'hidden'
@@ -782,10 +1328,10 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                         }}>
                             <div>
                                 <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#8b5cf6' }}>
-                                    🏷️ Auto-Create Commission Purchase Voucher
+                                    🧾 Create Gateway Commission Purchase Voucher
                                 </h4>
                                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                    Generates an official accounting Purchase Invoice for Gateway MDR fees
+                                    Creates an accounting Purchase Voucher with GST input tax credit
                                 </p>
                             </div>
                             <button
@@ -896,7 +1442,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                 </div>
             )}
 
-            {/* ── Modal 2: Settle to HDFC Bank (With Optional Commission) ── */}
+            {/* ── Modal: Settle to HDFC Bank (Manual Selection) ── */}
             {settleModal.open && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -923,7 +1469,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                     🏦 Settle Collections into HDFC Bank
                                 </h4>
                                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                    Records payout transfer from Gateway $\to$ HDFC Current A/c
+                                    Records payout transfer from Gateway → HDFC Current A/c
                                 </p>
                             </div>
                             <button
@@ -961,60 +1507,59 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                                        UTR / Settlement Ref
+                                        Gateway Payout Ref / UTR
                                     </label>
                                     <input
                                         type="text"
                                         value={settleRef} onChange={e => setSettleRef(e.target.value)}
-                                        placeholder="e.g. UTR123456"
+                                        placeholder="e.g. AXNGG..."
                                         style={{ width: '100%', padding: '6px 8px', fontSize: '12px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
                                     />
                                 </div>
                             </div>
 
-                            {/* Gateway Commission Options */}
+                            {/* Optional Commission Deduction Toggle */}
                             <div style={{
                                 padding: '10px 12px', borderRadius: '6px',
                                 backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
                                 display: 'flex', flexDirection: 'column', gap: '8px'
                             }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                                     <input
                                         type="checkbox"
                                         checked={createCommWithSettle}
                                         onChange={e => setCreateCommWithSettle(e.target.checked)}
                                     />
-                                    Auto-Deduct Gateway Commission & Create Purchase Voucher
+                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                        Auto-deduct Commission & Generate Purchase Voucher
+                                    </span>
                                 </label>
 
                                 {createCommWithSettle && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                         <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>MDR Rate %:</span>
                                         <input
                                             type="number" step="0.01"
                                             value={settleFeePercent} onChange={e => setSettleFeePercent(e.target.value)}
-                                            style={{ width: '80px', padding: '4px 6px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                                            style={{ width: '70px', padding: '4px 6px', fontSize: '12px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                         />
                                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                            = Fee ₹{fmt(settleCalc.baseFee)} + GST ₹{fmt(settleCalc.tax)}
+                                            Fee: ₹{fmt(settleCalc.baseFee)} + GST: ₹{fmt(settleCalc.tax)} = ₹{fmt(settleCalc.totalFee)}
                                         </span>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Net Deposit into HDFC */}
                             <div style={{
                                 padding: '10px 12px', borderRadius: '6px',
-                                backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.3)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)',
                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                             }}>
                                 <div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Net Payout to HDFC Current A/c</div>
-                                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
-                                        Gross (₹{fmt(settleModal.gross)}) - Comm (₹{fmt(settleCalc.totalComm)})
-                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Net Transfer into HDFC:</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>Gross minus Commission</div>
                                 </div>
-                                <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
+                                <div style={{ fontSize: '17px', fontWeight: 800, color: '#10b981' }}>
                                     ₹{fmt(settleCalc.net)}
                                 </div>
                             </div>
@@ -1033,10 +1578,10 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                 Cancel
                             </button>
                             <button
-                                onClick={handleExecuteSettlement}
+                                onClick={handleSettleBatch}
                                 disabled={processingAction || settleCalc.net <= 0}
                                 style={{
-                                    padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                                    padding: '6px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
                                     border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '5px'
                                 }}

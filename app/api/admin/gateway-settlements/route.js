@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Fetch gateway transactions and settlement summary
+// GET: Fetch gateway transactions, settlement summary, and auto-detected bank settlement payouts
 export async function GET(request) {
     try {
         const supabase = createServerSupabase();
@@ -41,6 +41,7 @@ export async function GET(request) {
                 success: true,
                 gatewayAccounts: [],
                 receipts: [],
+                bankPayouts: [],
                 settlements: [],
                 summary: { totalUnsettled: 0, posTotal: 0, techTotal: 0, count: 0 }
             });
@@ -106,19 +107,178 @@ export async function GET(request) {
             .limit(50);
 
         if (gatewayId) settlementsQuery = settlementsQuery.eq('gateway_account_id', gatewayId);
-
         const { data: settlements } = await settlementsQuery;
+
+        // 4. DETECT BANK SETTLEMENT PAYOUTS (from HDFC Statements & Gmail Alerts)
+        // Match statement inflows containing gateway keywords
+        const [stmtsRes, alertsRes] = await Promise.all([
+            supabase
+                .from('bank_statement_transactions')
+                .select('id, date, particulars, ref_no, amount, type, status, voucher_id, reconciled_at')
+                .eq('type', 'receipt')
+                .or('particulars.ilike.%google%,particulars.ilike.%gpay%,particulars.ilike.%razorpay%,particulars.ilike.%pine%,particulars.ilike.%nod-perfect%,particulars.ilike.%settle%')
+                .order('date', { ascending: false })
+                .limit(40),
+            supabase
+                .from('bank_alerts_log')
+                .select('id, date, narration, party_name, reference_number, amount, type, status, voucher_id, created_at')
+                .eq('type', 'credit')
+                .or('narration.ilike.%google%,narration.ilike.%gpay%,narration.ilike.%razorpay%,narration.ilike.%pine%,narration.ilike.%settle%,party_name.ilike.%google%,party_name.ilike.%razorpay%')
+                .order('date', { ascending: false })
+                .limit(40)
+        ]);
+
+        const rawStmts = stmtsRes.data || [];
+        const rawAlerts = alertsRes.data || [];
+
+        // Deduplicate alerts already present in bank statements
+        const normRef = (s) => (s || '').toString().trim().replace(/^0+/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        const stmtRefs = new Set(rawStmts.map(s => normRef(s.ref_no)).filter(Boolean));
+
+        const unifiedPayouts = [];
+
+        rawStmts.forEach(st => {
+            unifiedPayouts.push({
+                id: st.id,
+                origin: 'statement',
+                date: st.date,
+                amount: parseFloat(st.amount) || 0,
+                particulars: st.particulars,
+                ref_no: st.ref_no || '',
+                status: st.status || 'unreconciled',
+                voucher_id: st.voucher_id || null,
+                is_reconciled: st.status === 'reconciled' || !!st.voucher_id
+            });
+        });
+
+        rawAlerts.forEach(al => {
+            const cleanRef = normRef(al.reference_number);
+            if (cleanRef && stmtRefs.has(cleanRef)) return; // Covered by statement
+
+            unifiedPayouts.push({
+                id: al.id,
+                origin: 'alert',
+                date: al.date,
+                amount: parseFloat(al.amount) || 0,
+                particulars: al.narration || al.party_name || 'Bank Alert',
+                ref_no: al.reference_number || '',
+                status: al.status || 'unreconciled',
+                voucher_id: al.voucher_id || null,
+                is_reconciled: al.status === 'reconciled' || !!al.voucher_id
+            });
+        });
+
+        // 5. Build intelligent matching between each Bank Payout and candidate receipts
+        const bankPayouts = unifiedPayouts.map(payout => {
+            const text = (payout.particulars + ' ' + payout.ref_no).toLowerCase();
+            let provider = 'Payment Gateway';
+            let matchedGw = null;
+
+            if (text.includes('google') || text.includes('gpay') || text.includes('nod-perfect')) {
+                provider = 'Google Pay Business';
+                matchedGw = gatewayAccounts.find(g => (g.name || '').toLowerCase().includes('google') || (g.name || '').toLowerCase().includes('gpay'));
+            } else if (text.includes('razorpay')) {
+                provider = 'Razorpay';
+                matchedGw = gatewayAccounts.find(g => (g.name || '').toLowerCase().includes('razorpay'));
+            } else if (text.includes('pine')) {
+                provider = 'Pine Labs';
+                matchedGw = gatewayAccounts.find(g => (g.name || '').toLowerCase().includes('pine'));
+            } else {
+                matchedGw = gatewayAccounts[0];
+            }
+
+            const targetGwId = matchedGw ? matchedGw.id : (gatewayAccounts[0]?.id || null);
+
+            // Filter candidate receipts for this payout:
+            // Same gateway, created on or before payout date (typically date T or T-1 window, or matching settlement_ref)
+            const pDate = new Date(payout.date);
+            const pDateMinus2 = new Date(pDate);
+            pDateMinus2.setDate(pDateMinus2.getDate() - 2);
+            const minDateStr = pDateMinus2.toISOString().split('T')[0];
+            const pDateStr = payout.date;
+
+            // Check if this payout is already matched to a settlement record
+            const existingSettlement = (settlements || []).find(s => 
+                (payout.ref_no && s.settlement_ref === payout.ref_no) ||
+                (s.settlement_date === payout.date && Math.abs(parseFloat(s.net_amount || 0) - payout.amount) < 0.05)
+            );
+
+            // Candidate receipts:
+            let candidates = [];
+            if (existingSettlement && Array.isArray(existingSettlement.receipt_ids)) {
+                // If already settled, pick the exact receipts recorded in the settlement
+                candidates = receipts.filter(r => existingSettlement.receipt_ids.includes(r.id));
+            } else {
+                // For pending payouts: pick unsettled receipts for this gateway in the batch timeframe (T-2 to T)
+                candidates = receipts.filter(r => 
+                    r.payment_account_id === targetGwId &&
+                    !r.is_settled &&
+                    r.date >= minDateStr &&
+                    r.date <= pDateStr
+                );
+
+                // If no receipts in tight window, check if any unsettled receipts exist on or before payout date
+                if (candidates.length === 0) {
+                    candidates = receipts.filter(r => 
+                        r.payment_account_id === targetGwId &&
+                        !r.is_settled &&
+                        r.date <= pDateStr
+                    ).slice(0, 20);
+                }
+            }
+
+            const candidateTotal = candidates.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const candidatePos = candidates.filter(r => r.channelType === 'pos').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+            const candidateTech = candidates.filter(r => r.channelType === 'technician').reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+
+            // Variance = Bank Payout - Candidate Receipts Total
+            // If Variance > 0: Bank received more money than system has logged (Missing receipts in system)
+            // If Variance < 0: System has logged more money than bank payout (Short settlement / Cutoff rollover)
+            // If Variance == 0: Exact match
+            const variance = +(payout.amount - candidateTotal).toFixed(2);
+            const isReconciled = payout.is_reconciled || !!existingSettlement;
+
+            let discrepancyType = 'matched';
+            if (isReconciled) {
+                discrepancyType = 'reconciled';
+            } else if (Math.abs(variance) < 1.0) {
+                discrepancyType = 'matched';
+            } else if (variance > 0) {
+                discrepancyType = 'missing_receipts';
+            } else {
+                discrepancyType = 'short_settlement';
+            }
+
+            return {
+                ...payout,
+                provider,
+                gatewayAccount: matchedGw || null,
+                gatewayAccountId: targetGwId,
+                candidateReceipts: candidates,
+                candidateCount: candidates.length,
+                candidateTotal,
+                candidatePos,
+                candidateTech,
+                variance,
+                discrepancyType,
+                isReconciled,
+                settlementRecord: existingSettlement || null
+            };
+        });
 
         return NextResponse.json({
             success: true,
             gatewayAccounts,
             receipts,
+            bankPayouts,
             settlements: settlements || [],
             summary: {
                 totalUnsettled,
                 posTotal,
                 techTotal,
-                count: unsettledOnly.length
+                count: unsettledOnly.length,
+                payoutsCount: bankPayouts.length,
+                pendingPayoutsCount: bankPayouts.filter(p => !p.isReconciled).length
             }
         });
     } catch (err) {
@@ -127,7 +287,7 @@ export async function GET(request) {
     }
 }
 
-// POST: Actions for Auto-Creating Commission Purchase Voucher or Settling to Main Bank
+// POST: Actions for Auto-Creating Commission Purchase Voucher, Batch Settlement, or Direct Match & Reconcile
 export async function POST(request) {
     try {
         const supabase = createServerSupabase();
@@ -217,12 +377,12 @@ export async function POST(request) {
         }
 
         // =========================================================================
-        // ACTION 2: SETTLE TRANSACTIONS INTO BANK (WITH OPTIONAL COMMISSION PURCHASE VOUCHER)
+        // ACTION 2: SETTLE BATCH TRANSACTIONS INTO BANK
         // =========================================================================
         if (action === 'settle_batch') {
             const {
                 gateway_account_id,
-                destination_account_id, // Default HDFC Current Account
+                destination_account_id,
                 receipt_ids = [],
                 gross_amount,
                 fee_amount = 0,
@@ -238,7 +398,6 @@ export async function POST(request) {
                 return NextResponse.json({ success: false, error: 'Please select at least one transaction to settle' }, { status: 400 });
             }
 
-            // 1. Resolve destination bank account (HDFC Current Account if not passed)
             let destAccId = destination_account_id;
             if (!destAccId) {
                 const { data: hdfc } = await supabase
@@ -269,7 +428,6 @@ export async function POST(request) {
 
             let purchaseInvoice = null;
 
-            // 2. Optionally create the Commission Purchase Voucher
             if (create_commission_voucher && totalCommission > 0) {
                 const yy = new Date().getFullYear().toString().slice(-2);
                 const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -312,8 +470,6 @@ export async function POST(request) {
                 if (!piErr) purchaseInvoice = piData;
             }
 
-            // 3. Create Transfer Payment Voucher (clears Gateway Clearing $\to$ deposits Net into HDFC)
-            // A Payment Voucher where account_id = HDFC (Debit HDFC Bank) and payment_account_id = Gateway (Credit Gateway Clearing)
             const yy = new Date().getFullYear().toString().slice(-2);
             const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
 
@@ -321,9 +477,9 @@ export async function POST(request) {
                 payment_number: transferVoucherNumber,
                 reference: settlement_ref || 'Gateway Settlement',
                 reference_number: settlement_ref || null,
-                account_id: destAccId, // Receiving bank account
+                account_id: destAccId,
                 account_name: destName,
-                payment_account_id: gateway_account_id, // Paying clearing account
+                payment_account_id: gateway_account_id,
                 date: settlement_date,
                 amount: computedNet,
                 payment_mode: 'bank_transfer',
@@ -339,7 +495,6 @@ export async function POST(request) {
 
             if (transferErr) console.warn('Could not insert transfer voucher:', transferErr);
 
-            // 4. Mark all selected receipt vouchers as settled
             const { error: updateErr } = await supabase
                 .from('receipt_vouchers')
                 .update({
@@ -351,7 +506,6 @@ export async function POST(request) {
 
             if (updateErr) throw updateErr;
 
-            // 5. Record settlement log in gateway_settlements table
             const { data: settlementLog, error: logErr } = await supabase
                 .from('gateway_settlements')
                 .insert([{
@@ -374,6 +528,223 @@ export async function POST(request) {
                 success: true,
                 message: `Successfully settled ₹${computedNet.toLocaleString('en-IN')} into ${destName}`,
                 settlement: settlementLog,
+                purchaseInvoice,
+                transferVoucher: transferData
+            });
+        }
+
+        // =========================================================================
+        // ACTION 3: 1-CLICK MATCH & RECONCILE BANK PAYOUT (WITH AUTO-BALANCING & COMM)
+        // =========================================================================
+        if (action === 'reconcile_bank_payout') {
+            const {
+                bank_payout_id,
+                payout_source = 'statement', // 'statement' | 'alert'
+                gateway_account_id,
+                destination_account_id,
+                receipt_ids = [],
+                bank_amount,
+                gross_amount,
+                fee_amount = 0,
+                tax_amount = 0,
+                settlement_ref = '',
+                settlement_date = new Date().toISOString().split('T')[0],
+                create_missing_voucher = false,
+                missing_amount = 0,
+                missing_account_id = null,
+                create_commission_voucher = false,
+                notes = ''
+            } = body;
+
+            let destAccId = destination_account_id;
+            if (!destAccId) {
+                const { data: hdfc } = await supabase
+                    .from('accounts')
+                    .select('id')
+                    .ilike('name', '%hdfc%')
+                    .maybeSingle();
+                destAccId = hdfc?.id || 'fb2512f4-c3c3-44ae-9dcf-0b750b5294a6';
+            }
+
+            const { data: gatewayAcc } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .eq('id', gateway_account_id)
+                .single();
+
+            const { data: destAcc } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .eq('id', destAccId)
+                .single();
+
+            const gatewayName = gatewayAcc?.name || 'Payment Gateway';
+            const destName = destAcc?.name || 'HDFC Current A/c';
+
+            const activeReceiptIds = [...receipt_ids];
+
+            // 1. If Missing Receipts detected and requested to auto-balance, create balancing receipt voucher
+            let balancingVoucher = null;
+            if (create_missing_voucher && parseFloat(missing_amount) > 0) {
+                const yy = new Date().getFullYear().toString().slice(-2);
+                const balRecNumber = `REC-${yy}-BAL${Math.floor(1000 + Math.random() * 9000)}`;
+
+                const balancingPayload = {
+                    receipt_number: balRecNumber,
+                    account_id: missing_account_id || '91354883-3379-4ca4-b770-850acb7d8e93', // Sales Revenue
+                    account_name: 'Unrecorded Customer Collection (Auto-Balanced)',
+                    payment_account_id: gateway_account_id,
+                    amount: parseFloat(missing_amount),
+                    date: settlement_date,
+                    payment_mode: 'upi',
+                    reference_number: settlement_ref,
+                    narration: `Balancing receipt for unrecorded collection detected in bank settlement ${settlement_ref}`,
+                    is_settled: true,
+                    settlement_ref: settlement_ref,
+                    settled_at: new Date().toISOString(),
+                    source: 'Auto-Reconciliation'
+                };
+
+                const { data: bData, error: bErr } = await supabase
+                    .from('receipt_vouchers')
+                    .insert([balancingPayload])
+                    .select()
+                    .single();
+
+                if (!bErr && bData) {
+                    balancingVoucher = bData;
+                    activeReceiptIds.push(bData.id);
+                }
+            }
+
+            // 2. If commission specified, create Purchase Voucher
+            let purchaseInvoice = null;
+            const totalCommission = parseFloat(fee_amount || 0) + parseFloat(tax_amount || 0);
+
+            if (create_commission_voucher && totalCommission > 0) {
+                const yy = new Date().getFullYear().toString().slice(-2);
+                const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                const subtotal = parseFloat(fee_amount) || 0;
+                const tax = parseFloat(tax_amount) || 0;
+                const halfTax = +(tax / 2).toFixed(2);
+
+                const purchasePayload = {
+                    invoice_number: invoiceNumber,
+                    vendor_invoice_number: settlement_ref || `SETTLE-COMM-${Date.now().toString().slice(-6)}`,
+                    account_id: gateway_account_id,
+                    account_name: `${gatewayName} (Gateway Commission)`,
+                    date: settlement_date,
+                    subtotal: subtotal,
+                    cgst: halfTax,
+                    sgst: halfTax,
+                    igst: 0,
+                    total_tax: tax,
+                    total_amount: totalCommission,
+                    status: 'paid',
+                    category: 'Gateway Processing Charges',
+                    notes: `Gateway MDR processing fee on settlement ${settlement_ref} into ${destName}`,
+                    items: [
+                        {
+                            name: `Payment Gateway Fee (${gatewayName})`,
+                            description: `Processing MDR fee for settlement ${settlement_ref}`,
+                            quantity: 1,
+                            unit_price: subtotal,
+                            total: subtotal
+                        }
+                    ]
+                };
+
+                const { data: piData, error: piErr } = await supabase
+                    .from('purchase_invoices')
+                    .insert([purchasePayload])
+                    .select()
+                    .single();
+
+                if (!piErr) purchaseInvoice = piData;
+            }
+
+            // 3. Create Transfer Payment Voucher to HDFC
+            const yy = new Date().getFullYear().toString().slice(-2);
+            const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+            const transferPayload = {
+                payment_number: transferVoucherNumber,
+                reference: settlement_ref || 'Gateway Settlement',
+                reference_number: settlement_ref || null,
+                account_id: destAccId,
+                account_name: destName,
+                payment_account_id: gateway_account_id,
+                date: settlement_date,
+                amount: parseFloat(bank_amount),
+                payment_mode: 'bank_transfer',
+                narration: `Gateway settlement transfer from ${gatewayName} to ${destName} - Ref: ${settlement_ref}`,
+                status: 'cleared'
+            };
+
+            const { data: transferData, error: transferErr } = await supabase
+                .from('payment_vouchers')
+                .insert([transferPayload])
+                .select()
+                .single();
+
+            if (transferErr) console.warn('Could not insert transfer voucher:', transferErr);
+
+            // 4. Mark all selected and balancing receipt vouchers as settled
+            if (activeReceiptIds.length > 0) {
+                await supabase
+                    .from('receipt_vouchers')
+                    .update({
+                        is_settled: true,
+                        settlement_ref: settlement_ref || transferVoucherNumber,
+                        settled_at: new Date().toISOString()
+                    })
+                    .in('id', activeReceiptIds);
+            }
+
+            // 5. Mark bank statement transaction or alert as reconciled
+            if (payout_source === 'statement' && bank_payout_id) {
+                await supabase
+                    .from('bank_statement_transactions')
+                    .update({
+                        status: 'reconciled',
+                        voucher_id: transferData?.id || null,
+                        reconciled_at: new Date().toISOString()
+                    })
+                    .eq('id', bank_payout_id);
+            } else if (payout_source === 'alert' && bank_payout_id) {
+                await supabase
+                    .from('bank_alerts_log')
+                    .update({
+                        status: 'reconciled',
+                        voucher_id: transferData?.id || null
+                    })
+                    .eq('id', bank_payout_id);
+            }
+
+            // 6. Record audit entry in gateway_settlements
+            const { data: settlementLog } = await supabase
+                .from('gateway_settlements')
+                .insert([{
+                    gateway_account_id,
+                    destination_account_id: destAccId,
+                    settlement_ref: settlement_ref || transferVoucherNumber,
+                    settlement_date,
+                    gross_amount: parseFloat(gross_amount) || parseFloat(bank_amount),
+                    fee_amount: parseFloat(fee_amount) || 0,
+                    tax_amount: parseFloat(tax_amount) || 0,
+                    net_amount: parseFloat(bank_amount),
+                    purchase_invoice_id: purchaseInvoice?.id || null,
+                    receipt_ids: activeReceiptIds,
+                    notes: notes || `Auto-matched bank payout ${settlement_ref}`
+                }])
+                .select()
+                .single();
+
+            return NextResponse.json({
+                success: true,
+                message: `Successfully matched & reconciled settlement of ₹${parseFloat(bank_amount).toLocaleString('en-IN')} with ${activeReceiptIds.length} receipts`,
+                settlement: settlementLog,
+                balancingVoucher,
                 purchaseInvoice,
                 transferVoucher: transferData
             });
