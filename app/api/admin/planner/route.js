@@ -101,7 +101,13 @@ export async function GET(request) {
         }
 
         if (reminderType && reminderType !== 'all') {
-            baseQuery = baseQuery.eq('reminder_type', reminderType)
+            if (reminderType === 'payable' || reminderType === 'receivable' || reminderType === 'payment') {
+                baseQuery = baseQuery.eq('reminder_type', 'payment')
+            } else if (reminderType === 'rental') {
+                baseQuery = baseQuery.eq('reminder_type', '__none__')
+            } else {
+                baseQuery = baseQuery.eq('reminder_type', reminderType)
+            }
         }
 
         if (status && status !== 'all') {
@@ -123,7 +129,13 @@ export async function GET(request) {
             recurringQuery = recurringQuery.lte('due_date', endDate)
         }
         if (reminderType && reminderType !== 'all') {
-            recurringQuery = recurringQuery.eq('reminder_type', reminderType)
+            if (reminderType === 'payable' || reminderType === 'receivable' || reminderType === 'payment') {
+                recurringQuery = recurringQuery.eq('reminder_type', 'payment')
+            } else if (reminderType === 'rental') {
+                recurringQuery = recurringQuery.eq('reminder_type', '__none__')
+            } else {
+                recurringQuery = recurringQuery.eq('reminder_type', reminderType)
+            }
         }
 
         const [baseRes, recRes] = await Promise.all([baseQuery, recurringQuery])
@@ -186,8 +198,8 @@ export async function GET(request) {
             }
         }
 
-        // 3. Fetch New Era Liabilities repayment schedule entries if payments are included
-        const includeNewEra = (!reminderType || reminderType === 'all' || reminderType === 'payment');
+        // 3. Fetch New Era Liabilities repayment schedule entries if payables are included
+        const includeNewEra = (!reminderType || reminderType === 'all' || reminderType === 'payment' || reminderType === 'payable');
 
         if (includeNewEra && rangeStart && rangeEnd) {
             let neweraQuery = supabase
@@ -260,8 +272,8 @@ export async function GET(request) {
             }
         }
 
-        // 4. Fetch Active Rentals monthly rent schedules if payments are included
-        const includeRentals = (!reminderType || reminderType === 'all' || reminderType === 'payment');
+        // 4. Fetch Active Rentals monthly rent schedules if receivables/rentals are included
+        const includeRentals = (!reminderType || reminderType === 'all' || reminderType === 'receivable' || reminderType === 'rental');
 
         if (includeRentals && rangeStart && rangeEnd) {
             let rentalQuery = supabase
@@ -359,7 +371,29 @@ export async function GET(request) {
             }
         }
 
-        const allItems = Array.from(itemsMap.values())
+        let allItems = Array.from(itemsMap.values())
+
+        if (reminderType && reminderType !== 'all') {
+            if (reminderType === 'payable' || reminderType === 'payment') {
+                allItems = allItems.filter(it => {
+                    const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
+                    const isRec = it.metadata?.direction === 'receivable' || isRental;
+                    return (it.reminder_type === 'payment' || it.source === 'newera') && !isRec;
+                });
+            } else if (reminderType === 'receivable') {
+                allItems = allItems.filter(it => {
+                    const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
+                    return it.metadata?.direction === 'receivable' || isRental;
+                });
+            } else if (reminderType === 'rental') {
+                allItems = allItems.filter(it => Boolean(it.metadata?.is_rental || it.source === 'rental'));
+            } else if (reminderType === 'visit') {
+                allItems = allItems.filter(it => it.reminder_type === 'visit');
+            } else if (reminderType === 'task') {
+                allItems = allItems.filter(it => it.reminder_type === 'task' || it.reminder_type === 'general');
+            }
+        }
+
         allItems.sort((a, b) => {
             if (a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date)
             const timeA = a.due_time || '99:99'

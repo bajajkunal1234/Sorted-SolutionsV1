@@ -28,7 +28,9 @@ import {
     ExternalLink,
     Landmark,
     Package,
-    Receipt
+    Receipt,
+    ArrowUpRight,
+    ArrowDownLeft
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
 import RentReceiptsModal from './RentReceiptsModal';
@@ -143,7 +145,7 @@ export default function DayPlannerTab() {
     const [error, setError] = useState(null);
 
     // Filter & Search states
-    const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'payment' | 'visit' | 'task'
+    const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'payable' | 'receivable' | 'rental' | 'visit' | 'task'
     const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'completed'
     const [searchQuery, setSearchQuery] = useState('');
     const [showSearch, setShowSearch] = useState(false);
@@ -306,7 +308,22 @@ export default function DayPlannerTab() {
     // Filtered items based on search, type, and status
     const filteredItems = useMemo(() => {
         return items.filter(item => {
-            if (typeFilter !== 'all' && item.reminder_type !== typeFilter) return false;
+            const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
+            const isReceivable = (item.metadata?.direction === 'receivable' || isRental);
+            const isPayable = (item.reminder_type === 'payment' || item.source === 'newera') && !isReceivable;
+
+            if (typeFilter === 'payable' || typeFilter === 'payment') {
+                if (!isPayable) return false;
+            } else if (typeFilter === 'receivable') {
+                if (!isReceivable) return false;
+            } else if (typeFilter === 'rental') {
+                if (!isRental) return false;
+            } else if (typeFilter === 'visit') {
+                if (item.reminder_type !== 'visit') return false;
+            } else if (typeFilter === 'task') {
+                if (item.reminder_type !== 'task' && item.reminder_type !== 'general') return false;
+            }
+
             if (statusFilter !== 'all' && item.status !== statusFilter) return false;
 
             if (searchQuery.trim()) {
@@ -338,20 +355,32 @@ export default function DayPlannerTab() {
         return itemsByDate[selectedDate] || [];
     }, [itemsByDate, selectedDate]);
 
-    // Selected day's total payment amount
-    const selectedDatePaymentTotal = useMemo(() => {
-        return selectedDateItems.reduce((sum, it) => {
-            if (it.reminder_type === 'payment' && it.amount) {
-                return sum + Math.abs(Number(it.amount) || 0);
+    // Selected day's totals separated by payables and receivables
+    const selectedDateTotals = useMemo(() => {
+        let payable = 0;
+        let receivable = 0;
+        for (const it of selectedDateItems) {
+            const amt = Math.abs(Number(it.amount) || 0);
+            if (!amt) continue;
+            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
+            const isRec = it.metadata?.direction === 'receivable' || isRental;
+            if (isRec) {
+                receivable += amt;
+            } else if (it.reminder_type === 'payment' || it.source === 'newera') {
+                payable += amt;
             }
-            return sum;
-        }, 0);
+        }
+        return { payable, receivable };
     }, [selectedDateItems]);
 
     // Counts & amount totals for filter pills (scoped to currently viewed month)
     const counts = useMemo(() => {
-        let payments = 0;
-        let paymentAmount = 0;
+        let payables = 0;
+        let payableAmount = 0;
+        let receivables = 0;
+        let receivableAmount = 0;
+        let rentals = 0;
+        let rentalAmount = 0;
         let visits = 0;
         let tasks = 0;
         let all = 0;
@@ -375,16 +404,45 @@ export default function DayPlannerTab() {
             }
 
             all++;
-            if (it.reminder_type === 'payment') {
-                payments++;
-                if (it.amount) paymentAmount += Math.abs(Number(it.amount) || 0);
-            } else if (it.reminder_type === 'visit') {
+
+            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
+            const isPaymentType = it.reminder_type === 'payment' || it.source === 'newera' || isRental;
+            const isRec = (it.metadata?.direction === 'receivable' || isRental) && isPaymentType;
+            const isPay = isPaymentType && !isRec;
+            const amt = Math.abs(Number(it.amount) || 0);
+
+            if (isPay) {
+                payables++;
+                if (amt) payableAmount += amt;
+            }
+            if (isRec) {
+                receivables++;
+                if (amt) receivableAmount += amt;
+            }
+            if (isRental) {
+                rentals++;
+                if (amt) rentalAmount += amt;
+            }
+            if (it.reminder_type === 'visit') {
                 visits++;
-            } else {
+            } else if (it.reminder_type === 'task' || it.reminder_type === 'general') {
                 tasks++;
             }
         }
-        return { all, payments, paymentAmount, visits, tasks };
+        return {
+            all,
+            payables,
+            payableAmount,
+            receivables,
+            receivableAmount,
+            rentals,
+            rentalAmount,
+            visits,
+            tasks,
+            // Backwards compatibility alias
+            payments: payables,
+            paymentAmount: payableAmount
+        };
     }, [items, currentDate, statusFilter, searchQuery]);
 
     // Agenda dates within the currently viewed month
@@ -955,14 +1013,37 @@ export default function DayPlannerTab() {
                     >
                         All ({counts.all})
                     </button>
+                    {/* Payables Pill (Renamed from Payments) */}
                     <button
-                        onClick={() => setTypeFilter('payment')}
-                        className={`pill ${typeFilter === 'payment' ? 'active' : ''}`}
-                        style={{ color: typeFilter === 'payment' ? '#ffffff' : '#10b981' }}
-                        title={counts.paymentAmount > 0 ? `Total ${monthYearTitle} Payments: ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : undefined}
+                        onClick={() => setTypeFilter('payable')}
+                        className={`pill ${typeFilter === 'payable' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'payable' ? '#ffffff' : '#f87171' }}
+                        title={counts.payableAmount > 0 ? `Total ${monthYearTitle} Payables: ₹${Math.round(counts.payableAmount).toLocaleString('en-IN')}` : undefined}
                     >
-                        <DollarSign size={12} />
-                        Payments ({counts.payments}{counts.paymentAmount > 0 ? ` - ₹${Math.round(counts.paymentAmount).toLocaleString('en-IN')}` : ''})
+                        <ArrowUpRight size={12} />
+                        Payables ({counts.payables}{counts.payableAmount > 0 ? ` - ₹${Math.round(counts.payableAmount).toLocaleString('en-IN')}` : ''})
+                    </button>
+
+                    {/* Receivables Pill */}
+                    <button
+                        onClick={() => setTypeFilter('receivable')}
+                        className={`pill ${typeFilter === 'receivable' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'receivable' ? '#ffffff' : '#10b981' }}
+                        title={counts.receivableAmount > 0 ? `Total ${monthYearTitle} Receivables: ₹${Math.round(counts.receivableAmount).toLocaleString('en-IN')}` : undefined}
+                    >
+                        <ArrowDownLeft size={12} />
+                        Receivables ({counts.receivables}{counts.receivableAmount > 0 ? ` - ₹${Math.round(counts.receivableAmount).toLocaleString('en-IN')}` : ''})
+                    </button>
+
+                    {/* Rentals Pill */}
+                    <button
+                        onClick={() => setTypeFilter('rental')}
+                        className={`pill ${typeFilter === 'rental' ? 'active' : ''}`}
+                        style={{ color: typeFilter === 'rental' ? '#ffffff' : '#c084fc' }}
+                        title={counts.rentalAmount > 0 ? `Total ${monthYearTitle} Rentals: ₹${Math.round(counts.rentalAmount).toLocaleString('en-IN')}` : undefined}
+                    >
+                        <Package size={12} />
+                        Rentals ({counts.rentals}{counts.rentalAmount > 0 ? ` - ₹${Math.round(counts.rentalAmount).toLocaleString('en-IN')}` : ''})
                     </button>
                     <button
                         onClick={() => setTypeFilter('visit')}
@@ -1304,7 +1385,13 @@ export default function DayPlannerTab() {
                                 <h4 className="schedule-title">{selectedDateHeader}</h4>
                                 <span className="schedule-count">
                                     {selectedDateItems.length} {selectedDateItems.length === 1 ? 'activity' : 'activities'} scheduled
-                                    {selectedDatePaymentTotal > 0 && ` • ₹${Math.round(selectedDatePaymentTotal).toLocaleString('en-IN')}`}
+                                    {selectedDateTotals.payable > 0 && selectedDateTotals.receivable > 0 ? (
+                                        ` • Pay: ₹${Math.round(selectedDateTotals.payable).toLocaleString('en-IN')} | Rec: +₹${Math.round(selectedDateTotals.receivable).toLocaleString('en-IN')}`
+                                    ) : selectedDateTotals.payable > 0 ? (
+                                        ` • ₹${Math.round(selectedDateTotals.payable).toLocaleString('en-IN')}`
+                                    ) : selectedDateTotals.receivable > 0 ? (
+                                        ` • +₹${Math.round(selectedDateTotals.receivable).toLocaleString('en-IN')}`
+                                    ) : null}
                                 </span>
                             </div>
 
