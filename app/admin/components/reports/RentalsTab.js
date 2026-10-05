@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer, XCircle } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer, XCircle, CalendarPlus } from 'lucide-react';
 import { rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
@@ -8,6 +8,7 @@ import RentalDetailsModal from './RentalDetailsModal';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
 import TerminationModal from './TerminationModal';
+import ExtendRentalModal from './ExtendRentalModal';
 
 function RentalsTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -27,6 +28,7 @@ function RentalsTab() {
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [selectedRentalForPrint, setSelectedRentalForPrint] = useState(null);
     const [terminateTarget, setTerminateTarget] = useState(null);
+    const [extendTarget, setExtendTarget] = useState(null);
 
     const fetchData = async () => {
         try {
@@ -219,13 +221,130 @@ function RentalsTab() {
                                 const monthlyRent = Number(rental.monthly_rent) || 0;
                                 const securityDeposit = Number(rental.security_deposit) || 0;
 
+                                const duration = Number(rental.tenure?.duration || 1);
+                                const unit = rental.tenure?.unit || 'month';
+                                const totalMonths = unit.includes('year') ? duration * 12 : duration;
+                                const rentsPaid = Number(rental.rents_paid || 0);
+                                const rentsRemaining = Number(rental.rents_remaining != null ? rental.rents_remaining : Math.max(0, totalMonths - rentsPaid));
+
+                                let endDateObj = null;
+                                if (rental.end_date) {
+                                    endDateObj = new Date(rental.end_date + 'T23:59:59');
+                                } else if (rental.start_date) {
+                                    const [origY, origM, origD] = rental.start_date.split('-').map(Number);
+                                    const targetEndM = origM + totalMonths;
+                                    const endY = origY + Math.floor((targetEndM - 1) / 12);
+                                    const endMonth = ((targetEndM - 1) % 12) + 1;
+                                    const maxDays = new Date(endY, endMonth, 0).getDate();
+                                    const endD = Math.min(origD, maxDays);
+                                    endDateObj = new Date(endY, endMonth - 1, endD, 23, 59, 59);
+                                }
+
+                                const now = new Date();
+                                const isContractEnded = rental.status === 'active' && (
+                                    (rentsRemaining === 0 && rentsPaid >= totalMonths) ||
+                                    (endDateObj && endDateObj < now)
+                                );
+
+                                let isLastMonth = false;
+                                if (rental.status === 'active') {
+                                    if (isContractEnded) {
+                                        isLastMonth = true;
+                                    } else if (endDateObj) {
+                                        const diffDays = Math.ceil((endDateObj - now) / (1000 * 60 * 60 * 24));
+                                        isLastMonth = (diffDays <= 35 && diffDays >= 0) || rentsRemaining === 1;
+                                    }
+                                }
+
                                 return (
                                     <div key={rental.id} style={{
                                         padding: 'var(--spacing-md)',
                                         backgroundColor: 'var(--bg-elevated)',
                                         borderRadius: 'var(--radius-lg)',
-                                        border: '1px solid var(--border-primary)'
+                                        border: isContractEnded 
+                                            ? '2px solid #ef4444' 
+                                            : (isLastMonth ? '2px solid #f59e0b' : '1px solid var(--border-primary)'),
+                                        boxShadow: isContractEnded 
+                                            ? '0 0 14px rgba(239, 68, 68, 0.18)' 
+                                            : (isLastMonth ? '0 0 14px rgba(245, 158, 11, 0.18)' : 'none')
                                     }}>
+                                        {/* Contract Ending / Ended Action Banner */}
+                                        {isContractEnded ? (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                flexWrap: 'wrap',
+                                                gap: '8px',
+                                                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                                                color: '#ef4444',
+                                                padding: '8px 12px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                fontSize: 'var(--font-size-xs)',
+                                                fontWeight: 600
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <AlertCircle size={15} />
+                                                    <span>⚠️ Contract Ended ({rental.tenure?.duration} {rental.tenure?.unit} completed) — Action Required: Extend or Terminate</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#10b981', border: 'none', cursor: 'pointer' }}
+                                                        onClick={() => setExtendTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                    >
+                                                        <CalendarPlus size={12} /> Extend Contract
+                                                    </button>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}
+                                                        onClick={() => setTerminateTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                    >
+                                                        <XCircle size={12} /> Terminate
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : isLastMonth ? (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                flexWrap: 'wrap',
+                                                gap: '8px',
+                                                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                                color: '#f59e0b',
+                                                padding: '8px 12px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                marginBottom: 'var(--spacing-sm)',
+                                                fontSize: 'var(--font-size-xs)',
+                                                fontWeight: 600
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <AlertCircle size={15} />
+                                                    <span>⏳ Final Month of Contract — Action Required: Call CX to Extend or Terminate</span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                    <button
+                                                        className="btn btn-primary"
+                                                        style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#10b981', border: 'none', cursor: 'pointer' }}
+                                                        onClick={() => setExtendTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                    >
+                                                        <CalendarPlus size={12} /> Extend Contract
+                                                    </button>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', cursor: 'pointer' }}
+                                                        onClick={() => setTerminateTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                    >
+                                                        <XCircle size={12} /> Terminate
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : null}
+
                                         <div className="rental-card-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
@@ -272,7 +391,28 @@ function RentalsTab() {
                                                 </div>
                                             </div>
 
-                                            <div className="rental-card-actions" style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                            <div className="rental-card-actions" style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                                                {rental.status !== 'terminated' && (
+                                                    <button
+                                                        className="btn"
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            fontSize: 'var(--font-size-sm)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            backgroundColor: (isContractEnded || isLastMonth) ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-secondary)',
+                                                            color: (isContractEnded || isLastMonth) ? '#10b981' : 'var(--text-primary)',
+                                                            border: (isContractEnded || isLastMonth) ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--border-primary)',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        onClick={() => setExtendTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                        title="Extend Rental Contract"
+                                                    >
+                                                        <CalendarPlus size={14} /> Extend
+                                                    </button>
+                                                )}
                                                 <button
                                                     className="btn btn-secondary"
                                                     style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
@@ -663,6 +803,17 @@ function RentalsTab() {
                     customerId={terminateTarget.customer_id}
                     onClose={() => setTerminateTarget(null)}
                     onSuccess={() => { setTerminateTarget(null); fetchData(); }}
+                />
+            )}
+
+            {extendTarget && (
+                <ExtendRentalModal
+                    rental={extendTarget}
+                    onClose={() => setExtendTarget(null)}
+                    onSuccess={() => {
+                        setExtendTarget(null);
+                        fetchData();
+                    }}
                 />
             )}
         </div>

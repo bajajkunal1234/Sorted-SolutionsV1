@@ -272,8 +272,8 @@ export async function GET(request) {
             }
         }
 
-        // 4. Fetch Active Rentals monthly rent schedules if receivables/rentals are included
-        const includeRentals = (!reminderType || reminderType === 'all' || reminderType === 'receivable' || reminderType === 'rental');
+        // 4. Fetch Active Rentals monthly rent schedules if receivables/rentals/tasks are included
+        const includeRentals = (!reminderType || reminderType === 'all' || reminderType === 'receivable' || reminderType === 'rental' || reminderType === 'task');
 
         if (includeRentals && rangeStart && rangeEnd) {
             let rentalQuery = supabase
@@ -300,72 +300,184 @@ export async function GET(request) {
 
                     const rawReceipts = rental.rent_receipts || {};
 
-                    for (let i = 1; i <= totalMonths; i++) {
-                        const targetMonth = origM + (i - 1);
-                        const y = origY + Math.floor((targetMonth - 1) / 12);
-                        const m = ((targetMonth - 1) % 12) + 1;
-                        const maxDays = new Date(y, m, 0).getDate();
-                        const d = Math.min(origD, maxDays);
-                        const dueDateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    // 4a. Monthly Rent Payment entries
+                    const includeRentPayments = (!reminderType || reminderType === 'all' || reminderType === 'receivable' || reminderType === 'rental');
+                    if (includeRentPayments) {
+                        for (let i = 1; i <= totalMonths; i++) {
+                            const targetMonth = origM + (i - 1);
+                            const y = origY + Math.floor((targetMonth - 1) / 12);
+                            const m = ((targetMonth - 1) % 12) + 1;
+                            const maxDays = new Date(y, m, 0).getDate();
+                            const d = Math.min(origD, maxDays);
+                            const dueDateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-                        if (dueDateStr < rangeStart || dueDateStr > rangeEnd) continue;
+                            if (dueDateStr < rangeStart || dueDateStr > rangeEnd) continue;
 
-                        const monthReceipt = rawReceipts[i] || rawReceipts[String(i)];
-                        const isPaid = Boolean(
-                            (Array.isArray(monthReceipt) && monthReceipt.length > 0) ||
-                            (typeof monthReceipt === 'string' && monthReceipt.trim())
-                        );
+                            const monthReceipt = rawReceipts[i] || rawReceipts[String(i)];
+                            const isPaid = Boolean(
+                                (Array.isArray(monthReceipt) && monthReceipt.length > 0) ||
+                                (typeof monthReceipt === 'string' && monthReceipt.trim())
+                            );
 
-                        if (status && status !== 'all') {
-                            if (status === 'completed' && !isPaid) continue;
-                            if (status === 'pending' && isPaid) continue;
+                            if (status && status !== 'all') {
+                                if (status === 'completed' && !isPaid) continue;
+                                if (status === 'pending' && isPaid) continue;
+                            }
+
+                            if (search && search.trim()) {
+                                const s = search.trim().toLowerCase();
+                                const matchTitle = productName.toLowerCase().includes(s);
+                                const matchCustomer = customerName.toLowerCase().includes(s);
+                                const matchSerial = (rental.serial_number || '').toLowerCase().includes(s);
+                                const matchNotes = (rental.notes || '').toLowerCase().includes(s);
+                                if (!matchTitle && !matchCustomer && !matchSerial && !matchNotes) continue;
+                            }
+
+                            const occId = `rental_${rental.id}_${i}`;
+                            itemsMap.set(occId, {
+                                id: occId,
+                                source: 'rental',
+                                reminder_type: 'payment',
+                                title: productName,
+                                amount: monthlyRent,
+                                contact_name: customerName,
+                                contact_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                                location: null,
+                                due_date: dueDateStr,
+                                due_time: null,
+                                status: isPaid ? 'completed' : 'pending',
+                                priority: 'high',
+                                is_recurring: false,
+                                account_id: rental.customer_id || null,
+                                metadata: {
+                                    direction: 'receivable',
+                                    is_rental: true,
+                                    rental_id: rental.id,
+                                    month_index: i,
+                                    total_months: totalMonths,
+                                    product_name: productName,
+                                    customer_name: customerName,
+                                    serial_number: rental.serial_number,
+                                    receipt_ids: Array.isArray(monthReceipt) ? monthReceipt : (monthReceipt ? [monthReceipt] : []),
+                                    rental: {
+                                        ...rental,
+                                        productName,
+                                        customerName,
+                                        monthlyRent,
+                                        securityDeposit: Number(rental.deposit_amount || rental.security_deposit || 0)
+                                    }
+                                },
+                                description: `Month ${i}/${totalMonths} Rent • ${customerName}${rental.serial_number ? ` • SN: ${rental.serial_number}` : ''}`
+                            });
                         }
+                    }
 
-                        if (search && search.trim()) {
-                            const s = search.trim().toLowerCase();
-                            const matchTitle = productName.toLowerCase().includes(s);
-                            const matchCustomer = customerName.toLowerCase().includes(s);
-                            const matchSerial = (rental.serial_number || '').toLowerCase().includes(s);
-                            const matchNotes = (rental.notes || '').toLowerCase().includes(s);
-                            if (!matchTitle && !matchCustomer && !matchSerial && !matchNotes) continue;
-                        }
+                    // 4b. Contract End Actions in the last month of contract
+                    const includeContractEndCalls = (!reminderType || reminderType === 'all' || reminderType === 'rental' || reminderType === 'task');
+                    if (includeContractEndCalls) {
+                        const targetLastM = origM + (totalMonths - 1);
+                        const lastY = origY + Math.floor((targetLastM - 1) / 12);
+                        const lastM = ((targetLastM - 1) % 12) + 1;
+                        const lastMaxDays = new Date(lastY, lastM, 0).getDate();
+                        const lastD = Math.min(origD, lastMaxDays);
+                        const lastMonthDueDate = `${lastY}-${String(lastM).padStart(2, '0')}-${String(lastD).padStart(2, '0')}`;
 
-                        const occId = `rental_${rental.id}_${i}`;
-                        itemsMap.set(occId, {
-                            id: occId,
-                            source: 'rental',
-                            reminder_type: 'payment',
-                            title: productName,
-                            amount: monthlyRent,
-                            contact_name: customerName,
-                            contact_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
-                            location: null,
-                            due_date: dueDateStr,
-                            due_time: null,
-                            status: isPaid ? 'completed' : 'pending',
-                            priority: 'high',
-                            is_recurring: false,
-                            account_id: rental.customer_id || null,
-                            metadata: {
-                                direction: 'receivable',
-                                is_rental: true,
-                                rental_id: rental.id,
-                                month_index: i,
-                                total_months: totalMonths,
-                                product_name: productName,
-                                customer_name: customerName,
-                                serial_number: rental.serial_number,
-                                receipt_ids: Array.isArray(monthReceipt) ? monthReceipt : (monthReceipt ? [monthReceipt] : []),
-                                rental: {
-                                    ...rental,
-                                    productName,
-                                    customerName,
-                                    monthlyRent,
-                                    securityDeposit: Number(rental.deposit_amount || rental.security_deposit || 0)
+                        const targetEndM = origM + totalMonths;
+                        const endY = origY + Math.floor((targetEndM - 1) / 12);
+                        const endM = ((targetEndM - 1) % 12) + 1;
+                        const endMaxDays = new Date(endY, endM, 0).getDate();
+                        const endD = Math.min(origD, endMaxDays);
+                        const contractEndDateStr = rental.end_date || `${endY}-${String(endM).padStart(2, '0')}-${String(endD).padStart(2, '0')}`;
+
+                        const isCallDone = Boolean(rental.notes && rental.notes.includes('[Contract End Call Done'));
+
+                        if (!status || status === 'all' || (status === 'completed' && isCallDone) || (status === 'pending' && !isCallDone)) {
+                            const matchesSearch = !search || !search.trim() || 
+                                productName.toLowerCase().includes(search.toLowerCase()) || 
+                                customerName.toLowerCase().includes(search.toLowerCase()) || 
+                                'call cx - end of contract'.includes(search.toLowerCase()) ||
+                                (rental.notes || '').toLowerCase().includes(search.toLowerCase());
+
+                            if (matchesSearch) {
+                                // Final month installment date (start of last month)
+                                if (lastMonthDueDate >= rangeStart && lastMonthDueDate <= rangeEnd) {
+                                    const occId = `rental_callend_${rental.id}`;
+                                    itemsMap.set(occId, {
+                                        id: occId,
+                                        source: 'rental_contract_end',
+                                        reminder_type: 'task',
+                                        title: `Call CX - End of Contract (${customerName})`,
+                                        amount: 0,
+                                        contact_name: customerName,
+                                        contact_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                                        location: null,
+                                        due_date: lastMonthDueDate,
+                                        due_time: '10:00',
+                                        status: isCallDone ? 'completed' : 'pending',
+                                        priority: 'high',
+                                        is_recurring: false,
+                                        account_id: rental.customer_id || null,
+                                        metadata: {
+                                            is_contract_end_call: true,
+                                            is_rental: true,
+                                            direction: 'rental_task',
+                                            rental_id: rental.id,
+                                            customer_name: customerName,
+                                            product_name: productName,
+                                            customer_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                                            total_months: totalMonths,
+                                            rental: {
+                                                ...rental,
+                                                productName,
+                                                customerName,
+                                                monthlyRent,
+                                                securityDeposit: Number(rental.deposit_amount || rental.security_deposit || 0)
+                                            }
+                                        },
+                                        description: `Final contract month started (${totalMonths} months). Call ${customerName} to discuss contract extension or termination.`
+                                    });
                                 }
-                            },
-                            description: `Month ${i}/${totalMonths} Rent • ${customerName}${rental.serial_number ? ` • SN: ${rental.serial_number}` : ''}`
-                        });
+
+                                // Contract expiration date
+                                if (contractEndDateStr >= rangeStart && contractEndDateStr <= rangeEnd && contractEndDateStr !== lastMonthDueDate) {
+                                    const occId = `rental_contractend_${rental.id}`;
+                                    itemsMap.set(occId, {
+                                        id: occId,
+                                        source: 'rental_contract_end',
+                                        reminder_type: 'task',
+                                        title: `Call CX - Contract Expiry (${customerName})`,
+                                        amount: 0,
+                                        contact_name: customerName,
+                                        contact_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                                        location: null,
+                                        due_date: contractEndDateStr,
+                                        due_time: '10:00',
+                                        status: isCallDone ? 'completed' : 'pending',
+                                        priority: 'high',
+                                        is_recurring: false,
+                                        account_id: rental.customer_id || null,
+                                        metadata: {
+                                            is_contract_end_call: true,
+                                            is_rental: true,
+                                            direction: 'rental_task',
+                                            rental_id: rental.id,
+                                            customer_name: customerName,
+                                            product_name: productName,
+                                            customer_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                                            total_months: totalMonths,
+                                            rental: {
+                                                ...rental,
+                                                productName,
+                                                customerName,
+                                                monthlyRent,
+                                                securityDeposit: Number(rental.deposit_amount || rental.security_deposit || 0)
+                                            }
+                                        },
+                                        description: `Contract tenure of ${totalMonths} months completed on this date. Call ${customerName} to confirm extension or schedule termination.`
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -377,16 +489,16 @@ export async function GET(request) {
             if (reminderType === 'payable' || reminderType === 'payment') {
                 allItems = allItems.filter(it => {
                     const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
-                    const isRec = it.metadata?.direction === 'receivable' || isRental;
+                    const isRec = it.metadata?.direction === 'receivable' || (isRental && it.reminder_type === 'payment');
                     return (it.reminder_type === 'payment' || it.source === 'newera') && !isRec;
                 });
             } else if (reminderType === 'receivable') {
                 allItems = allItems.filter(it => {
                     const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
-                    return it.metadata?.direction === 'receivable' || isRental;
+                    return it.metadata?.direction === 'receivable' || (isRental && it.reminder_type === 'payment');
                 });
             } else if (reminderType === 'rental') {
-                allItems = allItems.filter(it => Boolean(it.metadata?.is_rental || it.source === 'rental'));
+                allItems = allItems.filter(it => Boolean(it.metadata?.is_rental || it.source === 'rental' || it.source === 'rental_contract_end'));
             } else if (reminderType === 'visit') {
                 allItems = allItems.filter(it => it.reminder_type === 'visit');
             } else if (reminderType === 'task') {
@@ -554,6 +666,48 @@ export async function PATCH(request) {
                 data: {
                     id,
                     source: 'newera',
+                    status: updates.status
+                }
+            });
+        }
+
+        // Handle Active Rentals contract-end call activity completion sync
+        if (typeof id === 'string' && (id.startsWith('rental_callend_') || id.startsWith('rental_contractend_'))) {
+            const rentalId = id.replace('rental_callend_', '').replace('rental_contractend_', '');
+            const isCompleted = updates.status === 'completed';
+
+            const { data: rental, error: rFetchErr } = await supabase
+                .from('active_rentals')
+                .select('*')
+                .eq('id', rentalId)
+                .maybeSingle();
+
+            if (rFetchErr || !rental) {
+                return NextResponse.json({ success: false, error: 'Rental record not found' }, { status: 404 });
+            }
+
+            let notes = rental.notes || '';
+            if (isCompleted) {
+                if (!notes.includes('[Contract End Call Done')) {
+                    const dateStamp = new Date().toLocaleDateString('en-GB');
+                    notes = notes ? `${notes}\n[Contract End Call Done: ${dateStamp}]` : `[Contract End Call Done: ${dateStamp}]`;
+                }
+            } else {
+                notes = notes.replace(/\n?\[Contract End Call Done:[^\]]*\]/g, '').trim();
+            }
+
+            const { error: updErr } = await supabase
+                .from('active_rentals')
+                .update({ notes })
+                .eq('id', rentalId);
+
+            if (updErr) throw updErr;
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id,
+                    source: 'rental_contract_end',
                     status: updates.status
                 }
             });
@@ -728,7 +882,7 @@ export async function DELETE(request) {
         if (typeof id === 'string' && id.startsWith('rental_')) {
             return NextResponse.json({
                 success: false,
-                error: 'Rental payment schedule entries cannot be deleted from Admin Day Planner. Please manage or terminate agreements in the Rentals tab.'
+                error: 'Rental payment schedule entries and contract-end activities cannot be deleted from Admin Day Planner. Please manage or extend/terminate agreements in the Rentals tab.'
             }, { status: 403 });
         }
 

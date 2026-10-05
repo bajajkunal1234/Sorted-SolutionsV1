@@ -30,10 +30,14 @@ import {
     Package,
     Receipt,
     ArrowUpRight,
-    ArrowDownLeft
+    ArrowDownLeft,
+    CalendarPlus,
+    XCircle
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
 import RentReceiptsModal from './RentReceiptsModal';
+import ExtendRentalModal from './ExtendRentalModal';
+import TerminationModal from './TerminationModal';
 import { rentalsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
@@ -64,7 +68,23 @@ function getMiniCardProps(item) {
     const type = item.reminder_type || 'task';
     const direction = item.metadata?.direction || (type === 'payment' ? 'payable' : undefined);
     const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
-    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
+    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental' || item.source === 'rental_contract_end');
+    const isContractEndCall = Boolean(item.metadata?.is_contract_end_call || item.source === 'rental_contract_end');
+
+    if (isContractEndCall) {
+        return {
+            borderColor: isCompleted ? 'rgba(16, 185, 129, 0.45)' : 'rgba(245, 158, 11, 0.55)',
+            bgColor: isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.14)',
+            titleColor: isCompleted ? '#a7f3d0' : '#fcd34d',
+            subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#fef3c7',
+            title: item.title || item.contact_name || 'Call CX - Contract End',
+            sub: 'Action: Extend / Terminate',
+            prefix: isCompleted ? '✓ ' : '📞 ',
+            isNewEra: false,
+            isRental: true,
+            isContractEndCall: true
+        };
+    }
 
     if (type === 'payment') {
         if (direction === 'payable') {
@@ -155,6 +175,8 @@ export default function DayPlannerTab() {
     const [modalInitialDate, setModalInitialDate] = useState(todayStr);
     const [editingItem, setEditingItem] = useState(null);
     const [selectedRentalForReceipts, setSelectedRentalForReceipts] = useState(null);
+    const [selectedRentalForExtend, setSelectedRentalForExtend] = useState(null);
+    const [selectedRentalForTerminate, setSelectedRentalForTerminate] = useState(null);
 
     // Fetch planner items for visible date window
     const fetchItems = useCallback(async () => {
@@ -308,8 +330,8 @@ export default function DayPlannerTab() {
     // Filtered items based on search, type, and status
     const filteredItems = useMemo(() => {
         return items.filter(item => {
-            const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
-            const isReceivable = (item.metadata?.direction === 'receivable' || isRental);
+            const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental' || item.source === 'rental_contract_end');
+            const isReceivable = (item.metadata?.direction === 'receivable' || (isRental && item.reminder_type === 'payment'));
             const isPayable = (item.reminder_type === 'payment' || item.source === 'newera') && !isReceivable;
 
             if (typeFilter === 'payable' || typeFilter === 'payment') {
@@ -362,8 +384,8 @@ export default function DayPlannerTab() {
         for (const it of selectedDateItems) {
             const amt = Math.abs(Number(it.amount) || 0);
             if (!amt) continue;
-            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
-            const isRec = it.metadata?.direction === 'receivable' || isRental;
+            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental' || it.source === 'rental_contract_end');
+            const isRec = it.metadata?.direction === 'receivable' || (isRental && it.reminder_type === 'payment');
             if (isRec) {
                 receivable += amt;
             } else if (it.reminder_type === 'payment' || it.source === 'newera') {
@@ -405,9 +427,9 @@ export default function DayPlannerTab() {
 
             all++;
 
-            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental');
-            const isPaymentType = it.reminder_type === 'payment' || it.source === 'newera' || isRental;
-            const isRec = (it.metadata?.direction === 'receivable' || isRental) && isPaymentType;
+            const isRental = Boolean(it.metadata?.is_rental || it.source === 'rental' || it.source === 'rental_contract_end');
+            const isPaymentType = it.reminder_type === 'payment' || it.source === 'newera' || (isRental && it.reminder_type === 'payment');
+            const isRec = (it.metadata?.direction === 'receivable' || (isRental && it.reminder_type === 'payment')) && isPaymentType;
             const isPay = isPaymentType && !isRec;
             const amt = Math.abs(Number(it.amount) || 0);
 
@@ -1367,6 +1389,8 @@ export default function DayPlannerTab() {
                                                     onEdit={handleOpenEdit}
                                                     onDelete={handleDeleteItem}
                                                     onOpenRentReceipts={setSelectedRentalForReceipts}
+                                                    onOpenExtendRental={setSelectedRentalForExtend}
+                                                    onOpenTerminateRental={setSelectedRentalForTerminate}
                                                 />
                                             ))}
                                         </div>
@@ -1445,6 +1469,8 @@ export default function DayPlannerTab() {
                                         onEdit={handleOpenEdit}
                                         onDelete={handleDeleteItem}
                                         onOpenRentReceipts={setSelectedRentalForReceipts}
+                                        onOpenExtendRental={setSelectedRentalForExtend}
+                                        onOpenTerminateRental={setSelectedRentalForTerminate}
                                     />
                                 ))
                             )}
@@ -1472,22 +1498,53 @@ export default function DayPlannerTab() {
                     onSave={handleSaveRentReceipts}
                 />
             )}
+
+            {/* Extend Rental Modal */}
+            {selectedRentalForExtend && (
+                <ExtendRentalModal
+                    rental={selectedRentalForExtend}
+                    onClose={() => setSelectedRentalForExtend(null)}
+                    onSuccess={() => {
+                        setSelectedRentalForExtend(null);
+                        fetchItems();
+                    }}
+                />
+            )}
+
+            {/* Terminate Rental Modal */}
+            {selectedRentalForTerminate && (
+                <TerminationModal
+                    type="rental"
+                    record={selectedRentalForTerminate}
+                    customerId={selectedRentalForTerminate.customer_id}
+                    onClose={() => setSelectedRentalForTerminate(null)}
+                    onSuccess={() => {
+                        setSelectedRentalForTerminate(null);
+                        fetchItems();
+                    }}
+                />
+            )}
         </div>
     );
 }
 
 // Compact Mobile-First Card for Each Planned Item
-function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRentReceipts }) {
+function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRentReceipts, onOpenExtendRental, onOpenTerminateRental }) {
     const isPayment = item.reminder_type === 'payment';
     const isVisit = item.reminder_type === 'visit';
     const isCompleted = item.status === 'completed';
     const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
-    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
+    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental' || item.source === 'rental_contract_end');
+    const isContractEndCall = Boolean(item.metadata?.is_contract_end_call || item.source === 'rental_contract_end');
 
     const direction = item.metadata?.direction || 'payable';
 
-    const typeColor = isRental ? '#c084fc' : isPayment ? '#10b981' : isVisit ? '#8b5cf6' : '#3b82f6';
-    const typeBg = isRental ? 'rgba(168, 85, 247, 0.14)' : isPayment ? 'rgba(16, 185, 129, 0.12)' : isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
+    const typeColor = isContractEndCall
+        ? '#f59e0b'
+        : (isRental ? '#c084fc' : (isPayment ? '#10b981' : (isVisit ? '#8b5cf6' : '#3b82f6')));
+    const typeBg = isContractEndCall
+        ? 'rgba(245, 158, 11, 0.15)'
+        : (isRental ? 'rgba(168, 85, 247, 0.14)' : (isPayment ? 'rgba(16, 185, 129, 0.12)' : (isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)')));
 
     const openInNewEra = (e) => {
         if (e) e.stopPropagation();
@@ -1506,16 +1563,28 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRe
         }
     };
 
+    const handleCardClick = (e) => {
+        if (isContractEndCall && item.metadata?.rental && onOpenExtendRental) {
+            onOpenExtendRental(item.metadata.rental);
+        } else if (isRental && !isContractEndCall) {
+            openRentalReceipts(e);
+        } else if (isNewEra) {
+            openInNewEra(e);
+        }
+    };
+
     return (
         <div
-            onClick={isRental ? openRentalReceipts : (isNewEra ? openInNewEra : undefined)}
+            onClick={handleCardClick}
             style={{
                 backgroundColor: 'var(--bg-secondary)',
-                border: isRental
-                    ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(168, 85, 247, 0.4)')
-                    : isNewEra
-                        ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.35)')
-                        : '1px solid var(--border-primary)',
+                border: isContractEndCall
+                    ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(245, 158, 11, 0.45)')
+                    : (isRental
+                        ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(168, 85, 247, 0.4)')
+                        : isNewEra
+                            ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.35)')
+                            : '1px solid var(--border-primary)'),
                 borderRadius: '8px',
                 padding: '10px 12px',
                 display: 'flex',
@@ -1523,10 +1592,10 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRe
                 gap: '6px',
                 opacity: isCompleted ? 0.65 : 1,
                 boxSizing: 'border-box',
-                cursor: (isRental || isNewEra) ? 'pointer' : 'default',
+                cursor: (isContractEndCall || isRental || isNewEra) ? 'pointer' : 'default',
                 transition: 'border-color 0.15s ease, background-color 0.15s ease'
             }}
-            title={isRental ? "Rental Agreement Payment — Click to view/link rent receipts" : (isNewEra ? "New Era Liability Installment — Click to open in New Era Tracker (new tab)" : undefined)}
+            title={isContractEndCall ? "Contract End Action — Click to extend or terminate" : (isRental ? "Rental Agreement Payment — Click to view/link rent receipts" : (isNewEra ? "New Era Liability Installment — Click to open in New Era Tracker (new tab)" : undefined))}
         >
             {/* Top Row: Type Pill, Time, Status, Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1563,12 +1632,32 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRe
                             gap: '3px'
                         }}
                     >
-                        {isRental ? <Building2 size={10} /> : isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
-                        {isRental ? 'Rent' : isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
+                        {isContractEndCall ? <Phone size={10} /> : (isRental ? <Building2 size={10} /> : (isPayment ? <DollarSign size={10} /> : (isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />)))}
+                        {isContractEndCall ? 'Call CX' : (isRental ? 'Rent' : (isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : (isVisit ? 'Visit' : 'Task')))}
                     </span>
 
+                    {/* Contract End Warning Pill */}
+                    {isContractEndCall && (
+                        <span
+                            style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(245, 158, 11, 0.16)',
+                                color: '#f59e0b',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}
+                        >
+                            <span>End of Contract</span>
+                        </span>
+                    )}
+
                     {/* Rental Badge */}
-                    {isRental && (
+                    {isRental && !isContractEndCall && (
                         <span
                             onClick={openRentalReceipts}
                             style={{
@@ -1702,9 +1791,64 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRe
                     )}
                 </div>
 
-                {/* Actions: Rent Receipts for Rental, Tracker link for New Era, Edit & Delete for standard items */}
+                {/* Actions: Extend/Terminate for Contract End Call, Rent Receipts for Rental, Tracker link for New Era, Edit & Delete for standard items */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {isRental ? (
+                    {isContractEndCall ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {item.metadata?.rental && onOpenExtendRental && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenExtendRental(item.metadata.rental);
+                                    }}
+                                    style={{
+                                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                        color: '#10b981',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        padding: '3px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                    title="Extend rental contract"
+                                >
+                                    <CalendarPlus size={11} />
+                                    <span>Extend</span>
+                                </button>
+                            )}
+                            {item.metadata?.rental && onOpenTerminateRental && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onOpenTerminateRental(item.metadata.rental);
+                                    }}
+                                    style={{
+                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                        color: '#ef4444',
+                                        borderRadius: '5px',
+                                        cursor: 'pointer',
+                                        padding: '3px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                    title="Terminate rental contract"
+                                >
+                                    <XCircle size={11} />
+                                    <span>Terminate</span>
+                                </button>
+                            )}
+                        </div>
+                    ) : isRental ? (
                         <button
                             type="button"
                             onClick={openRentalReceipts}
@@ -1790,12 +1934,37 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRe
                         gap: '5px'
                     }}>
                         <span>{item.title}</span>
-                        {isRental ? <Receipt size={11} style={{ opacity: 0.7, color: '#c084fc' }} /> : isNewEra ? <ExternalLink size={11} style={{ opacity: 0.6 }} /> : null}
+                        {isContractEndCall ? <Phone size={11} style={{ opacity: 0.8, color: '#f59e0b' }} /> : (isRental ? <Receipt size={11} style={{ opacity: 0.7, color: '#c084fc' }} /> : isNewEra ? <ExternalLink size={11} style={{ opacity: 0.6 }} /> : null)}
                     </div>
 
                     {item.contact_name && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {isRental ? `Renter: ${item.contact_name}` : isNewEra ? `Lender: ${item.contact_name}` : (isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`)}
+                            {isContractEndCall ? `Customer: ${item.contact_name}` : (isRental ? `Renter: ${item.contact_name}` : (isNewEra ? `Lender: ${item.contact_name}` : (isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`)))}
+                        </div>
+                    )}
+
+                    {isContractEndCall && item.contact_phone && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                            <a
+                                href={`tel:${item.contact_phone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    fontSize: '11px',
+                                    color: '#f59e0b',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    borderRadius: '4px',
+                                    padding: '2px 8px',
+                                    textDecoration: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontWeight: 600
+                                }}
+                            >
+                                <Phone size={11} />
+                                Call CX ({item.contact_phone})
+                            </a>
                         </div>
                     )}
                 </div>
