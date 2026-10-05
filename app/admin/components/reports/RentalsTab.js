@@ -241,19 +241,18 @@ function RentalsTab() {
                                 }
 
                                 const now = new Date();
-                                const isContractEnded = rental.status === 'active' && (
-                                    (rentsRemaining === 0 && rentsPaid >= totalMonths) ||
-                                    (endDateObj && endDateObj < now)
-                                );
+                                // A contract has ONLY ended when the calendar tenure end date has elapsed in time!
+                                const isContractEnded = rental.status === 'active' && Boolean(endDateObj && endDateObj < now);
 
+                                // Whether all rents for the tenure have been paid (e.g. upfront advance or fully collected)
+                                const isAllPaid = rentsRemaining === 0 && rentsPaid >= totalMonths;
+
+                                // Is the contract in its final month?
+                                // Only if it has NOT yet ended, but the end date is within 35 days from now
                                 let isLastMonth = false;
-                                if (rental.status === 'active') {
-                                    if (isContractEnded) {
-                                        isLastMonth = true;
-                                    } else if (endDateObj) {
-                                        const diffDays = Math.ceil((endDateObj - now) / (1000 * 60 * 60 * 24));
-                                        isLastMonth = (diffDays <= 35 && diffDays >= 0) || rentsRemaining === 1;
-                                    }
+                                if (rental.status === 'active' && !isContractEnded && endDateObj) {
+                                    const diffDays = Math.ceil((endDateObj - now) / (1000 * 60 * 60 * 24));
+                                    isLastMonth = diffDays <= 35 && diffDays >= 0;
                                 }
 
                                 return (
@@ -362,6 +361,19 @@ function RentalsTab() {
                                                     }}>
                                                         {rental.status}
                                                     </span>
+                                                    {isAllPaid && (
+                                                        <span style={{
+                                                            padding: '2px 8px',
+                                                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                            color: '#10b981',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            fontSize: 'var(--font-size-xs)',
+                                                            fontWeight: 600,
+                                                            border: '1px solid rgba(16, 185, 129, 0.3)'
+                                                        }}>
+                                                            All Paid ({rentsPaid}/{totalMonths})
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
                                                     {customerName} • SN: {rental.serial_number || 'N/A'}
@@ -380,8 +392,12 @@ function RentalsTab() {
                                                     </div>
                                                     <div>
                                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
-                                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: (rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : 'inherit' }}>
-                                                            {rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : 'N/A'}
+                                                        <div style={{ 
+                                                            fontSize: 'var(--font-size-sm)', 
+                                                            fontWeight: 600, 
+                                                            color: isAllPaid ? '#10b981' : ((rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : 'inherit') 
+                                                        }}>
+                                                            {isAllPaid ? 'All Paid' : (rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : 'N/A')}
                                                         </div>
                                                     </div>
                                                     <div>

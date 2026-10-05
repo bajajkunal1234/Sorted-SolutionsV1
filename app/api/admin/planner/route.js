@@ -316,7 +316,8 @@ export async function GET(request) {
                             const monthReceipt = rawReceipts[i] || rawReceipts[String(i)];
                             const isPaid = Boolean(
                                 (Array.isArray(monthReceipt) && monthReceipt.length > 0) ||
-                                (typeof monthReceipt === 'string' && monthReceipt.trim())
+                                (typeof monthReceipt === 'string' && monthReceipt.trim()) ||
+                                (Number(rental.rents_paid || 0) >= i)
                             );
 
                             if (status && status !== 'all') {

@@ -135,16 +135,19 @@ function RentAMCTab({ customerId }) {
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>Next Rent Due</div>
-                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: isOverdue(rental.next_rent_due_date) ? '#ef4444' : '#f59e0b' }}>
-                                            {rental.next_rent_due_date 
-                                                ? fmtDate(rental.next_rent_due_date) 
-                                                : (rental.start_date ? (() => { 
-                                                    // Fallback for missing next_rent_due_date
-                                                    let assumedMonths = rental.monthly_rent > 0 ? Math.floor((rental.rent_advance || 0)/rental.monthly_rent) : 0;
-                                                    let d = new Date(rental.start_date);
-                                                    d.setMonth(d.getMonth() + assumedMonths);
-                                                    return fmtDate(d.toISOString().split('T')[0]);
-                                                })() : '—')
+                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: (rental.rents_remaining === 0 && (rental.rents_paid || 0) > 0) ? '#10b981' : (isOverdue(rental.next_rent_due_date) ? '#ef4444' : '#f59e0b') }}>
+                                            {(rental.rents_remaining === 0 && (rental.rents_paid || 0) > 0)
+                                                ? 'All Paid'
+                                                : (rental.next_rent_due_date 
+                                                    ? fmtDate(rental.next_rent_due_date) 
+                                                    : (rental.start_date ? (() => { 
+                                                        // Fallback for missing next_rent_due_date
+                                                        let assumedMonths = rental.monthly_rent > 0 ? Math.floor((rental.rent_advance || 0)/rental.monthly_rent) : 0;
+                                                        let d = new Date(rental.start_date);
+                                                        d.setMonth(d.getMonth() + assumedMonths);
+                                                        return fmtDate(d.toISOString().split('T')[0]);
+                                                    })() : '—')
+                                                )
                                             }
                                         </div>
                                         {rental.rents_paid != null && (

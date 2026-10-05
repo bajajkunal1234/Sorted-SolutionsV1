@@ -20,8 +20,9 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
     const rentsRem     = Number(rental.rents_remaining || 0);
     const totalRents   = rentsPaid + rentsRem;
     const progress     = totalRents > 0 ? Math.round((rentsPaid / totalRents) * 100) : 0;
+    const isAllPaid    = rentsRem === 0 && rentsPaid > 0;
     const nextDue      = rental.next_rent_due_date || rental.nextRentDueDate;
-    const isOverdue    = nextDue && new Date(nextDue) < new Date();
+    const isOverdue    = !isAllPaid && nextDue && new Date(nextDue) < new Date();
     
     // Extracted account details
     const mobileNum = rental.accounts?.mobile || rental.accounts?.phone || '';
@@ -177,22 +178,40 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
                         <Row label="Remaining"  value={rentsRem > 0 ? fmtAmt(rentsRem * monthlyRent) : '—'} />
                     </Card>
 
-                    {/* Next Due */}
-                    <div style={{
-                        padding: '14px 16px', borderRadius: 'var(--radius-md)',
-                        backgroundColor: isOverdue ? '#ef444410' : '#3b82f610',
-                        border: `1px solid ${isOverdue ? '#ef4444' : '#3b82f6'}`
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            {isOverdue ? <XCircle size={15} color="#ef4444" /> : <Clock size={15} color="#3b82f6" />}
-                            <span style={{ fontSize: 13, fontWeight: 600, color: isOverdue ? '#ef4444' : '#3b82f6' }}>
-                                {isOverdue ? 'Overdue' : 'Next Payment Due'}
-                            </span>
+                    {/* Next Due / All Paid */}
+                    {isAllPaid ? (
+                        <div style={{
+                            padding: '14px 16px', borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                <CheckCircle size={15} color="#10b981" />
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#10b981' }}>
+                                    Payment Status: All Paid
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: '#10b981' }}>
+                                Complete Tenure Paid in Full ({rentsPaid} of {totalRents} months)
+                            </div>
                         </div>
-                        <div style={{ fontSize: 15, fontWeight: 700 }}>
-                            {nextDue ? fmtDate(nextDue) : 'Not set'} &nbsp;·&nbsp; {fmtAmt(monthlyRent)}
+                    ) : (
+                        <div style={{
+                            padding: '14px 16px', borderRadius: 'var(--radius-md)',
+                            backgroundColor: isOverdue ? '#ef444410' : '#3b82f610',
+                            border: `1px solid ${isOverdue ? '#ef4444' : '#3b82f6'}`
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                {isOverdue ? <XCircle size={15} color="#ef4444" /> : <Clock size={15} color="#3b82f6" />}
+                                <span style={{ fontSize: 13, fontWeight: 600, color: isOverdue ? '#ef4444' : '#3b82f6' }}>
+                                    {isOverdue ? 'Overdue' : 'Next Payment Due'}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 700 }}>
+                                {nextDue ? fmtDate(nextDue) : 'Not set'} &nbsp;·&nbsp; {fmtAmt(monthlyRent)}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Notes */}
                     {rental.notes && (
