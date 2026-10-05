@@ -26,9 +26,13 @@ import {
     Building2,
     Wrench,
     ExternalLink,
-    Landmark
+    Landmark,
+    Package,
+    Receipt
 } from 'lucide-react';
 import DayPlanModal from './DayPlanModal';
+import RentReceiptsModal from './RentReceiptsModal';
+import { rentalsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
 // Helper to format Date to 'YYYY-MM-DD'
@@ -58,6 +62,7 @@ function getMiniCardProps(item) {
     const type = item.reminder_type || 'task';
     const direction = item.metadata?.direction || (type === 'payment' ? 'payable' : undefined);
     const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
+    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
 
     if (type === 'payment') {
         if (direction === 'payable') {
@@ -70,19 +75,27 @@ function getMiniCardProps(item) {
                 title: item.title || item.contact_name || 'Payment',
                 sub: item.amount ? `₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
                 prefix: isCompleted ? '✓ ' : '',
-                isNewEra
+                isNewEra,
+                isRental: false
             };
         } else {
-            // Payment to collect (Receivable) - Green card
+            // Payment to collect (Receivable) - Green card, or purple accent for rentals
             return {
-                borderColor: 'rgba(16, 185, 129, 0.45)',
-                bgColor: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.12)',
-                titleColor: isCompleted ? 'rgba(16, 185, 129, 0.6)' : '#6ee7b7',
+                borderColor: isRental
+                    ? (isCompleted ? 'rgba(16, 185, 129, 0.45)' : 'rgba(139, 92, 246, 0.45)')
+                    : 'rgba(16, 185, 129, 0.45)',
+                bgColor: isRental
+                    ? (isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'rgba(139, 92, 246, 0.12)')
+                    : (isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.12)'),
+                titleColor: isRental
+                    ? (isCompleted ? '#a7f3d0' : '#c4b5fd')
+                    : (isCompleted ? 'rgba(16, 185, 129, 0.6)' : '#6ee7b7'),
                 subColor: isCompleted ? 'rgba(255, 255, 255, 0.5)' : '#ffffff',
-                title: item.title || item.contact_name || 'Collect',
+                title: item.title || item.contact_name || 'Rent',
                 sub: item.amount ? `+₹${Math.round(Number(item.amount)).toLocaleString('en-IN')}` : undefined,
-                prefix: isCompleted ? '✓ ' : '',
-                isNewEra
+                prefix: isCompleted ? '✓ ' : (isRental ? '🏢 ' : '+'),
+                isNewEra: false,
+                isRental
             };
         }
     } else if (type === 'visit') {
@@ -139,6 +152,7 @@ export default function DayPlannerTab() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialDate, setModalInitialDate] = useState(todayStr);
     const [editingItem, setEditingItem] = useState(null);
+    const [selectedRentalForReceipts, setSelectedRentalForReceipts] = useState(null);
 
     // Fetch planner items for visible date window
     const fetchItems = useCallback(async () => {
@@ -218,6 +232,28 @@ export default function DayPlannerTab() {
 
         // Refresh items
         fetchItems();
+    };
+
+    // Save rental receipts from RentReceiptsModal
+    const handleSaveRentReceipts = async (paymentData) => {
+        try {
+            setLoading(true);
+            await rentalsAPI.updateActive(paymentData.rentalId, {
+                rent_receipts: paymentData.rent_receipts,
+                deposit_receipt_id: paymentData.deposit_receipt_id,
+                rents_paid: paymentData.rents_paid,
+                rents_remaining: paymentData.rents_remaining,
+                next_rent_due_date: paymentData.next_rent_due_date || null
+            });
+
+            await fetchItems();
+            setSelectedRentalForReceipts(null);
+        } catch (err) {
+            console.error('Failed to link rental receipts:', err);
+            alert('Failed to save receipt linkages: ' + (err.message || err));
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Toggle complete status
@@ -1055,12 +1091,17 @@ export default function DayPlannerTab() {
                                             {dayItems.slice(0, 3).map((item) => {
                                                 const card = getMiniCardProps(item);
                                                 const isNewEraItem = Boolean(item.metadata?.is_newera || item.source === 'newera');
+                                                const isRentalItem = Boolean(item.metadata?.is_rental || item.source === 'rental');
                                                 return (
                                                     <div
                                                         key={item.id}
                                                         className="mini-activity-card"
                                                         onClick={(e) => {
-                                                            if (isNewEraItem) {
+                                                            if (isRentalItem) {
+                                                                e.stopPropagation();
+                                                                setSelectedDate(cell.dateStr);
+                                                                setSelectedRentalForReceipts(item.metadata?.rental);
+                                                            } else if (isNewEraItem) {
                                                                 e.stopPropagation();
                                                                 setSelectedDate(cell.dateStr);
                                                                 const loanId = item.metadata?.loan_id || '';
@@ -1072,12 +1113,14 @@ export default function DayPlannerTab() {
                                                         style={{
                                                             borderColor: card.borderColor,
                                                             backgroundColor: card.bgColor,
-                                                            cursor: isNewEraItem ? 'pointer' : 'default'
+                                                            cursor: (isRentalItem || isNewEraItem) ? 'pointer' : 'default'
                                                         }}
                                                         title={
-                                                            isNewEraItem
-                                                                ? `New Era Liability: ${item.title} (${item.amount ? `₹${Number(item.amount).toLocaleString('en-IN')}` : ''}) — Click to open in Liabilities Tracker (new tab)`
-                                                                : `${item.title || item.contact_name} ${item.amount ? `(₹${Number(item.amount).toLocaleString('en-IN')})` : ''}`
+                                                            isRentalItem
+                                                                ? `Rental Income: ${item.title} (${item.contact_name}) • Month ${item.metadata?.month_index}/${item.metadata?.total_months} (${item.amount ? `+₹${Number(item.amount).toLocaleString('en-IN')}` : ''}) — Click to open Rent Receipts`
+                                                                : isNewEraItem
+                                                                    ? `New Era Liability: ${item.title} (${item.amount ? `₹${Number(item.amount).toLocaleString('en-IN')}` : ''}) — Click to open in Liabilities Tracker (new tab)`
+                                                                    : `${item.title || item.contact_name} ${item.amount ? `(₹${Number(item.amount).toLocaleString('en-IN')})` : ''}`
                                                         }
                                                     >
                                                         <div className="mini-card-title" style={{ color: card.titleColor, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2px' }}>
@@ -1085,6 +1128,7 @@ export default function DayPlannerTab() {
                                                                 {card.prefix}{card.title}
                                                             </span>
                                                             {isNewEraItem && <ExternalLink size={9} style={{ opacity: 0.7, flexShrink: 0 }} />}
+                                                            {isRentalItem && <Receipt size={9} style={{ opacity: 0.85, flexShrink: 0 }} />}
                                                         </div>
                                                         {card.sub && (
                                                             <div className="mini-card-sub" style={{ color: card.subColor }}>
@@ -1109,16 +1153,23 @@ export default function DayPlannerTab() {
                                                     const isCompleted = item.status === 'completed';
                                                     const isPay = item.reminder_type === 'payment';
                                                     const direction = item.metadata?.direction || 'payable';
+                                                    const isRentalItem = Boolean(item.metadata?.is_rental || item.source === 'rental');
 
                                                     if (isPay && item.amount) {
                                                         const formattedAmt = formatMobileAmount(item.amount);
                                                         const isPayable = direction === 'payable';
 
-                                                        let badgeBg = isPayable ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)';
-                                                        let badgeBorder = isPayable ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)';
-                                                        let badgeColor = isPayable ? '#fca5a5' : '#6ee7b7';
+                                                        let badgeBg = isRentalItem
+                                                            ? (isCompleted ? 'rgba(16, 185, 129, 0.12)' : 'rgba(139, 92, 246, 0.22)')
+                                                            : (isPayable ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)');
+                                                        let badgeBorder = isRentalItem
+                                                            ? (isCompleted ? 'rgba(16, 185, 129, 0.3)' : 'rgba(139, 92, 246, 0.45)')
+                                                            : (isPayable ? 'rgba(239, 68, 68, 0.45)' : 'rgba(16, 185, 129, 0.45)');
+                                                        let badgeColor = isRentalItem
+                                                            ? (isCompleted ? '#a7f3d0' : '#c4b5fd')
+                                                            : (isPayable ? '#fca5a5' : '#6ee7b7');
 
-                                                        if (isCompleted) {
+                                                        if (isCompleted && !isRentalItem) {
                                                             badgeBg = 'rgba(16, 185, 129, 0.12)';
                                                             badgeBorder = 'rgba(16, 185, 129, 0.3)';
                                                             badgeColor = '#a7f3d0';
@@ -1128,15 +1179,25 @@ export default function DayPlannerTab() {
                                                             <div
                                                                 key={`mob-${item.id}`}
                                                                 className="mobile-amount-pill"
+                                                                onClick={isRentalItem ? (e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedDate(cell.dateStr);
+                                                                    setSelectedRentalForReceipts(item.metadata?.rental);
+                                                                } : undefined}
                                                                 style={{
                                                                     backgroundColor: badgeBg,
                                                                     borderColor: badgeBorder,
                                                                     color: badgeColor,
-                                                                    textDecoration: isCompleted ? 'line-through' : 'none'
+                                                                    textDecoration: isCompleted ? 'line-through' : 'none',
+                                                                    cursor: isRentalItem ? 'pointer' : 'default'
                                                                 }}
-                                                                title={`${item.title || item.contact_name}: ${isPayable ? '-' : '+'}${formatCurrency(item.amount)}`}
+                                                                title={
+                                                                    isRentalItem
+                                                                        ? `Rental: ${item.title} (${item.contact_name}): +${formatCurrency(item.amount)} — Tap to open Rent Receipts`
+                                                                        : `${item.title || item.contact_name}: ${isPayable ? '-' : '+'}${formatCurrency(item.amount)}`
+                                                                }
                                                             >
-                                                                {isCompleted ? '✓' : isPayable ? '' : '+'}{formattedAmt}
+                                                                {isCompleted ? '✓' : isRentalItem ? '🏢+' : isPayable ? '' : '+'}{formattedAmt}
                                                             </div>
                                                         );
                                                     }
@@ -1224,6 +1285,7 @@ export default function DayPlannerTab() {
                                                     onToggleComplete={handleToggleComplete}
                                                     onEdit={handleOpenEdit}
                                                     onDelete={handleDeleteItem}
+                                                    onOpenRentReceipts={setSelectedRentalForReceipts}
                                                 />
                                             ))}
                                         </div>
@@ -1295,6 +1357,7 @@ export default function DayPlannerTab() {
                                         onToggleComplete={handleToggleComplete}
                                         onEdit={handleOpenEdit}
                                         onDelete={handleDeleteItem}
+                                        onOpenRentReceipts={setSelectedRentalForReceipts}
                                     />
                                 ))
                             )}
@@ -1313,21 +1376,31 @@ export default function DayPlannerTab() {
                     editItem={editingItem}
                 />
             )}
+
+            {/* Rent Receipts Modal */}
+            {selectedRentalForReceipts && (
+                <RentReceiptsModal
+                    rental={selectedRentalForReceipts}
+                    onClose={() => setSelectedRentalForReceipts(null)}
+                    onSave={handleSaveRentReceipts}
+                />
+            )}
         </div>
     );
 }
 
 // Compact Mobile-First Card for Each Planned Item
-function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
+function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete, onOpenRentReceipts }) {
     const isPayment = item.reminder_type === 'payment';
     const isVisit = item.reminder_type === 'visit';
     const isCompleted = item.status === 'completed';
     const isNewEra = Boolean(item.metadata?.is_newera || item.source === 'newera');
+    const isRental = Boolean(item.metadata?.is_rental || item.source === 'rental');
 
     const direction = item.metadata?.direction || 'payable';
 
-    const typeColor = isPayment ? '#10b981' : isVisit ? '#8b5cf6' : '#3b82f6';
-    const typeBg = isPayment ? 'rgba(16, 185, 129, 0.12)' : isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
+    const typeColor = isRental ? '#c084fc' : isPayment ? '#10b981' : isVisit ? '#8b5cf6' : '#3b82f6';
+    const typeBg = isRental ? 'rgba(168, 85, 247, 0.14)' : isPayment ? 'rgba(16, 185, 129, 0.12)' : isVisit ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)';
 
     const openInNewEra = (e) => {
         if (e) e.stopPropagation();
@@ -1339,14 +1412,23 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
         window.open(url, '_blank');
     };
 
+    const openRentalReceipts = (e) => {
+        if (e) e.stopPropagation();
+        if (item.metadata?.rental && onOpenRentReceipts) {
+            onOpenRentReceipts(item.metadata.rental);
+        }
+    };
+
     return (
         <div
-            onClick={isNewEra ? openInNewEra : undefined}
+            onClick={isRental ? openRentalReceipts : (isNewEra ? openInNewEra : undefined)}
             style={{
                 backgroundColor: 'var(--bg-secondary)',
-                border: isNewEra
-                    ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.35)')
-                    : '1px solid var(--border-primary)',
+                border: isRental
+                    ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(168, 85, 247, 0.4)')
+                    : isNewEra
+                        ? (isCompleted ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(99, 102, 241, 0.35)')
+                        : '1px solid var(--border-primary)',
                 borderRadius: '8px',
                 padding: '10px 12px',
                 display: 'flex',
@@ -1354,10 +1436,10 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                 gap: '6px',
                 opacity: isCompleted ? 0.65 : 1,
                 boxSizing: 'border-box',
-                cursor: isNewEra ? 'pointer' : 'default',
+                cursor: (isRental || isNewEra) ? 'pointer' : 'default',
                 transition: 'border-color 0.15s ease, background-color 0.15s ease'
             }}
-            title={isNewEra ? "New Era Liability Installment — Click to open in New Era Tracker (new tab)" : undefined}
+            title={isRental ? "Rental Agreement Payment — Click to view/link rent receipts" : (isNewEra ? "New Era Liability Installment — Click to open in New Era Tracker (new tab)" : undefined)}
         >
             {/* Top Row: Type Pill, Time, Status, Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1366,7 +1448,7 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                     <button
                         type="button"
                         onClick={(e) => onToggleComplete(item, e)}
-                        title={isCompleted ? (isNewEra ? 'Mark Unpaid' : 'Mark Pending') : (isNewEra ? 'Mark Paid' : 'Mark Completed')}
+                        title={isRental ? (isCompleted ? 'Receipt Linked — Click to view receipts' : 'Receipt Pending — Click to link receipt') : (isCompleted ? (isNewEra ? 'Mark Unpaid' : 'Mark Pending') : (isNewEra ? 'Mark Paid' : 'Mark Completed'))}
                         style={{
                             background: 'transparent',
                             border: 'none',
@@ -1394,9 +1476,51 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                             gap: '3px'
                         }}
                     >
-                        {isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
-                        {isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
+                        {isRental ? <Building2 size={10} /> : isPayment ? <DollarSign size={10} /> : isVisit ? <MapPin size={10} /> : <CheckSquare size={10} />}
+                        {isRental ? 'Rent' : isPayment ? (direction === 'payable' ? 'Payable' : 'Receivable') : isVisit ? 'Visit' : 'Task'}
                     </span>
+
+                    {/* Rental Badge */}
+                    {isRental && (
+                        <span
+                            onClick={openRentalReceipts}
+                            style={{
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(168, 85, 247, 0.16)',
+                                color: '#c084fc',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: 'pointer'
+                            }}
+                            title="Rental Agreement — Click to manage rent receipts"
+                        >
+                            <Package size={10} />
+                            Rental
+                        </span>
+                    )}
+
+                    {/* Rental Month Index Badge */}
+                    {isRental && item.metadata?.month_index && (
+                        <span
+                            style={{
+                                fontSize: '9px',
+                                fontWeight: 600,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                color: 'var(--text-secondary)',
+                                display: 'inline-flex',
+                                alignItems: 'center'
+                            }}
+                        >
+                            Month {item.metadata.month_index}/{item.metadata?.total_months || '?'}
+                        </span>
+                    )}
 
                     {/* New Era Liability Badge */}
                     {isNewEra && (
@@ -1462,7 +1586,7 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                     )}
 
                     {/* Account DB Link Badge */}
-                    {item.account_id && (
+                    {item.account_id && !isRental && (
                         <span
                             style={{
                                 fontSize: '9px',
@@ -1491,9 +1615,31 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                     )}
                 </div>
 
-                {/* Actions: Tracker link for New Era, Edit & Delete for standard items */}
+                {/* Actions: Rent Receipts for Rental, Tracker link for New Era, Edit & Delete for standard items */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {isNewEra ? (
+                    {isRental ? (
+                        <button
+                            type="button"
+                            onClick={openRentalReceipts}
+                            style={{
+                                border: '1px solid rgba(168, 85, 247, 0.35)',
+                                backgroundColor: 'rgba(168, 85, 247, 0.12)',
+                                color: '#c084fc',
+                                borderRadius: '5px',
+                                cursor: 'pointer',
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                            title="Open and manage rent receipts for this rental"
+                        >
+                            <span>Receipts</span>
+                            <Receipt size={11} />
+                        </button>
+                    ) : isNewEra ? (
                         <button
                             type="button"
                             onClick={openInNewEra}
@@ -1557,12 +1703,12 @@ function MobilePlanCardItem({ item, onToggleComplete, onEdit, onDelete }) {
                         gap: '5px'
                     }}>
                         <span>{item.title}</span>
-                        {isNewEra && <ExternalLink size={11} style={{ opacity: 0.6 }} />}
+                        {isRental ? <Receipt size={11} style={{ opacity: 0.7, color: '#c084fc' }} /> : isNewEra ? <ExternalLink size={11} style={{ opacity: 0.6 }} /> : null}
                     </div>
 
                     {item.contact_name && (
                         <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {isNewEra ? `Lender: ${item.contact_name}` : (isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`)}
+                            {isRental ? `Renter: ${item.contact_name}` : isNewEra ? `Lender: ${item.contact_name}` : (isPayment ? `To: ${item.contact_name}` : `Contact: ${item.contact_name}`)}
                         </div>
                     )}
                 </div>

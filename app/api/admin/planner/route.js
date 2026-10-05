@@ -260,6 +260,105 @@ export async function GET(request) {
             }
         }
 
+        // 4. Fetch Active Rentals monthly rent schedules if payments are included
+        const includeRentals = (!reminderType || reminderType === 'all' || reminderType === 'payment');
+
+        if (includeRentals && rangeStart && rangeEnd) {
+            let rentalQuery = supabase
+                .from('active_rentals')
+                .select('*, rental_plans(product_name), accounts(name, mobile, phone)')
+                .neq('status', 'archived');
+
+            const { data: rentalsData, error: rentalsErr } = await rentalQuery;
+            if (rentalsErr) {
+                console.warn('Failed to fetch active rentals:', rentalsErr);
+            } else if (rentalsData) {
+                for (const rental of rentalsData) {
+                    if (rental.status === 'terminated') continue;
+
+                    const duration = Number(rental.tenure?.duration || 1);
+                    const unit = rental.tenure?.unit || 'month';
+                    const totalMonths = unit.includes('year') ? duration * 12 : duration;
+
+                    if (!rental.start_date) continue;
+                    const [origY, origM, origD] = rental.start_date.split('-').map(Number);
+                    const customerName = rental.customer_name || rental.accounts?.name || 'Customer';
+                    const productName = rental.product_name || rental.rental_plans?.product_name || 'Rental Item';
+                    const monthlyRent = parseFloat(rental.monthly_rent || 0);
+
+                    const rawReceipts = rental.rent_receipts || {};
+
+                    for (let i = 1; i <= totalMonths; i++) {
+                        const targetMonth = origM + (i - 1);
+                        const y = origY + Math.floor((targetMonth - 1) / 12);
+                        const m = ((targetMonth - 1) % 12) + 1;
+                        const maxDays = new Date(y, m, 0).getDate();
+                        const d = Math.min(origD, maxDays);
+                        const dueDateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+                        if (dueDateStr < rangeStart || dueDateStr > rangeEnd) continue;
+
+                        const monthReceipt = rawReceipts[i] || rawReceipts[String(i)];
+                        const isPaid = Boolean(
+                            (Array.isArray(monthReceipt) && monthReceipt.length > 0) ||
+                            (typeof monthReceipt === 'string' && monthReceipt.trim())
+                        );
+
+                        if (status && status !== 'all') {
+                            if (status === 'completed' && !isPaid) continue;
+                            if (status === 'pending' && isPaid) continue;
+                        }
+
+                        if (search && search.trim()) {
+                            const s = search.trim().toLowerCase();
+                            const matchTitle = productName.toLowerCase().includes(s);
+                            const matchCustomer = customerName.toLowerCase().includes(s);
+                            const matchSerial = (rental.serial_number || '').toLowerCase().includes(s);
+                            const matchNotes = (rental.notes || '').toLowerCase().includes(s);
+                            if (!matchTitle && !matchCustomer && !matchSerial && !matchNotes) continue;
+                        }
+
+                        const occId = `rental_${rental.id}_${i}`;
+                        itemsMap.set(occId, {
+                            id: occId,
+                            source: 'rental',
+                            reminder_type: 'payment',
+                            title: productName,
+                            amount: monthlyRent,
+                            contact_name: customerName,
+                            contact_phone: rental.accounts?.mobile || rental.accounts?.phone || null,
+                            location: null,
+                            due_date: dueDateStr,
+                            due_time: null,
+                            status: isPaid ? 'completed' : 'pending',
+                            priority: 'high',
+                            is_recurring: false,
+                            account_id: rental.customer_id || null,
+                            metadata: {
+                                direction: 'receivable',
+                                is_rental: true,
+                                rental_id: rental.id,
+                                month_index: i,
+                                total_months: totalMonths,
+                                product_name: productName,
+                                customer_name: customerName,
+                                serial_number: rental.serial_number,
+                                receipt_ids: Array.isArray(monthReceipt) ? monthReceipt : (monthReceipt ? [monthReceipt] : []),
+                                rental: {
+                                    ...rental,
+                                    productName,
+                                    customerName,
+                                    monthlyRent,
+                                    securityDeposit: Number(rental.deposit_amount || rental.security_deposit || 0)
+                                }
+                            },
+                            description: `Month ${i}/${totalMonths} Rent • ${customerName}${rental.serial_number ? ` • SN: ${rental.serial_number}` : ''}`
+                        });
+                    }
+                }
+            }
+        }
+
         const allItems = Array.from(itemsMap.values())
         allItems.sort((a, b) => {
             if (a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date)
@@ -426,6 +525,77 @@ export async function PATCH(request) {
             });
         }
 
+        // Handle Active Rentals rent payment completion sync
+        if (typeof id === 'string' && id.startsWith('rental_')) {
+            const parts = id.split('_');
+            const rentalId = parts[1];
+            const monthIndex = parts[2];
+            const isCompleted = updates.status === 'completed';
+
+            // Fetch rental record
+            const { data: rental, error: rFetchErr } = await supabase
+                .from('active_rentals')
+                .select('*')
+                .eq('id', rentalId)
+                .maybeSingle();
+
+            if (rFetchErr || !rental) {
+                return NextResponse.json({ success: false, error: 'Rental record not found' }, { status: 404 });
+            }
+
+            const currentReceipts = { ...(rental.rent_receipts || {}) };
+            if (isCompleted) {
+                if (!currentReceipts[monthIndex]) {
+                    currentReceipts[monthIndex] = 'marked_paid';
+                }
+            } else {
+                delete currentReceipts[monthIndex];
+            }
+
+            const duration = Number(rental.tenure?.duration || 1);
+            const unit = rental.tenure?.unit || 'month';
+            const totalMonths = unit.includes('year') ? duration * 12 : duration;
+
+            let earliestUnpaid = 1;
+            while (earliestUnpaid <= totalMonths && currentReceipts[earliestUnpaid]) {
+                earliestUnpaid++;
+            }
+
+            let rentsPaidCount = 0;
+            for (let m = 1; m <= totalMonths; m++) {
+                if (currentReceipts[m]) rentsPaidCount++;
+            }
+
+            const [origY, origM, origD] = rental.start_date.split('-').map(Number);
+            const targetM = origM + (earliestUnpaid - 1);
+            const nextY = origY + Math.floor((targetM - 1) / 12);
+            const nextM = ((targetM - 1) % 12) + 1;
+            const maxD = new Date(nextY, nextM, 0).getDate();
+            const nextD = Math.min(origD, maxD);
+            const nextDueDateStr = earliestUnpaid <= totalMonths ? `${nextY}-${String(nextM).padStart(2, '0')}-${String(nextD).padStart(2, '0')}` : null;
+
+            const { error: updErr } = await supabase
+                .from('active_rentals')
+                .update({
+                    rent_receipts: currentReceipts,
+                    rents_paid: rentsPaidCount,
+                    rents_remaining: Math.max(0, totalMonths - rentsPaidCount),
+                    next_rent_due_date: nextDueDateStr
+                })
+                .eq('id', rentalId);
+
+            if (updErr) throw updErr;
+
+            return NextResponse.json({
+                success: true,
+                data: {
+                    id,
+                    source: 'rental',
+                    status: updates.status
+                }
+            });
+        }
+
         // Handle projected recurring occurrence completion
         if (typeof id === 'string' && id.includes('_')) {
             const [masterId, occDate] = id.split('_')
@@ -517,6 +687,14 @@ export async function DELETE(request) {
             return NextResponse.json({
                 success: false,
                 error: 'New Era liabilities installments cannot be deleted from Admin Day Planner. Please manage them directly in the New Era Liabilities Tracker.'
+            }, { status: 403 });
+        }
+
+        // Rental schedule entries cannot be deleted from Admin Day Planner
+        if (typeof id === 'string' && id.startsWith('rental_')) {
+            return NextResponse.json({
+                success: false,
+                error: 'Rental payment schedule entries cannot be deleted from Admin Day Planner. Please manage or terminate agreements in the Rentals tab.'
             }, { status: 403 });
         }
 
