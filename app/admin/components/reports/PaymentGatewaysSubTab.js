@@ -171,13 +171,14 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
             setFromDate(todayStr);
             setToDate(todayStr);
         } else if (preset === '7days') {
-            const past = new Date();
-            past.setDate(past.getDate() - 7);
-            setFromDate(past.toISOString().split('T')[0]);
+            const past = new Date(yyyy, today.getMonth(), today.getDate() - 7);
+            const pY = past.getFullYear();
+            const pM = String(past.getMonth() + 1).padStart(2, '0');
+            const pD = String(past.getDate()).padStart(2, '0');
+            setFromDate(`${pY}-${pM}-${pD}`);
             setToDate(todayStr);
         } else if (preset === 'month') {
-            const first = new Date(yyyy, today.getMonth(), 1);
-            setFromDate(first.toISOString().split('T')[0]);
+            setFromDate(`${yyyy}-${mm}-01`);
             setToDate(todayStr);
         } else if (preset === 'all') {
             setFromDate('');

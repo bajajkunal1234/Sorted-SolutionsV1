@@ -88,13 +88,22 @@ export default function SettlementsSubTab({ isMobile = false }) {
     // Expanded accordion rows
     const [expandedIds, setExpandedIds] = useState(new Set());
 
+    // Helper to format Date in local timezone as YYYY-MM-DD
+    const getTodayStr = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     // Modals
     const [manualModal, setManualModal] = useState({
         open: false,
         gatewayAccountId: '',
         destinationAccountId: '',
         settlementRef: '',
-        settlementDate: new Date().toISOString().split('T')[0],
+        settlementDate: getTodayStr(),
         bankAmount: '',
         selectedReceiptIds: new Set(),
         searchCandidates: '',
@@ -203,7 +212,10 @@ export default function SettlementsSubTab({ isMobile = false }) {
         } else if (datePreset === 'last_30_days') {
             const d = new Date();
             d.setDate(d.getDate() - 30);
-            const minStr = d.toISOString().split('T')[0];
+            const dY = d.getFullYear();
+            const dM = String(d.getMonth() + 1).padStart(2, '0');
+            const dD = String(d.getDate()).padStart(2, '0');
+            const minStr = `${dY}-${dM}-${dD}`;
             list = list.filter(s => s.settlement_date >= minStr);
         } else if (datePreset === 'custom') {
             if (fromDate) list = list.filter(s => s.settlement_date >= fromDate);
@@ -231,7 +243,7 @@ export default function SettlementsSubTab({ isMobile = false }) {
             gatewayAccountId: defaultGw,
             destinationAccountId: defaultBank,
             settlementRef: '',
-            settlementDate: new Date().toISOString().split('T')[0],
+            settlementDate: getTodayStr(),
             bankAmount: '',
             selectedReceiptIds: new Set(),
             searchCandidates: '',

@@ -92,14 +92,37 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const [imapSettings, setImapSettings] = useState({});
     const [selectedAccountId, setSelectedAccountId] = useState(null);
 
+    // Timezone-safe local date formatter (returns YYYY-MM-DD in local time, NOT UTC)
+    const formatLocalDate = (d) => {
+        if (!d) return '';
+        const dateObj = typeof d === 'string' ? new Date(d) : d;
+        if (isNaN(dateObj.getTime())) return '';
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Timezone-safe British format date display (DD/MM/YYYY)
+    const formatDateGB = (dateStr) => {
+        if (!dateStr) return '—';
+        const clean = String(dateStr).split('T')[0];
+        const parts = clean.split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-GB');
+    };
+
     // Date Range Selection States
     const getMonthRange = () => {
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), 1);
         const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         return {
-            from: start.toISOString().split('T')[0],
-            to: end.toISOString().split('T')[0]
+            from: formatLocalDate(start),
+            to: formatLocalDate(end)
         };
     };
 
@@ -237,25 +260,29 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         if (preset === 'custom') return;
 
         const today = new Date();
-        let from = new Date();
-        let to = new Date();
+        let fromDateStr = '';
+        let toDateStr = '';
 
         if (preset === 'today') {
-            from = today;
-            to = today;
+            fromDateStr = formatLocalDate(today);
+            toDateStr = formatLocalDate(today);
         } else if (preset === 'yesterday') {
-            from.setDate(today.getDate() - 1);
-            to.setDate(today.getDate() - 1);
+            const yest = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+            fromDateStr = formatLocalDate(yest);
+            toDateStr = formatLocalDate(yest);
         } else if (preset === 'week') {
-            from.setDate(today.getDate() - 7);
-            to = today;
+            const weekAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+            fromDateStr = formatLocalDate(weekAgo);
+            toDateStr = formatLocalDate(today);
         } else if (preset === 'month') {
-            from = new Date(today.getFullYear(), today.getMonth(), 1);
-            to = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            fromDateStr = formatLocalDate(start);
+            toDateStr = formatLocalDate(end);
         }
 
-        setFromDate(from.toISOString().split('T')[0]);
-        setToDate(to.toISOString().split('T')[0]);
+        setFromDate(fromDateStr);
+        setToDate(toDateStr);
     };
 
     const fetchAccountsAndSettings = async () => {
@@ -977,8 +1004,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                     const sorted = [...parsed].sort((a, b) => new Date(a.date) - new Date(b.date));
                     const dates = sorted.map(t => new Date(t.date)).filter(d => !isNaN(d));
-                    const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
-                    const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+                    const minDate = formatLocalDate(new Date(Math.min(...dates)));
+                    const maxDate = formatLocalDate(new Date(Math.max(...dates)));
 
                     let stClosing = 0;
                     let stOpening = 0;
@@ -1170,10 +1197,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const allCandidates = (json.receipts || []).filter(r => !r.is_settled && r.date <= row.date);
 
             // Compute batch window: row.date - 3 days to row.date
-            const pDate = new Date(row.date);
+            const pParts = (row.date || '').split('T')[0].split('-');
+            const pDate = pParts.length === 3 ? new Date(parseInt(pParts[0]), parseInt(pParts[1]) - 1, parseInt(pParts[2])) : new Date(row.date);
             const minBatchDate = new Date(pDate);
             minBatchDate.setDate(minBatchDate.getDate() - 3);
-            const minBatchStr = minBatchDate.toISOString().split('T')[0];
+            const minBatchStr = formatLocalDate(minBatchDate);
 
             const batchCandidates = allCandidates.filter(r => r.date >= minBatchStr && r.date <= row.date);
             const defaultMode = batchCandidates.length > 0 ? 'batch' : 'all';
@@ -1799,7 +1827,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                 if (weeklyStatus.daysSince === null) {
                                                     msgs.push('⚠️ Weekly Reconciliation Pending: No statement reconciliation on record.');
                                                 } else if (weeklyStatus.isOverdue) {
-                                                    msgs.push(`⚠️ Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days since last reconciliation (${new Date(weeklyStatus.latestDate).toLocaleDateString('en-GB')}). Upload this week\'s statement.`);
+                                                    msgs.push(`⚠️ Weekly Reconciliation Overdue: ${weeklyStatus.daysSince} days since last reconciliation (${formatDateGB(weeklyStatus.latestDate)}). Upload this week\'s statement.`);
                                                 }
                                                 if (closingComparison.isDiscrepancy) {
                                                     msgs.push(`🚨 Closing Balance Discrepancy: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })} difference between bank statement and system entries.`);
@@ -2366,7 +2394,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             fontWeight: 700
                                         }}>
                                             <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                                                {new Date(fromDate).toLocaleDateString('en-GB')}
+                                                {formatDateGB(fromDate)}
                                             </td>
                                             <td style={{ padding: '8px 10px' }}>
                                                 <span style={{
@@ -2435,7 +2463,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                 >
                                                     {/* Date */}
                                                     <td style={{ padding: '7px 10px', whiteSpace: 'nowrap', verticalAlign: 'top', color: 'var(--text-secondary)' }}>
-                                                        {new Date(row.date).toLocaleDateString('en-GB')}
+                                                        {formatDateGB(row.date)}
                                                     </td>
 
                                                     {/* Source & Type */}
@@ -2823,7 +2851,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             fontWeight: 700
                                         }}>
                                             <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                                                {new Date(toDate).toLocaleDateString('en-GB')}
+                                                {formatDateGB(toDate)}
                                             </td>
                                             <td style={{ padding: '8px 10px' }}>
                                                 <span style={{
@@ -3287,10 +3315,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
             {/* GATEWAY SETTLEMENT & BATCH RECONCILIATION MODAL */}
             {gatewaySettleModal && (() => {
-                const pDate = new Date(gatewaySettleModal.row.date);
+                const pParts = (gatewaySettleModal.row.date || '').split('T')[0].split('-');
+                const pDate = pParts.length === 3 ? new Date(parseInt(pParts[0]), parseInt(pParts[1]) - 1, parseInt(pParts[2])) : new Date(gatewaySettleModal.row.date);
                 const minBatchDate = new Date(pDate);
                 minBatchDate.setDate(minBatchDate.getDate() - 3);
-                const minBatchStr = minBatchDate.toISOString().split('T')[0];
+                const minBatchStr = formatLocalDate(minBatchDate);
 
                 const batchCount = gatewaySettleModal.allCandidates.filter(r => r.date >= minBatchStr && r.date <= gatewaySettleModal.row.date).length;
                 const dayCount = gatewaySettleModal.allCandidates.filter(r => r.date === gatewaySettleModal.row.date).length;
