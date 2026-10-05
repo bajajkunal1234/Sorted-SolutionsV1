@@ -1607,79 +1607,18 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '8px' : '10px', flex: 1, minHeight: 0 }}>
                     
-                    {/* Mobile Quick Subtab Switcher */}
-                    {isMobile && (
-                        <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg-elevated)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                            <button
-                                onClick={() => setActiveSubTab('transactions')}
-                                style={{
-                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                    backgroundColor: activeSubTab === 'transactions' ? 'var(--color-primary)' : 'transparent',
-                                    color: activeSubTab === 'transactions' ? 'white' : 'var(--text-secondary)',
-                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
-                                }}
-                            >
-                                Reconcile
-                            </button>
-                            <button
-                                onClick={() => setActiveSubTab('collections')}
-                                style={{
-                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                    backgroundColor: activeSubTab === 'collections' ? 'var(--color-primary)' : 'transparent',
-                                    color: activeSubTab === 'collections' ? 'white' : 'var(--text-secondary)',
-                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
-                                }}
-                            >
-                                Collections
-                            </button>
-                            <button
-                                onClick={() => setActiveSubTab('gateways')}
-                                style={{
-                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                    backgroundColor: activeSubTab === 'gateways' ? 'var(--color-primary)' : 'transparent',
-                                    color: activeSubTab === 'gateways' ? 'white' : 'var(--text-secondary)',
-                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
-                                }}
-                            >
-                                Gateways
-                            </button>
-                            <button
-                                onClick={() => setActiveSubTab('settlements')}
-                                style={{
-                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                    backgroundColor: activeSubTab === 'settlements' ? 'var(--color-primary)' : 'transparent',
-                                    color: activeSubTab === 'settlements' ? 'white' : 'var(--text-secondary)',
-                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
-                                }}
-                            >
-                                Settlements
-                            </button>
-                            <button
-                                onClick={() => setActiveSubTab('setup')}
-                                style={{
-                                    flex: 1, padding: '5px 6px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                    backgroundColor: activeSubTab === 'setup' ? 'var(--color-primary)' : 'transparent',
-                                    color: activeSubTab === 'setup' ? 'white' : 'var(--text-secondary)',
-                                    fontWeight: 600, fontSize: '11px', cursor: 'pointer', textAlign: 'center'
-                                }}
-                            >
-                                Setup
-                            </button>
-                        </div>
-                    )}
-
                     {activeSubTab !== 'gateways' && activeSubTab !== 'settlements' && activeSubTab !== 'collections' && (
-                        /* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row) */
+                        /* Top Bar: Bank Selector & Action Symbols (Single Ultra-Compact Row matching Date Row Height) */
                         <div style={{
                             display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '6px',
-                                backgroundColor: 'var(--bg-elevated)',
-                                padding: '6px 8px',
-                                borderRadius: 'var(--radius-md)',
-                                border: '1px solid var(--border-primary)'
-                            }}>
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '4px',
+                            backgroundColor: 'var(--bg-elevated)',
+                            padding: '4px 6px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-primary)'
+                        }}>
                         {/* Bank Account Selector Dropdown */}
                         <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                             <select
@@ -1687,16 +1626,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                 onChange={e => setSelectedAccountId(e.target.value)}
                                 style={{
                                     width: '100%',
-                                    padding: '5px 24px 5px 8px',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
+                                    padding: '2px 20px 2px 6px',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
                                     borderRadius: 'var(--radius-sm)',
                                     backgroundColor: 'var(--bg-secondary)',
                                     color: 'var(--text-primary)',
                                     border: '1px solid var(--border-primary)',
                                     cursor: 'pointer',
                                     appearance: 'none',
-                                    height: '32px',
+                                    height: '24px',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden'
@@ -1711,21 +1650,21 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     );
                                 })}
                             </select>
-                            <ChevronDown size={14} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+                            <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }} />
                         </div>
 
                         {/* Action Symbols: Sync Alerts & Upload Statement */}
                         {activeSubTab === 'transactions' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                                 <button
                                     type="button"
                                     onClick={triggerSync}
                                     disabled={syncing}
                                     className="btn btn-secondary"
                                     style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        minWidth: '32px',
+                                        width: '24px',
+                                        height: '24px',
+                                        minWidth: '24px',
                                         padding: 0,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1735,15 +1674,15 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     title="Sync Alerts from Gmail"
                                     aria-label="Sync Alerts"
                                 >
-                                    {syncing ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+                                    {syncing ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
                                 </button>
 
                                 <label
                                     className="btn btn-primary"
                                     style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        minWidth: '32px',
+                                        width: '24px',
+                                        height: '24px',
+                                        minWidth: '24px',
                                         padding: 0,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1755,7 +1694,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     title="Upload Bank Statement (.csv, .xls, .xlsx)"
                                     aria-label="Upload Statement"
                                 >
-                                    <Upload size={14} />
+                                    <Upload size={12} />
                                     <input
                                         type="file"
                                         accept=".csv,.xls,.xlsx"

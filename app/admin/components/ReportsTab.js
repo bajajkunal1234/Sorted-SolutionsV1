@@ -41,6 +41,14 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         if (initialSection) {
@@ -282,154 +290,166 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
 
             {/* Breadcrumb Navigation */}
             <div style={{
-                padding: 'var(--spacing-sm) var(--spacing-md)',
+                padding: isMobile ? '4px 8px' : 'var(--spacing-sm) var(--spacing-md)',
                 backgroundColor: 'var(--bg-primary)',
                 borderBottom: '1px solid var(--border-primary)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 'var(--spacing-xs)',
-                fontSize: 'var(--font-size-sm)'
+                gap: isMobile ? '4px' : 'var(--spacing-xs)',
+                fontSize: isMobile ? '11px' : 'var(--font-size-sm)',
+                minHeight: isMobile ? '34px' : '40px',
+                boxSizing: 'border-box'
             }}>
-                <span
-                    style={{
-                        cursor: 'pointer',
-                        color: activeSection ? 'var(--text-secondary)' : 'var(--text-primary)',
-                        fontWeight: activeSection ? 400 : 700,
-                        transition: 'color 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => activeSection && (e.currentTarget.style.color = 'var(--color-primary)')}
-                    onMouseLeave={(e) => activeSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
-                    onClick={() => {
-                        setActiveSection(null);
-                        setSubSection(null);
-                        setCustomSubTab(null);
-                    }}
-                >
-                    Reports
-                </span>
-                {activeSection && (
+                {isMobile && activeSection === 'bank-accounts' ? (
+                    <button
+                        onClick={() => {
+                            setActiveSection(null);
+                            setSubSection(null);
+                            setCustomSubTab(null);
+                        }}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '2px 4px',
+                            color: 'var(--text-secondary)',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            flexShrink: 0
+                        }}
+                    >
+                        ‹ Reports
+                    </button>
+                ) : (
                     <>
-                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
                         <span
                             style={{
-                                cursor: subSection ? 'pointer' : 'default',
-                                color: subSection ? 'var(--text-secondary)' : 'var(--text-primary)',
-                                fontWeight: subSection ? 400 : 700,
+                                cursor: 'pointer',
+                                color: activeSection ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                fontWeight: activeSection ? 400 : 700,
                                 transition: 'color 0.2s ease'
                             }}
-                            onMouseEnter={(e) => subSection && (e.currentTarget.style.color = 'var(--color-primary)')}
-                            onMouseLeave={(e) => subSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
-                            onClick={() => setSubSection(null)}
+                            onMouseEnter={(e) => activeSection && (e.currentTarget.style.color = 'var(--color-primary)')}
+                            onMouseLeave={(e) => activeSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                            onClick={() => {
+                                setActiveSection(null);
+                                setSubSection(null);
+                                setCustomSubTab(null);
+                            }}
                         >
-                            {activeLabel}
+                            Reports
                         </span>
-                    </>
-                )}
-                {subSection && (
-                    <>
-                        {typeof subSection === 'string' && subSection.includes('›') ? (
-                            subSection.split('›').map((part, idx, arr) => {
-                                const isLast = idx === arr.length - 1;
-                                return (
-                                    <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
-                                        <span
-                                            style={{
-                                                cursor: !isLast ? 'pointer' : 'default',
-                                                color: !isLast ? 'var(--text-secondary)' : 'var(--text-primary)',
-                                                fontWeight: !isLast ? 400 : 700,
-                                                transition: 'color 0.2s ease'
-                                            }}
-                                            onMouseEnter={(e) => !isLast && (e.currentTarget.style.color = 'var(--color-primary)')}
-                                            onMouseLeave={(e) => !isLast && (e.currentTarget.style.color = 'var(--text-secondary)')}
-                                            onClick={() => {
-                                                if (!isLast) {
-                                                    setSubSection(arr.slice(0, idx + 1).join(' › ').trim());
-                                                }
-                                            }}
-                                        >
-                                            {part.trim()}
-                                        </span>
-                                    </span>
-                                );
-                            })
-                        ) : (
+                        {activeSection && (
                             <>
                                 <span style={{ color: 'var(--text-tertiary)' }}>›</span>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                                    {subSection}
+                                <span
+                                    style={{
+                                        cursor: subSection ? 'pointer' : 'default',
+                                        color: subSection ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                        fontWeight: subSection ? 400 : 700,
+                                        transition: 'color 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => subSection && (e.currentTarget.style.color = 'var(--color-primary)')}
+                                    onMouseLeave={(e) => subSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                                    onClick={() => setSubSection(null)}
+                                >
+                                    {activeLabel}
                                 </span>
+                            </>
+                        )}
+                        {subSection && (
+                            <>
+                                {typeof subSection === 'string' && subSection.includes('›') ? (
+                                    subSection.split('›').map((part, idx, arr) => {
+                                        const isLast = idx === arr.length - 1;
+                                        return (
+                                            <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                                <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                                                <span
+                                                    style={{
+                                                        cursor: !isLast ? 'pointer' : 'default',
+                                                        color: !isLast ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                                        fontWeight: !isLast ? 400 : 700,
+                                                        transition: 'color 0.2s ease'
+                                                    }}
+                                                    onMouseEnter={(e) => !isLast && (e.currentTarget.style.color = 'var(--color-primary)')}
+                                                    onMouseLeave={(e) => !isLast && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                                                    onClick={() => {
+                                                        if (!isLast) {
+                                                            setSubSection(arr.slice(0, idx + 1).join(' › ').trim());
+                                                        }
+                                                    }}
+                                                >
+                                                    {part.trim()}
+                                                </span>
+                                            </span>
+                                        );
+                                    })
+                                ) : (
+                                    <>
+                                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                                            {subSection}
+                                        </span>
+                                    </>
+                                )}
                             </>
                         )}
                     </>
                 )}
                 {activeSection === 'bank-accounts' && (
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '2px', backgroundColor: 'var(--bg-secondary)', padding: '2px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                        <button
-                            onClick={() => setBankAccountsSubTab('setup')}
-                            style={{
-                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                backgroundColor: bankAccountsSubTab === 'setup' ? 'var(--bg-elevated)' : 'transparent',
-                                color: bankAccountsSubTab === 'setup' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <Settings size={12} style={{ opacity: 0.8 }} />
-                            Setup
-                        </button>
-                        <button
-                            onClick={() => setBankAccountsSubTab('transactions')}
-                            style={{
-                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                backgroundColor: bankAccountsSubTab === 'transactions' ? 'var(--bg-elevated)' : 'transparent',
-                                color: bankAccountsSubTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <History size={12} style={{ opacity: 0.8 }} />
-                            Transactions
-                        </button>
-                        <button
-                            onClick={() => setBankAccountsSubTab('collections')}
-                            style={{
-                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                backgroundColor: bankAccountsSubTab === 'collections' ? 'var(--bg-elevated)' : 'transparent',
-                                color: bankAccountsSubTab === 'collections' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <DollarSign size={12} style={{ opacity: 0.8 }} />
-                            Collections
-                        </button>
-                        <button
-                            onClick={() => setBankAccountsSubTab('gateways')}
-                            style={{
-                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                backgroundColor: bankAccountsSubTab === 'gateways' ? 'var(--bg-elevated)' : 'transparent',
-                                color: bankAccountsSubTab === 'gateways' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <CreditCard size={12} style={{ opacity: 0.8 }} />
-                            Payment Gateways
-                        </button>
-                        <button
-                            onClick={() => setBankAccountsSubTab('settlements')}
-                            style={{
-                                padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none',
-                                backgroundColor: bankAccountsSubTab === 'settlements' ? 'var(--bg-elevated)' : 'transparent',
-                                color: bankAccountsSubTab === 'settlements' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                fontWeight: 600, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                                transition: 'all 0.15s'
-                            }}
-                        >
-                            <CheckCircle2 size={12} style={{ opacity: 0.8 }} />
-                            Settlements
-                        </button>
+                    <div style={{
+                        marginLeft: 'auto',
+                        display: 'flex',
+                        gap: '2px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '2px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        overflowX: 'auto',
+                        WebkitOverflowScrolling: 'touch',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        flexShrink: 0
+                    }}>
+                        {[
+                            { id: 'transactions', label: 'Reconcile', icon: History },
+                            { id: 'collections', label: 'Collections', icon: DollarSign },
+                            { id: 'gateways', label: 'Gateways', icon: CreditCard },
+                            { id: 'settlements', label: 'Settlements', icon: CheckCircle2 },
+                            { id: 'setup', label: 'Setup', icon: Settings },
+                        ].map(tab => {
+                            const Icon = tab.icon;
+                            const isActive = bankAccountsSubTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setBankAccountsSubTab(tab.id)}
+                                    style={{
+                                        padding: isMobile ? '3px 6px' : '4px 8px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: 'none',
+                                        backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
+                                        color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        fontSize: isMobile ? '10.5px' : '11px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        whiteSpace: 'nowrap',
+                                        flexShrink: 0,
+                                        transition: 'all 0.15s'
+                                    }}
+                                >
+                                    {!isMobile && <Icon size={12} style={{ opacity: 0.8 }} />}
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
             </div>
