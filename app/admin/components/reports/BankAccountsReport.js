@@ -82,6 +82,9 @@ function findBestMatchingSubset(items, target) {
     return gSub.length > 0 ? gSub : [sorted[0].id];
 }
 
+// Normalize reference numbers by stripping leading zeros and punctuation
+const normRef = (s) => (s || '').toString().trim().replace(/^0+/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
 export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
     // Default to 'transactions' subtab as requested
     const [localSubTab, setLocalSubTab] = useState('transactions');
@@ -142,6 +145,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
     // Bank Statement & System Data
     const [activeStatement, setActiveStatement] = useState(null);
+    const [latestStatementDate, setLatestStatementDate] = useState(null);
     const [statementTransactions, setStatementTransactions] = useState([]);
     const [systemVouchers, setSystemVouchers] = useState([]);
     const [bankAlerts, setBankAlerts] = useState([]);
@@ -390,6 +394,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 txList = fetchedTxList || [];
             }
             setStatementTransactions(txList);
+
+            // Compute latest statement date for this account across all uploaded statements and transactions
+            let maxStmtDate = stmtList && stmtList.length > 0 ? stmtList[0].to_date : null;
+            if (txList && txList.length > 0) {
+                const maxTxDate = txList.reduce((max, t) => (!max || t.date > max ? t.date : max), null);
+                if (maxTxDate && (!maxStmtDate || maxTxDate > maxStmtDate)) {
+                    maxStmtDate = maxTxDate;
+                }
+            }
+            setLatestStatementDate(maxStmtDate);
 
             // Fetch System Entries & Bank Alerts concurrently
             const [payRes, recRes, purRes, salRes, alertRes] = await Promise.all([
@@ -840,7 +854,9 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
         // 5. Weekly Reconciliation Tracking
         let latestReconciledDate = null;
-        if (activeStatement?.to_date && !isCurrentGateway) {
+        if (latestStatementDate && !isCurrentGateway) {
+            latestReconciledDate = latestStatementDate;
+        } else if (activeStatement?.to_date && !isCurrentGateway) {
             latestReconciledDate = activeStatement.to_date;
         } else {
             const lastReconciledTx = rows.find(r => r.isReconciled);
@@ -896,7 +912,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 latestDate: latestReconciledDate
             }
         };
-    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement, isCurrentGateway]);
+    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement, isCurrentGateway, latestStatementDate]);
 
     // Filter and Sort rows
     const sortedRows = useMemo(() => {
@@ -1019,32 +1035,156 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         stOpening = firstRow.type === 'receipt' ? firstRow.balance - firstRow.amount : firstRow.balance + firstRow.amount;
                     }
 
-                    await supabase
+                    // 1. Fetch ALL existing statements and statement transactions for this account
+                    const { data: existingStmts, error: stmtFetchErr } = await supabase
                         .from('bank_statements')
-                        .delete()
+                        .select('id, filename, from_date, to_date, transaction_count, total_value, opening_balance, closing_balance')
                         .eq('bank_account_id', selectedAccountId)
-                        .eq('from_date', minDate)
-                        .eq('to_date', maxDate);
+                        .order('to_date', { ascending: false });
 
-                    const { data: statement, error: stErr } = await supabase
-                        .from('bank_statements')
-                        .insert({
-                            bank_account_id: selectedAccountId,
-                            filename: file.name,
-                            from_date: minDate,
-                            to_date: maxDate,
-                            transaction_count: sorted.length,
-                            total_value: sorted.reduce((sum, t) => sum + t.amount, 0),
-                            opening_balance: stOpening,
-                            closing_balance: stClosing
-                        })
-                        .select()
-                        .single();
+                    if (stmtFetchErr) throw stmtFetchErr;
 
-                    if (stErr) throw stErr;
+                    const existingStmtList = existingStmts || [];
+                    const existingStmtIds = existingStmtList.map(s => s.id);
 
-                    const statementTxns = sorted.map(t => ({
-                        bank_statement_id: statement.id,
+                    let existingTxs = [];
+                    if (existingStmtIds.length > 0) {
+                        const { data: fetchedTxs, error: txFetchErr } = await supabase
+                            .from('bank_statement_transactions')
+                            .select('id, bank_statement_id, date, particulars, ref_no, amount, type, balance, status, voucher_id, system_entry_id')
+                            .in('bank_statement_id', existingStmtIds);
+
+                        if (txFetchErr) throw txFetchErr;
+                        existingTxs = fetchedTxs || [];
+                    }
+
+                    // Find latest statement date in the system prior to upload
+                    let currentStmtLastDate = existingStmtList.length > 0 ? existingStmtList[0].to_date : null;
+                    if (existingTxs.length > 0) {
+                        const maxTxDate = existingTxs.reduce((max, t) => (!max || t.date > max ? t.date : max), null);
+                        if (maxTxDate && (!currentStmtLastDate || maxTxDate > currentStmtLastDate)) {
+                            currentStmtLastDate = maxTxDate;
+                        }
+                    }
+
+                    // 2. Cross-check incoming transactions against existing transactions to prevent double entry
+                    const pool = [...existingTxs];
+                    const newTxnsToInsert = [];
+                    const skippedTxns = [];
+
+                    for (const inc of sorted) {
+                        const incAmount = parseFloat(inc.amount) || 0;
+                        const incRef = normRef(inc.refNo);
+                        const incPart = (inc.particulars || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                        const incBal = parseFloat(inc.balance) || 0;
+
+                        const matchIndex = pool.findIndex(ext => {
+                            if (inc.type !== ext.type) return false;
+                            const extAmount = parseFloat(ext.amount) || 0;
+                            if (Math.abs(incAmount - extAmount) > 0.01) return false;
+
+                            const extRef = normRef(ext.ref_no);
+                            if (incRef && extRef && incRef === extRef) {
+                                return true;
+                            }
+
+                            if (inc.date !== ext.date) return false;
+
+                            const extPart = (ext.particulars || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                            const partMatch = incPart === extPart || incPart.includes(extPart) || extPart.includes(incPart);
+                            const extBal = parseFloat(ext.balance) || 0;
+                            const balMatch = incBal > 0 && extBal > 0 ? Math.abs(incBal - extBal) < 0.01 : true;
+
+                            return partMatch && balMatch;
+                        });
+
+                        if (matchIndex !== -1) {
+                            skippedTxns.push({ incoming: inc, existing: pool[matchIndex] });
+                            pool.splice(matchIndex, 1);
+                        } else {
+                            newTxnsToInsert.push(inc);
+                        }
+                    }
+
+                    // 3. Handle statement record in bank_statements
+                    let targetStatementId = null;
+
+                    // If zero new transactions, everything was already entered!
+                    if (newTxnsToInsert.length === 0) {
+                        // If file maxDate extends beyond previous statement date, update the latest statement's to_date and closing balance
+                        if (existingStmtList.length > 0 && maxDate > (existingStmtList[0].to_date || '')) {
+                            await supabase
+                                .from('bank_statements')
+                                .update({
+                                    to_date: maxDate,
+                                    closing_balance: stClosing > 0 ? stClosing : existingStmtList[0].closing_balance,
+                                    uploaded_at: new Date().toISOString()
+                                })
+                                .eq('id', existingStmtList[0].id);
+                            setLatestStatementDate(maxDate);
+                        }
+
+                        alert(`Statement "${file.name}" checked against Stmt. Last Date (${formatDateGB(currentStmtLastDate || minDate)}).\n\n🛡️ All ${sorted.length} transactions already exist in the system!\nNo double entry was made.`);
+                        fetchComprehensiveData(selectedAccountId);
+                        return;
+                    }
+
+                    // Look for existing statement with matching from_date
+                    const matchedStmt = existingStmtList.find(s => s.from_date === minDate);
+                    if (matchedStmt) {
+                        targetStatementId = matchedStmt.id;
+                        const newMaxDate = maxDate > matchedStmt.to_date ? maxDate : matchedStmt.to_date;
+                        await supabase
+                            .from('bank_statements')
+                            .update({
+                                filename: file.name,
+                                to_date: newMaxDate,
+                                transaction_count: (matchedStmt.transaction_count || 0) + newTxnsToInsert.length,
+                                total_value: (parseFloat(matchedStmt.total_value) || 0) + newTxnsToInsert.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0),
+                                closing_balance: stClosing > 0 ? stClosing : matchedStmt.closing_balance,
+                                uploaded_at: new Date().toISOString()
+                            })
+                            .eq('id', matchedStmt.id);
+                    } else {
+                        // Check if exact match on (from_date, to_date)
+                        const exactMatchStmt = existingStmtList.find(s => s.from_date === minDate && s.to_date === maxDate);
+                        if (exactMatchStmt) {
+                            targetStatementId = exactMatchStmt.id;
+                            await supabase
+                                .from('bank_statements')
+                                .update({
+                                    filename: file.name,
+                                    transaction_count: (exactMatchStmt.transaction_count || 0) + newTxnsToInsert.length,
+                                    total_value: (parseFloat(exactMatchStmt.total_value) || 0) + newTxnsToInsert.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0),
+                                    closing_balance: stClosing > 0 ? stClosing : exactMatchStmt.closing_balance,
+                                    uploaded_at: new Date().toISOString()
+                                })
+                                .eq('id', exactMatchStmt.id);
+                        } else {
+                            // Insert a new statement
+                            const { data: newStmt, error: stErr } = await supabase
+                                .from('bank_statements')
+                                .insert({
+                                    bank_account_id: selectedAccountId,
+                                    filename: file.name,
+                                    from_date: minDate,
+                                    to_date: maxDate,
+                                    transaction_count: newTxnsToInsert.length,
+                                    total_value: newTxnsToInsert.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0),
+                                    opening_balance: stOpening,
+                                    closing_balance: stClosing
+                                })
+                                .select()
+                                .single();
+
+                            if (stErr) throw stErr;
+                            targetStatementId = newStmt.id;
+                        }
+                    }
+
+                    // 4. Insert ONLY the new non-duplicate transactions
+                    const statementTxns = newTxnsToInsert.map(t => ({
+                        bank_statement_id: targetStatementId,
                         date: t.date,
                         particulars: t.particulars,
                         ref_no: t.refNo || null,
@@ -1061,7 +1201,11 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                     if (txErr) throw txErr;
 
-                    alert(`Statement "${file.name}" uploaded successfully! Parsed ${sorted.length} transactions.\nOpening: ₹${stOpening.toLocaleString('en-IN')}, Closing: ₹${stClosing.toLocaleString('en-IN')}`);
+                    const dedupeNote = skippedTxns.length > 0
+                        ? `\n\n🛡️ Deduplication Active: ${skippedTxns.length} already entered transactions up to Stmt. Last Date were skipped to prevent double entry.`
+                        : '';
+
+                    alert(`Statement "${file.name}" uploaded successfully!\n\n✅ Added: ${newTxnsToInsert.length} new transactions\nOpening: ₹${stOpening.toLocaleString('en-IN')}, Closing: ₹${stClosing.toLocaleString('en-IN')}${dedupeNote}`);
 
                     setFromDate(minDate);
                     setToDate(maxDate);
@@ -1798,6 +1942,28 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             <AlertTriangle size={13} style={{ color: '#ef4444' }} />
                                         </button>
                                     )}
+                                    {/* Stmt. Last Date Display beside the red alert sign */}
+                                    <div
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '3px 8px',
+                                            fontSize: '11px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border-primary)',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                            marginLeft: '4px'
+                                        }}
+                                        title={latestStatementDate ? `Bank statement uploaded up to ${formatDateGB(latestStatementDate)}` : 'No statement uploaded yet'}
+                                    >
+                                        <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Stmt. Last Date:</span>
+                                        <span style={{ color: latestStatementDate ? 'var(--color-primary)' : 'var(--text-tertiary)', fontWeight: 700 }}>
+                                            {latestStatementDate ? formatDateGB(latestStatementDate) : 'None'}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
 
