@@ -24,7 +24,7 @@ const DEFAULT_COLUMN_WIDTHS = {
     date: 90,
     source: 110,
     voucherNo: 110,
-    particulars: 240,
+    particulars: 210,
     deposit: 100,
     withdrawal: 100,
     status: 135,
@@ -84,6 +84,132 @@ function findBestMatchingSubset(items, target) {
 
 // Normalize reference numbers by stripping leading zeros and punctuation
 const normRef = (s) => (s || '').toString().trim().replace(/^0+/, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+// Clean party narration title and extract metadata (UPI ID, screenshot URL, LinkID, TPT/NEFT/POS details) for compact subline display
+function parseNarrationContent(particularsText, row = {}) {
+    if (!particularsText) return { title: '—', sublines: [], upiId: null };
+
+    let text = String(particularsText).trim();
+    const sublines = [];
+
+    // 1. Extract Screenshot URL
+    let screenshotUrl = null;
+    const screenshotMatch = text.match(/\[Screenshot:\s*([^\]]+)\]/i) || text.match(/Screenshot:\s*(https?:\/\/[^\s\]]+)/i);
+    if (screenshotMatch) {
+        screenshotUrl = screenshotMatch[1].trim();
+        text = text.replace(screenshotMatch[0], '').trim();
+    }
+    if (!screenshotUrl) {
+        const urlMatch = text.match(/https?:\/\/[^\s\]]+\.(?:webp|jpg|jpeg|png|gif)/i);
+        if (urlMatch) {
+            screenshotUrl = urlMatch[0].trim();
+            text = text.replace(urlMatch[0], '').trim();
+        }
+    }
+
+    // 2. Extract LinkID (e.g. Razorpay LinkID)
+    let linkId = null;
+    const linkMatch = text.match(/\[LinkID:\s*([^\]]+)\]/i);
+    if (linkMatch) {
+        linkId = linkMatch[1].trim();
+        text = text.replace(linkMatch[0], '').trim();
+    }
+
+    // 3. Parse UPI Transactions (e.g. UPI-PARTY-VPA@BANK-IFSC-REFNO-UPI)
+    let upiId = null;
+    let extraRef = null;
+
+    if (/^UPI[-/]/i.test(text)) {
+        const parts = text.split(/[-/]/).map(p => p.trim()).filter(Boolean);
+        const atIdx = parts.findIndex(p => p.includes('@'));
+        if (atIdx > 1) {
+            const partyName = parts.slice(1, atIdx).join(' ').trim();
+            upiId = parts[atIdx].toLowerCase();
+            const numPart = parts.slice(atIdx + 1).find(p => /^\d{8,}$/.test(p));
+            if (numPart && numPart !== row.refNo) extraRef = numPart;
+            if (partyName) text = partyName;
+        } else if (atIdx === 1) {
+            upiId = parts[1].toLowerCase();
+            const partyName = parts.slice(2).filter(p => p.toUpperCase() !== 'UPI' && !/^\d{8,}$/.test(p)).join(' ').trim();
+            if (partyName) text = partyName;
+        }
+    } else if (text.includes('@')) {
+        const vpaMatch = text.match(/([a-zA-Z0-9.\-_]{2,}@[a-zA-Z0-9.\-_]{2,})/);
+        if (vpaMatch) {
+            upiId = vpaMatch[1].toLowerCase();
+            text = text.replace(vpaMatch[1], '').trim();
+            text = text.replace(/^UPI[-/:\s]*/i, '').replace(/[-/:\s]*UPI$/i, '').trim();
+        }
+    }
+
+    // 4. Parse Third Party Transfers (e.g. 50200050365823-TPT-HDFC29D9CE727C9A-BAJAJ TRADERS)
+    const tptMatch = text.match(/^(\d{8,})-TPT-([A-Z0-9]+)-(.*)$/i);
+    if (tptMatch) {
+        text = tptMatch[3].trim();
+        sublines.push({
+            icon: '🔄',
+            label: 'TPT Transfer',
+            value: `A/c: ...${tptMatch[1].slice(-4)}${tptMatch[2] ? ` · Ref: ${tptMatch[2]}` : ''}`
+        });
+    }
+
+    // 5. Parse NEFT Transactions
+    if (/^NEFT/i.test(text)) {
+        const parts = text.split(/[-/]/).map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 3) {
+            const ifscPart = parts.find(p => /^[A-Z]{4}0[A-Z0-9]{6}$/i.test(p));
+            const partyPart = parts.slice(1).reduce((longest, p) => (p.length > longest.length && !/^[A-Z]{4}0/i.test(p) ? p : longest), '');
+            const refPart = parts.find(p => p !== partyPart && p !== ifscPart && /^[A-Z0-9]{10,}$/i.test(p));
+            if (partyPart) {
+                text = partyPart;
+                const details = [
+                    parts[0],
+                    ifscPart ? `IFSC: ${ifscPart}` : null,
+                    refPart && refPart !== row.refNo ? `Ref: ${refPart}` : null
+                ].filter(Boolean).join(' · ');
+                if (details) {
+                    sublines.push({ icon: '🏦', label: 'NEFT', value: details });
+                }
+            }
+        }
+    }
+
+    // 6. Parse POS Transactions
+    if (/^POS\s+/i.test(text)) {
+        const posMatch = text.match(/^POS\s+([0-9X]{16,})\s+(\d+)\s+([A-Z0-9]+)\s+([0-9:]+)\s+(.*)$/i);
+        if (posMatch) {
+            const cardMask = posMatch[1];
+            const merchant = posMatch[5].trim();
+            text = merchant;
+            sublines.push({ icon: '💳', label: 'POS Card', value: cardMask });
+        } else {
+            const cardMatch = text.match(/(\d{6}X+\d{4})/i);
+            const merchantMatch = text.match(/(?:[A-Z0-9:\s]+\s)([A-Z\s]{4,})$/i);
+            if (merchantMatch && merchantMatch[1].trim()) {
+                text = merchantMatch[1].trim();
+                if (cardMatch) {
+                    sublines.push({ icon: '💳', label: 'POS Card', value: cardMatch[1] });
+                }
+            }
+        }
+    }
+
+    // 7. Parse Bank Charges
+    const chgMatch = text.match(/^(.*?)(?:-\d{2}-\d{2}-\d{4})?-([A-Z0-9]{10,})$/i);
+    if (chgMatch && (chgMatch[1].includes('CHGS') || chgMatch[1].includes('CHARGES') || chgMatch[1].includes('FEE'))) {
+        text = chgMatch[1].trim();
+        sublines.push({ icon: '🔖', label: 'Charge Ref', value: chgMatch[2] });
+    }
+
+    text = text.replace(/^[-\s|]+|[-\s|]+$/g, '').trim() || particularsText;
+
+    if (upiId) sublines.push({ icon: '📱', label: 'UPI ID', value: upiId });
+    if (extraRef) sublines.push({ icon: '🔢', label: 'UTR', value: extraRef });
+    if (screenshotUrl) sublines.push({ icon: '📷', label: 'Screenshot', isLink: true, url: screenshotUrl, value: 'View Image ↗' });
+    if (linkId) sublines.push({ icon: '🔗', label: 'Link ID', value: linkId });
+
+    return { title: text, sublines, upiId };
+}
 
 export default function BankAccountsReport({ activeSubTab: propActiveSubTab, setActiveSubTab: propSetActiveSubTab }) {
     // Default to 'transactions' subtab as requested
@@ -2663,7 +2789,13 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Party / Particulars */}
-                                                    <td style={{ padding: '7px 10px', verticalAlign: 'top' }}>
+                                                    <td style={{
+                                                        padding: '7px 10px',
+                                                        verticalAlign: 'top',
+                                                        maxWidth: colWidths.particulars,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'break-word'
+                                                    }}>
                                                         {row.isGatewayPayout && (
                                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.3)', color: '#0284c7', fontSize: '9.5px', fontWeight: 700, padding: '1px 6px', borderRadius: '4px', marginBottom: '3px' }}>
                                                                 🏦 {row.gatewayProvider} Settlement Payout
@@ -2674,17 +2806,74 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                 {row.is_settled ? `🟢 Settled to Bank (Ref: ${row.settlement_ref || 'Payout'})` : '🟡 Holding in Gateway (Awaiting bank payout)'}
                                                             </div>
                                                         )}
-                                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
-                                                            {row.particulars}
-                                                        </div>
+
+                                                        {(() => {
+                                                            const parsed = parseNarrationContent(row.particulars, row);
+                                                            const alertPartyLower = (row.matchedAlert?.party_name || '').toLowerCase().trim();
+                                                            const upiIdLower = (parsed.upiId || '').toLowerCase().trim();
+                                                            const hasMatchingAlert = alertPartyLower && upiIdLower && (alertPartyLower === upiIdLower || alertPartyLower.includes(upiIdLower) || upiIdLower.includes(alertPartyLower));
+
+                                                            return (
+                                                                <>
+                                                                    {/* Main clean title */}
+                                                                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word', fontSize: '11.5px', lineHeight: 1.35 }}>
+                                                                        {parsed.title}
+                                                                    </div>
+
+                                                                    {/* Sublines: UPI ID, Screenshot URL, LinkID, TPT/NEFT/POS details */}
+                                                                    {parsed.sublines.map((sub, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            style={{
+                                                                                fontSize: '9px',
+                                                                                color: 'var(--text-tertiary)',
+                                                                                marginTop: '2px',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '3px',
+                                                                                wordBreak: 'break-all'
+                                                                            }}
+                                                                        >
+                                                                            <span>{sub.icon}</span>
+                                                                            <span style={{ fontWeight: 600 }}>{sub.label}:</span>
+                                                                            {sub.isLink ? (
+                                                                                <a
+                                                                                    href={sub.url}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    title={sub.url}
+                                                                                    style={{
+                                                                                        color: 'var(--color-primary)',
+                                                                                        textDecoration: 'underline',
+                                                                                        fontWeight: 600,
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                >
+                                                                                    {sub.value}
+                                                                                </a>
+                                                                            ) : (
+                                                                                <span style={{ fontFamily: sub.label.includes('UPI') || sub.label.includes('Ref') || sub.label.includes('UTR') ? 'monospace' : 'inherit' }}>
+                                                                                    {sub.value}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+
+                                                                    {/* Alert Party (only if not already identical to the parsed UPI ID) */}
+                                                                    {row.hasEmailAlert && row.matchedAlert?.party_name && !hasMatchingAlert && row.matchedAlert.party_name !== parsed.title && (
+                                                                        <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                                            <span>✉️</span>
+                                                                            <span style={{ fontWeight: 600 }}>Alert Party:</span>
+                                                                            <span style={{ wordBreak: 'break-all' }}>{row.matchedAlert.party_name}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })()}
+
                                                         {row.isMissedByScraper && (
                                                             <div style={{ fontSize: '9px', color: '#d97706', fontWeight: 600, marginTop: '2px' }}>
                                                                 📬 Not captured by Gmail scraper (present in statement only)
-                                                            </div>
-                                                        )}
-                                                        {row.hasEmailAlert && row.matchedAlert?.party_name && row.matchedAlert.party_name !== row.particulars && (
-                                                            <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '1px' }}>
-                                                                ✉️ Alert Party: {row.matchedAlert.party_name}
                                                             </div>
                                                         )}
                                                         {row.suggestedAccount && (
