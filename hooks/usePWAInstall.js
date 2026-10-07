@@ -22,9 +22,12 @@ export function usePWAInstall() {
         if (typeof window === 'undefined') return;
 
         // Check if already installed / running as a PWA
-        const standalone =
-            window.navigator.standalone === true ||
-            window.matchMedia('(display-mode: standalone)').matches;
+        let standalone = false;
+        try {
+            standalone =
+                window.navigator?.standalone === true ||
+                (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+        } catch (e) {}
         setIsInstalled(standalone);
 
         if (standalone) return; // already installed — no point showing the prompt
@@ -38,20 +41,40 @@ export function usePWAInstall() {
         window.addEventListener('beforeinstallprompt', handler);
 
         // iOS Safari fires no beforeinstallprompt — but we still know it's installable
-        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const isSafari = typeof navigator !== 'undefined' && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
         if (isIOS && isSafari && !standalone) {
             setCanInstall(true); // show iOS manual instructions
         }
 
         // Clean up installed state change
-        const mql = window.matchMedia('(display-mode: standalone)');
-        const mqlHandler = (e) => { if (e.matches) { setIsInstalled(true); setCanInstall(false); } };
-        mql.addEventListener('change', mqlHandler);
+        let mql = null;
+        let mqlHandler = null;
+        try {
+            if (typeof window.matchMedia === 'function') {
+                mql = window.matchMedia('(display-mode: standalone)');
+                mqlHandler = (e) => { if (e.matches) { setIsInstalled(true); setCanInstall(false); } };
+                if (mql) {
+                    if (typeof mql.addEventListener === 'function') {
+                        mql.addEventListener('change', mqlHandler);
+                    } else if (typeof mql.addListener === 'function') {
+                        mql.addListener(mqlHandler);
+                    }
+                }
+            }
+        } catch (e) {}
 
         return () => {
             window.removeEventListener('beforeinstallprompt', handler);
-            mql.removeEventListener('change', mqlHandler);
+            if (mql && mqlHandler) {
+                try {
+                    if (typeof mql.removeEventListener === 'function') {
+                        mql.removeEventListener('change', mqlHandler);
+                    } else if (typeof mql.removeListener === 'function') {
+                        mql.removeListener(mqlHandler);
+                    }
+                } catch (e) {}
+            }
         };
     }, []);
 

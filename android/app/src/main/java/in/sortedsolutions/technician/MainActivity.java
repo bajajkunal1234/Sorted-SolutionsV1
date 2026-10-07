@@ -63,12 +63,24 @@ public class MainActivity extends BridgeActivity {
         // Create high-importance custom notification channels on launch
         createCustomNotificationChannels();
 
-        // Enable cookies and third-party cookies for session persistence
+        // Enable cookies and storage synchronously on start
         try {
             android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
             cookieManager.setAcceptCookie(true);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 cookieManager.setAcceptThirdPartyCookies(getBridge().getWebView(), true);
+            }
+            cookieManager.flush();
+
+            android.webkit.WebSettings settings = getBridge().getWebView().getSettings();
+            settings.setTextZoom(100);
+            settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -77,21 +89,6 @@ public class MainActivity extends BridgeActivity {
         // Workaround: Override the default WindowInsetsListener to prevent 
         // the default Capacitor logic from stacking padding on the WebView.
         getBridge().getWebView().post(() -> {
-            // Lock text zoom to 100% to ignore system font size changes
-            try {
-                android.webkit.WebSettings settings = getBridge().getWebView().getSettings();
-                settings.setTextZoom(100);
-                settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
-                settings.setDomStorageEnabled(true);
-                settings.setDatabaseEnabled(true);
-                settings.setAllowFileAccess(true);
-                settings.setAllowContentAccess(true);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
 
             // Set up native download listener to intercept and handle downloads directly inside the WebView
             getBridge().getWebView().setDownloadListener(new DownloadListener() {
@@ -234,6 +231,26 @@ public class MainActivity extends BridgeActivity {
         if (dm != null) {
             dm.enqueue(request);
             Toast.makeText(getApplicationContext(), "Downloading " + fileName, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        try {
+            android.webkit.CookieManager.getInstance().flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        try {
+            android.webkit.CookieManager.getInstance().flush();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

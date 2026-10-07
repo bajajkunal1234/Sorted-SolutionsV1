@@ -6,6 +6,7 @@ import { Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft
 import Link from 'next/link';
 import Header from '@/components/common/Header';
 import { requestNotificationPermission, saveFCMTokenToServer } from '@/lib/firebase-client';
+import { resolveAdminSession, saveAdminSession, clearAdminSession } from '@/lib/auth-helpers';
 
 // ─── Lazy Firebase Auth Loader ────────────────────────────────────────────────
 // Dynamically imported only when OTP is requested so the initial page
@@ -51,19 +52,8 @@ function saveSession(user, persist) {
         storage.setItem('user_session', session);
 
         if (user.role === 'admin') {
-            localStorage.setItem('user_session', session);
-            localStorage.setItem('isAdmin', 'true');
-            // Explicitly purge customer & technician keys so an admin is never misidentified
-            localStorage.removeItem('customerId');
-            sessionStorage.removeItem('customerId');
-            localStorage.removeItem('customerData');
-            sessionStorage.removeItem('customerData');
-            localStorage.removeItem('technicianSession');
-            sessionStorage.removeItem('technicianSession');
-            localStorage.removeItem('technicianData');
-            sessionStorage.removeItem('technicianData');
-            const maxAge = 60 * 60 * 24 * 30; // 30 days
-            document.cookie = `admin_auth=1; path=/; SameSite=Lax; max-age=${maxAge}`;
+            saveAdminSession(user);
+            return;
         } else if (user.role === 'technician') {
             const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
             storage.setItem('technicianSession', techSession);
@@ -240,8 +230,7 @@ function LoginContent() {
         try {
             // Support explicit cache/session reset via query parameter
             if (searchParams.get('reset') === 'true' || searchParams.get('logout') === 'true') {
-                localStorage.removeItem('user_session');
-                sessionStorage.removeItem('user_session');
+                clearAdminSession();
                 localStorage.removeItem('technicianSession');
                 sessionStorage.removeItem('technicianSession');
                 localStorage.removeItem('technicianData');
@@ -250,9 +239,14 @@ function LoginContent() {
                 sessionStorage.removeItem('customerId');
                 localStorage.removeItem('customerData');
                 sessionStorage.removeItem('customerData');
-                localStorage.removeItem('isAdmin');
-                sessionStorage.removeItem('isAdmin');
-                document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
+                return;
+            }
+
+            // Check if admin is logged in (multi-layer resolution)
+            const adminSession = resolveAdminSession();
+            if (adminSession) {
+                saveAdminSession(adminSession);
+                router.replace('/admin');
                 return;
             }
 
@@ -260,13 +254,7 @@ function LoginContent() {
             if (raw) {
                 try {
                     const s = JSON.parse(raw);
-                    if (s?.role === 'admin') {
-                        // Confirm admin flag & cookie, then go to admin
-                        localStorage.setItem('isAdmin', 'true');
-                        document.cookie = 'admin_auth=1; path=/; max-age=2592000; SameSite=Lax';
-                        router.replace('/admin');
-                        return;
-                    } else if (s?.role === 'technician') {
+                    if (s?.role === 'technician') {
                         const techSession = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
                         if (techSession) {
                             try {
@@ -301,8 +289,7 @@ function LoginContent() {
                 }
             }
 
-            // CRITICAL: If there is NO active admin user_session, purge any stale/orphaned
-            // isAdmin flag and admin_auth cookie to prevent infinite redirect loops!
+            // Only clean up dangling admin flags if there is truly NO admin session
             localStorage.removeItem('isAdmin');
             sessionStorage.removeItem('isAdmin');
             document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';

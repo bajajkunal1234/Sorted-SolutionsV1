@@ -22,6 +22,7 @@ import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { apiCall, syncOfflineQueue, uploadOrQueueFile, clearOfflineQueue, removeQueueItem } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
+import { resolveAdminSession } from '@/lib/auth-helpers';
 
 const isNativePlatform = () => {
     if (typeof window === 'undefined') return false;
@@ -513,27 +514,47 @@ function TechnicianApp() {
         }
         
         const checkReminder = () => {
-            const now = new Date();
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const localDate = new Date(utc + (3600000 * 5.5)); // India timezone
-            const currentHour = localDate.getHours();
-            
-            if (currentHour >= 20) { // 8:00 PM or later
-                setShowLogoutReminder(true);
+            try {
+                const now = new Date();
+                const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+                const localDate = new Date(utc + (3600000 * 5.5)); // India timezone
+                const currentHour = localDate.getHours();
                 
-                // Trigger browser push notification if permissions granted
-                if (typeof window !== 'undefined' && 'Notification' in window) {
-                    if (Notification.permission === 'granted') {
-                        new Notification("Shift End Reminder", {
-                            body: "Your shift ended at 8:00 PM. Please log out/end your shift to disable location tracking.",
-                            tag: "shift-logout-reminder"
-                        });
-                    } else if (Notification.permission !== 'denied') {
-                        Notification.requestPermission();
+                if (currentHour >= 20) { // 8:00 PM or later
+                    setShowLogoutReminder(true);
+                    
+                    // Trigger browser push notification if permissions granted
+                    if (typeof window !== 'undefined' && typeof window.Notification !== 'undefined') {
+                        try {
+                            if (window.Notification.permission === 'granted') {
+                                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                                    navigator.serviceWorker.ready.then(reg => {
+                                        reg.showNotification("Shift End Reminder", {
+                                            body: "Your shift ended at 8:00 PM. Please log out/end your shift to disable location tracking.",
+                                            tag: "shift-logout-reminder",
+                                            icon: '/icons/icon-192x192.png'
+                                        });
+                                    }).catch(() => {});
+                                } else {
+                                    try {
+                                        new window.Notification("Shift End Reminder", {
+                                            body: "Your shift ended at 8:00 PM. Please log out/end your shift to disable location tracking.",
+                                            tag: "shift-logout-reminder"
+                                        });
+                                    } catch (e) {}
+                                }
+                            }
+                            // Note: Never call Notification.requestPermission() automatically inside an effect/timer,
+                            // as iOS Safari strictly throws NotAllowedError when requested without a direct user gesture.
+                        } catch (e) {
+                            console.warn('Shift reminder notification error:', e);
+                        }
                     }
+                } else {
+                    setShowLogoutReminder(false);
                 }
-            } else {
-                setShowLogoutReminder(false);
+            } catch (err) {
+                console.warn('Error checking shift reminder:', err);
             }
         };
 
@@ -639,11 +660,13 @@ function TechnicianApp() {
         const handleOnline = () => setIsDeviceOnline(true);
         const handleOffline = () => setIsDeviceOnline(false);
         const handleQueueChange = (e) => {
-            const count = e.detail.count || 0;
+            const count = e.detail?.count || 0;
             setPendingSyncCount(count);
-            const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
-            setSyncItems(queue);
-            setSyncError(localStorage.getItem('offline_sync_error'));
+            try {
+                const queue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+                setSyncItems(queue);
+                setSyncError(localStorage.getItem('offline_sync_error'));
+            } catch (err) {}
         };
         const handleSyncComplete = () => {
             setPendingSyncCount(0);
@@ -656,10 +679,12 @@ function TechnicianApp() {
         window.addEventListener('offline-queue-changed', handleQueueChange);
         window.addEventListener('offline-sync-complete', handleSyncComplete);
 
-        const initialQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
-        setPendingSyncCount(initialQueue.length);
-        setSyncItems(initialQueue);
-        setSyncError(localStorage.getItem('offline_sync_error'));
+        try {
+            const initialQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+            setPendingSyncCount(initialQueue.length);
+            setSyncItems(initialQueue);
+            setSyncError(localStorage.getItem('offline_sync_error'));
+        } catch (err) {}
 
         return () => {
             window.removeEventListener('online', handleOnline);
@@ -699,8 +724,12 @@ function TechnicianApp() {
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('techDarkMode');
-            return saved === null ? true : saved === 'true';
+            try {
+                const saved = localStorage.getItem('techDarkMode');
+                return saved === null ? true : saved === 'true';
+            } catch (e) {
+                return true;
+            }
         }
         return true;
     });
@@ -921,11 +950,21 @@ function TechnicianApp() {
     }, []);
 
     const [dashboardView, setDashboardView] = useState(() => {
-        if (typeof window !== 'undefined') return localStorage.getItem('techDashboardView') || 'grid';
+        if (typeof window !== 'undefined') {
+            try {
+                return localStorage.getItem('techDashboardView') || 'grid';
+            } catch (e) {
+                return 'grid';
+            }
+        }
         return 'grid';
     });
     useEffect(() => {
-        if (typeof window !== 'undefined') localStorage.setItem('techDashboardView', dashboardView);
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('techDashboardView', dashboardView);
+            } catch (e) {}
+        }
     }, [dashboardView]);
 
     const [scheduledJobsCount, setScheduledJobsCount] = useState(0);
@@ -973,20 +1012,49 @@ function TechnicianApp() {
 
     // Check authentication and get technician ID
     useEffect(() => {
-        const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
-        const storedTechData = localStorage.getItem('technicianData') || sessionStorage.getItem('technicianData');
+        let session = null;
+        let storedTechData = null;
+        try {
+            session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            storedTechData = localStorage.getItem('technicianData') || sessionStorage.getItem('technicianData');
+        } catch (e) {
+            console.warn('Storage read error:', e);
+        }
 
         const purgeAndRedirect = () => {
             try {
-                localStorage.removeItem('user_session');
-                sessionStorage.removeItem('user_session');
+                // If admin, send to admin instead of purging
+                const adminSession = resolveAdminSession();
+                if (adminSession) {
+                    router.replace('/admin');
+                    return;
+                }
                 localStorage.removeItem('technicianSession');
                 sessionStorage.removeItem('technicianSession');
                 localStorage.removeItem('technicianData');
                 sessionStorage.removeItem('technicianData');
+                // Only clear user_session if not an admin
+                const rawUser = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
+                if (rawUser) {
+                    try {
+                        const parsed = JSON.parse(rawUser);
+                        if (parsed?.role !== 'admin') {
+                            localStorage.removeItem('user_session');
+                            sessionStorage.removeItem('user_session');
+                        }
+                    } catch {
+                        localStorage.removeItem('user_session');
+                    }
+                }
             } catch {}
             router.replace('/login');
         };
+
+        const adminSession = resolveAdminSession();
+        if (adminSession) {
+            router.replace('/admin');
+            return;
+        }
 
         if (!session) {
             purgeAndRedirect();

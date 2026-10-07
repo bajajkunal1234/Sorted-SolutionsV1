@@ -2,12 +2,20 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { resolveAdminSession } from '@/lib/auth-helpers'
 
 export default function TechnicianPage() {
     const router = useRouter()
 
     useEffect(() => {
         try {
+            // If admin, send to admin
+            const adminSession = resolveAdminSession();
+            if (adminSession) {
+                router.replace('/admin');
+                return;
+            }
+
             const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
             if (session) {
                 const parsed = JSON.parse(session);
@@ -20,10 +28,8 @@ export default function TechnicianPage() {
             console.warn('Error reading technicianSession:', e);
         }
 
-        // Not validly logged in as technician: purge any inconsistent session flags to prevent loops
+        // Not validly logged in as technician: purge technician-specific keys only
         try {
-            localStorage.removeItem('user_session');
-            sessionStorage.removeItem('user_session');
             localStorage.removeItem('technicianSession');
             sessionStorage.removeItem('technicianSession');
             localStorage.removeItem('technicianData');

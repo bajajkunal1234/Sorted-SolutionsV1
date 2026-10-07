@@ -48,10 +48,13 @@ export function usePushNotifications({ userType, userId }) {
     const [prompted, setPrompted] = useState(false);
 
     // Detect if we're in standalone (PWA home-screen) mode on iOS
-    const isIOSStandalone =
-        typeof window !== 'undefined' &&
-        (window.navigator.standalone === true ||
-            window.matchMedia('(display-mode: standalone)').matches);
+    let isIOSStandalone = false;
+    try {
+        isIOSStandalone =
+            typeof window !== 'undefined' &&
+            (window.navigator?.standalone === true ||
+                (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches));
+    } catch (e) {}
 
     const isIOS =
         typeof navigator !== 'undefined' &&
@@ -63,8 +66,8 @@ export function usePushNotifications({ userType, userId }) {
 
     const registerWebPush = useCallback(async () => {
         if (typeof window === 'undefined') return;
-        if (!('Notification' in window)) {
-            console.warn('[Push] Notification API not supported (Chrome on iOS?)');
+        if (typeof window.Notification === 'undefined') {
+            console.warn('[Push] Notification API not supported on this browser/platform');
             return;
         }
         if (!userType || !userId) return;
@@ -78,7 +81,7 @@ export function usePushNotifications({ userType, userId }) {
                 setNeedsPrompt(false);
             }
         } catch (err) {
-            console.warn('[Push] Web Token registration failed:', err.message);
+            console.warn('[Push] Web Token registration failed:', err?.message || err);
         }
     }, [userType, userId]);
 
@@ -204,19 +207,20 @@ export function usePushNotifications({ userType, userId }) {
             registerNativePush();
         } else {
             // Web platform (Desktop/Mobile Web browser)
-            if (!('Notification' in window)) return;
-            const permission = Notification.permission;
+            try {
+                if (typeof window === 'undefined' || typeof window.Notification === 'undefined') return;
+                const permission = window.Notification.permission;
 
-            if (permission === 'granted') {
-                registerWebPush();
-            } else if (permission === 'denied') {
-                console.warn('[Push] Web permission previously denied by user');
-            } else {
-                if (isIOS) {
-                    setNeedsPrompt(true);
-                } else {
+                if (permission === 'granted') {
                     registerWebPush();
+                } else if (permission === 'denied') {
+                    console.warn('[Push] Web permission previously denied by user');
+                } else {
+                    // On both iOS and desktop Safari/browsers, always request permission via user gesture
+                    setNeedsPrompt(true);
                 }
+            } catch (err) {
+                console.warn('[Push] Web permission check error:', err);
             }
         }
 

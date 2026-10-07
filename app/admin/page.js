@@ -16,6 +16,8 @@ import DashboardLivePerformance from './components/DashboardLivePerformance'
 import ErrorBoundary from './components/ErrorBoundary'
 import dynamic from 'next/dynamic'
 
+import { resolveAdminSession, saveAdminSession, clearAdminSession } from '@/lib/auth-helpers'
+
 const TechnicianLiveMap = dynamic(() => import('./components/reports/TechnicianLiveMap'), {
     ssr: false,
     loading: () => <div style={{ height: 325, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>🗺️ Loading fleet map...</div>
@@ -47,98 +49,80 @@ export default function AdminApp() {
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
 
-    const purgeAndRedirectToLogin = () => {
-        try {
-            localStorage.removeItem('user_session');
-            sessionStorage.removeItem('user_session');
-            localStorage.removeItem('isAdmin');
-            sessionStorage.removeItem('isAdmin');
-            document.cookie = 'admin_auth=; path=/; max-age=0; SameSite=Lax';
-        } catch { }
-        router.replace('/login');
-    };
-
     const handleAdminLogout = () => {
         if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out of Admin?')) {
-            purgeAndRedirectToLogin();
+            clearAdminSession();
+            router.replace('/login?logout=true');
         }
     };
 
     // ── Auth Guard ─────────────────────────────────────────────────────────
     useEffect(() => {
-        const raw =
-            localStorage.getItem('user_session') ||
-            sessionStorage.getItem('user_session');
+        let isMounted = true;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-        if (!raw) {
-            purgeAndRedirectToLogin();
-            return;
-        }
+        const checkAuth = () => {
+            const session = resolveAdminSession();
+            if (session) {
+                if (!isMounted) return;
+                // Re-affirm persistent keys across localStorage, backup key, and cookies
+                saveAdminSession(session);
+                setAdminId('admin'); // Always use 'admin' as recipient_id to match notifications
+                setAuthChecked(true);
 
-        try {
-            const session = JSON.parse(raw);
-            if (session?.role !== 'admin') {
-                purgeAndRedirectToLogin();
+                // Log active session for Installed Devices report
+                const logAdminSession = async () => {
+                    try {
+                        const isNative = typeof window !== 'undefined' && (
+                            window.Capacitor !== undefined || 
+                            window.location.protocol === 'capacitor:'
+                        );
+                        
+                        let devId = localStorage.getItem('device_session_id');
+                        if (!devId) {
+                            devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                            localStorage.setItem('device_session_id', devId);
+                        }
+                        
+                        await fetch('/api/admin/reports/installed-devices', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: 'admin',
+                                userName: session.name || 'Admin',
+                                role: 'admin',
+                                platform: isNative ? 'Admin App (Mobile)' : 'Web Browser',
+                                appVersion: '1.0.0',
+                                deviceSessionId: devId
+                            })
+                        });
+                    } catch (e) {
+                        console.warn('Failed to log admin session:', e);
+                    }
+                };
+                logAdminSession();
                 return;
             }
 
-            try {
-                // Ensure persistent storage for Admin so Android WebView restarts keep the session
-                if (!localStorage.getItem('user_session') && sessionStorage.getItem('user_session')) {
-                    localStorage.setItem('user_session', sessionStorage.getItem('user_session'));
-                }
-                localStorage.setItem('isAdmin', 'true');
-                document.cookie = 'admin_auth=1; path=/; max-age=2592000; SameSite=Lax';
-                localStorage.removeItem('customerId');
-                sessionStorage.removeItem('customerId');
-                localStorage.removeItem('customerData');
-                sessionStorage.removeItem('customerData');
-                localStorage.removeItem('technicianSession');
-                sessionStorage.removeItem('technicianSession');
-                localStorage.removeItem('technicianData');
-                sessionStorage.removeItem('technicianData');
-            } catch { }
+            // Retry for cold-boot asynchronous storage initialization on Android WebView
+            if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(checkAuth, 120);
+                return;
+            }
 
-            setAdminId('admin') // Always use 'admin' as the recipient_id so it matches app_notifications
-            
-            // Log active session for Installed Devices report
-            const logAdminSession = async () => {
-                try {
-                    const isNative = typeof window !== 'undefined' && (
-                        window.Capacitor !== undefined || 
-                        window.location.protocol === 'capacitor:'
-                    );
-                    
-                    // Generate/retrieve a persistent device session ID for this browser/device
-                    let devId = localStorage.getItem('device_session_id');
-                    if (!devId) {
-                        devId = 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                        localStorage.setItem('device_session_id', devId);
-                    }
-                    
-                    await fetch('/api/admin/reports/installed-devices', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: 'admin',
-                            userName: session.name || 'Admin',
-                            role: 'admin',
-                            platform: isNative ? 'Admin App (Mobile)' : 'Web Browser',
-                            appVersion: '1.0.0',
-                            deviceSessionId: devId
-                        })
-                    });
-                } catch (e) {
-                    console.warn('Failed to log admin session:', e);
-                }
-            };
-            logAdminSession();
-        } catch (e) {
-            console.error('[AdminAuth] Invalid session data:', e);
-            purgeAndRedirectToLogin();
-            return;
-        }
-        setAuthChecked(true);
+            // Genuinely unauthenticated — send to login WITHOUT destructive storage wipes
+            if (isMounted) {
+                router.replace('/login');
+            }
+        };
+
+        checkAuth();
+
+        return () => {
+            isMounted = false;
+        };
     }, [router]);
 
     // ── Request push notification permission after login ────────────────────

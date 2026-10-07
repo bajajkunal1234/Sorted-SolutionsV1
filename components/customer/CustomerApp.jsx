@@ -9,6 +9,7 @@ import ServicesPage from '@/components/customer/pages/Services'
 import ProfilePage from '@/components/customer/pages/Profile'
 import PlansPage from '@/components/customer/pages/Plans'
 import OnboardingWizard from '@/components/customer/OnboardingWizard'
+import { resolveAdminSession } from '@/lib/auth-helpers'
 
 const TABS = [
     { id: 'home', label: 'Home', icon: Home, color: '#38bdf8' },
@@ -48,24 +49,22 @@ export default function CustomerApp() {
 
         // ── Auth gate: CustomerApp is the single gatekeeper ─────────────────
         try {
+            const adminSession = resolveAdminSession();
+            if (adminSession) {
+                localStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                window.location.href = '/admin';
+                return;
+            }
             const rawSession = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
             if (rawSession) {
                 const s = JSON.parse(rawSession);
-                if (s?.role === 'admin') {
-                    localStorage.removeItem('customerId');
-                    localStorage.removeItem('customerData');
-                    window.location.href = '/admin';
-                    return;
-                }
                 if (s?.role === 'technician') {
                     localStorage.removeItem('customerId');
                     localStorage.removeItem('customerData');
                     window.location.href = '/technician';
                     return;
                 }
-            } else {
-                localStorage.removeItem('isAdmin');
-                sessionStorage.removeItem('isAdmin');
             }
         } catch { }
 

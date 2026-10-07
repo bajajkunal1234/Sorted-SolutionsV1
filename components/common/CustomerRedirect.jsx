@@ -1,6 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { resolveAdminSession } from '@/lib/auth-helpers'
 
 /**
  * CustomerRedirect — invisible client component.
@@ -13,25 +14,26 @@ export default function CustomerRedirect() {
     const router = useRouter()
     useEffect(() => {
         try {
+            // Check if authenticated admin first
+            const adminSession = resolveAdminSession();
+            if (adminSession) {
+                localStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                router.replace('/admin');
+                return;
+            }
+
             const rawSession = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
             if (rawSession) {
                 const s = JSON.parse(rawSession);
-                if (s?.role === 'admin') {
-                    localStorage.removeItem('customerId');
-                    localStorage.removeItem('customerData');
-                    router.replace('/admin');
-                    return;
-                }
                 if (s?.role === 'technician') {
                     localStorage.removeItem('customerId');
                     localStorage.removeItem('customerData');
                     router.replace('/technician');
                     return;
                 }
-            } else {
-                localStorage.removeItem('isAdmin');
-                sessionStorage.removeItem('isAdmin');
             }
+
             const id = localStorage.getItem('customerId');
             const custData = localStorage.getItem('customerData');
             if (id && custData) router.replace('/customer/dashboard');

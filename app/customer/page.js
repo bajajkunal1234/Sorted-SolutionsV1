@@ -2,21 +2,25 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { resolveAdminSession } from '@/lib/auth-helpers';
 
 export default function CustomerPage() {
     const router = useRouter();
 
     useEffect(() => {
         try {
+            // If admin, send straight to admin
+            const adminSession = resolveAdminSession();
+            if (adminSession) {
+                localStorage.removeItem('customerId');
+                localStorage.removeItem('customerData');
+                router.replace('/admin');
+                return;
+            }
+
             const rawSession = localStorage.getItem('user_session') || sessionStorage.getItem('user_session');
             if (rawSession) {
                 const s = JSON.parse(rawSession);
-                if (s?.role === 'admin') {
-                    localStorage.removeItem('customerId');
-                    localStorage.removeItem('customerData');
-                    router.replace('/admin');
-                    return;
-                }
                 if (s?.role === 'technician') {
                     localStorage.removeItem('customerId');
                     localStorage.removeItem('customerData');
@@ -24,27 +28,19 @@ export default function CustomerPage() {
                     if (techSession) {
                         router.replace('/technician/dashboard');
                     } else {
-                        localStorage.removeItem('user_session');
-                        sessionStorage.removeItem('user_session');
                         router.replace('/login');
                     }
                     return;
                 }
-            } else {
-                localStorage.removeItem('isAdmin');
-                sessionStorage.removeItem('isAdmin');
             }
+
             const customerId = localStorage.getItem('customerId');
             if (customerId) {
                 router.replace('/customer/dashboard');
             } else {
-                localStorage.removeItem('user_session');
-                sessionStorage.removeItem('user_session');
                 router.replace('/login');
             }
         } catch {
-            localStorage.removeItem('user_session');
-            sessionStorage.removeItem('user_session');
             router.replace('/login');
         }
     }, [router]);

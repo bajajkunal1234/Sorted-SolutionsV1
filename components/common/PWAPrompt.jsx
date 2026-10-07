@@ -47,16 +47,25 @@ export default function PWAPrompt({
         setMounted(true);
         if (typeof window === 'undefined') return;
 
-        // Don't show if already dismissed recently
-        const dismissedAt = parseInt(localStorage.getItem(STORAGE_KEY_DISMISSED) || '0', 10);
+        let dismissedAt = 0;
+        try {
+            dismissedAt = parseInt(localStorage.getItem(STORAGE_KEY_DISMISSED) || '0', 10);
+        } catch (e) {}
         if (Date.now() - dismissedAt < DISMISS_COOLDOWN_MS) return;
 
         // Don't show if already installed as PWA
-        const standalone = window.navigator.standalone === true ||
-            window.matchMedia('(display-mode: standalone)').matches;
+        let standalone = false;
+        try {
+            standalone = window.navigator?.standalone === true ||
+                (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+        } catch (e) {}
 
         // Show if notification permission isn't granted OR app isn't installed
-        const notifAlreadyGranted = 'Notification' in window && Notification.permission === 'granted';
+        let notifAlreadyGranted = false;
+        try {
+            notifAlreadyGranted = typeof window.Notification !== 'undefined' && window.Notification.permission === 'granted';
+        } catch (e) {}
+
         const needToShow = !notifAlreadyGranted || (!standalone && canInstall);
 
         if (needToShow) {
@@ -73,10 +82,16 @@ export default function PWAPrompt({
     // Re-evaluate when canInstall resolves
     useEffect(() => {
         if (!mounted) return;
-        const dismissedAt = parseInt(localStorage.getItem(STORAGE_KEY_DISMISSED) || '0', 10);
+        let dismissedAt = 0;
+        try {
+            dismissedAt = parseInt(localStorage.getItem(STORAGE_KEY_DISMISSED) || '0', 10);
+        } catch (e) {}
         if (Date.now() - dismissedAt < DISMISS_COOLDOWN_MS) return;
 
-        const notifAlreadyGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        let notifAlreadyGranted = false;
+        try {
+            notifAlreadyGranted = typeof window.Notification !== 'undefined' && window.Notification.permission === 'granted';
+        } catch (e) {}
         if (notifAlreadyGranted) setNotifStatus('granted');
 
         if (canInstall && !isInstalled && !visible) {
@@ -89,14 +104,16 @@ export default function PWAPrompt({
     const dismiss = useCallback((permanent = false) => {
         setVisible(false);
         if (permanent) {
-            localStorage.setItem(STORAGE_KEY_DISMISSED, String(Date.now()));
+            try {
+                localStorage.setItem(STORAGE_KEY_DISMISSED, String(Date.now()));
+            } catch (e) {}
         }
         onDismiss?.();
     }, [onDismiss]);
 
     // ── Actions ──────────────────────────────────────────────────────────────
     const handleEnableNotifications = useCallback(async () => {
-        if (!('Notification' in window)) {
+        if (typeof window === 'undefined' || typeof window.Notification === 'undefined') {
             setNotifStatus('denied');
             return;
         }
@@ -106,7 +123,7 @@ export default function PWAPrompt({
             if (token && userType && userId) {
                 await saveFCMTokenToServer(token, userType, userId);
                 setNotifStatus('granted');
-            } else if (Notification.permission === 'denied') {
+            } else if (window.Notification.permission === 'denied') {
                 setNotifStatus('denied');
             } else {
                 setNotifStatus('granted'); // permission granted, no token (safari limited)
