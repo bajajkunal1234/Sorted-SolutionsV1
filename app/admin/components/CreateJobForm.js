@@ -20,6 +20,7 @@ import {
 import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import SearchableSelect from '@/components/admin/SearchableSelect';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import { formatMobileNumber } from '@/lib/utils/validation';
 
@@ -32,6 +33,16 @@ const normalizeAddress = (p) => {
     // Otherwise, it's a property object. Combine differentiating fields!
     const str = `${p.flat_number || ''} ${p.building_name || ''} ${p.address || p.line1 || p.name || ''} ${p.locality || ''} ${p.city || ''} ${p.pincode || ''}`;
     return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+};
+
+const getShortSubcategoryName = (name = '') => {
+    if (!name) return '';
+    let clean = name.replace(/\(.*?\)/g, '').trim();
+    clean = clean.replace(/\b(Air Conditioner|Washing Machine|Refrigerator|Water Purifier|Water Filter|Microwave Oven|Oven)\b/gi, '').trim();
+    clean = clean.replace(/\bSemi-Automatic\b/gi, 'Semi Auto');
+    clean = clean.replace(/\bFully Automatic\b/gi, 'Fully Auto');
+    clean = clean.replace(/\s+/g, ' ').trim();
+    return clean || name;
 };
 
 function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
@@ -652,9 +663,17 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
     };
 
     const handleProductChange = (productId) => {
-        const selected = allProducts.find(p => String(p.id) === String(productId));
-        // Reset subcategory and issue when appliance changes
-        setFormData(prev => ({ ...prev, product: selected, subcategory: null, issue: null }));
+        if (!productId) {
+            setFormData(prev => ({ ...prev, product: null, subcategory: null, issue: null }));
+            return;
+        }
+        const selected = allProducts.find(p => String(p.id) === String(productId) || (p.name && p.name.toLowerCase() === String(productId).toLowerCase()));
+        setFormData(prev => ({
+            ...prev,
+            product: selected || { id: productId, name: productId },
+            subcategory: null,
+            issue: null
+        }));
         setErrors(errs => {
             const e = { ...errs };
             delete e.product;
@@ -664,15 +683,25 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
     };
 
     const handleSubcategoryChange = (subcategoryId) => {
-        // Find subcategory within the selected appliance
+        if (!subcategoryId) {
+            setFormData(prev => ({ ...prev, subcategory: null, issue: null }));
+            return;
+        }
         const subcats = formData.product?.subcategories || [];
-        const selected = subcats.find(s => String(s.id) === String(subcategoryId));
-        setFormData(prev => ({ ...prev, subcategory: selected || null, issue: null }));
+        const selected = subcats.find(s => String(s.id) === String(subcategoryId) || (s.name && s.name.toLowerCase() === String(subcategoryId).toLowerCase()));
+        setFormData(prev => ({ ...prev, subcategory: selected || { id: subcategoryId, name: subcategoryId }, issue: null }));
     };
 
     const handleBrandChange = (brandId) => {
-        const selected = brands.find(b => String(b.id) === String(brandId) || b.name === brandId);
-        setFormData(prev => ({ ...prev, brand: selected }));
+        if (!brandId) {
+            setFormData(prev => ({ ...prev, brand: null }));
+            return;
+        }
+        const selected = brands.find(b => String(b.id) === String(brandId) || (b.name && b.name.toLowerCase() === String(brandId).toLowerCase()));
+        setFormData(prev => ({
+            ...prev,
+            brand: selected || { id: brandId, name: brandId }
+        }));
         if (errors.brand) {
             const newErrors = { ...errors };
             delete newErrors.brand;
@@ -681,12 +710,120 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
     };
 
     const handleIssueChange = (issueId) => {
-        const selected = issues.find(i => String(i.id) === String(issueId));
-        setFormData(prev => ({ ...prev, issue: selected }));
+        if (!issueId) {
+            setFormData(prev => ({ ...prev, issue: null }));
+            return;
+        }
+        const availableIssues = issues.filter(i => !formData.product || i.categoryId === formData.product.id);
+        let selected = availableIssues.find(i => String(i.id) === String(issueId) || (i.name && i.name.toLowerCase() === String(issueId).toLowerCase()));
+        if (!selected) {
+            selected = issues.find(i => String(i.id) === String(issueId) || (i.name && i.name.toLowerCase() === String(issueId).toLowerCase()));
+        }
+        setFormData(prev => ({
+            ...prev,
+            issue: selected || { id: issueId, name: issueId, categoryId: formData.product?.id || null }
+        }));
         if (errors.issue) {
             const newErrors = { ...errors };
             delete newErrors.issue;
             setErrors(newErrors);
+        }
+    };
+
+    // Quick Pick: Appliance
+    const handleQuickAppliance = (type) => {
+        let matched = null;
+        if (type === 'AC') {
+            matched = allProducts.find(p => /air\s*conditioner|\bac\b/i.test(p.name));
+        } else if (type === 'Oven') {
+            matched = allProducts.find(p => /\boven\b|\bmicrowave\b/i.test(p.name));
+        } else if (type === 'Fridge') {
+            matched = allProducts.find(p => /refrigerator|fridge/i.test(p.name));
+        } else if (type === 'RO') {
+            matched = allProducts.find(p => /water\s*filter|water\s*purifier|\bro\b/i.test(p.name));
+        }
+
+        if (matched) {
+            handleProductChange(matched.id);
+        } else {
+            const fallbackNames = {
+                AC: 'Air Conditioner',
+                Oven: 'Oven',
+                Fridge: 'Refrigerator',
+                RO: 'Water Filter'
+            };
+            handleProductChange(fallbackNames[type] || type);
+        }
+    };
+
+    // Quick Pick: Brand
+    const handleQuickBrand = (name) => {
+        if (name === 'LG') {
+            const match = brands.find(b => /\blg\b/i.test(b.name));
+            handleBrandChange(match ? match.id : 'LG');
+        } else if (name === 'Samsung') {
+            const match = brands.find(b => /samsung/i.test(b.name));
+            handleBrandChange(match ? match.id : 'Samsung');
+        } else if (name === 'Other') {
+            const match = brands.find(b => /^other$/i.test(b.name));
+            handleBrandChange(match ? match.id : 'Other');
+        }
+    };
+
+    // Quick Pick: Appliance Type (Subcategory)
+    const handleQuickSubcategory = (subIdOrName) => {
+        // If an appliance is already selected, search within its subcategories
+        if (formData.product && (formData.product.subcategories || []).length > 0) {
+            const foundInProduct = (formData.product.subcategories || []).find(s =>
+                String(s.id) === String(subIdOrName) ||
+                (s.name && s.name.toLowerCase() === String(subIdOrName).toLowerCase()) ||
+                getShortSubcategoryName(s.name).toLowerCase() === String(subIdOrName).toLowerCase()
+            );
+            handleSubcategoryChange(foundInProduct ? foundInProduct.id : subIdOrName);
+            return;
+        }
+
+        // If no appliance selected yet, find which appliance category owns this subcategory!
+        for (const cat of allProducts) {
+            const foundSub = (cat.subcategories || []).find(s => 
+                String(s.id) === String(subIdOrName) || 
+                (s.name && s.name.toLowerCase() === String(subIdOrName).toLowerCase()) ||
+                getShortSubcategoryName(s.name).toLowerCase() === String(subIdOrName).toLowerCase()
+            );
+            if (foundSub) {
+                // Set both appliance and subcategory!
+                setFormData(prev => ({
+                    ...prev,
+                    product: cat,
+                    subcategory: foundSub,
+                    issue: null
+                }));
+                setErrors(errs => {
+                    const e = { ...errs };
+                    delete e.product;
+                    delete e.issue;
+                    return e;
+                });
+                return;
+            }
+        }
+
+        // Fallback: set subcategory directly
+        handleSubcategoryChange(subIdOrName);
+    };
+
+    // Quick Pick: Issue / Complaint
+    const handleQuickIssue = (issueName) => {
+        const availableIssues = issues.filter(i => !formData.product || i.categoryId === formData.product.id);
+        let match = availableIssues.find(i => (i.name || i.title || '').toLowerCase().includes(issueName.toLowerCase()));
+        if (!match) {
+            match = issues.find(i => (i.name || i.title || '').toLowerCase().includes(issueName.toLowerCase()));
+        }
+
+        if (match) {
+            handleIssueChange(match.id);
+        } else {
+            handleIssueChange(issueName);
         }
     };
 
@@ -907,8 +1044,18 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
 
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '750px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="modal-overlay" onClick={onClose} style={{
+            paddingTop: 'max(8px, env(safe-area-inset-top, 0px))',
+            paddingBottom: 'max(8px, env(safe-area-inset-bottom, 0px))',
+            paddingLeft: 'max(8px, env(safe-area-inset-left, 0px))',
+            paddingRight: 'max(8px, env(safe-area-inset-right, 0px))'
+        }}>
+            <div className="modal" onClick={(e) => e.stopPropagation()} style={{
+                maxWidth: '750px',
+                maxHeight: '94dvh',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
                 {/* Header */}
                 <div className="modal-header">
                     <div>
@@ -932,7 +1079,7 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                 </div>
 
                 {/* Body - Scrollable */}
-                <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+                <div className="modal-body" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
                     {/* 0. Job ID / SKU (Auto-generated) */}
                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                         <label className="form-label">Job ID / SKU</label>
@@ -1165,27 +1312,51 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
 
                     <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
 
+                    {/* Row 1: Appliance & Brand (Searchable + Quick Picks) */}
                     <div className="form-grid-2col" style={{ gap: 'var(--spacing-md)' }}>
                         {/* 4. Product/Appliance */}
-                        <div className="form-group">
-                            <label className="form-label">Appliance *</label>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <select
-                                    className="form-select"
-                                    value={formData.product?.id || ''}
-                                    onChange={(e) => handleProductChange(e.target.value)}
-                                    onBlur={() => { if (!formData.product) setErrors(prev => ({ ...prev, product: 'Appliance is required' })); else setErrors(prev => { const e = {...prev}; delete e.product; return e; }); }}
-                                    style={{ flex: 1, borderColor: errors.product ? 'var(--color-danger)' : undefined }}
-                                >
-                                    <option value="">{loadingStates.websiteSettings ? 'Loading appliances...' : 'Select appliance...'}</option>
-                                    {allProducts.map(cat => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.isOperational ? `📦 ${cat.name}` : cat.name}
-                                        </option>
-                                    ))}
-                                </select>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                <label className="form-label" style={{ marginBottom: 0 }}>Appliance *</label>
                             </div>
-                            {errors.product && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.product}</span>}
+                            <SearchableSelect
+                                id="job-appliance-select"
+                                placeholder={loadingStates.websiteSettings ? 'Loading appliances...' : 'Select or search appliance...'}
+                                options={allProducts.map(cat => ({
+                                    value: cat.id,
+                                    label: cat.name,
+                                    isOperational: cat.isOperational
+                                }))}
+                                value={formData.product?.id || ''}
+                                onChange={(val) => handleProductChange(val)}
+                                onBlur={() => {
+                                    if (!formData.product) setErrors(prev => ({ ...prev, product: 'Appliance is required' }));
+                                    else setErrors(prev => { const e = {...prev}; delete e.product; return e; });
+                                }}
+                                error={!!errors.product}
+                            />
+
+                            {/* Appliance Quick Picks */}
+                            <div className="quick-picks-container">
+                                <span className="quick-pick-label">Quick:</span>
+                                {[
+                                    { key: 'AC', label: 'AC', tip: 'Air Conditioner', isSel: formData.product && /air\s*conditioner|\bac\b/i.test(formData.product.name) },
+                                    { key: 'Oven', label: 'Oven', tip: 'Oven / Microwave', isSel: formData.product && /\boven\b|\bmicrowave\b/i.test(formData.product.name) },
+                                    { key: 'Fridge', label: 'Fridge', tip: 'Refrigerator', isSel: formData.product && /refrigerator|fridge/i.test(formData.product.name) },
+                                    { key: 'RO', label: 'RO', tip: 'Water Filter / Purifier', isSel: formData.product && /water\s*filter|water\s*purifier|\bro\b/i.test(formData.product.name) }
+                                ].map(qp => (
+                                    <button
+                                        key={qp.key}
+                                        type="button"
+                                        onClick={() => handleQuickAppliance(qp.key)}
+                                        title={qp.tip}
+                                        className={`quick-pick-btn ${qp.isSel ? 'active' : ''}`}
+                                    >
+                                        {qp.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {errors.product && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: '4px' }}>{errors.product}</span>}
 
                             {/* Inline Product Creation Form */}
                             {showCreateModal === 'product' && (
@@ -1240,25 +1411,46 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                         </div>
 
                         {/* 5. Brand */}
-                        <div className="form-group">
-                            <label className="form-label">Brand *</label>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <select
-                                    className="form-select"
-                                    value={formData.brand?.id || ''}
-                                    onChange={(e) => handleBrandChange(e.target.value)}
-                                    onBlur={() => { if (!formData.brand) setErrors(prev => ({ ...prev, brand: 'Brand is required' })); else setErrors(prev => { const e = {...prev}; delete e.brand; return e; }); }}
-                                    style={{ flex: 1, borderColor: errors.brand ? 'var(--color-danger)' : undefined }}
-                                >
-                                    <option value="">{loadingStates.brands ? 'Loading brands...' : 'Select brand...'}</option>
-                                    {brands.map(brand => (
-                                        <option key={brand.id} value={brand.id}>
-                                            {brand.name}
-                                        </option>
-                                    ))}
-                                </select>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                <label className="form-label" style={{ marginBottom: 0 }}>Brand *</label>
                             </div>
-                            {errors.brand && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.brand}</span>}
+                            <SearchableSelect
+                                id="job-brand-select"
+                                placeholder={loadingStates.brands ? 'Loading brands...' : 'Select or search brand...'}
+                                options={brands.map(brand => ({
+                                    value: brand.id,
+                                    label: brand.name
+                                }))}
+                                value={formData.brand?.id || formData.brand?.name || ''}
+                                onChange={(val) => handleBrandChange(val)}
+                                onBlur={() => {
+                                    if (!formData.brand) setErrors(prev => ({ ...prev, brand: 'Brand is required' }));
+                                    else setErrors(prev => { const e = {...prev}; delete e.brand; return e; });
+                                }}
+                                error={!!errors.brand}
+                                allowCustom={true}
+                            />
+
+                            {/* Brand Quick Picks */}
+                            <div className="quick-picks-container">
+                                <span className="quick-pick-label">Quick:</span>
+                                {[
+                                    { key: 'LG', label: 'LG', isSel: formData.brand && /\blg\b/i.test(formData.brand.name) },
+                                    { key: 'Samsung', label: 'Samsung', isSel: formData.brand && /samsung/i.test(formData.brand.name) },
+                                    { key: 'Other', label: 'Other', isSel: formData.brand && /^other$/i.test(formData.brand.name) }
+                                ].map(qp => (
+                                    <button
+                                        key={qp.key}
+                                        type="button"
+                                        onClick={() => handleQuickBrand(qp.key)}
+                                        className={`quick-pick-btn ${qp.isSel ? 'active' : ''}`}
+                                    >
+                                        {qp.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {errors.brand && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: '4px' }}>{errors.brand}</span>}
 
                             {/* Inline Brand Creation Form */}
                             {showCreateModal === 'brand' && (
@@ -1306,96 +1498,170 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                         </div>
                     </div>
 
-                    {/* 5. Appliance Type (subcategory) — shown when appliance has subcategories */}
-                    {formData.product && (formData.product.subcategories || []).length > 0 && (
-                        <div className="form-group">
-                            <label className="form-label">Appliance Type</label>
-                            <select
-                                className="form-select"
-                                value={formData.subcategory?.id || ''}
-                                onChange={(e) => handleSubcategoryChange(e.target.value)}
-                            >
-                                <option value="">Select type...</option>
-                                {(formData.product.subcategories || []).map(sub => (
-                                    <option key={sub.id} value={sub.id}>
-                                        {sub.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                    {/* Row 2: Appliance Type & Issue / Complaint (Searchable + Quick Picks) */}
+                    <div className="form-grid-2col" style={{ gap: 'var(--spacing-md)', marginTop: 'var(--spacing-md)' }}>
+                        {/* 6. Appliance Type (subcategory) */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                <label className="form-label" style={{ marginBottom: 0 }}>Appliance Type</label>
+                            </div>
+                            <SearchableSelect
+                                id="job-subcategory-select"
+                                placeholder={
+                                    !formData.product 
+                                        ? 'Select appliance first' 
+                                        : (formData.product.subcategories || []).length === 0 
+                                            ? 'Not applicable for this appliance' 
+                                            : 'Select or search type...'
+                                }
+                                disabled={!formData.product || (formData.product.subcategories || []).length === 0}
+                                options={(formData.product?.subcategories || []).map(sub => ({
+                                    value: sub.id,
+                                    label: sub.name,
+                                    sublabel: getShortSubcategoryName(sub.name) !== sub.name ? getShortSubcategoryName(sub.name) : undefined
+                                }))}
+                                value={formData.subcategory?.id || formData.subcategory?.name || ''}
+                                onChange={(val) => handleSubcategoryChange(val)}
+                                allowCustom={true}
+                            />
 
-                    {/* 6. Issue */}
-                    <div className="form-group">
-                        <label className="form-label">Issue / Complaint *</label>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                            <select
-                                className="form-select"
-                                value={formData.issue?.id || ''}
-                                onChange={(e) => handleIssueChange(e.target.value)}
-                                onBlur={() => { if (!formData.issue) setErrors(prev => ({ ...prev, issue: 'Issue is required' })); else setErrors(prev => { const e = {...prev}; delete e.issue; return e; }); }}
-                                style={{ flex: 1, borderColor: errors.issue ? 'var(--color-danger)' : undefined }}
-                            >
-                                <option value="">{loadingStates.websiteSettings ? 'Loading issues...' : (formData.product ? 'Select issue...' : 'Select appliance first')}</option>
-                                {issues.filter(i => !formData.product || i.categoryId === formData.product.id).map(issue => (
-                                    <option key={issue.id} value={issue.id}>
-                                        {issue.name}
-                                    </option>
-                                ))}
-                            </select>
+                            {/* Appliance Type Quick Picks (Shorter versions) */}
+                            <div className="quick-picks-container">
+                                <span className="quick-pick-label">Quick:</span>
+                                {formData.product && (formData.product.subcategories || []).length > 0 ? (
+                                    (formData.product.subcategories || []).map(sub => {
+                                        const shortName = getShortSubcategoryName(sub.name);
+                                        const isSel = String(formData.subcategory?.id) === String(sub.id) || formData.subcategory?.name === sub.name;
+                                        return (
+                                            <button
+                                                key={sub.id}
+                                                type="button"
+                                                onClick={() => handleQuickSubcategory(sub.id)}
+                                                title={sub.name}
+                                                className={`quick-pick-btn ${isSel ? 'active' : ''}`}
+                                            >
+                                                {shortName}
+                                            </button>
+                                        );
+                                    })
+                                ) : formData.product ? (
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary, #94a3b8)', fontStyle: 'italic' }}>
+                                        None for this appliance
+                                    </span>
+                                ) : (
+                                    [
+                                        { label: 'Split AC', value: 'Split AC' },
+                                        { label: 'Window AC', value: 'Window AC' },
+                                        { label: 'Front Load', value: 'Front Load' },
+                                        { label: 'Double Door', value: 'Double Door' },
+                                        { label: 'RO', value: 'RO' }
+                                    ].map(item => (
+                                        <button
+                                            key={item.label}
+                                            type="button"
+                                            onClick={() => handleQuickSubcategory(item.value)}
+                                            className="quick-pick-btn"
+                                        >
+                                            {item.label}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                        {errors.issue && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.issue}</span>}
 
-                        {/* Inline Issue Creation Form */}
-                        {showCreateModal === 'issue' && (
-                            <div style={{
-                                marginTop: 'var(--spacing-sm)',
-                                padding: 'var(--spacing-md)',
-                                border: '2px solid var(--color-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: 'var(--bg-secondary)'
-                            }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--spacing-sm)' }}>Add New Issue</h4>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Issue Title *"
-                                        value={quickFormData.title || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, title: e.target.value })}
-                                    />
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Category (Optional)"
-                                        value={quickFormData.category || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, category: e.target.value })}
-                                    />
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-xs)' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary"
-                                            onClick={handleCreateIssue}
-                                            disabled={!quickFormData.title}
-                                        >
-                                            <Save size={16} />
-                                            Create
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setShowCreateModal(null);
-                                                setQuickFormData({});
-                                            }}
-                                        >
-                                            <X size={16} />
-                                            Cancel
-                                        </button>
+                        {/* 7. Issue / Complaint */}
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                <label className="form-label" style={{ marginBottom: 0 }}>Issue / Complaint *</label>
+                            </div>
+                            <SearchableSelect
+                                id="job-issue-select"
+                                placeholder={loadingStates.websiteSettings ? 'Loading issues...' : (formData.product ? 'Select or search issue...' : 'Select appliance first')}
+                                options={issues.filter(i => !formData.product || i.categoryId === formData.product.id).map(issue => ({
+                                    value: issue.id,
+                                    label: issue.name || issue.title
+                                }))}
+                                value={formData.issue?.id || formData.issue?.name || ''}
+                                onChange={(val) => handleIssueChange(val)}
+                                onBlur={() => {
+                                    if (!formData.issue) setErrors(prev => ({ ...prev, issue: 'Issue is required' }));
+                                    else setErrors(prev => { const e = {...prev}; delete e.issue; return e; });
+                                }}
+                                error={!!errors.issue}
+                                allowCustom={true}
+                            />
+
+                            {/* Issue Quick Picks */}
+                            <div className="quick-picks-container">
+                                <span className="quick-pick-label">Quick:</span>
+                                {[
+                                    { key: 'Not Cooling', label: 'Not Cooling', isSel: formData.issue && /not\s*cooling/i.test(formData.issue.name || formData.issue.title || '') },
+                                    { key: 'Not Heating', label: 'Not Heating', isSel: formData.issue && /not\s*heating/i.test(formData.issue.name || formData.issue.title || '') },
+                                    { key: 'Not Sure', label: 'Not Sure', isSel: formData.issue && /not\s*sure/i.test(formData.issue.name || formData.issue.title || '') }
+                                ].map(qp => (
+                                    <button
+                                        key={qp.key}
+                                        type="button"
+                                        onClick={() => handleQuickIssue(qp.key)}
+                                        className={`quick-pick-btn ${qp.isSel ? 'active' : ''}`}
+                                    >
+                                        {qp.label}
+                                    </button>
+                                ))}
+                            </div>
+                            {errors.issue && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: '4px' }}>{errors.issue}</span>}
+
+                            {/* Inline Issue Creation Form */}
+                            {showCreateModal === 'issue' && (
+                                <div style={{
+                                    marginTop: 'var(--spacing-sm)',
+                                    padding: 'var(--spacing-md)',
+                                    border: '2px solid var(--color-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: 'var(--bg-secondary)'
+                                }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--spacing-sm)' }}>Add New Issue</h4>
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Issue Title *"
+                                            value={quickFormData.title || ''}
+                                            onChange={(e) => setQuickFormData({ ...quickFormData, title: e.target.value })}
+                                        />
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Category (Optional)"
+                                            value={quickFormData.category || ''}
+                                            onChange={(e) => setQuickFormData({ ...quickFormData, category: e.target.value })}
+                                        />
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-xs)' }}>
+                                            <button
+                                                type="button"
+                                                className="btn btn-primary"
+                                                onClick={handleCreateIssue}
+                                                disabled={!quickFormData.title}
+                                            >
+                                                <Save size={16} />
+                                                Create
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => {
+                                                    setShowCreateModal(null);
+                                                    setQuickFormData({});
+                                                }}
+                                            >
+                                                <X size={16} />
+                                                Cancel
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
 
                     <div className="form-group">
@@ -1598,8 +1864,11 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                 </div >
 
                 {/* Footer - Fixed */}
-                < div className="modal-footer" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)' }
-                }>
+                <div className="modal-footer" style={{ 
+                    borderTop: '1px solid var(--border-primary)', 
+                    paddingTop: 'var(--spacing-md)',
+                    paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))'
+                }}>
                     <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>
                         Cancel
                     </button>
@@ -1616,9 +1885,76 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                             </>
                         )}
                     </button>
-                </div >
-            </div >
-        </div >
+                </div>
+
+                <style jsx>{`
+                    .quick-picks-container {
+                        display: flex;
+                        flex-wrap: wrap;
+                        align-items: center;
+                        gap: 6px;
+                        margin-top: 6px;
+                    }
+                    .quick-pick-label {
+                        font-size: 11px;
+                        color: var(--text-tertiary, #94a3b8);
+                        font-weight: 600;
+                        user-select: none;
+                        -webkit-user-select: none;
+                        letter-spacing: 0.02em;
+                        text-transform: uppercase;
+                        margin-right: 2px;
+                    }
+                    .quick-pick-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 3px 9px;
+                        font-size: 11.5px;
+                        line-height: 16px;
+                        font-weight: 500;
+                        border-radius: 9999px;
+                        border: 1px solid var(--border-secondary, rgba(255, 255, 255, 0.12));
+                        background-color: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+                        color: var(--text-secondary, #cbd5e1);
+                        cursor: pointer;
+                        touch-action: manipulation;
+                        -webkit-tap-highlight-color: transparent;
+                        transition: all 0.15s ease;
+                        white-space: nowrap;
+                        user-select: none;
+                        -webkit-user-select: none;
+                    }
+                    .quick-pick-btn:hover:not(.active) {
+                        background-color: rgba(255, 255, 255, 0.08);
+                        border-color: rgba(255, 255, 255, 0.22);
+                        color: #ffffff;
+                    }
+                    .quick-pick-btn:active {
+                        transform: scale(0.96);
+                    }
+                    .quick-pick-btn.active {
+                        border-color: var(--color-primary, #38bdf8);
+                        background-color: rgba(56, 189, 248, 0.16);
+                        color: var(--color-primary, #38bdf8);
+                        font-weight: 600;
+                    }
+
+                    @media (max-width: 768px) {
+                        .quick-picks-container {
+                            gap: 7px;
+                            margin-top: 8px;
+                        }
+                        .quick-pick-btn {
+                            min-height: 36px;
+                            padding: 6px 13px;
+                            font-size: 13px;
+                            line-height: 20px;
+                        }
+                    }
+                `}</style>
+            </div>
+        </div>
     );
 }
 

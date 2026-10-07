@@ -230,6 +230,10 @@ function AutocompleteSearch({
             )}
 
             <style jsx>{`
+                .form-input {
+                    touch-action: manipulation;
+                    -webkit-tap-highlight-color: transparent;
+                }
                 .form-input:focus {
                     border-color: var(--color-primary) !important;
                     box-shadow: 0 0 0 2px var(--color-primary)15;
@@ -240,6 +244,13 @@ function AutocompleteSearch({
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
+                }
+                @media (max-width: 768px) {
+                    .form-input {
+                        font-size: 16px !important; /* CRITICAL FOR IOS: Prevents Safari auto-zoom */
+                        height: 44px !important;   /* Mobile touch target */
+                        border-radius: 10px !important;
+                    }
                 }
             `}</style>
         </div>
