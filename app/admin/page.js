@@ -175,6 +175,10 @@ export default function AdminApp() {
             setReportsSectionToOpen('daybook');
             setActiveTab('reports');
         }
+        window.openDayPlannerReport = () => {
+            setReportsSectionToOpen('day-planner');
+            setActiveTab('reports');
+        }
         window.openRentalsReport = () => {
             setReportsSectionToOpen('rentals');
             setActiveTab('reports');
@@ -204,6 +208,7 @@ export default function AdminApp() {
             delete window.openCreatePaymentForm
             delete window.openCreatePurchaseForm
             delete window.openDaybookReport
+            delete window.openDayPlannerReport
             delete window.openRentalsReport
             delete window.openCustomerPaymentsReport
             delete window.openJobsMapWithFilter

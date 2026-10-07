@@ -15,7 +15,13 @@ import {
     Plus, 
     AlertCircle, 
     Loader2,
-    Store
+    Store,
+    CalendarCheck,
+    CalendarClock,
+    Building2,
+    Phone,
+    CheckSquare,
+    MapPin
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
@@ -42,7 +48,8 @@ export default function DashboardQuickInsights() {
         cashReceipts: { count: 0, total: 0, byTech: {} },
         rentals: { active: 0, rentDue: 0 },
         jobs: { scheduled: 0, techOpenCounts: [] },
-        kunalActiveTags: []
+        kunalActiveTags: [],
+        planner: { todayActivities: [] }
     });
 
     const getISTTodayDateStrings = () => {
@@ -89,9 +96,18 @@ export default function DashboardQuickInsights() {
                     return { total: 0, monthName: 'Oct', paidMonth: 0, googleMonth: 0, justdialMonth: 0, organicMonth: 0, paidToday: 0, googleToday: 0, justdialToday: 0, organicToday: 0, organic7Days: 0, manual: 0, last7Days: [] };
                 });
 
+            // Fetch Day Planner activities for today
+            const plannerPromise = fetch(`/api/admin/planner?date=${todayStr}`)
+                .then(r => r.json())
+                .catch(err => {
+                    console.error('[DashboardQuickInsights] Failed to fetch planner activities:', err);
+                    return { success: false, data: [] };
+                });
+
             // Run database queries concurrently
             const [
                 leadsMetrics,
+                plannerRes,
                 receiptsRes,
                 paymentsRes,
                 cashReceiptsRes,
@@ -101,6 +117,7 @@ export default function DashboardQuickInsights() {
                 viewsRes
             ] = await Promise.all([
                 leadsMetricsPromise,
+                plannerPromise,
 
                 // 2. Today's Daybook In (Receipts)
                 supabase
@@ -211,6 +228,10 @@ export default function DashboardQuickInsights() {
                 ];
             }
 
+            const todayActivities = (plannerRes && plannerRes.success && Array.isArray(plannerRes.data))
+                ? plannerRes.data
+                : [];
+
             setData({
                 leads: { 
                     total: leadsMetrics.total || 0,
@@ -231,7 +252,8 @@ export default function DashboardQuickInsights() {
                 cashReceipts: { count: pendingCashCount, total: pendingCashSum, byTech: cashByTech },
                 rentals: { active: activeRentalsCount, rentDue: overdueRentalsCount },
                 jobs: { scheduled: scheduledTodayCount, techOpenCounts },
-                kunalActiveTags: kunalTags
+                kunalActiveTags: kunalTags,
+                planner: { todayActivities }
             });
 
         } catch (err) {
@@ -255,6 +277,36 @@ export default function DashboardQuickInsights() {
         window.addEventListener('refresh-active-tab', handleRefresh);
         return () => window.removeEventListener('refresh-active-tab', handleRefresh);
     }, []);
+
+    const formatTime = (timeStr) => {
+        if (!timeStr) return '';
+        const parts = timeStr.split(':');
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1] || '0', 10);
+        if (isNaN(h)) return timeStr;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hour = h % 12 || 12;
+        return `${hour}:${String(m).padStart(2, '0')} ${ampm}`;
+    };
+
+    const formatActivityAmount = (amount) => {
+        if (!amount) return '₹0';
+        const num = Math.round(parseFloat(amount));
+        return `₹${num.toLocaleString('en-IN')}`;
+    };
+
+    const todayActivities = data.planner?.todayActivities || [];
+    const pendingActivitiesCount = todayActivities.filter(a => a.status !== 'completed').length;
+    const completedActivitiesCount = todayActivities.length - pendingActivitiesCount;
+
+    const sortedActivities = useMemo(() => {
+        const list = [...todayActivities];
+        return list.sort((a, b) => {
+            if (a.status === 'completed' && b.status !== 'completed') return 1;
+            if (a.status !== 'completed' && b.status === 'completed') return -1;
+            return 0;
+        });
+    }, [todayActivities]);
 
     if (loading) {
         return (
@@ -637,6 +689,252 @@ export default function DashboardQuickInsights() {
                             <div style={{ fontSize: 10, color: '#475569', fontStyle: 'italic', padding: '2px 0' }}>No active open jobs.</div>
                         )}
                     </div>
+                </div>
+
+                {/* 5. Activities for Today Card */}
+                <div style={{
+                    padding: 12,
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                    flex: 1
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <CalendarCheck size={16} color="#a855f7" />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Activities for Today</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{
+                                fontSize: 10,
+                                background: pendingActivitiesCount > 0 ? 'rgba(168, 85, 247, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                                color: pendingActivitiesCount > 0 ? '#c084fc' : '#34d399',
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                fontWeight: 700
+                            }}>
+                                {todayActivities.length === 0 ? '0 Activities' : `${pendingActivitiesCount} Due${completedActivitiesCount > 0 ? ` • ${completedActivitiesCount} Done` : ''}`}
+                            </span>
+                            <button
+                                onClick={() => window.openDayPlannerReport && window.openDayPlannerReport()}
+                                title="Open Day Planner & Calendar"
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#94a3b8',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    padding: '1px 4px',
+                                    borderRadius: 4,
+                                    transition: 'color 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.color = '#e2e8f0'}
+                                onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                            >
+                                Planner <ArrowUpRight size={11} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {todayActivities.length === 0 ? (
+                        <div 
+                            onClick={() => window.openDayPlannerReport && window.openDayPlannerReport()}
+                            style={{
+                                padding: '20px 12px',
+                                textAlign: 'center',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                cursor: 'pointer',
+                                borderRadius: 8,
+                                background: 'rgba(255,255,255,0.01)',
+                                border: '1px dashed rgba(255,255,255,0.06)',
+                                transition: 'background 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'}
+                        >
+                            <CalendarCheck size={20} color="#64748b" />
+                            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>
+                                No activities or payments scheduled for today
+                            </span>
+                            <span style={{ fontSize: 10, color: '#a855f7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                Schedule in Day Planner <ArrowUpRight size={11} />
+                            </span>
+                        </div>
+                    ) : (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6,
+                            maxHeight: 280,
+                            overflowY: 'auto',
+                            paddingRight: 2
+                        }}>
+                            {sortedActivities.map(act => {
+                                const isCompleted = act.status === 'completed';
+                                const isRental = Boolean(act.metadata?.is_rental || act.source === 'rental' || act.source === 'rental_contract_end');
+                                const isContractEndCall = Boolean(act.metadata?.is_contract_end_call || act.source === 'rental_contract_end');
+                                const isNewEra = Boolean(act.metadata?.is_newera || act.source === 'newera');
+                                const isPayment = act.reminder_type === 'payment';
+                                const isVisit = act.reminder_type === 'visit';
+                                const direction = act.metadata?.direction || (isRental ? 'receivable' : (isNewEra ? 'payable' : 'payable'));
+                                const isReceivable = direction === 'receivable';
+                                const isPayable = direction === 'payable';
+
+                                let badgeText = 'Task';
+                                let badgeColor = '#38bdf8';
+                                let badgeBg = 'rgba(56, 189, 248, 0.12)';
+                                let badgeBorder = 'rgba(56, 189, 248, 0.25)';
+                                let BadgeIcon = CheckSquare;
+
+                                if (isContractEndCall) {
+                                    badgeText = 'Call CX';
+                                    badgeColor = '#f59e0b';
+                                    badgeBg = 'rgba(245, 158, 11, 0.12)';
+                                    badgeBorder = 'rgba(245, 158, 11, 0.25)';
+                                    BadgeIcon = Phone;
+                                } else if (isRental) {
+                                    badgeText = 'Rent';
+                                    badgeColor = '#10b981';
+                                    badgeBg = 'rgba(16, 185, 129, 0.12)';
+                                    badgeBorder = 'rgba(16, 185, 129, 0.25)';
+                                    BadgeIcon = Building2;
+                                } else if (isPayment && isReceivable) {
+                                    badgeText = 'Receivable';
+                                    badgeColor = '#10b981';
+                                    badgeBg = 'rgba(16, 185, 129, 0.12)';
+                                    badgeBorder = 'rgba(16, 185, 129, 0.25)';
+                                    BadgeIcon = DollarSign;
+                                } else if (isPayment && isPayable) {
+                                    badgeText = isNewEra ? 'Liability' : 'Payable';
+                                    badgeColor = '#ef4444';
+                                    badgeBg = 'rgba(239, 68, 68, 0.12)';
+                                    badgeBorder = 'rgba(239, 68, 68, 0.25)';
+                                    BadgeIcon = DollarSign;
+                                } else if (isVisit) {
+                                    badgeText = 'Visit';
+                                    badgeColor = '#a855f7';
+                                    badgeBg = 'rgba(168, 85, 247, 0.12)';
+                                    badgeBorder = 'rgba(168, 85, 247, 0.25)';
+                                    BadgeIcon = MapPin;
+                                }
+
+                                const hasAmount = typeof act.amount === 'number' && act.amount > 0;
+                                const formattedTime = formatTime(act.due_time);
+
+                                return (
+                                    <div
+                                        key={act.id}
+                                        onClick={() => window.openDayPlannerReport && window.openDayPlannerReport()}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 8,
+                                            padding: '7px 9px',
+                                            borderRadius: 8,
+                                            background: isCompleted ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
+                                            border: '1px solid rgba(255,255,255,0.04)',
+                                            opacity: isCompleted ? 0.6 : 1,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s'
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = isCompleted ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)';
+                                            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0, flex: 1 }}>
+                                            {/* Type pill */}
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 3,
+                                                fontSize: 9,
+                                                fontWeight: 700,
+                                                color: badgeColor,
+                                                background: badgeBg,
+                                                border: `1px solid ${badgeBorder}`,
+                                                padding: '2px 5px',
+                                                borderRadius: 4,
+                                                flexShrink: 0
+                                            }}>
+                                                <BadgeIcon size={10} />
+                                                {badgeText}
+                                            </span>
+
+                                            {/* Title and subtitle */}
+                                            <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 600,
+                                                    color: isCompleted ? '#94a3b8' : '#f1f5f9',
+                                                    textDecoration: isCompleted ? 'line-through' : 'none',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    {act.title}
+                                                </span>
+                                                {(act.contact_name || formattedTime) && (
+                                                    <span style={{
+                                                        fontSize: 9,
+                                                        color: '#64748b',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {act.contact_name ? `${act.contact_name}` : ''}
+                                                        {act.contact_name && formattedTime ? ' • ' : ''}
+                                                        {formattedTime ? `🕒 ${formattedTime}` : ''}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Right: Amount & Status */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                            {hasAmount && (
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    color: isCompleted ? '#94a3b8' : (isPayable ? '#f87171' : '#34d399'),
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    {isPayable ? '-' : (isReceivable ? '+' : '')}{formatActivityAmount(act.amount)}
+                                                </span>
+                                            )}
+                                            <span style={{
+                                                fontSize: 9,
+                                                fontWeight: 700,
+                                                color: isCompleted ? '#34d399' : '#fbbf24',
+                                                background: isCompleted ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                                border: `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+                                                padding: '1px 5px',
+                                                borderRadius: 4
+                                            }}>
+                                                {isCompleted ? 'Done' : 'Due'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
             </div>
