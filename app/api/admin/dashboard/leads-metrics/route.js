@@ -27,14 +27,23 @@ export async function GET(request) {
         const l7Year = startOfLast7DaysIST.getFullYear();
         const l7Month = String(startOfLast7DaysIST.getMonth() + 1).padStart(2, '0');
         const l7Day = String(startOfLast7DaysIST.getDate()).padStart(2, '0');
-        const startOfLast7DaysYMD = `${l7Year}-${l7Month}-${l7Day}`;
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonthName = months[nowIST.getMonth()];
+
+        const startOfMonthIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), 1, 0, 0, 0, 0);
+        const startOfMonthUTC = new Date(startOfMonthIST.getTime() - (3600000 * 5.5));
+        const startOfMonthISO = startOfMonthUTC.toISOString();
+
+        // Earliest timestamp needed to cover both last 7 days and current month to date
+        const earliestDateUTC = new Date(Math.min(startOfLast7DaysUTC.getTime(), startOfMonthUTC.getTime()));
+        const earliestDateISO = earliestDateUTC.toISOString();
 
         // Run database queries concurrently
         const [leadsRes, dailyMetricsRes] = await Promise.all([
             supabase
                 .from('lead_attributions')
                 .select('conversion_type, first_contact_at, lead_source, referrer_name')
-                .gte('first_contact_at', startOfLast7DaysISO),
+                .gte('first_contact_at', earliestDateISO),
             supabase
                 .from('google_ads_daily_metrics')
                 .select('date, amount_spent')
@@ -81,15 +90,32 @@ export async function GET(request) {
         let organic7Days = 0;
         let paid7Days = 0;
 
+        let monthGoogle = 0;
+        let monthJustdial = 0;
+        let monthOrganic = 0;
+        let monthTotal = 0;
+
         leads.forEach(l => {
             const leadYMD = getLocalDateStringIST(l.first_contact_at);
+            const leadTime = new Date(l.first_contact_at).getTime();
             const category = categorizeLead(l);
             const isToday = (leadYMD === todayStr);
+            const isLast7Days = (leadTime >= startOfLast7DaysUTC.getTime());
+            const isCurrentMonth = (leadTime >= startOfMonthUTC.getTime());
 
-            if (category === 'organic') {
-                organic7Days++;
-            } else {
-                paid7Days++;
+            if (isLast7Days) {
+                if (category === 'organic') {
+                    organic7Days++;
+                } else {
+                    paid7Days++;
+                }
+            }
+
+            if (isCurrentMonth) {
+                monthTotal++;
+                if (category === 'google') monthGoogle++;
+                else if (category === 'justdial') monthJustdial++;
+                else if (category === 'organic') monthOrganic++;
             }
 
             if (isToday) {
@@ -102,10 +128,10 @@ export async function GET(request) {
         });
 
         const todayPaid = todayGoogle + todayJustdial;
+        const monthPaid = monthGoogle + monthJustdial;
 
         // Generate last 7 days list
         const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const last7DaysList = [];
 
         for (let i = 0; i < 7; i++) {
@@ -163,6 +189,12 @@ export async function GET(request) {
         return NextResponse.json({
             success: true,
             total: todayTotal,
+            monthName: currentMonthName,
+            monthTotal: monthTotal,
+            paidMonth: monthPaid,
+            googleMonth: monthGoogle,
+            justdialMonth: monthJustdial,
+            organicMonth: monthOrganic,
             paidToday: todayPaid,
             googleToday: todayGoogle,
             justdialToday: todayJustdial,

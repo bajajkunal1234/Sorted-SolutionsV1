@@ -25,6 +25,11 @@ export default function DashboardQuickInsights() {
     const [data, setData] = useState({
         leads: { 
             total: 0, 
+            monthName: 'Oct',
+            paidMonth: 0,
+            googleMonth: 0,
+            justdialMonth: 0,
+            organicMonth: 0,
             paidToday: 0, 
             googleToday: 0, 
             justdialToday: 0, 
@@ -81,7 +86,7 @@ export default function DashboardQuickInsights() {
                 .then(r => r.json())
                 .catch(err => {
                     console.error('[DashboardQuickInsights] Failed to fetch leads metrics:', err);
-                    return { total: 0, paidToday: 0, googleToday: 0, justdialToday: 0, organicToday: 0, organic7Days: 0, manual: 0, last7Days: [] };
+                    return { total: 0, monthName: 'Oct', paidMonth: 0, googleMonth: 0, justdialMonth: 0, organicMonth: 0, paidToday: 0, googleToday: 0, justdialToday: 0, organicToday: 0, organic7Days: 0, manual: 0, last7Days: [] };
                 });
 
             // Run database queries concurrently
@@ -209,6 +214,11 @@ export default function DashboardQuickInsights() {
             setData({
                 leads: { 
                     total: leadsMetrics.total || 0,
+                    monthName: leadsMetrics.monthName || 'Oct',
+                    paidMonth: leadsMetrics.paidMonth || 0,
+                    googleMonth: leadsMetrics.googleMonth || 0,
+                    justdialMonth: leadsMetrics.justdialMonth || 0,
+                    organicMonth: leadsMetrics.organicMonth || 0,
                     paidToday: leadsMetrics.paidToday || 0,
                     googleToday: leadsMetrics.googleToday || 0,
                     justdialToday: leadsMetrics.justdialToday || 0,
@@ -291,14 +301,14 @@ export default function DashboardQuickInsights() {
                             onClick={() => window.openWebsiteAnalyticsLeadsTracker && window.openWebsiteAnalyticsLeadsTracker()}
                             style={{ padding: 10, background: 'rgba(255,255,255,0.02)', borderRadius: 8, cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.15s' }}
                             className="interactive-metric-card"
-                            title="Open Paid Leads & ROI Tracker (Google & Justdial)"
+                            title={`Open Paid Leads & ROI Tracker (Google & Justdial) · ${data.leads.paidToday || 0} today`}
                         >
-                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Paid Leads</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.paidToday ?? 0}</div>
+                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Paid Leads in {data.leads.monthName || 'Oct'}</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.paidMonth ?? 0}</div>
                             <div style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                                <span style={{ color: (data.leads.googleToday || 0) > 0 ? '#60a5fa' : '#94a3b8', fontWeight: 600 }}>{data.leads.googleToday || 0} Google</span>
+                                <span style={{ color: (data.leads.googleMonth || 0) > 0 ? '#60a5fa' : '#94a3b8', fontWeight: 600 }}>{data.leads.googleMonth || 0} Google</span>
                                 <span style={{ color: '#64748b' }}>•</span>
-                                <span style={{ color: (data.leads.justdialToday || 0) > 0 ? '#f59e0b' : '#94a3b8', fontWeight: 600 }}>{data.leads.justdialToday || 0} Justdial</span>
+                                <span style={{ color: (data.leads.justdialMonth || 0) > 0 ? '#f59e0b' : '#94a3b8', fontWeight: 600 }}>{data.leads.justdialMonth || 0} Justdial</span>
                             </div>
                         </div>
 
@@ -306,12 +316,12 @@ export default function DashboardQuickInsights() {
                             onClick={() => window.openWebsiteAnalyticsLeadsTracker && window.openWebsiteAnalyticsLeadsTracker()}
                             style={{ padding: 10, background: 'rgba(255,255,255,0.02)', borderRadius: 8, cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.15s' }}
                             className="interactive-metric-card"
-                            title="Open Organic & Direct Leads Tracker"
+                            title={`Open Organic & Direct Leads Tracker · ${data.leads.organicToday || 0} today`}
                         >
-                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Organic Leads</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.organicToday ?? 0}</div>
+                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Organic Leads in {data.leads.monthName || 'Oct'}</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.organicMonth ?? 0}</div>
                             <div style={{ fontSize: 9, color: '#10b981', display: 'flex', alignItems: 'center', gap: 2, marginTop: 4 }}>
-                                <span>🌱 {data.leads.organic7Days || 0} in last 7 days</span>
+                                <span>🌱 Direct, web & referrals</span>
                             </div>
                         </div>
                     </div>
