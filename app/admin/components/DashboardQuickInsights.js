@@ -23,7 +23,16 @@ export default function DashboardQuickInsights() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [data, setData] = useState({
-        leads: { total: 0, manual: 0, last7Days: [] },
+        leads: { 
+            total: 0, 
+            paidToday: 0, 
+            googleToday: 0, 
+            justdialToday: 0, 
+            organicToday: 0, 
+            organic7Days: 0, 
+            manual: 0, 
+            last7Days: [] 
+        },
         daybook: { moneyIn: 0, moneyOut: 0 },
         cashReceipts: { count: 0, total: 0, byTech: {} },
         rentals: { active: 0, rentDue: 0 },
@@ -72,7 +81,7 @@ export default function DashboardQuickInsights() {
                 .then(r => r.json())
                 .catch(err => {
                     console.error('[DashboardQuickInsights] Failed to fetch leads metrics:', err);
-                    return { total: 0, manual: 0, last7Days: [] };
+                    return { total: 0, paidToday: 0, googleToday: 0, justdialToday: 0, organicToday: 0, organic7Days: 0, manual: 0, last7Days: [] };
                 });
 
             // Run database queries concurrently
@@ -199,7 +208,12 @@ export default function DashboardQuickInsights() {
 
             setData({
                 leads: { 
-                    total: leadsMetrics.total || 0, 
+                    total: leadsMetrics.total || 0,
+                    paidToday: leadsMetrics.paidToday || 0,
+                    googleToday: leadsMetrics.googleToday || 0,
+                    justdialToday: leadsMetrics.justdialToday || 0,
+                    organicToday: leadsMetrics.organicToday || 0,
+                    organic7Days: leadsMetrics.organic7Days || 0,
                     manual: leadsMetrics.manual || 0,
                     last7Days: leadsMetrics.last7Days || []
                 },
@@ -269,7 +283,7 @@ export default function DashboardQuickInsights() {
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 6 }}>
                         <TrendingUp size={16} color="#10b981" />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Leads & Rentals</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Leads & Acquisition</span>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -277,25 +291,27 @@ export default function DashboardQuickInsights() {
                             onClick={() => window.openWebsiteAnalyticsLeadsTracker && window.openWebsiteAnalyticsLeadsTracker()}
                             style={{ padding: 10, background: 'rgba(255,255,255,0.02)', borderRadius: 8, cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.15s' }}
                             className="interactive-metric-card"
-                            title="Open Google Ads Leads & ROI Tracker"
+                            title="Open Paid Leads & ROI Tracker (Google & Justdial)"
                         >
-                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Leads Logged Today</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.total}</div>
-                            <div style={{ fontSize: 9, color: '#10b981', display: 'flex', alignItems: 'center', gap: 2, marginTop: 4 }}>
-                                <span>📞 {data.leads.manual} manual</span>
+                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Paid Leads</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.paidToday ?? 0}</div>
+                            <div style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                                <span style={{ color: (data.leads.googleToday || 0) > 0 ? '#60a5fa' : '#94a3b8', fontWeight: 600 }}>{data.leads.googleToday || 0} Google</span>
+                                <span style={{ color: '#64748b' }}>•</span>
+                                <span style={{ color: (data.leads.justdialToday || 0) > 0 ? '#f59e0b' : '#94a3b8', fontWeight: 600 }}>{data.leads.justdialToday || 0} Justdial</span>
                             </div>
                         </div>
 
                         <div 
-                            onClick={() => window.openRentalsReport && window.openRentalsReport()}
+                            onClick={() => window.openWebsiteAnalyticsLeadsTracker && window.openWebsiteAnalyticsLeadsTracker()}
                             style={{ padding: 10, background: 'rgba(255,255,255,0.02)', borderRadius: 8, cursor: 'pointer', border: '1px solid transparent', transition: 'all 0.15s' }}
                             className="interactive-metric-card"
-                            title="Open Rentals Agreements"
+                            title="Open Organic & Direct Leads Tracker"
                         >
-                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Active Rentals</div>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.rentals.active}</div>
-                            <div style={{ fontSize: 9, color: data.rentals.rentDue > 0 ? '#ef4444' : '#94a3b8', fontWeight: 600, marginTop: 4 }}>
-                                {data.rentals.rentDue > 0 ? `⚠️ ${data.rentals.rentDue} rent due` : '✓ All up to date'}
+                            <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Organic Leads</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginTop: 2 }}>{data.leads.organicToday ?? 0}</div>
+                            <div style={{ fontSize: 9, color: '#10b981', display: 'flex', alignItems: 'center', gap: 2, marginTop: 4 }}>
+                                <span>🌱 {data.leads.organic7Days || 0} in last 7 days</span>
                             </div>
                         </div>
                     </div>
@@ -320,19 +336,35 @@ export default function DashboardQuickInsights() {
                                         justifyContent: 'space-between',
                                         fontSize: 11,
                                         color: '#e2e8f0',
-                                        padding: '2px 4px',
+                                        padding: '3px 6px',
                                         borderRadius: 4,
-                                        backgroundColor: idx === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'
-                                    }}>
-                                        <span style={{ color: '#94a3b8' }}>
+                                        backgroundColor: idx === 0 ? 'rgba(255,255,255,0.03)' : 'transparent'
+                                    }} title={`${day.displayDate}: ${day.googleLeads || 0} Google, ${day.justdialLeads || 0} Justdial${(day.organicLeads || 0) > 0 ? `, ${day.organicLeads} Organic` : ''} · ₹${Math.round(day.spent || 0).toLocaleString('en-IN')} Google Ads spent`}>
+                                        <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>
                                             {day.displayDate} {idx === 0 && <span style={{ fontSize: 9, color: '#10b981', fontWeight: 600 }}>(Today)</span>}
                                         </span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <span style={{ color: '#a5f3fc', fontWeight: 600 }}>
-                                                {day.leadsCount} lead{day.leadsCount !== 1 ? 's' : ''}
-                                            </span>
-                                            <span style={{ color: day.spent > 0 ? '#fbcfe8' : '#64748b' }}>
-                                                ₹{Math.round(day.spent).toLocaleString('en-IN')} spent
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5 }}>
+                                                <span style={{ 
+                                                    color: (day.googleLeads || 0) > 0 ? '#60a5fa' : '#64748b', 
+                                                    fontWeight: (day.googleLeads || 0) > 0 ? 600 : 400 
+                                                }}>
+                                                    {day.googleLeads || 0} Google
+                                                </span>
+                                                <span style={{ color: '#475569', fontSize: 9 }}>•</span>
+                                                <span style={{ 
+                                                    color: (day.justdialLeads || 0) > 0 ? '#f59e0b' : '#64748b', 
+                                                    fontWeight: (day.justdialLeads || 0) > 0 ? 600 : 400 
+                                                }}>
+                                                    {day.justdialLeads || 0} Justdial
+                                                </span>
+                                            </div>
+                                            <span style={{ 
+                                                color: (day.spent || 0) > 0 ? '#fbcfe8' : '#64748b',
+                                                fontSize: 10.5,
+                                                fontWeight: (day.spent || 0) > 0 ? 600 : 400
+                                            }}>
+                                                ₹{Math.round(day.spent || 0).toLocaleString('en-IN')} spent
                                             </span>
                                         </div>
                                     </div>

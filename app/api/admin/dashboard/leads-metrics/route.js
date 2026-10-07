@@ -33,7 +33,7 @@ export async function GET(request) {
         const [leadsRes, dailyMetricsRes] = await Promise.all([
             supabase
                 .from('lead_attributions')
-                .select('conversion_type, first_contact_at')
+                .select('conversion_type, first_contact_at, lead_source, referrer_name')
                 .gte('first_contact_at', startOfLast7DaysISO),
             supabase
                 .from('google_ads_daily_metrics')
@@ -55,13 +55,59 @@ export async function GET(request) {
             return `${y}-${m}-${day}`;
         };
 
+        const categorizeLead = (l) => {
+            const src = (l.lead_source || '').toLowerCase().trim();
+            const ref = (l.referrer_name || '').toLowerCase().trim();
+
+            if (src.includes('justdial') || ref.includes('justdial')) {
+                return 'justdial';
+            }
+            if (src === 'google_organic') {
+                return 'organic';
+            }
+            if (src === 'google_ads' || src === 'google' || src.includes('ads') || src.includes('cpc')) {
+                return 'google';
+            }
+            return 'organic';
+        };
+
         const leads = leadsRes.data || [];
-        const todayLeads = leads.filter(l => getLocalDateStringIST(l.first_contact_at) === todayStr);
-        const leadsCount = todayLeads.length;
-        const manualLeadsCount = todayLeads.filter(l => l.conversion_type?.startsWith('manual_')).length;
+        let todayGoogle = 0;
+        let todayJustdial = 0;
+        let todayOrganic = 0;
+        let todayManual = 0;
+        let todayTotal = 0;
+
+        let organic7Days = 0;
+        let paid7Days = 0;
+
+        leads.forEach(l => {
+            const leadYMD = getLocalDateStringIST(l.first_contact_at);
+            const category = categorizeLead(l);
+            const isToday = (leadYMD === todayStr);
+
+            if (category === 'organic') {
+                organic7Days++;
+            } else {
+                paid7Days++;
+            }
+
+            if (isToday) {
+                todayTotal++;
+                if (l.conversion_type?.startsWith('manual_')) todayManual++;
+                if (category === 'google') todayGoogle++;
+                else if (category === 'justdial') todayJustdial++;
+                else if (category === 'organic') todayOrganic++;
+            }
+        });
+
+        const todayPaid = todayGoogle + todayJustdial;
 
         // Generate last 7 days list
+        const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const last7DaysList = [];
+
         for (let i = 0; i < 7; i++) {
             const dateVal = new Date(nowIST);
             dateVal.setDate(dateVal.getDate() - i);
@@ -70,12 +116,17 @@ export async function GET(request) {
             const d = String(dateVal.getDate()).padStart(2, '0');
             const ymd = `${y}-${m}-${d}`;
 
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const display = `${dateVal.getDate()} ${months[dateVal.getMonth()]}`;
+            const dayName = days[dateVal.getDay()];
+            const display = `${dayName}, ${dateVal.getDate()} ${months[dateVal.getMonth()]}`;
 
             last7DaysList.push({
                 dateStr: ymd,
+                dayName: dayName,
                 displayDate: display,
+                googleLeads: 0,
+                justdialLeads: 0,
+                paidLeads: 0,
+                organicLeads: 0,
                 leadsCount: 0,
                 spent: 0
             });
@@ -87,10 +138,20 @@ export async function GET(request) {
             const dayObj = last7DaysList.find(day => day.dateStr === leadYMD);
             if (dayObj) {
                 dayObj.leadsCount++;
+                const category = categorizeLead(l);
+                if (category === 'google') {
+                    dayObj.googleLeads++;
+                    dayObj.paidLeads++;
+                } else if (category === 'justdial') {
+                    dayObj.justdialLeads++;
+                    dayObj.paidLeads++;
+                } else {
+                    dayObj.organicLeads++;
+                }
             }
         });
 
-        // Map spends to days
+        // Map spends to days (strictly Google Ads daily spends from google_ads_daily_metrics)
         const dailyMetrics = dailyMetricsRes.data || [];
         dailyMetrics.forEach(m => {
             const dayObj = last7DaysList.find(day => day.dateStr === m.date);
@@ -101,8 +162,14 @@ export async function GET(request) {
 
         return NextResponse.json({
             success: true,
-            total: leadsCount,
-            manual: manualLeadsCount,
+            total: todayTotal,
+            paidToday: todayPaid,
+            googleToday: todayGoogle,
+            justdialToday: todayJustdial,
+            organicToday: todayOrganic,
+            organic7Days: organic7Days,
+            paid7Days: paid7Days,
+            manual: todayManual,
             last7Days: last7DaysList
         });
 
