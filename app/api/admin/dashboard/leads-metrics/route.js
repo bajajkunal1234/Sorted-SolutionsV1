@@ -27,6 +27,7 @@ export async function GET(request) {
         const l7Year = startOfLast7DaysIST.getFullYear();
         const l7Month = String(startOfLast7DaysIST.getMonth() + 1).padStart(2, '0');
         const l7Day = String(startOfLast7DaysIST.getDate()).padStart(2, '0');
+        const startOfLast7DaysYMD = `${l7Year}-${l7Month}-${l7Day}`;
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const currentMonthName = months[nowIST.getMonth()];
 
