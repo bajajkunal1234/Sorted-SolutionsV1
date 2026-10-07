@@ -450,88 +450,15 @@ export default function DashboardQuickInsights() {
             {/* Column 2: Operations & Command Shortcuts */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 
-                {/* 3. Jobs & Dispatch Card */}
+                {/* 3. Quick Actions */}
                 <div style={{
-                    padding: 14,
+                    padding: 12,
                     background: 'rgba(255,255,255,0.02)',
                     borderRadius: 12,
                     border: '1px solid rgba(255,255,255,0.05)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 8,
-                    flex: 1
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <Calendar size={16} color="#6366f1" />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Jobs & Dispatch</span>
-                        </div>
-                        <span style={{ fontSize: 10, background: 'rgba(99, 102, 241, 0.12)', color: '#818cf8', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                            {data.jobs.scheduled} Scheduled Today
-                        </span>
-                    </div>
-
-                    <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginTop: 2 }}>Open jobs by technician:</div>
-                    
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, contentVisibility: 'auto' }}>
-                        {data.jobs.techOpenCounts.length > 0 ? (
-                            data.jobs.techOpenCounts.map(tc => (
-                                <div 
-                                    key={tc.id} 
-                                    onClick={() => {
-                                        if (window.openJobsMapWithFilter) {
-                                            // Apply technician filter dynamically
-                                            window.openJobsMapWithFilter([
-                                                {
-                                                    id: `tech_${tc.id}`,
-                                                    type: "custom",
-                                                    label: `Assignee contains "${tc.name}"`,
-                                                    conditions: [
-                                                        {
-                                                            id: Date.now(),
-                                                            field: "assignee",
-                                                            value: tc.name,
-                                                            operator: "contains"
-                                                        }
-                                                    ]
-                                                }
-                                            ]);
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '4px 8px',
-                                        background: 'rgba(255,255,255,0.02)',
-                                        border: '1px solid rgba(255,255,255,0.04)',
-                                        borderRadius: 6,
-                                        fontSize: 10,
-                                        color: '#cbd5e1',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 5,
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s'
-                                    }}
-                                    className="tech-open-count-badge"
-                                >
-                                    <span style={{ fontWeight: 500 }}>{tc.name}:</span>
-                                    <span style={{ background: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 700, padding: '1px 4px', borderRadius: 4, fontSize: 9 }}>{tc.count}</span>
-                                </div>
-                            ))
-                        ) : (
-                            <div style={{ fontSize: 10, color: '#475569', fontStyle: 'italic', padding: '4px 0' }}>No active open jobs.</div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 4. Quick Command Center */}
-                <div style={{
-                    padding: 14,
-                    background: 'rgba(255,255,255,0.02)',
-                    borderRadius: 12,
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 10
+                    gap: 8
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 6 }}>
                         <ArrowUpRight size={16} color="#f59e0b" />
@@ -637,6 +564,78 @@ export default function DashboardQuickInsights() {
                             <Plus size={12} />
                             <span>CREATE PURCHASE</span>
                         </button>
+                    </div>
+                </div>
+
+                {/* 4. Jobs & Dispatch Card */}
+                <div style={{
+                    padding: 12,
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)', paddingBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Calendar size={16} color="#6366f1" />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#e2e8f0' }}>Jobs & Dispatch</span>
+                        </div>
+                        <span style={{ fontSize: 10, background: 'rgba(99, 102, 241, 0.12)', color: '#818cf8', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                            {data.jobs.scheduled} Scheduled Today
+                        </span>
+                    </div>
+
+                    <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600 }}>Open jobs by technician:</div>
+                    
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, contentVisibility: 'auto' }}>
+                        {data.jobs.techOpenCounts.length > 0 ? (
+                            data.jobs.techOpenCounts.map(tc => (
+                                <div 
+                                    key={tc.id} 
+                                    onClick={() => {
+                                        if (window.openJobsMapWithFilter) {
+                                            // Apply technician filter dynamically
+                                            window.openJobsMapWithFilter([
+                                                {
+                                                    id: `tech_${tc.id}`,
+                                                    type: "custom",
+                                                    label: `Assignee contains "${tc.name}"`,
+                                                    conditions: [
+                                                        {
+                                                            id: Date.now(),
+                                                            field: "assignee",
+                                                            value: tc.name,
+                                                            operator: "contains"
+                                                        }
+                                                    ]
+                                                }
+                                            ]);
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '4px 8px',
+                                        background: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.04)',
+                                        borderRadius: 6,
+                                        fontSize: 10,
+                                        color: '#cbd5e1',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    className="tech-open-count-badge"
+                                >
+                                    <span style={{ fontWeight: 500 }}>{tc.name}:</span>
+                                    <span style={{ background: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 700, padding: '1px 4px', borderRadius: 4, fontSize: 9 }}>{tc.count}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{ fontSize: 10, color: '#475569', fontStyle: 'italic', padding: '2px 0' }}>No active open jobs.</div>
+                        )}
                     </div>
                 </div>
 
