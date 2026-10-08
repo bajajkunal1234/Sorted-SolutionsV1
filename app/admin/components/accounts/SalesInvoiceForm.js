@@ -357,9 +357,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 }}>
                     <div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#10b981' }}>
-                            {existingInvoice ? 'Edit Sales Invoice' : 'Create Sales Invoice'}
+                            {existingInvoice?.id ? 'Edit Sales Invoice' : 'Create Sales Invoice'}
                         </h3>
-                        {existingInvoice && (
+                        {existingInvoice?.id && (
                             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
                                 Invoice: {existingInvoice.invoice_number}
                             </p>
@@ -778,7 +778,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                         style={{ padding: '8px 16px', backgroundColor: '#10b981' }}
                         disabled={saving}
                     >
-                        {saving ? 'Saving...' : (existingInvoice ? 'Update & Print' : 'Save & Print')}
+                        {saving ? 'Saving...' : (existingInvoice?.id ? 'Update & Print' : 'Save & Print')}
                     </button>
                 </div>
             </div>

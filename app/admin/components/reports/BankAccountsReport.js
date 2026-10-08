@@ -7,7 +7,7 @@ import {
     ChevronDown, ChevronUp, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle,
     Calendar, FileSpreadsheet, Link2, Unlink, Clock, Search, Filter,
     ShieldAlert, Sparkles, ExternalLink, ArrowUpRight, ArrowDownLeft, X,
-    ArrowUpDown, FileText, ShoppingCart, Receipt, CreditCard
+    ArrowUpDown, FileText, ShoppingCart, Receipt, CreditCard, Pencil
 } from 'lucide-react';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
@@ -28,7 +28,7 @@ const DEFAULT_COLUMN_WIDTHS = {
     deposit: 100,
     withdrawal: 100,
     status: 135,
-    action: 140
+    action: 155
 };
 
 function findBestMatchingSubset(items, target) {
@@ -1448,6 +1448,119 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         setCreateChooserRow(row);
     };
 
+    // Helper to identify system voucher details associated with a row
+    const getEditableVoucherInfo = (row) => {
+        if (!row) return null;
+
+        // 1. Direct system origin row
+        if (row.origin === 'system' && (row.systemId || row.id)) {
+            return {
+                id: row.systemId || row.id,
+                type: row.systemType,
+                number: row.voucherNo || row.raw?.number
+            };
+        }
+
+        // 2. Reconciled row with linked system voucher
+        if (row.linkedEntry && row.linkedEntry.id) {
+            return {
+                id: row.linkedEntry.id,
+                type: row.linkedEntry.systemType,
+                number: row.linkedEntry.number || row.voucherNo
+            };
+        }
+
+        // 3. Fallback to raw voucher_id or system_entry_id if present
+        const rawVoucherId = row.raw?.voucher_id || row.raw?.system_entry_id;
+        if (rawVoucherId) {
+            const sv = systemVouchers.find(v => v.id === rawVoucherId);
+            if (sv) {
+                return {
+                    id: sv.id,
+                    type: sv.systemType,
+                    number: sv.number || row.voucherNo
+                };
+            }
+            if (row.raw?.system_entry_type) {
+                return {
+                    id: rawVoucherId,
+                    type: row.raw.system_entry_type,
+                    number: row.voucherNo
+                };
+            }
+        }
+
+        return null;
+    };
+
+    // Shortcut to open and edit existing system transaction (payment, receipt, sales, purchase)
+    const handleEditVoucher = async (systemType, voucherId, row = null) => {
+        try {
+            let type = systemType;
+            let id = voucherId;
+
+            if (!id && row) {
+                const info = getEditableVoucherInfo(row);
+                if (info) {
+                    id = info.id;
+                    type = type || info.type;
+                } else if (row.potentialMatch?.id) {
+                    id = row.potentialMatch.id;
+                    type = type || row.potentialMatch.systemType;
+                }
+            }
+
+            if (!type && id) {
+                const sv = systemVouchers.find(v => v.id === id);
+                if (sv) type = sv.systemType;
+            }
+
+            if (!id || !type) {
+                alert('Could not find system transaction details to edit.');
+                return;
+            }
+
+            const normType = (type || '').toLowerCase().replace(/-voucher|-invoice/g, '');
+
+            setLoading(true);
+            let fullRecord = null;
+            if (normType === 'payment') {
+                const { data, error } = await supabase.from('payment_vouchers').select('*').eq('id', id).single();
+                if (error) throw error;
+                fullRecord = data;
+            } else if (normType === 'receipt') {
+                const { data, error } = await supabase.from('receipt_vouchers').select('*').eq('id', id).single();
+                if (error) throw error;
+                fullRecord = data;
+            } else if (normType === 'sales') {
+                const { data, error } = await supabase.from('sales_invoices').select('*').eq('id', id).single();
+                if (error) throw error;
+                fullRecord = data;
+            } else if (normType === 'purchase') {
+                const { data, error } = await supabase.from('purchase_invoices').select('*').eq('id', id).single();
+                if (error) throw error;
+                fullRecord = data;
+            } else {
+                throw new Error(`Unsupported transaction type: ${normType}`);
+            }
+
+            if (!fullRecord) {
+                throw new Error('Transaction record not found in database.');
+            }
+
+            setShowVoucherForm({
+                type: normType,
+                data: fullRecord,
+                isEdit: true
+            });
+        } catch (err) {
+            console.error('Failed to load transaction for editing:', err);
+            alert('Could not open transaction for editing: ' + (err.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleOpenGatewaySettle = async (row) => {
         try {
             setLoadingGatewayModal(true);
@@ -1587,6 +1700,23 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 delete cleanData.items;
             }
 
+            const labelMap = {
+                sales: 'Sales Invoice',
+                purchase: 'Purchase Invoice',
+                receipt: 'Receipt Voucher',
+                payment: 'Payment Voucher'
+            };
+
+            // 1. UPDATE EXISTING TRANSACTION
+            if (showVoucherForm.isEdit && showVoucherForm.data?.id) {
+                await transactionsAPI.update(showVoucherForm.data.id, cleanData, type);
+                alert(`✅ ${labelMap[type] || 'Transaction'} updated successfully!`);
+                setShowVoucherForm(null);
+                await fetchComprehensiveData(selectedAccountId);
+                return;
+            }
+
+            // 2. CREATE NEW TRANSACTION & LINK
             const res = await transactionsAPI.create(cleanData, type);
             const voucherId = res.data?.id || res?.id;
 
@@ -1615,12 +1745,6 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .eq('id', showVoucherForm.statementTxId);
             }
 
-            const labelMap = {
-                sales: 'Sales Invoice',
-                purchase: 'Purchase Invoice',
-                receipt: 'Receipt Voucher',
-                payment: 'Payment Voucher'
-            };
             alert(`${labelMap[type] || 'Entry'} recorded and linked successfully!`);
             setShowVoucherForm(null);
             fetchComprehensiveData(selectedAccountId);
@@ -2779,14 +2903,58 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                     </td>
 
                                                     {/* Voucher Number */}
-                                                    <td style={{ padding: '7px 10px', verticalAlign: 'top', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>
-                                                        {row.voucherNo}
-                                                        {row.refNo && (
-                                                            <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontFamily: 'monospace', marginTop: '1px' }}>
-                                                                Ref: {row.refNo}
-                                                            </div>
-                                                        )}
-                                                    </td>
+                                                    {(() => {
+                                                        const editable = getEditableVoucherInfo(row);
+                                                        const canEdit = Boolean(editable && row.voucherNo && row.voucherNo !== '—' && row.voucherNo !== 'GMAIL-ALERT');
+
+                                                        return (
+                                                            <td style={{ padding: '7px 10px', verticalAlign: 'top', fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-all' }}>
+                                                                {canEdit ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleEditVoucher(editable.type, editable.id, row);
+                                                                        }}
+                                                                        title={`Click to edit ${editable.type.toUpperCase()}: ${editable.number}`}
+                                                                        style={{
+                                                                            background: 'rgba(14, 165, 233, 0.08)',
+                                                                            border: '1px solid rgba(14, 165, 233, 0.25)',
+                                                                            borderRadius: '4px',
+                                                                            padding: '2px 6px',
+                                                                            color: '#0284c7',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '11px',
+                                                                            fontWeight: 700,
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '4px',
+                                                                            textAlign: 'left',
+                                                                            transition: 'all 0.15s ease'
+                                                                        }}
+                                                                        onMouseEnter={(e) => {
+                                                                            e.currentTarget.style.background = 'rgba(14, 165, 233, 0.18)';
+                                                                            e.currentTarget.style.borderColor = '#0284c7';
+                                                                        }}
+                                                                        onMouseLeave={(e) => {
+                                                                            e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)';
+                                                                            e.currentTarget.style.borderColor = 'rgba(14, 165, 233, 0.25)';
+                                                                        }}
+                                                                    >
+                                                                        <Pencil size={10} />
+                                                                        <span>{row.voucherNo}</span>
+                                                                    </button>
+                                                                ) : (
+                                                                    <span>{row.voucherNo}</span>
+                                                                )}
+                                                                {row.refNo && (
+                                                                    <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontFamily: 'monospace', marginTop: '1px' }}>
+                                                                        Ref: {row.refNo}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })()}
 
                                                     {/* Party / Particulars */}
                                                     <td style={{
@@ -2882,8 +3050,45 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                             </div>
                                                         )}
                                                         {row.potentialMatch && !isReconciled && (
-                                                            <div style={{ fontSize: '9px', color: '#d97706', fontWeight: 700, marginTop: '2px' }}>
-                                                                ⭐ Found candidate match: {row.potentialMatch.number} ({row.potentialMatch.party} - ₹{row.potentialMatch.amount})
+                                                            <div style={{
+                                                                fontSize: '9.5px',
+                                                                color: '#b45309',
+                                                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                                                border: '1px solid rgba(245, 158, 11, 0.25)',
+                                                                borderRadius: '4px',
+                                                                padding: '3px 6px',
+                                                                fontWeight: 600,
+                                                                marginTop: '3px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                gap: '6px',
+                                                                flexWrap: 'wrap'
+                                                            }}>
+                                                                <span>⭐ Candidate match: <b>{row.potentialMatch.number}</b> ({row.potentialMatch.party} · ₹{row.potentialMatch.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleEditVoucher(row.potentialMatch.systemType, row.potentialMatch.id, row);
+                                                                    }}
+                                                                    title={`Edit matching ${row.potentialMatch.systemType} voucher (${row.potentialMatch.number})`}
+                                                                    style={{
+                                                                        background: '#fff',
+                                                                        border: '1px solid rgba(245, 158, 11, 0.5)',
+                                                                        color: '#b45309',
+                                                                        borderRadius: '3px',
+                                                                        padding: '1px 5px',
+                                                                        fontSize: '9px',
+                                                                        fontWeight: 700,
+                                                                        cursor: 'pointer',
+                                                                        display: 'inline-flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '3px'
+                                                                    }}
+                                                                >
+                                                                    <Pencil size={9} /> Edit Candidate
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </td>
@@ -3076,6 +3281,29 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                 </>
                                                             )}
 
+                                                            {/* Candidate match edit shortcut */}
+                                                            {!isReconciled && row.potentialMatch && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditVoucher(row.potentialMatch.systemType, row.potentialMatch.id, row)}
+                                                                    className="btn btn-secondary"
+                                                                    style={{
+                                                                        padding: '2px 6px',
+                                                                        fontSize: '10px',
+                                                                        fontWeight: 700,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '2px',
+                                                                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                                        color: '#d97706'
+                                                                    }}
+                                                                    title={`Edit candidate matching ${row.potentialMatch.systemType} (${row.potentialMatch.number})`}
+                                                                >
+                                                                    <Pencil size={10} />
+                                                                    Edit Match
+                                                                </button>
+                                                            )}
+
                                                             {isUncleared && (
                                                                 <button
                                                                     onClick={() => setShowLinkModal({
@@ -3103,6 +3331,58 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                                                     Match
                                                                 </button>
                                                             )}
+
+                                                            {/* Edit button for system origin entry */}
+                                                            {row.origin === 'system' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditVoucher(row.systemType, row.systemId || row.id, row)}
+                                                                    className="btn btn-secondary"
+                                                                    style={{
+                                                                        padding: '2px 6px',
+                                                                        fontSize: '10px',
+                                                                        fontWeight: 700,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '2px',
+                                                                        border: '1px solid var(--border-primary)',
+                                                                        color: 'var(--text-primary)'
+                                                                    }}
+                                                                    title={`Edit this ${row.systemType} entry (${row.voucherNo})`}
+                                                                >
+                                                                    <Pencil size={10} />
+                                                                    Edit
+                                                                </button>
+                                                            )}
+
+                                                            {/* Edit button for reconciled statement / alert entry linked to a system voucher */}
+                                                            {isReconciled && row.origin !== 'system' && (() => {
+                                                                const editable = getEditableVoucherInfo(row);
+                                                                if (editable) {
+                                                                    return (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleEditVoucher(editable.type, editable.id, row)}
+                                                                            className="btn btn-secondary"
+                                                                            style={{
+                                                                                padding: '2px 6px',
+                                                                                fontSize: '10px',
+                                                                                fontWeight: 700,
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '2px',
+                                                                                border: '1px solid var(--border-primary)',
+                                                                                color: 'var(--text-primary)'
+                                                                            }}
+                                                                            title={`Edit linked ${editable.type} (${row.voucherNo})`}
+                                                                        >
+                                                                            <Pencil size={10} />
+                                                                            Edit
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
 
                                                             {isReconciled && (
                                                                 <button

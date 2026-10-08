@@ -96,7 +96,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
                 }}>
                     <div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#ef4444' }}>
-                            {existingPayment ? 'Edit Payment Voucher' : 'Create Payment Voucher'}
+                            {existingPayment?.id ? 'Edit Payment Voucher' : 'Create Payment Voucher'}
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
                             Payment No: {formData.payment_number}
@@ -251,7 +251,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
                         disabled={saving}
                     >
                         <Save size={18} />
-                        {saving ? 'Saving...' : (existingPayment ? 'Update Payment' : 'Save Payment')}
+                        {saving ? 'Saving...' : (existingPayment?.id ? 'Update Payment' : 'Save Payment')}
                     </button>
                 </div>
             </div>

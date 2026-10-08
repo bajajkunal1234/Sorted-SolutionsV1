@@ -317,9 +317,9 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
                 }}>
                     <div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#3b82f6' }}>
-                            {existingInvoice ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}
+                            {existingInvoice?.id ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}
                         </h3>
-                        {existingInvoice && (
+                        {existingInvoice?.id && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
                                     Invoice: {existingInvoice.vendor_invoice_number || 'DRAFT'}
@@ -919,7 +919,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
                         style={{ padding: '8px 16px', backgroundColor: '#3b82f6' }}
                         disabled={saving}
                     >
-                        {saving ? 'Saving...' : (existingInvoice ? 'Update' : 'Save')}
+                        {saving ? 'Saving...' : (existingInvoice?.id ? 'Update' : 'Save')}
                     </button>
                 </div>
             </div>
