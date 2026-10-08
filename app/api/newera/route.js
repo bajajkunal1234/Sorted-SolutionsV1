@@ -35,6 +35,25 @@ async function logInteraction(supabase, memberName, actionType, description) {
     }
 }
 
+// Helper to safely add months to a YYYY-MM-DD date clamping to month end
+function addMonthsToDate(dateStr, monthsToAdd) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const originalYear = parseInt(parts[0], 10);
+    const originalMonth = parseInt(parts[1], 10) - 1;
+    const targetDay = parseInt(parts[2], 10);
+
+    const targetDate = new Date(originalYear, originalMonth + monthsToAdd, 1);
+    const daysInTargetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+    const finalDay = Math.min(targetDay, daysInTargetMonth);
+
+    const y = targetDate.getFullYear();
+    const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const d = String(finalDay).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 export async function GET(request) {
     const supabase = createServerSupabase();
     if (!supabase) {
@@ -412,7 +431,21 @@ export async function POST(request) {
 
         // 7. Upsert repayment schedule item manually
         if (action === 'upsert_repayment') {
-            const { id, loan_id, due_date, installment_number, expected_amount, expected_principal, expected_interest, status, notes, recur_months } = body;
+            const { 
+                id, 
+                loan_id, 
+                due_date, 
+                installment_number, 
+                expected_amount, 
+                expected_principal, 
+                expected_interest, 
+                status, 
+                notes, 
+                recur_months, 
+                recur_count, 
+                recur_interval_months, 
+                recur_frequency 
+            } = body;
 
             const repaymentRow = {
                 loan_id,
@@ -442,24 +475,44 @@ export async function POST(request) {
                 }
             } else {
                 // Insert
-                if (recur_months && parseInt(recur_months) > 1) {
-                    const count = parseInt(recur_months);
+                const count = recur_count ? parseInt(recur_count) : (recur_months ? parseInt(recur_months) : 1);
+                const interval = recur_interval_months ? parseInt(recur_interval_months) : 
+                    (recur_frequency === 'quarterly' ? 3 :
+                     recur_frequency === 'half_yearly' ? 6 :
+                     recur_frequency === 'yearly' ? 12 : 1);
+
+                if (count > 1) {
                     const repaymentsToInsert = [];
-                    const startDateObj = new Date(due_date);
 
                     for (let i = 0; i < count; i++) {
-                        const nextDueDate = new Date(startDateObj);
-                        nextDueDate.setMonth(nextDueDate.getMonth() + i);
+                        const nextDueDate = addMonthsToDate(due_date, i * interval);
+                        const instNum = installment_number ? parseInt(installment_number) + i : null;
+
+                        // Descriptive note if user left it blank, or append tag if custom notes provided
+                        let itemNotes = notes || null;
+                        if (!itemNotes) {
+                            if (interval === 3) itemNotes = 'Quarterly installment';
+                            else if (interval === 6) itemNotes = 'Half-yearly installment';
+                            else if (interval === 12) itemNotes = 'Yearly installment';
+                        } else {
+                            if (interval === 3 && !itemNotes.toLowerCase().includes('quarterly')) {
+                                itemNotes = `${itemNotes} (Quarterly)`;
+                            } else if (interval === 6 && !itemNotes.toLowerCase().includes('half')) {
+                                itemNotes = `${itemNotes} (Half-Yearly)`;
+                            } else if (interval === 12 && !itemNotes.toLowerCase().includes('year') && !itemNotes.toLowerCase().includes('annual')) {
+                                itemNotes = `${itemNotes} (Yearly)`;
+                            }
+                        }
 
                         repaymentsToInsert.push({
                             loan_id,
-                            due_date: nextDueDate.toISOString().split('T')[0],
-                            installment_number: installment_number ? parseInt(installment_number) + i : null,
+                            due_date: nextDueDate,
+                            installment_number: instNum,
                             expected_amount: parseFloat(expected_amount),
                             expected_principal: parseFloat(expected_principal),
                             expected_interest: parseFloat(expected_interest),
                             status: status || 'unpaid',
-                            notes: notes || null
+                            notes: itemNotes
                         });
                     }
 
@@ -492,7 +545,13 @@ export async function POST(request) {
                             }
                         }
 
-                        await logInteraction(supabase, session.member_name, 'create_repayment', `Added recurring manual schedule installments of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} monthly for ${count} months for "${loanName}"`);
+                        let freqLabel = 'monthly';
+                        if (interval === 3) freqLabel = 'quarterly (every 3 months)';
+                        else if (interval === 6) freqLabel = 'half-yearly (every 6 months)';
+                        else if (interval === 12) freqLabel = 'yearly (every 12 months)';
+                        else if (interval > 1) freqLabel = `every ${interval} months`;
+
+                        await logInteraction(supabase, session.member_name, 'create_repayment', `Added recurring schedule installments of ₹${parseFloat(expected_amount).toLocaleString('en-IN')} ${freqLabel} for ${count} installments for "${loanName}"`);
                     }
                 } else {
                     const { data: insertedRep, error: insErr } = await supabase

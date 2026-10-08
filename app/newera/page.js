@@ -443,6 +443,42 @@ export default function NewEraDashboard() {
         return Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
     };
 
+    const addMonthsToDate = (dateStr, monthsToAdd) => {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length < 3) return dateStr;
+        const originalYear = parseInt(parts[0], 10);
+        const originalMonth = parseInt(parts[1], 10) - 1;
+        const targetDay = parseInt(parts[2], 10);
+
+        const targetDate = new Date(originalYear, originalMonth + monthsToAdd, 1);
+        const daysInTargetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
+        const finalDay = Math.min(targetDay, daysInTargetMonth);
+
+        const y = targetDate.getFullYear();
+        const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const d = String(finalDay).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const getFrequencyBadge = (notes) => {
+        if (!notes) return null;
+        const lower = notes.toLowerCase();
+        if (lower.includes('quarterly')) {
+            return { text: 'Quarterly', color: '#818cf8', bg: 'rgba(99, 102, 241, 0.15)', border: 'rgba(99, 102, 241, 0.3)' };
+        }
+        if (lower.includes('half-yearly') || lower.includes('half yearly') || lower.includes('6-monthly') || lower.includes('6 monthly')) {
+            return { text: 'Half-Yearly', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.3)' };
+        }
+        if (lower.includes('yearly') || lower.includes('annual')) {
+            return { text: 'Yearly', color: '#c084fc', bg: 'rgba(192, 132, 252, 0.15)', border: 'rgba(192, 132, 252, 0.3)' };
+        }
+        if (lower.includes('monthly')) {
+            return { text: 'Monthly', color: '#2dd4bf', bg: 'rgba(45, 212, 191, 0.15)', border: 'rgba(45, 212, 191, 0.3)' };
+        }
+        return null;
+    };
+
     const getMarketLoanInterestInfo = (loan, paymentsList) => {
         if (!loan || loan.loan_type !== 'Business Loan (Market)') {
             return null;
@@ -760,6 +796,8 @@ export default function NewEraDashboard() {
 
     const [editingRepaymentId, setEditingRepaymentId] = useState(null);
     const [isRecurring, setIsRecurring] = useState(false);
+    const [recurFrequency, setRecurFrequency] = useState('monthly'); // 'monthly', 'quarterly', 'half_yearly', 'yearly'
+    const [recurCount, setRecurCount] = useState('12');
     const [recurMonths, setRecurMonths] = useState('12');
 
     // Search & View toggles
@@ -1248,6 +1286,23 @@ export default function NewEraDashboard() {
         }
     };
 
+    const handleRecurFrequencyChange = (newFreq) => {
+        setRecurFrequency(newFreq);
+        if (newFreq === 'monthly') {
+            setRecurCount('12');
+            setRecurMonths('12');
+        } else if (newFreq === 'quarterly') {
+            setRecurCount('4');
+            setRecurMonths('12');
+        } else if (newFreq === 'half_yearly') {
+            setRecurCount('2');
+            setRecurMonths('12');
+        } else if (newFreq === 'yearly') {
+            setRecurCount('2');
+            setRecurMonths('24');
+        }
+    };
+
     const submitUpsertRepayment = async (e) => {
         e.preventDefault();
 
@@ -1261,11 +1316,23 @@ export default function NewEraDashboard() {
         }
 
         try {
+            const freqIntervalMap = {
+                monthly: 1,
+                quarterly: 3,
+                half_yearly: 6,
+                yearly: 12
+            };
+            const intervalMonths = freqIntervalMap[recurFrequency] || 1;
+            const countNum = parseInt(recurCount) || 1;
+
             const payload = {
                 action: 'upsert_repayment',
                 id: editingRepaymentId,
                 ...repaymentForm,
-                recur_months: (!editingRepaymentId && isRecurring) ? parseInt(recurMonths) : null
+                recur_count: (!editingRepaymentId && isRecurring) ? countNum : null,
+                recur_interval_months: (!editingRepaymentId && isRecurring) ? intervalMonths : null,
+                recur_frequency: (!editingRepaymentId && isRecurring) ? recurFrequency : null,
+                recur_months: (!editingRepaymentId && isRecurring) ? countNum : null
             };
 
             const res = await fetch('/api/newera', {
@@ -1278,6 +1345,8 @@ export default function NewEraDashboard() {
                 setShowAddRepayment(false);
                 setEditingRepaymentId(null);
                 setIsRecurring(false);
+                setRecurFrequency('monthly');
+                setRecurCount('12');
                 setRecurMonths('12');
                 setRepaymentForm({
                     loan_id: '',
@@ -2452,7 +2521,13 @@ export default function NewEraDashboard() {
                                         alert('Please add a liability first.');
                                         return;
                                     }
-                                    setRepaymentForm(prev => ({ ...prev, loan_id: data.loans[0].id }));
+                                    const defaultLoanId = (selectedLoanId && selectedLoanId !== 'all') ? selectedLoanId : data.loans[0].id;
+                                    const defaultDueDate = selectedCalendarDay || new Date().toISOString().split('T')[0];
+                                    setRepaymentForm(prev => ({ 
+                                        ...prev, 
+                                        loan_id: defaultLoanId,
+                                        due_date: defaultDueDate
+                                    }));
                                     setShowAddRepayment(true);
                                 }} style={styles.primaryActionButton}>
                                     <Plus size={16} /> Add Installment
@@ -2628,6 +2703,9 @@ export default function NewEraDashboard() {
                                         <option value="all">All Months (Entire Schedule)</option>
                                         <option value="month">{currentMonth.toLocaleString('default', { month: 'short', year: 'numeric' })} Only</option>
                                         <option value="unpaid">All Unpaid Only</option>
+                                        <option value="quarterly">Quarterly Only</option>
+                                        <option value="half_yearly">Half-Yearly Only</option>
+                                        <option value="yearly">Yearly Only</option>
                                     </select>
                                 </div>
                             )}
@@ -3016,7 +3094,26 @@ export default function NewEraDashboard() {
                                                                     return (
                                                                         <div key={repayment.id} style={styles.dayDetailItem} className="day-detail-item">
                                                                             <div style={styles.dayDetailItemMain}>
-                                                                                <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                                                                    <strong>{loan ? loan.name : 'Unknown Loan'} ({loan ? loan.lender : 'Vendor'})</strong>
+                                                                                    {(() => {
+                                                                                        const badge = getFrequencyBadge(repayment.notes);
+                                                                                        if (!badge) return null;
+                                                                                        return (
+                                                                                            <span style={{
+                                                                                                fontSize: '0.65rem',
+                                                                                                padding: '0.1rem 0.35rem',
+                                                                                                borderRadius: '0.25rem',
+                                                                                                backgroundColor: badge.bg,
+                                                                                                color: badge.color,
+                                                                                                border: `1px solid ${badge.border}`,
+                                                                                                fontWeight: '600'
+                                                                                            }}>
+                                                                                                {badge.text}
+                                                                                            </span>
+                                                                                        );
+                                                                                    })()}
+                                                                                </div>
                                                                                 <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.2rem' }}>
                                                                                     Installment #{repayment.installment_number || 'Custom'} • Principal: ₹{parseFloat(repayment.expected_principal).toLocaleString('en-IN')} • Interest: ₹{parseFloat(repayment.expected_interest).toLocaleString('en-IN')}
                                                                                 </span>
@@ -3119,6 +3216,17 @@ export default function NewEraDashboard() {
                                         if (listScopeFilter === 'unpaid') {
                                             return r.status !== 'paid';
                                         }
+                                        if (listScopeFilter === 'quarterly') {
+                                            return (r.notes || '').toLowerCase().includes('quarterly');
+                                        }
+                                        if (listScopeFilter === 'half_yearly') {
+                                            const n = (r.notes || '').toLowerCase();
+                                            return n.includes('half-yearly') || n.includes('half yearly') || n.includes('6-monthly');
+                                        }
+                                        if (listScopeFilter === 'yearly') {
+                                            const n = (r.notes || '').toLowerCase();
+                                            return n.includes('yearly') || n.includes('annual');
+                                        }
                                         return true;
                                     });
 
@@ -3132,7 +3240,13 @@ export default function NewEraDashboard() {
                                                         ? `No installments due in ${currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })} for ${selectedLoanId === 'all' ? 'any liability' : 'this liability'}.`
                                                         : listScopeFilter === 'unpaid'
                                                             ? 'All installments for this selection are paid.'
-                                                            : 'No scheduled repayments logged yet.'}
+                                                            : listScopeFilter === 'quarterly'
+                                                                ? 'No quarterly installments found.'
+                                                                : listScopeFilter === 'half_yearly'
+                                                                    ? 'No half-yearly installments found.'
+                                                                    : listScopeFilter === 'yearly'
+                                                                        ? 'No yearly installments found.'
+                                                                        : 'No scheduled repayments logged yet.'}
                                                 </p>
                                                 {listScopeFilter !== 'all' && (
                                                     <button 
@@ -3182,7 +3296,29 @@ export default function NewEraDashboard() {
                                                                     {repayment.status.replace('_', ' ').toUpperCase()}
                                                                 </span>
                                                             </td>
-                                                            <td><span style={styles.tableNotes}>{repayment.notes || '—'}</span></td>
+                                                            <td>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                                                    {(() => {
+                                                                        const badge = getFrequencyBadge(repayment.notes);
+                                                                        if (!badge) return null;
+                                                                        return (
+                                                                            <span style={{
+                                                                                fontSize: '0.65rem',
+                                                                                padding: '0.1rem 0.35rem',
+                                                                                borderRadius: '0.25rem',
+                                                                                backgroundColor: badge.bg,
+                                                                                color: badge.color,
+                                                                                border: `1px solid ${badge.border}`,
+                                                                                fontWeight: '600',
+                                                                                whiteSpace: 'nowrap'
+                                                                            }}>
+                                                                                {badge.text}
+                                                                            </span>
+                                                                        );
+                                                                    })()}
+                                                                    <span style={styles.tableNotes}>{repayment.notes || '—'}</span>
+                                                                </div>
+                                                            </td>
                                                             <td>
                                                                 <div style={styles.tableActionsRow}>
                                                                     <button 
@@ -3784,13 +3920,15 @@ export default function NewEraDashboard() {
             {/* 2. Add Repayment Installment Modal */}
             {showAddRepayment && (
                 <div style={styles.modalOverlay}>
-                    <div style={styles.modalContent} style={{ ...styles.modalContent, maxWidth: '450px' }}>
+                    <div style={{ ...styles.modalContent, maxWidth: '490px' }}>
                         <div style={styles.modalHeader}>
                             <h3 style={styles.modalTitle}>{editingRepaymentId ? 'Edit Due Repayment Item' : 'Add Due Repayment Item'}</h3>
                             <button onClick={() => {
                                 setShowAddRepayment(false);
                                 setEditingRepaymentId(null);
                                 setIsRecurring(false);
+                                setRecurFrequency('monthly');
+                                setRecurCount('12');
                                 setRecurMonths('12');
                                 setRepaymentForm({
                                     loan_id: '',
@@ -3916,31 +4054,170 @@ export default function NewEraDashboard() {
                                     marginBottom: '1rem',
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '0.5rem'
+                                    gap: '0.75rem'
                                 }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ffffff' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', color: '#ffffff', fontWeight: '600' }}>
                                         <input 
                                             type="checkbox" 
                                             checked={isRecurring} 
                                             onChange={e => setIsRecurring(e.target.checked)}
                                             style={{ cursor: 'pointer' }}
                                         />
-                                        Recurring Installment?
+                                        Generate Recurring Schedule
                                     </label>
                                     
                                     {isRecurring && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Repeat monthly for:</span>
-                                            <input 
-                                                type="number" 
-                                                min="2" 
-                                                max="120" 
-                                                value={recurMonths} 
-                                                onChange={e => setRecurMonths(e.target.value)}
-                                                style={{ ...styles.formInput, width: '80px', padding: '0.25rem 0.5rem', margin: 0 }}
-                                                required
-                                            />
-                                            <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>months</span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingTop: '0.25rem' }}>
+                                            {/* Frequency Selector */}
+                                            <div>
+                                                <label style={{ ...styles.formLabel, fontSize: '0.75rem', marginBottom: '0.35rem' }}>
+                                                    Installment Frequency
+                                                </label>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem' }}>
+                                                    {[
+                                                        { id: 'monthly', label: 'Monthly', sub: '1 Mo' },
+                                                        { id: 'quarterly', label: 'Quarterly', sub: '3 Mos' },
+                                                        { id: 'half_yearly', label: 'Half-Yearly', sub: '6 Mos' },
+                                                        { id: 'yearly', label: 'Yearly', sub: '12 Mos' }
+                                                    ].map(freq => (
+                                                        <button
+                                                            key={freq.id}
+                                                            type="button"
+                                                            onClick={() => handleRecurFrequencyChange(freq.id)}
+                                                            style={{
+                                                                padding: '0.45rem 0.25rem',
+                                                                borderRadius: '0.375rem',
+                                                                border: recurFrequency === freq.id ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
+                                                                backgroundColor: recurFrequency === freq.id ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.04)',
+                                                                color: recurFrequency === freq.id ? '#ffffff' : '#94a3b8',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                flexDirection: 'column',
+                                                                alignItems: 'center',
+                                                                gap: '0.15rem',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: '0.75rem', fontWeight: recurFrequency === freq.id ? '700' : '500' }}>{freq.label}</span>
+                                                            <span style={{ fontSize: '0.65rem', opacity: 0.75 }}>{freq.sub}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Number of Installments & Quick Presets */}
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                                                    <label style={{ ...styles.formLabel, fontSize: '0.75rem', margin: 0 }}>
+                                                        Number of Installments
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                        {(recurFrequency === 'monthly' 
+                                                            ? ['3', '6', '12', '24', '36']
+                                                            : recurFrequency === 'quarterly'
+                                                            ? ['4', '8', '12', '16']
+                                                            : recurFrequency === 'half_yearly'
+                                                            ? ['2', '4', '6', '10']
+                                                            : ['2', '3', '5', '10']
+                                                        ).map(preset => (
+                                                            <button
+                                                                key={preset}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setRecurCount(preset);
+                                                                    const mult = recurFrequency === 'quarterly' ? 3 : recurFrequency === 'half_yearly' ? 6 : recurFrequency === 'yearly' ? 12 : 1;
+                                                                    setRecurMonths(String(parseInt(preset, 10) * mult));
+                                                                }}
+                                                                style={{
+                                                                    padding: '0.15rem 0.4rem',
+                                                                    fontSize: '0.65rem',
+                                                                    borderRadius: '0.25rem',
+                                                                    border: String(recurCount) === preset ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.1)',
+                                                                    backgroundColor: String(recurCount) === preset ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255,255,255,0.04)',
+                                                                    color: String(recurCount) === preset ? '#ffffff' : '#94a3b8',
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            >
+                                                                {preset}x
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        min="2" 
+                                                        max="120" 
+                                                        value={recurCount} 
+                                                        onChange={e => {
+                                                            const val = e.target.value;
+                                                            setRecurCount(val);
+                                                            const countNum = parseInt(val, 10) || 1;
+                                                            const mult = recurFrequency === 'quarterly' ? 3 : recurFrequency === 'half_yearly' ? 6 : recurFrequency === 'yearly' ? 12 : 1;
+                                                            setRecurMonths(String(countNum * mult));
+                                                        }}
+                                                        style={{ ...styles.formInput, width: '90px', padding: '0.35rem 0.5rem', margin: 0 }}
+                                                        required
+                                                    />
+                                                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                                                        installments ({(() => {
+                                                            const c = parseInt(recurCount, 10) || 0;
+                                                            const mult = recurFrequency === 'quarterly' ? 3 : recurFrequency === 'half_yearly' ? 6 : recurFrequency === 'yearly' ? 12 : 1;
+                                                            return `${c * mult} months total`;
+                                                        })()})
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Dynamic Schedule Preview */}
+                                            {(() => {
+                                                const count = parseInt(recurCount, 10) || 0;
+                                                const mult = recurFrequency === 'quarterly' ? 3 : recurFrequency === 'half_yearly' ? 6 : recurFrequency === 'yearly' ? 12 : 1;
+                                                const startDate = repaymentForm.due_date || new Date().toISOString().split('T')[0];
+                                                const endDate = addMonthsToDate(startDate, Math.max(0, (count - 1) * mult));
+                                                const totalAmount = (parseFloat(repaymentForm.expected_amount) || 0) * count;
+
+                                                const sampleDates = [];
+                                                for (let i = 0; i < Math.min(count, 4); i++) {
+                                                    sampleDates.push(addMonthsToDate(startDate, i * mult));
+                                                }
+
+                                                return (
+                                                    <div style={{
+                                                        padding: '0.5rem 0.75rem',
+                                                        borderRadius: '0.375rem',
+                                                        backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                                                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                                                        fontSize: '0.75rem'
+                                                    }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', color: '#c7d2fe', fontWeight: '600' }}>
+                                                            <span>Schedule Preview ({count} installments):</span>
+                                                            {totalAmount > 0 && <span>Total: ₹{totalAmount.toLocaleString('en-IN')}</span>}
+                                                        </div>
+                                                        <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>
+                                                            {startDate} &rarr; {endDate}
+                                                        </div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem' }}>
+                                                            {sampleDates.map((d, idx) => (
+                                                                <span key={`${d}-${idx}`} style={{
+                                                                    backgroundColor: 'rgba(255,255,255,0.06)',
+                                                                    padding: '0.15rem 0.35rem',
+                                                                    borderRadius: '0.25rem',
+                                                                    color: '#e2e8f0',
+                                                                    fontSize: '0.7rem'
+                                                                }}>
+                                                                    #{idx + 1}: {d}
+                                                                </span>
+                                                            ))}
+                                                            {count > 4 && (
+                                                                <span style={{ color: '#94a3b8', alignSelf: 'center', fontSize: '0.7rem' }}>
+                                                                    +{count - 4} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>
