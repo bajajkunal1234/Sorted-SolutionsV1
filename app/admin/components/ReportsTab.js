@@ -28,7 +28,7 @@ import SupportInbox from './reports/SupportInbox';
 import MapSettingsTab from './reports/MapSettingsTab';
 import InstalledDevicesReport from './reports/InstalledDevicesReport';
 
-import { settingsByCategory } from '@/lib/data/websiteSettingsData';
+import { categoryGroups, settingsByCategory } from '@/lib/data/websiteSettingsData';
 
 import SQLRunnerPage from '../system/sql/page';
 
@@ -109,6 +109,15 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
         { id: 'pos-sales', label: 'Store POS Sales Summary', icon: Store, color: '#f59e0b', description: 'Over-the-counter sales, bills, and UPI vs cash split', type: 'section' },
         { id: 'day-planner', label: 'Payment Reminders (Planner)', icon: DollarSign, color: '#10b981', description: 'Schedule and manage payment due dates', type: 'section' },
         { id: 'day-planner', label: 'Visit Reminders (Planner)', icon: CalendarClock, color: '#8b5cf6', description: 'Schedule client, site, and technician visits', type: 'section' },
+        ...categoryGroups.map(g => ({
+            id: g.id,
+            label: g.label,
+            description: g.description,
+            color: g.color,
+            type: 'website-setting',
+            parentId: 'slots',
+            categoryLabel: 'Website Settings'
+        })),
         ...Object.entries(settingsByCategory).flatMap(([catId, settings]) =>
             settings.map(s => ({
                 ...s,
@@ -392,7 +401,7 @@ function ReportsTab({ initialSection, initialSubSection, initialTechSubTab, onCl
                                     <>
                                         <span style={{ color: 'var(--text-tertiary)' }}>›</span>
                                         <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                                            {subSection}
+                                            {searchSuggestions.find(s => s.id === subSection || s.label === subSection)?.label || subSection}
                                         </span>
                                     </>
                                 )}

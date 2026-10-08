@@ -151,7 +151,7 @@ export default function AdminApp() {
         }
         window.openWebsiteAnalyticsLeadsTracker = () => {
             setReportsSectionToOpen('slots');
-            setReportsSubSectionToOpen('leads-tracker');
+            setReportsSubSectionToOpen('🎯 Google Ads Leads & ROI Tracker');
             setActiveTab('reports');
         }
         window.openPOSModal = () => {

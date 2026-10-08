@@ -238,10 +238,18 @@ function WebsiteSettings({ subSection, setSubSection }) {
             const group = categoryGroups.find(g => g.label === baseSection || g.id === baseSection);
             if (group) {
                 setActiveCategory(group.id);
+                if (subSection === group.id && setSubSection) {
+                    setSubSection(group.label);
+                }
             } else {
                 const allSettings = Object.values(settingsByCategory).flat();
                 const setting = allSettings.find(s => s.id === baseSection || s.label === baseSection);
-                if (setting) setActiveCategory(setting.id);
+                if (setting) {
+                    setActiveCategory(setting.id);
+                    if (subSection === setting.id && setSubSection) {
+                        setSubSection(setting.label);
+                    }
+                }
             }
         }
     }, [subSection, settingsByCategory]);
