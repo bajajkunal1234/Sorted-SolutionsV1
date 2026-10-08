@@ -88,14 +88,26 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
         }
     }, [value, selectedAccount, initialAccountName]);
 
-    const getAccountTypeBadge = (type) => {
+    const getAccountTypeBadge = (type, under = '') => {
+        const u = (under || '').toLowerCase();
+        if (u.includes('drawing')) {
+            return { label: 'Drawings', color: '#a855f7' };
+        }
+        if (u.includes('capital') || type === 'equity') {
+            return { label: 'Capital / Equity', color: '#a855f7' };
+        }
         const badges = {
             customer: { label: 'Customer', color: '#10b981' },
             vendor: { label: 'Vendor', color: '#8b5cf6' },
+            supplier: { label: 'Supplier', color: '#8b5cf6' },
+            technician: { label: 'Technician', color: '#06b6d4' },
             bank: { label: 'Bank', color: '#3b82f6' },
             cash: { label: 'Cash', color: '#f59e0b' },
             expense: { label: 'Expense', color: '#ef4444' },
-            income: { label: 'Income', color: '#10b981' }
+            income: { label: 'Income', color: '#10b981' },
+            equity: { label: 'Equity', color: '#a855f7' },
+            liability: { label: 'Liability', color: '#f97316' },
+            liabilities: { label: 'Liability', color: '#f97316' }
         };
         return badges[type] || { label: type, color: '#6b7280' };
     };
@@ -124,6 +136,8 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
 
         if (acc.name?.toLowerCase().includes(s)) return true;
         if (acc.group?.toLowerCase().includes(s)) return true;
+        if (acc.under?.toLowerCase().includes(s)) return true;
+        if (acc.type?.toLowerCase().includes(s)) return true;
         if (acc.sku?.toLowerCase().includes(s)) return true;
 
         if (sDig.length >= 3) {
@@ -172,48 +186,51 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
                         onSelect={handleSelect}
                         searchKey="name"
                         loading={loading}
-                        renderSuggestion={(acc) => (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{
-                                        padding: '6px',
-                                        borderRadius: '50%',
-                                        backgroundColor: `${getAccountTypeBadge(acc.type).color}15`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        <User size={14} style={{ color: getAccountTypeBadge(acc.type).color }} />
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{acc.name}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{acc.group}</span>
-                                            {acc.current_balance !== undefined && (
-                                                <span style={{
-                                                    fontSize: 'var(--font-size-xs)',
-                                                    fontWeight: 600,
-                                                    color: acc.current_balance >= 0 ? '#10b981' : '#ef4444'
-                                                }}>
-                                                    ₹{Math.abs(acc.current_balance).toLocaleString()} {acc.current_balance >= 0 ? 'Dr' : 'Cr'}
-                                                </span>
-                                            )}
+                        renderSuggestion={(acc) => {
+                            const badge = getAccountTypeBadge(acc.type, acc.under);
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                            padding: '6px',
+                                            borderRadius: '50%',
+                                            backgroundColor: `${badge.color}15`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <User size={14} style={{ color: badge.color }} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{acc.name}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{acc.group || acc.under || badge.label}</span>
+                                                {acc.current_balance !== undefined && (
+                                                    <span style={{
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        fontWeight: 600,
+                                                        color: acc.current_balance >= 0 ? '#10b981' : '#ef4444'
+                                                    }}>
+                                                        ₹{Math.abs(acc.current_balance).toLocaleString()} {acc.current_balance >= 0 ? 'Dr' : 'Cr'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
+                                    <span style={{
+                                        padding: '2px 8px',
+                                        backgroundColor: `${badge.color}15`,
+                                        color: badge.color,
+                                        fontSize: '10px',
+                                        borderRadius: '10px',
+                                        fontWeight: 700,
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {badge.label}
+                                    </span>
                                 </div>
-                                <span style={{
-                                    padding: '2px 8px',
-                                    backgroundColor: `${getAccountTypeBadge(acc.type).color}15`,
-                                    color: getAccountTypeBadge(acc.type).color,
-                                    fontSize: '10px',
-                                    borderRadius: '10px',
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase'
-                                }}>
-                                    {getAccountTypeBadge(acc.type).label}
-                                </span>
-                            </div>
-                        )}
+                            );
+                        }}
                     />
                 </div>
                 {/* Dropdown toggle button */}
@@ -291,7 +308,7 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
                                     No accounts found
                                 </div>
                             ) : filteredDropdownAccounts.map(acc => {
-                                const badge = getAccountTypeBadge(acc.type);
+                                const badge = getAccountTypeBadge(acc.type, acc.under);
                                 const isSelected = acc.id === value;
                                 return (
                                     <div
@@ -319,7 +336,7 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{acc.name}</div>
-                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{acc.group || badge.label}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{acc.group || acc.under || badge.label}</div>
                                         </div>
                                         <span style={{
                                             padding: '2px 7px', borderRadius: '10px', fontSize: '10px',

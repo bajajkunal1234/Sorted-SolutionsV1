@@ -4106,6 +4106,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         onClose={() => setShowVoucherForm(null)}
                         existingPayment={showVoucherForm.data}
                         onSave={handleVoucherSave}
+                        accountType="all"
                         saving={saving}
                     />
                 ) : showVoucherForm.type === 'receipt' ? (
@@ -4113,6 +4114,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                         onClose={() => setShowVoucherForm(null)}
                         existingReceipt={showVoucherForm.data}
                         onSave={handleVoucherSave}
+                        accountType="all"
                         saving={saving}
                     />
                 ) : showVoucherForm.type === 'sales' ? (

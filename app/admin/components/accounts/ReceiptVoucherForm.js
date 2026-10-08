@@ -7,7 +7,7 @@ import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
 
-function ReceiptVoucherForm({ onClose, onSave, existingReceipt, saving = false }) {
+function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
         receipt_number: existingReceipt?.receipt_number || `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingReceipt?.date || new Date().toISOString().split('T')[0],
@@ -139,7 +139,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, saving = false }
                                 value={formData.account_id}
                                 onChange={(acc) => setFormData({ ...formData, account_id: acc?.id || '', account_name: acc?.name || '' })}
                                 onCreateNew={() => setShowNewAccountForm(true)}
-                                accountType="customer"
+                                accountType={accountType}
                                 label="Received From"
                                 initialAccountName={formData.account_name}
                             />

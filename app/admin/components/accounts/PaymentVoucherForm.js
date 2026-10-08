@@ -7,7 +7,7 @@ import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
 
-function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'vendor', saving = false }) {
+function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
         payment_number: existingPayment?.payment_number || `PAY-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingPayment?.date || new Date().toISOString().split('T')[0],
@@ -141,6 +141,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'v
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType={accountType}
                                 label={accountType === 'expense' ? 'Debit Account (Expense)' : 'Paid To'}
+                                initialAccountName={formData.account_name}
                             />
                         </div>
 

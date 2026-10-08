@@ -69,6 +69,9 @@ function AutocompleteSearch({
         if (item.sku && String(item.sku).toLowerCase().includes(vLower)) return true;
         if (item.email && String(item.email).toLowerCase().includes(vLower)) return true;
         if (item.contact_person && String(item.contact_person).toLowerCase().includes(vLower)) return true;
+        if (item.under && String(item.under).toLowerCase().includes(vLower)) return true;
+        if (item.group && String(item.group).toLowerCase().includes(vLower)) return true;
+        if (item.type && String(item.type).toLowerCase().includes(vLower)) return true;
 
         return false;
     }).slice(0, 15); // Show top 15 suggestions

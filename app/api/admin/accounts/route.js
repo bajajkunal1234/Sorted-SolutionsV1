@@ -117,6 +117,14 @@ export async function GET(request) {
                     dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%,type.eq.cash,under.ilike.%cash%,type.eq.bank,under.ilike.%bank%');
                 } else if (type === 'payment_method') {
                     dropdownQuery = dropdownQuery.or('type.eq.bank,type.eq.cash,under.ilike.%bank%,under.ilike.%cash%');
+                } else if (type === 'payment' || type === 'payment_party') {
+                    dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%,type.eq.expense,under.ilike.%expense%,type.eq.equity,under.ilike.%drawings%,under.ilike.%capital%,type.eq.liability,type.eq.liabilities,under.ilike.%liability%,under.ilike.%tax%,type.eq.customer,under.ilike.%customer%');
+                } else if (type === 'receipt' || type === 'receipt_party') {
+                    dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%,type.eq.supplier,under.ilike.%supplier%,under.ilike.%creditor%,type.eq.income,under.ilike.%income%,type.eq.equity,under.ilike.%capital%,under.ilike.%drawings%,type.eq.liability,under.ilike.%liability%');
+                } else if (type === 'expense') {
+                    dropdownQuery = dropdownQuery.or('type.eq.expense,under.ilike.%expense%');
+                } else if (type === 'equity' || type === 'drawings') {
+                    dropdownQuery = dropdownQuery.or('type.eq.equity,under.ilike.%drawings%,under.ilike.%capital%');
                 } else {
                     dropdownQuery = dropdownQuery.eq('type', type);
                 }
@@ -151,6 +159,14 @@ export async function GET(request) {
                 query = query.or('type.eq.technician,under.ilike.%technician%,under.ilike.%creditor%')
             } else if (type === 'payment_method') {
                 query = query.or('type.eq.bank,type.eq.cash,under.ilike.%bank%,under.ilike.%cash%')
+            } else if (type === 'payment' || type === 'payment_party') {
+                query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%,type.eq.technician,under.ilike.%technician%,type.eq.expense,under.ilike.%expense%,type.eq.equity,under.ilike.%drawings%,under.ilike.%capital%,type.eq.liability,type.eq.liabilities,under.ilike.%liability%,under.ilike.%tax%,type.eq.customer,under.ilike.%customer%')
+            } else if (type === 'receipt' || type === 'receipt_party') {
+                query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%,type.eq.supplier,under.ilike.%supplier%,under.ilike.%creditor%,type.eq.income,under.ilike.%income%,type.eq.equity,under.ilike.%capital%,under.ilike.%drawings%,type.eq.liability,under.ilike.%liability%')
+            } else if (type === 'expense') {
+                query = query.or('type.eq.expense,under.ilike.%expense%')
+            } else if (type === 'equity' || type === 'drawings') {
+                query = query.or('type.eq.equity,under.ilike.%drawings%,under.ilike.%capital%')
             } else {
                 query = query.eq('type', type)
             }
