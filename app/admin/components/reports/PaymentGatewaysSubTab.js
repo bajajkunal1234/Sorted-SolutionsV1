@@ -722,61 +722,80 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                         {/* Comparison 3-Column Grid */}
                                         <div style={{
                                             display: 'grid',
-                                            gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.3fr 1.5fr',
+                                            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.45fr)',
                                             gap: '12px',
                                             alignItems: 'stretch'
                                         }}>
                                             {/* Column 1: Bank Inflow */}
                                             <div style={{
+                                                minWidth: 0,
                                                 padding: '10px 12px', borderRadius: '6px',
                                                 backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--border-primary)'
+                                                border: '1px solid var(--border-primary)',
+                                                display: 'flex', flexDirection: 'column', justifyContent: 'center'
                                             }}>
-                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.3px' }}>
                                                     1. HDFC Bank Credit (Actual)
                                                 </div>
                                                 <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
                                                     ₹{fmt(payout.amount)}
                                                 </div>
-                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={payout.particulars}>
+                                                <div
+                                                    style={{
+                                                        fontSize: '10px',
+                                                        color: 'var(--text-tertiary)',
+                                                        marginTop: '3px',
+                                                        lineHeight: 1.35,
+                                                        wordBreak: 'break-word',
+                                                        overflowWrap: 'anywhere',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    }}
+                                                    title={payout.particulars}
+                                                >
                                                     {payout.particulars}
                                                 </div>
                                             </div>
 
                                             {/* Column 2: Operations Receipts */}
                                             <div style={{
+                                                minWidth: 0,
                                                 padding: '10px 12px', borderRadius: '6px',
                                                 backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--border-primary)'
+                                                border: '1px solid var(--border-primary)',
+                                                display: 'flex', flexDirection: 'column', justifyContent: 'center'
                                             }}>
-                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.3px' }}>
                                                     2. System Collections (Batch Window)
                                                 </div>
                                                 <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
                                                     ₹{fmt(payout.candidateTotal)}
                                                 </div>
-                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.35, wordBreak: 'break-word' }}>
                                                     🏪 POS: <strong>₹{fmt(payout.candidatePos)}</strong> · 💼 Tech: <strong>₹{fmt(payout.candidateTech)}</strong> ({payout.candidateCount} vouchers)
                                                 </div>
                                             </div>
 
                                             {/* Column 3: Variance & Financial Diagnosis */}
                                             <div style={{
+                                                minWidth: 0,
                                                 padding: '10px 12px', borderRadius: '6px',
                                                 backgroundColor: isReconciled ? 'var(--bg-secondary)' : (isMissing ? 'rgba(239, 68, 68, 0.06)' : (isShort ? 'rgba(245, 158, 11, 0.06)' : 'rgba(16, 185, 129, 0.06)')),
                                                 border: `1px solid ${borderColor}`,
                                                 display: 'flex', flexDirection: 'column', justifyContent: 'center'
                                             }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
                                                         3. Variance & Diagnosis
                                                     </span>
-                                                    <span style={{ fontSize: '14px', fontWeight: 800, color: badgeColor }}>
+                                                    <span style={{ fontSize: '14px', fontWeight: 800, color: badgeColor, whiteSpace: 'nowrap' }}>
                                                         {payout.variance > 0 ? `+₹${fmt(payout.variance)}` : `₹${fmt(payout.variance)}`}
                                                     </span>
                                                 </div>
 
-                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.3 }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.35, wordBreak: 'break-word' }}>
                                                     {isReconciled ? (
                                                         <span style={{ color: '#64748b' }}>✅ Successfully linked with vouchers and reconciled in HDFC ledger.</span>
                                                     ) : isMissing ? (
@@ -1317,7 +1336,7 @@ export default function PaymentGatewaysSubTab({ isMobile = false }) {
                                     <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <Sparkles size={16} /> Reconcile {payout.provider || 'Gateway'} Bank Payout
                                     </h4>
-                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-secondary)', wordBreak: 'break-word' }}>
                                         Ref: {payout.ref_no || '—'} · Date: {fmtDate(payout.date)} · Particulars: {payout.particulars}
                                     </p>
                                 </div>
