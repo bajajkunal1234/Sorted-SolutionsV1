@@ -7,7 +7,8 @@ import {
     ChevronDown, ChevronUp, RefreshCw, ArrowRight, Upload, CheckCircle, AlertTriangle,
     Calendar, FileSpreadsheet, Link2, Unlink, Clock, Search, Filter,
     ShieldAlert, Sparkles, ExternalLink, ArrowUpRight, ArrowDownLeft, X,
-    ArrowUpDown, FileText, ShoppingCart, Receipt, CreditCard, Pencil
+    ArrowUpDown, FileText, ShoppingCart, Receipt, CreditCard, Pencil,
+    LayoutGrid, Kanban, Table
 } from 'lucide-react';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
@@ -268,6 +269,14 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     // Resizable column widths
     const [colWidths, setColWidths] = useState(DEFAULT_COLUMN_WIDTHS);
     const resizingRef = useRef(null);
+
+    // View Type: 'table' | 'card' | 'kanban'
+    const [viewType, setViewType] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('bank_accounts_view_type') || 'table';
+        }
+        return 'table';
+    });
 
     // Bank Statement & System Data
     const [bankStatements, setBankStatements] = useState([]);
@@ -2103,6 +2112,695 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         </tr>
     );
 
+    // Card View Opening & Closing Balance Cards
+    const renderOpeningCard = (isTop = false) => (
+        <div key={`opening-card-${isTop ? 'top' : 'bottom'}`} style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+            border: '1px solid rgba(59, 130, 246, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    textTransform: 'uppercase'
+                }}>
+                    OPENING
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Opening Balance b/f ({formatDateGB(fromDate)})
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                    {closingComparison.hasStatement
+                        ? `System: ₹${closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · Stmt: ₹${closingComparison.statementOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        : 'Book balance as of period start'}
+                </span>
+            </div>
+            <div style={{
+                fontSize: '13px',
+                fontWeight: 800,
+                color: closingComparison.systemOpening >= 0 ? '#10b981' : '#ef4444'
+            }}>
+                ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+        </div>
+    );
+
+    const renderClosingCard = (isTop = false) => (
+        <div key={`closing-card-${isTop ? 'top' : 'bottom'}`} style={{
+            backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+            border: `1px solid ${closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 14px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '8px'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    backgroundColor: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981',
+                    color: '#fff',
+                    textTransform: 'uppercase'
+                }}>
+                    CLOSING
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Closing Balance c/f ({formatDateGB(toDate)})
+                </span>
+                <div style={{ display: 'flex', gap: '8px', fontSize: '10px' }}>
+                    <span style={{ color: '#10b981', fontWeight: 700 }}>+₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span style={{ color: '#ef4444', fontWeight: 700 }}>-₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    <span style={{ color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-secondary)', fontWeight: 600 }}>
+                        {closingComparison.hasStatement ? (
+                            closingComparison.isDiscrepancy
+                                ? `🚨 Diff: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                : `✅ Matched Stmt: ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        ) : 'System Computed'}
+                    </span>
+                </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+                <div style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    color: closingComparison.isDiscrepancy ? '#ef4444' : (closingComparison.systemClosing >= 0 ? '#10b981' : '#ef4444')
+                }}>
+                    ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                {closingComparison.hasStatement && closingComparison.isDiscrepancy && (
+                    <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 700 }}>
+                        Stmt: ₹{closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    // Kanban Columns Configuration
+    const kanbanColumns = useMemo(() => {
+        if (isCurrentGateway) {
+            const cols = [
+                {
+                    id: 'holding',
+                    title: '🟡 Holding in Gateway',
+                    subtitle: 'Awaiting bank payout',
+                    color: '#d97706',
+                    bgLight: 'rgba(245, 158, 11, 0.1)',
+                    filterFn: (r) => !r.is_settled && !r.isDuplicate
+                },
+                {
+                    id: 'settled',
+                    title: '🟢 Settled to HDFC',
+                    subtitle: 'Transferred and settled to bank',
+                    color: '#10b981',
+                    bgLight: 'rgba(16, 185, 129, 0.1)',
+                    filterFn: (r) => r.is_settled && !r.isDuplicate
+                }
+            ];
+            if (sortedRows.some(r => r.isDuplicate)) {
+                cols.push({
+                    id: 'duplicate',
+                    title: '🚨 Duplicates',
+                    subtitle: 'Suspected duplicates',
+                    color: '#ef4444',
+                    bgLight: 'rgba(239, 68, 68, 0.1)',
+                    filterFn: (r) => r.isDuplicate
+                });
+            }
+            return cols;
+        }
+
+        const cols = [
+            {
+                id: 'unassigned',
+                title: '⚠️ Needs System Entry',
+                subtitle: 'Pending ERP voucher',
+                color: '#f59e0b',
+                bgLight: 'rgba(245, 158, 11, 0.1)',
+                filterFn: (r) => (r.origin === 'statement' || r.origin === 'alert') && !r.isReconciled && !r.isGatewayPayout && !r.isDuplicate
+            },
+            {
+                id: 'gateway_payouts',
+                title: '🏦 Gateway Settlements',
+                subtitle: 'GPay / Razorpay / Pine Labs',
+                color: '#0ea5e9',
+                bgLight: 'rgba(14, 165, 233, 0.1)',
+                filterFn: (r) => r.isGatewayPayout && !r.isReconciled && !r.isDuplicate
+            },
+            {
+                id: 'missed_by_scraper',
+                title: '📬 Missed by Scraper',
+                subtitle: 'Present in bank statement only',
+                color: '#d97706',
+                bgLight: 'rgba(217, 119, 6, 0.1)',
+                filterFn: (r) => r.origin === 'statement' && r.isMissedByScraper && !r.isReconciled && !r.isGatewayPayout && !r.isDuplicate
+            },
+            {
+                id: 'uncleared',
+                title: '⏳ Uncleared in Bank',
+                subtitle: 'System vouchers not in statement',
+                color: '#8b5cf6',
+                bgLight: 'rgba(139, 92, 246, 0.1)',
+                filterFn: (r) => r.origin === 'system' && !r.isReconciled && !r.isDuplicate
+            },
+            {
+                id: 'reconciled',
+                title: '✅ Reconciled',
+                subtitle: 'Matched and reconciled entries',
+                color: '#10b981',
+                bgLight: 'rgba(16, 185, 129, 0.1)',
+                filterFn: (r) => r.isReconciled && !r.isDuplicate
+            }
+        ];
+
+        if (sortedRows.some(r => r.isDuplicate)) {
+            cols.push({
+                id: 'duplicate',
+                title: '🚨 Duplicates',
+                subtitle: 'Suspected duplicates',
+                color: '#ef4444',
+                bgLight: 'rgba(239, 68, 68, 0.1)',
+                filterFn: (r) => r.isDuplicate
+            });
+        }
+
+        return cols;
+    }, [isCurrentGateway, sortedRows]);
+
+    // Shared Transaction Card Component for Card & Kanban views
+    const renderTransactionCard = (row, { compact = false } = {}) => {
+        const isDeposit = row.type === 'receipt';
+        const isReconciled = row.isReconciled;
+        const isUnassigned = (row.origin === 'statement' || row.origin === 'alert') && !isReconciled;
+        const isUncleared = row.isUncleared;
+        const isDuplicate = row.isDuplicate;
+        const editable = getEditableVoucherInfo(row);
+        const canEdit = Boolean(editable && row.voucherNo && row.voucherNo !== '—' && row.voucherNo !== 'GMAIL-ALERT');
+        const parsed = parseNarrationContent(row.particulars, row);
+        const alertPartyLower = (row.matchedAlert?.party_name || '').toLowerCase().trim();
+        const upiIdLower = (parsed.upiId || '').toLowerCase().trim();
+        const hasMatchingAlert = alertPartyLower && upiIdLower && (alertPartyLower === upiIdLower || alertPartyLower.includes(upiIdLower) || upiIdLower.includes(alertPartyLower));
+
+        return (
+            <div
+                key={row.rowId || row.id}
+                style={{
+                    backgroundColor: isDuplicate
+                        ? 'rgba(239, 68, 68, 0.08)'
+                        : (row.isMissedByScraper && activeFilter === 'missed_by_scraper'
+                            ? 'rgba(245, 158, 11, 0.08)'
+                            : (isUnassigned
+                                ? 'rgba(245, 158, 11, 0.04)'
+                                : (isUncleared
+                                    ? 'rgba(139, 92, 246, 0.03)'
+                                    : 'var(--bg-elevated)'))),
+                    border: isDuplicate
+                        ? '1px solid rgba(239, 68, 68, 0.4)'
+                        : (row.isGatewayPayout && !isReconciled
+                            ? '1px solid rgba(14, 165, 233, 0.4)'
+                            : (isUnassigned
+                                ? '1px solid rgba(245, 158, 11, 0.3)'
+                                : (isUncleared
+                                    ? '1px solid rgba(139, 92, 246, 0.3)'
+                                    : (isReconciled
+                                        ? '1px solid rgba(16, 185, 129, 0.3)'
+                                        : '1px solid var(--border-primary)')))),
+                    borderRadius: 'var(--radius-md)',
+                    padding: compact ? '9px 10px' : '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '7px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    transition: 'all 0.15s ease',
+                    position: 'relative'
+                }}
+            >
+                {/* Top row: Date, Origin tag & Status badge */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: compact ? '10px' : '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            {formatDateGB(row.date)}
+                        </span>
+                        {row.origin === 'statement' ? (
+                            <span style={{
+                                fontSize: '8.5px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                color: '#3b82f6',
+                                textTransform: 'uppercase'
+                            }}>
+                                BANK STMT
+                            </span>
+                        ) : row.isAlert ? (
+                            <span style={{
+                                fontSize: '8.5px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                color: '#ef4444',
+                                textTransform: 'uppercase'
+                            }}>
+                                GMAIL ALERT
+                            </span>
+                        ) : (
+                            <span style={{
+                                fontSize: '8.5px',
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: '3px',
+                                backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                                color: '#8b5cf6',
+                                textTransform: 'uppercase'
+                            }}>
+                                {row.systemType || 'SYSTEM'}
+                            </span>
+                        )}
+
+                        {row.hasEmailAlert && (
+                            <span style={{
+                                fontSize: '8px',
+                                fontWeight: 700,
+                                padding: '1px 4px',
+                                borderRadius: '2px',
+                                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                color: '#10b981',
+                                whiteSpace: 'nowrap'
+                            }} title="Matched with Gmail transaction alert">
+                                ✉️ Scraped
+                            </span>
+                        )}
+                        {row.isMissedByScraper && (
+                            <span style={{
+                                fontSize: '8px',
+                                fontWeight: 800,
+                                padding: '1px 4px',
+                                borderRadius: '2px',
+                                backgroundColor: 'rgba(245, 158, 11, 0.18)',
+                                color: '#d97706',
+                                whiteSpace: 'nowrap'
+                            }} title="Gmail scraper missed this transaction — uploaded via statement">
+                                📬 Missed
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Status Badge */}
+                    <div>
+                        {isCurrentGateway ? (
+                            row.is_settled ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+                                    <CheckCircle size={10} /> Settled
+                                </span>
+                            ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#d97706' }}>
+                                    🟡 Holding
+                                </span>
+                            )
+                        ) : isReconciled ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981' }}>
+                                <CheckCircle size={10} /> Reconciled
+                            </span>
+                        ) : isDuplicate ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 800, backgroundColor: '#ef4444', color: '#fff' }}>
+                                🚨 Duplicate
+                            </span>
+                        ) : row.isGatewayPayout ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 800, backgroundColor: 'rgba(14, 165, 233, 0.15)', color: '#0284c7', border: '1px solid rgba(14, 165, 233, 0.3)' }}>
+                                🏦 Gateway Payout
+                            </span>
+                        ) : isUnassigned ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#d97706' }}>
+                                ⚠️ Needs Entry
+                            </span>
+                        ) : isUncleared ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '1px 5px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                                ⚠️ Not in Stmt
+                            </span>
+                        ) : (
+                            <span style={{ fontSize: '9.5px', color: 'var(--text-tertiary)' }}>Pending</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Amount and Voucher No Row */}
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px' }}>
+                    <div style={{
+                        fontSize: compact ? '14px' : '16px',
+                        fontWeight: 800,
+                        color: isDeposit ? '#10b981' : '#ef4444'
+                    }}>
+                        {isDeposit ? `+₹${row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `-₹${row.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {canEdit ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditVoucher(editable.type, editable.id, row);
+                                }}
+                                title={`Click to edit ${editable.type.toUpperCase()}: ${editable.number}`}
+                                style={{
+                                    background: 'rgba(14, 165, 233, 0.08)',
+                                    border: '1px solid rgba(14, 165, 233, 0.25)',
+                                    borderRadius: '4px',
+                                    padding: '1px 5px',
+                                    color: '#0284c7',
+                                    cursor: 'pointer',
+                                    fontSize: compact ? '10px' : '11px',
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                }}
+                            >
+                                <Pencil size={9} />
+                                <span>{row.voucherNo}</span>
+                            </button>
+                        ) : (
+                            <span style={{ fontSize: compact ? '10px' : '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                {row.voucherNo && row.voucherNo !== '—' ? row.voucherNo : ''}
+                            </span>
+                        )}
+
+                        {row.refNo && (
+                            <span style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontFamily: 'monospace', backgroundColor: 'var(--bg-secondary)', padding: '1px 4px', borderRadius: '3px', border: '1px solid var(--border-primary)' }}>
+                                {row.refNo}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Narration & Particulars */}
+                <div style={{ fontSize: compact ? '11px' : '11.5px', lineHeight: 1.35, color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                    {row.isGatewayPayout && (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', backgroundColor: 'rgba(14, 165, 233, 0.12)', border: '1px solid rgba(14, 165, 233, 0.3)', color: '#0284c7', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', marginBottom: '3px' }}>
+                            🏦 {row.gatewayProvider} Settlement Payout
+                        </div>
+                    )}
+                    {isCurrentGateway && (
+                        <div style={{ fontSize: '9.5px', fontWeight: 600, color: row.is_settled ? '#10b981' : '#d97706', marginBottom: '2px' }}>
+                            {row.is_settled ? `🟢 Settled (Ref: ${row.settlement_ref || 'Payout'})` : '🟡 Holding in Gateway'}
+                        </div>
+                    )}
+
+                    <div style={{ fontWeight: 600 }}>{parsed.title}</div>
+
+                    {parsed.sublines.map((sub, idx) => (
+                        <div
+                            key={idx}
+                            style={{
+                                fontSize: '9px',
+                                color: 'var(--text-tertiary)',
+                                marginTop: '2px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                wordBreak: 'break-all'
+                            }}
+                        >
+                            <span>{sub.icon}</span>
+                            <span style={{ fontWeight: 600 }}>{sub.label}:</span>
+                            {sub.isLink ? (
+                                <a
+                                    href={sub.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={sub.url}
+                                    style={{
+                                        color: 'var(--color-primary)',
+                                        textDecoration: 'underline',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {sub.value}
+                                </a>
+                            ) : (
+                                <span style={{ fontFamily: sub.label.includes('UPI') || sub.label.includes('Ref') || sub.label.includes('UTR') ? 'monospace' : 'inherit' }}>
+                                    {sub.value}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Alert Party */}
+                    {row.hasEmailAlert && row.matchedAlert?.party_name && !hasMatchingAlert && row.matchedAlert.party_name !== parsed.title && (
+                        <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span>✉️</span>
+                            <span style={{ fontWeight: 600 }}>Alert Party:</span>
+                            <span style={{ wordBreak: 'break-all' }}>{row.matchedAlert.party_name}</span>
+                        </div>
+                    )}
+
+                    {row.suggestedAccount && (
+                        <div style={{ fontSize: '9px', color: 'var(--primary-color)', fontWeight: 600, marginTop: '2px' }}>
+                            💡 Suggested: {row.suggestedAccount}
+                        </div>
+                    )}
+                </div>
+
+                {/* Candidate Match Suggestion */}
+                {row.potentialMatch && !isReconciled && (
+                    <div style={{
+                        fontSize: '9.5px',
+                        color: '#b45309',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        borderRadius: '4px',
+                        padding: '3px 6px',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '6px',
+                        flexWrap: 'wrap'
+                    }}>
+                        <span>⭐ Candidate: <b>{row.potentialMatch.number}</b> ({row.potentialMatch.party} · ₹{row.potentialMatch.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })})</span>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditVoucher(row.potentialMatch.systemType, row.potentialMatch.id, row);
+                            }}
+                            title={`Edit matching ${row.potentialMatch.systemType} voucher (${row.potentialMatch.number})`}
+                            style={{
+                                background: '#fff',
+                                border: '1px solid rgba(245, 158, 11, 0.5)',
+                                color: '#b45309',
+                                borderRadius: '3px',
+                                padding: '1px 5px',
+                                fontSize: '9px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                            }}
+                        >
+                            <Pencil size={9} /> Edit Candidate
+                        </button>
+                    </div>
+                )}
+
+                {/* Action Buttons Footer */}
+                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 'auto', paddingTop: '4px' }}>
+                    {row.isGatewayPayout && !isReconciled && (
+                        <button
+                            onClick={() => handleOpenGatewaySettle(row)}
+                            disabled={loadingGatewayModal}
+                            className="btn btn-primary"
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                backgroundColor: '#0ea5e9',
+                                color: '#fff',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: 'var(--radius-sm)'
+                            }}
+                            title={`Settle ${row.gatewayProvider} collections to this bank account`}
+                        >
+                            <Sparkles size={10} />
+                            Settle {row.gatewayProvider?.split(' ')[0] || 'Payout'}
+                        </button>
+                    )}
+
+                    {isUnassigned && (
+                        <>
+                            <button
+                                onClick={() => setShowLinkModal(row)}
+                                className="btn btn-secondary"
+                                style={{
+                                    padding: '3px 8px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer'
+                                }}
+                                title="Link to an existing Payment, Receipt, Sales, or Purchase entry"
+                            >
+                                <Link2 size={10} />
+                                Link
+                            </button>
+
+                            <button
+                                onClick={() => handleCreateVoucherFromRow(row)}
+                                className="btn btn-primary"
+                                style={{
+                                    padding: '3px 8px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    backgroundColor: '#f59e0b',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer'
+                                }}
+                                title="Create a new Voucher in system"
+                            >
+                                <Plus size={10} />
+                                Create
+                            </button>
+                        </>
+                    )}
+
+                    {isUncleared && (
+                        <button
+                            onClick={() => setShowLinkModal({
+                                id: row.id,
+                                amount: row.amount,
+                                type: row.type,
+                                date: row.date,
+                                particulars: row.particulars,
+                                ref_no: row.refNo
+                            })}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                border: '1px solid rgba(139, 92, 246, 0.4)',
+                                color: '#8b5cf6',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: 'pointer'
+                            }}
+                            title="Link with an existing statement transaction"
+                        >
+                            <Link2 size={10} />
+                            Match
+                        </button>
+                    )}
+
+                    {row.origin === 'system' && (
+                        <button
+                            type="button"
+                            onClick={() => handleEditVoucher(row.systemType, row.systemId || row.id, row)}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                border: '1px solid var(--border-primary)',
+                                color: 'var(--text-primary)',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: 'pointer'
+                            }}
+                            title={`Edit this ${row.systemType} entry (${row.voucherNo})`}
+                        >
+                            <Pencil size={10} />
+                            Edit
+                        </button>
+                    )}
+
+                    {isReconciled && row.origin !== 'system' && editable && (
+                        <button
+                            type="button"
+                            onClick={() => handleEditVoucher(editable.type, editable.id, row)}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                border: '1px solid var(--border-primary)',
+                                color: 'var(--text-primary)',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: 'pointer'
+                            }}
+                            title={`Edit linked ${editable.type} (${row.voucherNo})`}
+                        >
+                            <Pencil size={10} />
+                            Edit
+                        </button>
+                    )}
+
+                    {isReconciled && (
+                        <button
+                            onClick={() => handleUnlink(row)}
+                            className="btn btn-secondary"
+                            style={{
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                color: 'var(--text-tertiary)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: 'pointer'
+                            }}
+                            title="Unlink and mark as unreconciled"
+                        >
+                            <Unlink size={10} />
+                            Unlink
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     if (loading && accounts.length === 0) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '240px' }}>
@@ -2373,6 +3071,58 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                         <span style={{ color: latestStatementDate ? 'var(--color-primary)' : 'var(--text-tertiary)', fontWeight: 700 }}>
                                             {latestStatementDate ? formatDateGB(latestStatementDate) : 'None'}
                                         </span>
+                                    </div>
+
+                                    {/* View Type Dropdown beside Stmt. Last Date */}
+                                    <div
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            padding: '1px 6px',
+                                            fontSize: '11px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border-primary)',
+                                            whiteSpace: 'nowrap',
+                                            flexShrink: 0,
+                                            marginLeft: '4px',
+                                            height: '24px'
+                                        }}
+                                        title="Switch view: Table, Card, or Kanban"
+                                    >
+                                        {viewType === 'kanban' ? (
+                                            <Kanban size={12} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                                        ) : viewType === 'card' ? (
+                                            <LayoutGrid size={12} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                                        ) : (
+                                            <Table size={12} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                                        )}
+                                        <select
+                                            value={viewType}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setViewType(val);
+                                                if (typeof window !== 'undefined') {
+                                                    localStorage.setItem('bank_accounts_view_type', val);
+                                                }
+                                            }}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--text-primary)',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                outline: 'none',
+                                                padding: '0 2px'
+                                            }}
+                                            aria-label="Select view type"
+                                        >
+                                            <option value="table">Table View</option>
+                                            <option value="card">Card View</option>
+                                            <option value="kanban">Kanban View</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -2764,15 +3514,16 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                             </div>
 
                             {/* RECONCILIATION TABLE CONTAINER WITH HORIZONTAL SCROLL & COLUMN RESIZING */}
-                            <div style={{
-                                flex: 1,
-                                overflowX: 'auto',
-                                overflowY: 'auto',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                WebkitOverflowScrolling: 'touch'
-                            }}>
+                            {viewType === 'table' && (
+                                <div style={{
+                                    flex: 1,
+                                    overflowX: 'auto',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    WebkitOverflowScrolling: 'touch'
+                                }}>
                                 <table style={{
                                     borderCollapse: 'collapse',
                                     fontSize: isMobile ? '11px' : '12px',
@@ -3537,6 +4288,218 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     </tbody>
                                 </table>
                             </div>
+                        )}
+
+                        {/* CARD VIEW */}
+                        {viewType === 'card' && (
+                            <div style={{
+                                flex: 1,
+                                overflowY: 'auto',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px',
+                                padding: '2px',
+                                minHeight: 0
+                            }}>
+                                {/* Top Balance Card: Closing if isDateDesc, else Opening */}
+                                {isDateDesc ? renderClosingCard(true) : renderOpeningCard(true)}
+
+                                {/* Grid of Transaction Cards */}
+                                {sortedRows.length === 0 ? (
+                                    <div style={{
+                                        padding: '36px 16px',
+                                        textAlign: 'center',
+                                        color: 'var(--text-tertiary)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px dashed var(--border-primary)',
+                                        margin: '8px 0'
+                                    }}>
+                                        No transactions found for the selected period and filter.
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))',
+                                        gap: '10px'
+                                    }}>
+                                        {sortedRows.map(row => renderTransactionCard(row, { compact: false }))}
+                                    </div>
+                                )}
+
+                                {/* Bottom Balance Card: Opening if isDateDesc, else Closing */}
+                                {isDateDesc ? renderOpeningCard(false) : renderClosingCard(false)}
+                            </div>
+                        )}
+
+                        {/* KANBAN VIEW */}
+                        {viewType === 'kanban' && (
+                            <div style={{
+                                flex: 1,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                minHeight: 0,
+                                overflow: 'hidden'
+                            }}>
+                                {/* Compact Balance Summary Strip */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                    padding: '7px 12px',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    marginBottom: '8px',
+                                    flexShrink: 0
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', fontSize: '11px' }}>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, marginRight: '4px' }}>Opening ({formatDateGB(fromDate)}):</span>
+                                            <span style={{ fontWeight: 800, color: closingComparison.systemOpening >= 0 ? '#10b981' : '#ef4444' }}>
+                                                ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, marginRight: '4px' }}>Inflows:</span>
+                                            <span style={{ fontWeight: 800, color: '#10b981' }}>
+                                                +₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, marginRight: '4px' }}>Outflows:</span>
+                                            <span style={{ fontWeight: 800, color: '#ef4444' }}>
+                                                -₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+                                        <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>Closing ({formatDateGB(toDate)}):</span>
+                                        <span style={{
+                                            fontWeight: 800,
+                                            fontSize: '12px',
+                                            color: closingComparison.isDiscrepancy ? '#ef4444' : (closingComparison.systemClosing >= 0 ? '#10b981' : '#ef4444')
+                                        }}>
+                                            ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </span>
+                                        {closingComparison.hasStatement && (
+                                            <span style={{
+                                                fontSize: '9.5px',
+                                                fontWeight: 700,
+                                                padding: '1px 5px',
+                                                borderRadius: '3px',
+                                                backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                                                color: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981'
+                                            }}>
+                                                {closingComparison.isDiscrepancy ? `Diff: ₹${Math.abs(closingComparison.discrepancy).toFixed(2)}` : 'Matched Stmt'}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Scrollable Kanban Board Columns */}
+                                <div style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    gap: '12px',
+                                    overflowX: 'auto',
+                                    overflowY: 'hidden',
+                                    paddingBottom: '8px',
+                                    WebkitOverflowScrolling: 'touch'
+                                }}>
+                                    {kanbanColumns.map(col => {
+                                        const colItems = sortedRows.filter(col.filterFn);
+                                        const count = colItems.length;
+                                        const colTotalIn = colItems.filter(r => r.type === 'receipt').reduce((s, r) => s + r.amount, 0);
+                                        const colTotalOut = colItems.filter(r => r.type !== 'receipt').reduce((s, r) => s + r.amount, 0);
+
+                                        return (
+                                            <div
+                                                key={col.id}
+                                                style={{
+                                                    flex: '0 0 310px',
+                                                    width: '310px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    backgroundColor: 'var(--bg-secondary)',
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderTop: `3px solid ${col.color}`,
+                                                    padding: '10px',
+                                                    height: '100%',
+                                                    boxSizing: 'border-box'
+                                                }}
+                                            >
+                                                {/* Column Header */}
+                                                <div style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '2px',
+                                                    marginBottom: '8px',
+                                                    paddingBottom: '6px',
+                                                    borderBottom: '1px solid var(--border-primary)'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                            {col.title}
+                                                        </div>
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            fontWeight: 700,
+                                                            padding: '1px 6px',
+                                                            borderRadius: '10px',
+                                                            backgroundColor: col.bgLight,
+                                                            color: col.color,
+                                                            border: `1px solid ${col.color}40`
+                                                        }}>
+                                                            {count}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9.5px', color: 'var(--text-tertiary)' }}>
+                                                        <span>{col.subtitle}</span>
+                                                        {count > 0 && (
+                                                            <div style={{ display: 'flex', gap: '4px', fontWeight: 600 }}>
+                                                                {colTotalIn > 0 && <span style={{ color: '#10b981' }}>+₹{colTotalIn.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>}
+                                                                {colTotalOut > 0 && <span style={{ color: '#ef4444' }}>-₹{colTotalOut.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Column Cards (Vertically scrollable) */}
+                                                <div style={{
+                                                    flex: 1,
+                                                    overflowY: 'auto',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '8px',
+                                                    paddingRight: '2px'
+                                                }}>
+                                                    {colItems.length === 0 ? (
+                                                        <div style={{
+                                                            padding: '24px 10px',
+                                                            textAlign: 'center',
+                                                            color: 'var(--text-tertiary)',
+                                                            fontSize: '11px',
+                                                            border: '1px dashed var(--border-primary)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            margin: 'auto 0'
+                                                        }}>
+                                                            No transactions in this stage
+                                                        </div>
+                                                    ) : (
+                                                        colItems.map(row => renderTransactionCard(row, { compact: true }))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                         </div>
                     )}
                 </div>
