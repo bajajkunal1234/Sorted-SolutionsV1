@@ -1943,6 +1943,126 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         }
     };
 
+    // When sorted by date in descending order, show Closing Balance at top and Opening Balance at bottom
+    const isDateDesc = sortConfig.key === 'date' && sortConfig.direction === 'desc';
+
+    const renderOpeningRow = (isTop = false) => (
+        <tr key="opening-balance-row" style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.08)',
+            borderBottom: isTop ? '2px solid var(--border-primary)' : undefined,
+            borderTop: !isTop ? '2px solid var(--border-primary)' : undefined,
+            fontWeight: 700
+        }}>
+            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                {formatDateGB(fromDate)}
+            </td>
+            <td style={{ padding: '8px 10px' }}>
+                <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '2px 5px',
+                    borderRadius: '3px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    color: '#3b82f6',
+                    textTransform: 'uppercase'
+                }}>
+                    OPENING
+                </span>
+            </td>
+            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
+            <td style={{ padding: '8px 10px' }}>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                    Opening Balance b/f
+                </div>
+                <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
+                    {closingComparison.hasStatement
+                        ? `System: ₹${closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · Stmt: ₹${closingComparison.statementOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        : 'As of period start date'}
+                </div>
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
+            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
+            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                <span style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: closingComparison.systemOpening >= 0 ? '#10b981' : '#ef4444'
+                }}>
+                    ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                {closingComparison.hasStatement ? 'Statement linked' : 'Book balance'}
+            </td>
+        </tr>
+    );
+
+    const renderClosingRow = (isTop = false) => (
+        <tr key="closing-balance-row" style={{
+            backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.08)',
+            borderBottom: isTop ? '2px solid var(--border-primary)' : undefined,
+            borderTop: !isTop ? '2px solid var(--border-primary)' : undefined,
+            fontWeight: 700
+        }}>
+            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
+                {formatDateGB(toDate)}
+            </td>
+            <td style={{ padding: '8px 10px' }}>
+                <span style={{
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    padding: '2px 5px',
+                    borderRadius: '3px',
+                    backgroundColor: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981',
+                    color: '#fff',
+                    textTransform: 'uppercase'
+                }}>
+                    CLOSING
+                </span>
+            </td>
+            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
+            <td style={{ padding: '8px 10px' }}>
+                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                    Closing Balance c/f
+                </div>
+                <div style={{ fontSize: '9px', color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-tertiary)', fontWeight: 600 }}>
+                    {closingComparison.hasStatement ? (
+                        closingComparison.isDiscrepancy ? (
+                            `🚨 Discrepancy: System ₹${closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} vs Stmt ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Diff: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })})`
+                        ) : (
+                            `✅ Matched with Statement: ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                        )
+                    ) : (
+                        `System Computed Closing Balance`
+                    )}
+                </div>
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#10b981', fontWeight: 800 }}>
+                +₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#ef4444', fontWeight: 800 }}>
+                -₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: closingComparison.isDiscrepancy ? '#ef4444' : (closingComparison.systemClosing >= 0 ? '#10b981' : '#ef4444')
+                }}>
+                    ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                {closingComparison.hasStatement && closingComparison.isDiscrepancy && (
+                    <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 700 }}>
+                        Stmt: ₹{closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                )}
+            </td>
+            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
+                {closingComparison.hasStatement ? (closingComparison.isDiscrepancy ? '⚠️ Mismatch' : '✅ Balanced') : 'Book balance'}
+            </td>
+        </tr>
+    );
+
     if (loading && accounts.length === 0) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '240px' }}>
@@ -2742,54 +2862,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                     </thead>
 
                                     <tbody>
-                                        {/* 1. TOP ROW: OPENING BALANCE */}
-                                        <tr style={{
-                                            backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                                            borderBottom: '2px solid var(--border-primary)',
-                                            fontWeight: 700
-                                        }}>
-                                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                                                {formatDateGB(fromDate)}
-                                            </td>
-                                            <td style={{ padding: '8px 10px' }}>
-                                                <span style={{
-                                                    fontSize: '9px',
-                                                    fontWeight: 800,
-                                                    padding: '2px 5px',
-                                                    borderRadius: '3px',
-                                                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                                                    color: '#3b82f6',
-                                                    textTransform: 'uppercase'
-                                                }}>
-                                                    OPENING
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
-                                            <td style={{ padding: '8px 10px' }}>
-                                                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                                                    Opening Balance b/f
-                                                </div>
-                                                <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontWeight: 500 }}>
-                                                    {closingComparison.hasStatement
-                                                        ? `System: ₹${closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })} · Stmt: ₹${closingComparison.statementOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                                        : 'As of period start date'}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-tertiary)' }}>—</td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                                <span style={{
-                                                    fontSize: '11px',
-                                                    fontWeight: 800,
-                                                    color: closingComparison.systemOpening >= 0 ? '#10b981' : '#ef4444'
-                                                }}>
-                                                    ₹{closingComparison.systemOpening.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
-                                                {closingComparison.hasStatement ? 'Statement linked' : 'Book balance'}
-                                            </td>
-                                        </tr>
+                                        {/* 1. TOP ROW: CLOSING if sorted as per date desc, else OPENING */}
+                                        {isDateDesc ? renderClosingRow(true) : renderOpeningRow(true)}
 
                                         {/* 2. TRANSACTION ROWS */}
                                         {sortedRows.map(row => {
@@ -3418,69 +3492,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                                             </tr>
                                         )}
 
-                                        {/* 3. BOTTOM ROW: CLOSING BALANCE (WITH RECONCILIATION SUMMARY) */}
-                                        <tr style={{
-                                            backgroundColor: closingComparison.isDiscrepancy ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.08)',
-                                            borderTop: '2px solid var(--border-primary)',
-                                            fontWeight: 700
-                                        }}>
-                                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                                                {formatDateGB(toDate)}
-                                            </td>
-                                            <td style={{ padding: '8px 10px' }}>
-                                                <span style={{
-                                                    fontSize: '9px',
-                                                    fontWeight: 800,
-                                                    padding: '2px 5px',
-                                                    borderRadius: '3px',
-                                                    backgroundColor: closingComparison.isDiscrepancy ? '#ef4444' : '#10b981',
-                                                    color: '#fff',
-                                                    textTransform: 'uppercase'
-                                                }}>
-                                                    CLOSING
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '8px 10px', color: 'var(--text-tertiary)' }}>—</td>
-                                            <td style={{ padding: '8px 10px' }}>
-                                                <div style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                                                    Closing Balance c/f
-                                                </div>
-                                                <div style={{ fontSize: '9px', color: closingComparison.isDiscrepancy ? '#ef4444' : 'var(--text-tertiary)', fontWeight: 600 }}>
-                                                    {closingComparison.hasStatement ? (
-                                                        closingComparison.isDiscrepancy ? (
-                                                            `🚨 Discrepancy: System ₹${closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} vs Stmt ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (Diff: ₹${Math.abs(closingComparison.discrepancy).toLocaleString('en-IN', { minimumFractionDigits: 2 })})`
-                                                        ) : (
-                                                            `✅ Matched with Statement: ₹${closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                                        )
-                                                    ) : (
-                                                        `System Computed Closing Balance`
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#10b981', fontWeight: 800 }}>
-                                                +₹{closingComparison.systemInflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'right', color: '#ef4444', fontWeight: 800 }}>
-                                                -₹{closingComparison.systemOutflows.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                                <div style={{
-                                                    fontSize: '11px',
-                                                    fontWeight: 800,
-                                                    color: closingComparison.isDiscrepancy ? '#ef4444' : (closingComparison.systemClosing >= 0 ? '#10b981' : '#ef4444')
-                                                }}>
-                                                    ₹{closingComparison.systemClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </div>
-                                                {closingComparison.hasStatement && closingComparison.isDiscrepancy && (
-                                                    <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 700 }}>
-                                                        Stmt: ₹{closingComparison.statementClosing.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '10px' }}>
-                                                {closingComparison.hasStatement ? (closingComparison.isDiscrepancy ? '⚠️ Mismatch' : '✅ Balanced') : 'Book balance'}
-                                            </td>
-                                        </tr>
+                                        {/* 3. BOTTOM ROW: OPENING if sorted as per date desc, else CLOSING */}
+                                        {isDateDesc ? renderOpeningRow(false) : renderClosingRow(false)}
                                     </tbody>
                                 </table>
                             </div>
