@@ -90,7 +90,7 @@ function JobCard({ job, onClick, onCalculate }) {
             if (!match && accountProps.length === 1) {
                 match = accountProps[0];
             }
-            if (match) enriched = { ...prop, ...match };
+            if (match) enriched = { ...match, ...prop, flat_number: prop.flat_number || match.flat_number, building_name: prop.building_name || match.building_name };
         }
 
         // NewAccountForm format: flat_number, building_name, address (street)

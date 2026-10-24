@@ -292,6 +292,64 @@ export async function GET(request) {
     }
 }
 
+async function syncPropertyToJobsAndAccounts(supabase, propertyId, propData) {
+    if (!propertyId || !propData) return;
+    try {
+        // 1. Sync directly to jobs table
+        const { data: linkedJobs } = await supabase
+            .from('jobs')
+            .select('id, property')
+            .or(`property_id.eq.${propertyId},property->>id.eq.${propertyId}`);
+
+        if (linkedJobs && linkedJobs.length > 0) {
+            for (const lj of linkedJobs) {
+                const currentProp = typeof lj.property === 'object' && lj.property !== null ? lj.property : {};
+                const merged = {
+                    ...currentProp,
+                    id: propertyId,
+                    flat_number: propData.flat_number !== undefined ? propData.flat_number : currentProp.flat_number,
+                    building_name: propData.building_name !== undefined ? propData.building_name : currentProp.building_name,
+                    address: propData.address !== undefined ? propData.address : currentProp.address,
+                    locality: propData.locality !== undefined ? propData.locality : currentProp.locality,
+                    city: propData.city !== undefined ? propData.city : currentProp.city,
+                    pincode: propData.pincode !== undefined ? propData.pincode : currentProp.pincode,
+                    latitude: propData.latitude !== undefined ? propData.latitude : currentProp.latitude,
+                    longitude: propData.longitude !== undefined ? propData.longitude : currentProp.longitude,
+                };
+                await supabase.from('jobs').update({ property: merged, property_id: propertyId }).eq('id', lj.id);
+            }
+        }
+
+        // 2. Sync to linked accounts.properties
+        const { data: linkedAccounts } = await supabase
+            .from('customer_properties')
+            .select('account_id')
+            .eq('property_id', propertyId);
+
+        if (linkedAccounts && linkedAccounts.length > 0) {
+            for (const la of linkedAccounts) {
+                const { data: acc } = await supabase.from('accounts').select('id, properties').eq('id', la.account_id).single();
+                if (acc && Array.isArray(acc.properties)) {
+                    const updatedProps = acc.properties.map(p => ({
+                        ...p,
+                        flat_number: propData.flat_number !== undefined ? propData.flat_number : p.flat_number,
+                        building_name: propData.building_name !== undefined ? propData.building_name : p.building_name,
+                        address: propData.address !== undefined ? propData.address : p.address,
+                        locality: propData.locality !== undefined ? propData.locality : p.locality,
+                        city: propData.city !== undefined ? propData.city : p.city,
+                        pincode: propData.pincode !== undefined ? propData.pincode : p.pincode,
+                        lat: propData.latitude !== undefined ? propData.latitude : p.lat,
+                        lng: propData.longitude !== undefined ? propData.longitude : p.lng,
+                    }));
+                    await supabase.from('accounts').update({ properties: updatedProps }).eq('id', la.account_id);
+                }
+            }
+        }
+    } catch (syncErr) {
+        console.error('[properties sync] Error syncing property to jobs/accounts:', syncErr.message);
+    }
+}
+
 // POST — create new property (optionally link to a customer)
 export async function POST(request) {
     try {
@@ -421,28 +479,7 @@ export async function PUT(request) {
             .single()
         if (error) throw error
 
-        // Sync property updates to open jobs linked to this property
-        try {
-            const { data: linkedJobs } = await supabase
-                .from('jobs')
-                .select('id, property')
-                .or(`property_id.eq.${id},property->>id.eq.${id}`);
-
-            if (linkedJobs && linkedJobs.length > 0) {
-                for (const lj of linkedJobs) {
-                    const currentProp = typeof lj.property === 'object' && lj.property !== null ? lj.property : {};
-                    const merged = {
-                        ...currentProp,
-                        ...data,
-                        latitude: data.latitude || currentProp.latitude || null,
-                        longitude: data.longitude || currentProp.longitude || null,
-                    };
-                    await supabase.from('jobs').update({ property: merged, property_id: id }).eq('id', lj.id);
-                }
-            }
-        } catch (syncErr) {
-            console.error('[properties PUT] Failed to sync property to jobs:', syncErr.message);
-        }
+        await syncPropertyToJobsAndAccounts(supabase, id, data);
 
         // Log the edit
         const changedFields = Object.keys(updates).filter(k => k !== 'id')
@@ -557,6 +594,9 @@ export async function PATCH(request) {
             metadata: { property_id: id, changed_fields: changedFields },
             source: 'Admin App',
         })
+
+        // Sync property updates to open jobs and customer accounts
+        await syncPropertyToJobsAndAccounts(supabase, id, data);
 
         return NextResponse.json({ success: true, data })
     } catch (error) {

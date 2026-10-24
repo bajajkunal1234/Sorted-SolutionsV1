@@ -978,16 +978,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         }
         if (match) {
             property = {
-                ...property,
                 ...match,
-                flat_number: match.flat_number || property.flat_number,
-                building_name: match.building_name || property.building_name,
-                address: match.address || property.address,
-                locality: match.locality || property.locality,
-                city: match.city || property.city,
-                pincode: match.pincode || property.pincode,
-                latitude: match.lat || match.latitude || property.latitude,
-                longitude: match.lng || match.longitude || property.longitude,
+                ...property,
+                flat_number: property.flat_number || match.flat_number,
+                building_name: property.building_name || match.building_name,
+                address: property.address || match.address,
+                locality: property.locality || match.locality,
+                city: property.city || match.city,
+                pincode: property.pincode || match.pincode,
+                name: match.name || property.name || 'Home',
+                property_name: match.property_name || property.property_name || match.name || property.name,
+                latitude: property.latitude || property.lat || match.lat || match.latitude || null,
+                longitude: property.longitude || property.lng || match.lng || match.longitude || null,
             };
         }
     }

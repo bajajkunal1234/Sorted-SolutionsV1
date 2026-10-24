@@ -110,18 +110,33 @@ export async function GET(request) {
                     const baseProp = typeof j.property === 'object' && j.property !== null ? j.property : {};
                     const mergedProp = {
                         ...baseProp,
+                        ...(accountPropMatch || {}),
                         ...(dbProp || {}),
-                        ...(accountPropMatch ? {
-                            name: accountPropMatch.name || accountPropMatch.label || baseProp.name,
-                            flat_number: accountPropMatch.flat_number || baseProp.flat_number || dbProp?.flat_number,
-                            building_name: accountPropMatch.building_name || baseProp.building_name || dbProp?.building_name,
-                            address: accountPropMatch.address || baseProp.address || dbProp?.address,
-                            locality: accountPropMatch.locality || baseProp.locality || dbProp?.locality,
-                            city: accountPropMatch.city || baseProp.city || dbProp?.city,
-                            pincode: accountPropMatch.pincode || baseProp.pincode || dbProp?.pincode,
-                        } : {})
                     };
 
+                    // Canonical fields from dbProp (properties table) take highest precedence:
+                    if (dbProp) {
+                        if (dbProp.flat_number !== undefined && dbProp.flat_number !== null) mergedProp.flat_number = dbProp.flat_number;
+                        if (dbProp.building_name) mergedProp.building_name = dbProp.building_name;
+                        if (dbProp.address) mergedProp.address = dbProp.address;
+                        if (dbProp.locality) mergedProp.locality = dbProp.locality;
+                        if (dbProp.city) mergedProp.city = dbProp.city;
+                        if (dbProp.pincode) mergedProp.pincode = dbProp.pincode;
+                        if (dbProp.latitude) mergedProp.latitude = dbProp.latitude;
+                        if (dbProp.longitude) mergedProp.longitude = dbProp.longitude;
+                    } else if (accountPropMatch) {
+                        if (accountPropMatch.flat_number !== undefined && accountPropMatch.flat_number !== null) mergedProp.flat_number = accountPropMatch.flat_number;
+                        if (accountPropMatch.building_name) mergedProp.building_name = accountPropMatch.building_name;
+                        if (accountPropMatch.address) mergedProp.address = accountPropMatch.address;
+                        if (accountPropMatch.locality) mergedProp.locality = accountPropMatch.locality;
+                        if (accountPropMatch.city) mergedProp.city = accountPropMatch.city;
+                        if (accountPropMatch.pincode) mergedProp.pincode = accountPropMatch.pincode;
+                        if (accountPropMatch.lat || accountPropMatch.latitude) mergedProp.latitude = accountPropMatch.lat || accountPropMatch.latitude;
+                        if (accountPropMatch.lng || accountPropMatch.longitude) mergedProp.longitude = accountPropMatch.lng || accountPropMatch.longitude;
+                    }
+
+                    mergedProp.name = accountPropMatch?.name || baseProp.name || dbProp?.property_name || 'Home';
+                    mergedProp.property_name = accountPropMatch?.property_name || dbProp?.property_name || mergedProp.name;
                     mergedProp.latitude = mergedProp.latitude || dbProp?.latitude || accountPropMatch?.lat || accountPropMatch?.latitude || baseProp.latitude || null;
                     mergedProp.longitude = mergedProp.longitude || dbProp?.longitude || accountPropMatch?.lng || accountPropMatch?.longitude || baseProp.longitude || null;
                     mergedProp.location_verified_by = dbProp?.location_verified_by || baseProp.location_verified_by || null;
