@@ -421,6 +421,29 @@ export async function PUT(request) {
             .single()
         if (error) throw error
 
+        // Sync property updates to open jobs linked to this property
+        try {
+            const { data: linkedJobs } = await supabase
+                .from('jobs')
+                .select('id, property')
+                .or(`property_id.eq.${id},property->>id.eq.${id}`);
+
+            if (linkedJobs && linkedJobs.length > 0) {
+                for (const lj of linkedJobs) {
+                    const currentProp = typeof lj.property === 'object' && lj.property !== null ? lj.property : {};
+                    const merged = {
+                        ...currentProp,
+                        ...data,
+                        latitude: data.latitude || currentProp.latitude || null,
+                        longitude: data.longitude || currentProp.longitude || null,
+                    };
+                    await supabase.from('jobs').update({ property: merged, property_id: id }).eq('id', lj.id);
+                }
+            }
+        } catch (syncErr) {
+            console.error('[properties PUT] Failed to sync property to jobs:', syncErr.message);
+        }
+
         // Log the edit
         const changedFields = Object.keys(updates).filter(k => k !== 'id')
         logInteractionServer({

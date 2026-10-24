@@ -142,7 +142,7 @@ export async function GET(request, { params }) {
             id: job.id,
             job_number: job.job_number,
             customerId: job.customer_id,
-            customerName: job.customer_name || customerObj.name,
+            customerName: customerObj.name || job.customer_name || 'Customer',
             mobile: displayPhone,
             email: customerObj.email,
             address: jobAddress,

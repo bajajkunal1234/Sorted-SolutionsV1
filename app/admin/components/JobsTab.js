@@ -369,6 +369,30 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
                     fetchJobs(true, true);
                 }
             )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'accounts' },
+                (payload) => {
+                    console.log('[JobsTab] Real-time account event received:', payload.eventType);
+                    fetchJobs(true, true);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'properties' },
+                (payload) => {
+                    console.log('[JobsTab] Real-time property event received:', payload.eventType);
+                    fetchJobs(true, true);
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'customer_properties' },
+                (payload) => {
+                    console.log('[JobsTab] Real-time customer_properties event received:', payload.eventType);
+                    fetchJobs(true, true);
+                }
+            )
             .subscribe();
 
         // 2. 60-second polling safety net (silent background update, doesn't reload or unmount views)
@@ -381,12 +405,20 @@ function JobsTab({ jobToOpen, onJobOpened, initialViewType, initialActiveTags, i
             console.log('[JobsTab] Resume/focus detected, auto-refreshing jobs in background...');
             fetchJobs(true, true);
         };
+        const handleAccountOrPropUpdated = () => {
+            console.log('[JobsTab] Account or property updated event received, refreshing jobs...');
+            fetchJobs(true, true);
+        };
         window.addEventListener('refresh-active-tab', handleRefresh);
+        window.addEventListener('account-updated', handleAccountOrPropUpdated);
+        window.addEventListener('property-updated', handleAccountOrPropUpdated);
 
         return () => {
             supabase.removeChannel(channel);
             clearInterval(pollInterval);
             window.removeEventListener('refresh-active-tab', handleRefresh);
+            window.removeEventListener('account-updated', handleAccountOrPropUpdated);
+            window.removeEventListener('property-updated', handleAccountOrPropUpdated);
         };
     }, [fetchJobs]);
 

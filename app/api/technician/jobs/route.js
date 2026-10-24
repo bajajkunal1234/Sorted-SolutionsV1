@@ -189,7 +189,7 @@ export async function GET(request) {
                 id: job.id,
                 job_number: job.job_number,
                 customerId: job.customer_id,
-                customerName: job.customer_name || customerObj.name,
+                customerName: customerObj.name || job.customer_name || 'Customer',
                 mobile: customerObj.phone || customerObj.mobile || job.customer_phone || '',
                 email: customerObj.email,
                 address: propData.address || '',

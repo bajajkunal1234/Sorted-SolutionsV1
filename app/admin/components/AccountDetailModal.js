@@ -357,6 +357,9 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
             setSaving(true);
             await onUpdate(payloadToSave);
             setIsEditing(false);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('account-updated', { detail: payloadToSave }));
+            }
         } catch (err) {
             console.error('Save failed:', err);
         } finally {

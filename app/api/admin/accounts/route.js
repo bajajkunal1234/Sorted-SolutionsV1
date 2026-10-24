@@ -576,6 +576,23 @@ export async function PUT(request) {
 
             if (customerError) throw customerError;
 
+            // Sync updated name and phone directly to all existing jobs for real-time consistency
+            const newCustomerName = updates.name || data.name;
+            const newCustomerPhone = updates.mobile || data.mobile;
+            const jobUpdates = {};
+            if (updates.name) jobUpdates.customer_name = newCustomerName;
+            if (updates.mobile) jobUpdates.customer_phone = newCustomerPhone;
+
+            if (Object.keys(jobUpdates).length > 0) {
+                try {
+                    const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', id);
+                    const allCustomerIds = [id, ...(authCustomers || []).map(c => c.id)];
+                    await supabase.from('jobs').update(jobUpdates).in('customer_id', allCustomerIds);
+                } catch (jobSyncErr) {
+                    console.error('[accounts PUT] Failed to sync customer name to jobs:', jobSyncErr.message);
+                }
+            }
+
             // Sync/update lead attribution on customer update
             const resolvedSource = updates.acquisition_source || data.acquisition_source || '';
             const rawPhone = cleanPhone10(updates.mobile || data.mobile);

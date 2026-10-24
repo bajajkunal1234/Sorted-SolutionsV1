@@ -953,7 +953,44 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     // Helper to get nested or direct values safely
     const customer = editedJob.customer || {};
-    const property = editedJob.property || {};
+    let property = editedJob.property || {};
+
+    // Auto-enrich property from live customer account properties
+    const accountProps = Array.isArray(customer.properties) ? customer.properties : [];
+    if (accountProps.length > 0) {
+        let match = property?.id ? accountProps.find(p => String(p.id) === String(property.id)) : null;
+        if (!match && property) {
+            const bName = (property.building_name || '').trim().toLowerCase();
+            const fNum = (property.flat_number || '').trim().toLowerCase();
+            if (bName || fNum) {
+                match = accountProps.find(p => {
+                    const pb = (p.building_name || '').trim().toLowerCase();
+                    const pf = (p.flat_number || '').trim().toLowerCase();
+                    if (bName && fNum) return pb === bName && pf === fNum;
+                    if (bName) return pb === bName;
+                    if (fNum) return pf === fNum;
+                    return false;
+                });
+            }
+        }
+        if (!match && accountProps.length === 1) {
+            match = accountProps[0];
+        }
+        if (match) {
+            property = {
+                ...property,
+                ...match,
+                flat_number: match.flat_number || property.flat_number,
+                building_name: match.building_name || property.building_name,
+                address: match.address || property.address,
+                locality: match.locality || property.locality,
+                city: match.city || property.city,
+                pincode: match.pincode || property.pincode,
+                latitude: match.lat || match.latitude || property.latitude,
+                longitude: match.lng || match.longitude || property.longitude,
+            };
+        }
+    }
     const product = editedJob.product || {};
     const brand = editedJob.brand || {};
     const issue = editedJob.issue || {};
@@ -1637,7 +1674,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: '2px' }}>
                             <h2 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 'calc(100% - 90px)' }}>
-                                {editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer'}
+                                {editedJob.customer?.name || editedJob.customer_name || editedJob.customerName || 'Customer'}
                             </h2>
                             {(() => {
                                 const cfg = getStatusConfig(editedJob.status);
@@ -1793,7 +1830,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     </div>
                                     {property && (
                                         <div>
-                                            <strong>Property:</strong> {property.property_name || property.label || property.name || 'Property'}
+                                            <strong>Property:</strong> {
+                                                property.property_name ||
+                                                property.label ||
+                                                (property.name && property.name.toLowerCase() !== 'property' ? property.name : null) ||
+                                                [property.flat_number, property.building_name].filter(Boolean).join(', ') ||
+                                                property.building_name ||
+                                                (typeof property.address === 'string' ? property.address : null) ||
+                                                'Property'
+                                            }
                                         </div>
                                     )}
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1867,8 +1912,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                     ))}
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
                                                         {(() => {
-                                                            const lat = parseFloat(property.latitude);
-                                                            const lng = parseFloat(property.longitude);
+                                                            const customerProp = customer?.properties?.[0];
+                                                            const lat = parseFloat(property.latitude || property.lat || customerProp?.lat || customerProp?.latitude);
+                                                            const lng = parseFloat(property.longitude || property.lng || customerProp?.lng || customerProp?.longitude);
                                                             const hasCoords = !isNaN(lat) && !isNaN(lng);
                                                             const isVerified = hasCoords && (property.location_verified_by || property.location_verified_at);
                                                             const buttonLabel = hasCoords ? (isVerified ? '📍 Technician Verified' : '📍 Saved Pin') : '📍 Open in Maps';

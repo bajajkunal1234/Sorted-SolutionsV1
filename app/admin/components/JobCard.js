@@ -60,7 +60,7 @@ function JobCard({ job, onClick, onCalculate }) {
     // Job name: prefer description (admin-entered), then category, then appliance
     const jobName = job.description || job.category || job.subcategory || job.appliance || job.job_number || 'Service Job';
     const jobType = job.category || job.appliance || job.subcategory || '';
-    const customerName = job.customer_name || job.customer?.name || '';
+    const customerName = job.customer?.name || job.customer_name || '';
     const customerPhone = job.customer?.phone || job.customer?.mobile || job.customer_phone || '';
     const dueDate = job.scheduled_date || job.dueDate;
 
@@ -68,11 +68,28 @@ function JobCard({ job, onClick, onCalculate }) {
     const resolveFullAddress = (prop, customerAccount) => {
         if (!prop) return { street: '', locality: '' };
 
-        // Try to enrich from customer.properties by ID
+        // Try to enrich from customer.properties by ID, building/flat, or single property fallback
         let enriched = prop;
         const accountProps = customerAccount?.properties;
-        if (Array.isArray(accountProps) && prop.id) {
-            const match = accountProps.find(p => String(p.id) === String(prop.id));
+        if (Array.isArray(accountProps) && accountProps.length > 0) {
+            let match = prop?.id ? accountProps.find(p => String(p.id) === String(prop.id)) : null;
+            if (!match && prop) {
+                const bName = (prop.building_name || '').trim().toLowerCase();
+                const fNum = (prop.flat_number || '').trim().toLowerCase();
+                if (bName || fNum) {
+                    match = accountProps.find(p => {
+                        const pb = (p.building_name || '').trim().toLowerCase();
+                        const pf = (p.flat_number || '').trim().toLowerCase();
+                        if (bName && fNum) return pb === bName && pf === fNum;
+                        if (bName) return pb === bName;
+                        if (fNum) return pf === fNum;
+                        return false;
+                    });
+                }
+            }
+            if (!match && accountProps.length === 1) {
+                match = accountProps[0];
+            }
             if (match) enriched = { ...prop, ...match };
         }
 

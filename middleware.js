@@ -25,7 +25,22 @@ export function middleware(request) {
     const { pathname } = request.nextUrl
     const userAgent = request.headers.get('user-agent') || ''
 
-    // Only guard these two paths
+    // 1. Guard against automated bot vulnerability scanners targeting Next.js Server Actions.
+    // The application does not use Next.js Server Actions (all endpoints use /api Route Handlers).
+    // Scanners send requests (e.g. POST / with `next-action: x`) that trigger 
+    // "Failed to find Server Action" errors and exhaust Vercel serverless function quotas.
+    const nextAction = request.headers.get('next-action')
+    if (nextAction) {
+        return new NextResponse('Invalid Server Action', { status: 400 })
+    }
+
+    // 2. Block direct POST requests to non-API pages (e.g. POST / or POST /services)
+    // Pages in this app only serve GET requests. Genuine POST requests are strictly handled under /api/*.
+    if (request.method === 'POST' && !pathname.startsWith('/api/')) {
+        return new NextResponse('Method Not Allowed', { status: 405 })
+    }
+
+    // 3. Sitemap protection: Only guard these two paths
     const isProtected =
         pathname === '/sitemap.xml' ||
         pathname.startsWith('/sitemap-page')
@@ -50,5 +65,15 @@ export function middleware(request) {
 }
 
 export const config = {
-    matcher: ['/sitemap.xml', '/sitemap-page', '/sitemap-page/:path*'],
+    matcher: [
+        /*
+         * Match all request paths except for:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         * - static assets (.png, .jpg, .jpeg, .gif, .webp, .svg, .mp3, .wav, .mov, .xlsx, .pdf)
+         */
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp3|wav|mov|xlsx|pdf)$).*)',
+    ],
 }
+

@@ -968,7 +968,7 @@ export default function JobsMapView({ jobs, onUpdateJob, onJobClick, filterKey }
             if (!coords) return;
             const propId = job.property_id || job.property?.id || `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
             if (!groups[propId]) {
-                let customerName = job.customer_name || job.customer?.name;
+                let customerName = job.customer?.name || job.customer_name;
                 let notesObj = null;
                 if (typeof job.notes === 'object') notesObj = job.notes;
                 else if (typeof job.notes === 'string') {

@@ -57,6 +57,7 @@ export async function GET(request) {
 
         if (data && data.length > 0) {
             const propertyIds = data.map(j => j.property_id || (j.property && typeof j.property === 'object' && j.property.id)).filter(Boolean);
+            let propMap = {};
             if (propertyIds.length > 0) {
                 const { data: propertiesList } = await supabase
                     .from('properties')
@@ -64,26 +65,71 @@ export async function GET(request) {
                     .in('id', propertyIds);
 
                 if (propertiesList && propertiesList.length > 0) {
-                    const propMap = {};
                     propertiesList.forEach(p => {
                         propMap[p.id] = p;
                     });
-                    data.forEach(j => {
-                        const propId = j.property_id || (j.property && typeof j.property === 'object' && j.property.id);
-                        if (propId && propMap[propId]) {
-                            const dbProp = propMap[propId];
-                            j.property = {
-                                ...(j.property || {}),
-                                ...dbProp,
-                                latitude: dbProp.latitude || j.property?.latitude || null,
-                                longitude: dbProp.longitude || j.property?.longitude || null,
-                                location_verified_by: dbProp.location_verified_by || j.property?.location_verified_by || null,
-                                location_verified_at: dbProp.location_verified_at || j.property?.location_verified_at || null,
-                            };
-                        }
-                    });
                 }
             }
+
+            data.forEach(j => {
+                // Ensure customer_name always reflects the live linked customer/account
+                if (j.customer?.name) {
+                    j.customer_name = j.customer.name;
+                }
+
+                const propId = j.property_id || (j.property && typeof j.property === 'object' && j.property.id);
+                let dbProp = propId && propMap[propId] ? propMap[propId] : null;
+
+                // Match with customer.properties if present
+                const accountProps = Array.isArray(j.customer?.properties) ? j.customer.properties : [];
+                let accountPropMatch = null;
+                if (accountProps.length > 0) {
+                    if (propId) {
+                        accountPropMatch = accountProps.find(p => p.id && String(p.id) === String(propId));
+                    }
+                    if (!accountPropMatch && j.property && typeof j.property === 'object') {
+                        const bName = (j.property.building_name || '').trim().toLowerCase();
+                        const fNum = (j.property.flat_number || '').trim().toLowerCase();
+                        if (bName || fNum) {
+                            accountPropMatch = accountProps.find(p => {
+                                const pb = (p.building_name || '').trim().toLowerCase();
+                                const pf = (p.flat_number || '').trim().toLowerCase();
+                                if (bName && fNum) return pb === bName && pf === fNum;
+                                if (bName) return pb === bName;
+                                if (fNum) return pf === fNum;
+                                return false;
+                            });
+                        }
+                    }
+                    if (!accountPropMatch && accountProps.length === 1) {
+                        accountPropMatch = accountProps[0];
+                    }
+                }
+
+                if (dbProp || accountPropMatch || j.property) {
+                    const baseProp = typeof j.property === 'object' && j.property !== null ? j.property : {};
+                    const mergedProp = {
+                        ...baseProp,
+                        ...(dbProp || {}),
+                        ...(accountPropMatch ? {
+                            name: accountPropMatch.name || accountPropMatch.label || baseProp.name,
+                            flat_number: accountPropMatch.flat_number || baseProp.flat_number || dbProp?.flat_number,
+                            building_name: accountPropMatch.building_name || baseProp.building_name || dbProp?.building_name,
+                            address: accountPropMatch.address || baseProp.address || dbProp?.address,
+                            locality: accountPropMatch.locality || baseProp.locality || dbProp?.locality,
+                            city: accountPropMatch.city || baseProp.city || dbProp?.city,
+                            pincode: accountPropMatch.pincode || baseProp.pincode || dbProp?.pincode,
+                        } : {})
+                    };
+
+                    mergedProp.latitude = mergedProp.latitude || dbProp?.latitude || accountPropMatch?.lat || accountPropMatch?.latitude || baseProp.latitude || null;
+                    mergedProp.longitude = mergedProp.longitude || dbProp?.longitude || accountPropMatch?.lng || accountPropMatch?.longitude || baseProp.longitude || null;
+                    mergedProp.location_verified_by = dbProp?.location_verified_by || baseProp.location_verified_by || null;
+                    mergedProp.location_verified_at = dbProp?.location_verified_at || baseProp.location_verified_at || null;
+
+                    j.property = mergedProp;
+                }
+            });
         }
 
         return NextResponse.json({ success: true, data })
