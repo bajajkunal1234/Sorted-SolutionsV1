@@ -270,6 +270,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
     const resizingRef = useRef(null);
 
     // Bank Statement & System Data
+    const [bankStatements, setBankStatements] = useState([]);
     const [activeStatement, setActiveStatement] = useState(null);
     const [latestStatementDate, setLatestStatementDate] = useState(null);
     const [statementTransactions, setStatementTransactions] = useState([]);
@@ -459,10 +460,13 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         }
     };
 
-    const fetchComprehensiveData = async (accountId) => {
+    const fetchComprehensiveData = async (accountId, overrideFromDate = null, overrideToDate = null) => {
         if (!accountId) return;
         try {
             setLoading(true);
+
+            const effFromDate = overrideFromDate || fromDate;
+            const effToDate = overrideToDate || toDate;
 
             // 1. Fetch Account Master for opening balance
             const { data: accountMaster } = await supabase
@@ -474,19 +478,19 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             const baseOpening = parseFloat(accountMaster?.opening_balance) || 0;
             const balanceType = accountMaster?.balance_type || 'dr';
 
-            // 2. Fetch prior transactions before fromDate to calculate accurate opening balance at fromDate
+            // 2. Fetch prior transactions before effFromDate to calculate accurate opening balance at effFromDate
             const [priorPay, priorRec] = await Promise.all([
                 supabase
                     .from('payment_vouchers')
                     .select('amount')
                     .or(`payment_account_id.eq.${accountId},account_id.eq.${accountId}`)
-                    .lt('date', fromDate)
+                    .lt('date', effFromDate)
                     .neq('status', 'cancelled'),
                 supabase
                     .from('receipt_vouchers')
                     .select('amount')
                     .or(`payment_account_id.eq.${accountId},account_id.eq.${accountId}`)
-                    .lt('date', fromDate)
+                    .lt('date', effFromDate)
                     .neq('status', 'cancelled')
             ]);
 
@@ -502,7 +506,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 .eq('bank_account_id', accountId)
                 .order('to_date', { ascending: false });
 
-            const active = (stmtList || []).find(s => s.from_date <= toDate && s.to_date >= fromDate) || stmtList?.[0] || null;
+            setBankStatements(stmtList || []);
+
+            // Active statement: find the statement that covers effFromDate, or overlaps the range
+            const active = (stmtList || []).find(s => s.from_date <= effFromDate && s.to_date >= effFromDate)
+                || (stmtList || []).find(s => s.from_date <= effToDate && s.to_date >= effFromDate)
+                || stmtList?.[0] || null;
             setActiveStatement(active);
 
             let txList = [];
@@ -513,8 +522,8 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .select('*')
                     .in('bank_statement_id', stmtIds);
 
-                if (fromDate) query = query.gte('date', fromDate);
-                if (toDate) query = query.lte('date', toDate);
+                if (effFromDate) query = query.gte('date', effFromDate);
+                if (effToDate) query = query.lte('date', effToDate);
 
                 const { data: fetchedTxList } = await query.order('date', { ascending: false });
                 txList = fetchedTxList || [];
@@ -537,38 +546,38 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                     .from('payment_vouchers')
                     .select('id, payment_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, reference_number')
                     .or(`payment_account_id.eq.${accountId},account_id.eq.${accountId}`)
-                    .gte('date', fromDate)
-                    .lte('date', toDate)
+                    .gte('date', effFromDate)
+                    .lte('date', effToDate)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false }),
                 supabase
                     .from('receipt_vouchers')
                     .select('id, receipt_number, date, amount, payment_mode, narration, account_name, status, payment_account_id, reference_number, is_settled, settlement_ref, settled_at')
                     .or(`payment_account_id.eq.${accountId},account_id.eq.${accountId}`)
-                    .gte('date', fromDate)
-                    .lte('date', toDate)
+                    .gte('date', effFromDate)
+                    .lte('date', effToDate)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false }),
                 supabase
                     .from('purchase_invoices')
                     .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, paid_by, po_reference, account_id')
-                    .gte('date', fromDate)
-                    .lte('date', toDate)
+                    .gte('date', effFromDate)
+                    .lte('date', effToDate)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false }),
                 supabase
                     .from('sales_invoices')
                     .select('id, invoice_number, date, total_amount, paid_amount, status, notes, account_name, account_id')
-                    .gte('date', fromDate)
-                    .lte('date', toDate)
+                    .gte('date', effFromDate)
+                    .lte('date', effToDate)
                     .neq('status', 'cancelled')
                     .order('date', { ascending: false }),
                 supabase
                     .from('bank_alerts_log')
                     .select('*')
                     .eq('bank_account_id', accountId)
-                    .gte('date', fromDate)
-                    .lte('date', toDate)
+                    .gte('date', effFromDate)
+                    .lte('date', effToDate)
                     .order('date', { ascending: false })
             ]);
 
@@ -951,28 +960,50 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
         let statementClosing = 0;
         let statementInflows = 0;
         let statementOutflows = 0;
-        let hasStatement = isCurrentGateway ? false : !!activeStatement;
 
-        if (activeStatement && !isCurrentGateway) {
-            statementOpening = parseFloat(activeStatement.opening_balance) || 0;
-            statementClosing = parseFloat(activeStatement.closing_balance) || 0;
+        const allStmts = bankStatements && bankStatements.length > 0 ? bankStatements : (activeStatement ? [activeStatement] : []);
+        const relevantStmts = allStmts.filter(s => s.from_date <= toDate && s.to_date >= fromDate);
+        let hasStatement = isCurrentGateway ? false : (relevantStmts.length > 0 || (!!activeStatement && !isCurrentGateway));
 
-            if (statementTransactions.length > 0) {
-                const chronological = [...statementTransactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-                const firstTx = chronological[0];
-                const lastTx = chronological[chronological.length - 1];
+        if (hasStatement && !isCurrentGateway) {
+            // 1. Determine Statement Opening Balance for `fromDate`
+            const sortedByStart = [...relevantStmts].sort((a, b) => a.from_date.localeCompare(b.from_date));
+            const openingStmt = sortedByStart.find(s => s.from_date <= fromDate && s.to_date >= fromDate) || sortedByStart[0] || activeStatement;
 
-                if (lastTx.balance) {
-                    statementClosing = parseFloat(lastTx.balance);
+            if (openingStmt) {
+                if (fromDate <= openingStmt.from_date) {
+                    statementOpening = parseFloat(openingStmt.opening_balance) || 0;
+                } else {
+                    // fromDate is after statement start: look for statement transaction right before fromDate
+                    const priorStmtTxs = (statementTransactions || []).filter(t => t.bank_statement_id === openingStmt.id && t.date < fromDate);
+                    if (priorStmtTxs.length > 0) {
+                        statementOpening = parseFloat(priorStmtTxs[0].balance) || parseFloat(openingStmt.opening_balance) || 0;
+                    } else {
+                        statementOpening = parseFloat(openingStmt.opening_balance) || 0;
+                    }
                 }
-                if (firstTx.balance) {
-                    const firstAmt = parseFloat(firstTx.amount) || 0;
-                    statementOpening = firstTx.type === 'receipt' ? firstTx.balance - firstAmt : firstTx.balance + firstAmt;
-                }
-
-                statementInflows = statementTransactions.filter(t => t.type === 'receipt').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                statementOutflows = statementTransactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
             }
+
+            // 2. Determine Statement Closing Balance for `toDate`
+            const sortedByEnd = [...relevantStmts].sort((a, b) => b.to_date.localeCompare(a.to_date));
+            const closingStmt = sortedByEnd.find(s => s.from_date <= toDate && s.to_date >= toDate) || sortedByEnd[0] || activeStatement;
+
+            if (closingStmt) {
+                if (toDate >= closingStmt.to_date) {
+                    statementClosing = parseFloat(closingStmt.closing_balance) || 0;
+                } else {
+                    // toDate is before statement end: find latest transaction up to toDate
+                    const inRangeStmtTxs = (statementTransactions || []).filter(t => t.bank_statement_id === closingStmt.id && t.date <= toDate);
+                    if (inRangeStmtTxs.length > 0) {
+                        statementClosing = parseFloat(inRangeStmtTxs[0].balance) || parseFloat(closingStmt.closing_balance) || 0;
+                    } else {
+                        statementClosing = parseFloat(closingStmt.closing_balance) || 0;
+                    }
+                }
+            }
+
+            statementInflows = (statementTransactions || []).filter(t => t.type === 'receipt').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            statementOutflows = (statementTransactions || []).filter(t => t.type === 'payment').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
         }
 
         const discrepancy = hasStatement ? (systemClosingBal - statementClosing) : 0;
@@ -1038,7 +1069,7 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 latestDate: latestReconciledDate
             }
         };
-    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement, isCurrentGateway, latestStatementDate]);
+    }, [statementTransactions, bankAlerts, systemVouchers, accountOpeningBal, activeStatement, bankStatements, fromDate, toDate, isCurrentGateway, latestStatementDate]);
 
     // Filter and Sort rows
     const sortedRows = useMemo(() => {
@@ -1333,11 +1364,20 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
 
                     alert(`Statement "${file.name}" uploaded successfully!\n\n✅ Added: ${newTxnsToInsert.length} new transactions\nOpening: ₹${stOpening.toLocaleString('en-IN')}, Closing: ₹${stClosing.toLocaleString('en-IN')}${dedupeNote}`);
 
-                    setFromDate(minDate);
-                    setToDate(maxDate);
-                    setDatePreset('custom');
+                    // Keep user's current date range if it already encompasses or covers the statement period (e.g. 'This Month')
+                    let targetFrom = fromDate;
+                    let targetTo = toDate;
+                    if (!targetFrom || !targetTo || targetFrom > minDate || targetTo < maxDate) {
+                        if (datePreset !== 'month') {
+                            targetFrom = minDate;
+                            targetTo = maxDate;
+                            setFromDate(minDate);
+                            setToDate(maxDate);
+                            setDatePreset('custom');
+                        }
+                    }
 
-                    fetchComprehensiveData(selectedAccountId);
+                    fetchComprehensiveData(selectedAccountId, targetFrom, targetTo);
                 } catch (error) {
                     console.error('Parsing/upload error:', error);
                     alert(error.message || 'Failed to upload statement.');
