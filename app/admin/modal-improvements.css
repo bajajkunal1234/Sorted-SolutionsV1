@@ -878,4 +878,286 @@ button[class*="cancel"]:hover,
         font-size: 13px;
         line-height: 20px;
     }
-}
+}
+
+/* ── Admin Property Detail Drawer & Mobile Full-Screen Sheet ── */
+.property-detail-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 10040 !important;
+}
+
+.property-detail-panel {
+    z-index: 10041 !important;
+    box-sizing: border-box !important;
+}
+
+.property-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.property-detail-close-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #94a3b8;
+    flex-shrink: 0;
+    margin-left: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.property-detail-close-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #f8fafc;
+}
+
+.property-detail-close-btn:active {
+    transform: scale(0.92);
+}
+
+.property-detail-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.property-actions-grid {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.prop-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.prop-action-btn:active {
+    transform: scale(0.97);
+}
+
+.prop-btn-edit {
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #818cf8;
+}
+
+.prop-btn-save {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.prop-btn-cancel {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #64748b;
+}
+
+.prop-btn-link {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+}
+
+.prop-btn-maps {
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+
+.prop-btn-share {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    color: #f59e0b;
+}
+
+.prop-btn-copied {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.property-modal-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(6px) !important;
+    -webkit-backdrop-filter: blur(6px) !important;
+    z-index: 10050 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+    box-sizing: border-box !important;
+}
+
+.property-modal-card {
+    background: linear-gradient(180deg, #1e293b, #0f172a) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    box-sizing: border-box !important;
+    z-index: 10051 !important;
+}
+
+.property-link-customer-overlay {
+    z-index: 10060 !important;
+}
+
+.property-link-customer-card {
+    z-index: 10061 !important;
+}
+
+@media (max-width: 768px) {
+    .property-detail-panel {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        border-left: none !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        background: #0f172a !important;
+        animation: propertySheetSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    }
+
+    @keyframes propertySheetSlideIn {
+        from {
+            transform: translateY(100%);
+            opacity: 0.85;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .property-detail-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+        background: rgba(15, 23, 42, 0.95) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        padding: max(14px, env(safe-area-inset-top, 14px)) 16px 14px 16px !important;
+        margin-bottom: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    .property-detail-close-btn {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        border-radius: 50% !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+    }
+
+    .property-detail-content {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 16px !important;
+        padding-bottom: calc(90px + env(safe-area-inset-bottom, 24px)) !important;
+    }
+
+    .property-actions-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 20px !important;
+        width: 100% !important;
+    }
+
+    .prop-action-btn {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        min-height: 44px !important;
+        padding: 10px 8px !important;
+        font-size: 13px !important;
+        border-radius: 10px !important;
+    }
+
+    .property-modal-overlay {
+        padding: 0 !important;
+    }
+
+    .property-modal-card {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        padding: 16px !important;
+        padding-top: max(16px, env(safe-area-inset-top, 16px)) !important;
+        padding-bottom: calc(50px + env(safe-area-inset-bottom, 24px)) !important;
+    }
+
+    /* iOS Safari 16px font-size to prevent automatic zoom */
+    .property-detail-panel input,
+    .property-detail-panel select,
+    .property-detail-panel textarea,
+    .property-modal-card input,
+    .property-modal-card select,
+    .property-modal-card textarea {
+        font-size: 16px !important;
+    }
+}
+

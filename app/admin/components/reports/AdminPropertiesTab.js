@@ -56,6 +56,17 @@ export default function AdminPropertiesTab() {
     // Link customer to property
     const [showLinkCustomer, setShowLinkCustomer] = useState(false)
 
+    // Prevent background scroll when property detail or modals are open
+    useEffect(() => {
+        if (selected || showAddModal || showLinkCustomer) {
+            const originalOverflow = document.body.style.overflow
+            document.body.style.overflow = 'hidden'
+            return () => {
+                document.body.style.overflow = originalOverflow
+            }
+        }
+    }, [selected, showAddModal, showLinkCustomer])
+
     useEffect(() => { fetchProperties() }, [])
 
     const fetchProperties = async () => {
@@ -306,14 +317,46 @@ export default function AdminPropertiesTab() {
                 </div>
             )}
 
-            {/* ── Detail Panel ── */}
+            {/* ── Detail Panel / Mobile Full-Screen Sheet ── */}
             {selected && (
                 <>
-                    <div onClick={() => { setSelected(null); setEditMode(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 200 }} />
-                    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '100%', maxWidth: 500, background: 'linear-gradient(180deg,#1e293b,#0f172a)', borderLeft: '1px solid rgba(255,255,255,0.1)', zIndex: 201, overflowY: 'auto', padding: '24px 20px', paddingBottom: 100 }}>
-
+                    <div
+                        className="property-detail-overlay"
+                        onClick={() => { setSelected(null); setEditMode(false) }}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            left: 0,
+                            background: 'rgba(0,0,0,0.65)',
+                            backdropFilter: 'blur(4px)',
+                            WebkitBackdropFilter: 'blur(4px)',
+                            zIndex: 10040
+                        }}
+                    />
+                    <div
+                        className="property-detail-panel"
+                        style={{
+                            position: 'fixed',
+                            right: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: '100%',
+                            maxWidth: 500,
+                            background: 'linear-gradient(180deg,#1e293b,#0f172a)',
+                            borderLeft: '1px solid rgba(255,255,255,0.1)',
+                            zIndex: 10041,
+                            overflowY: 'auto',
+                            padding: '24px 20px',
+                            paddingBottom: 100,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxSizing: 'border-box'
+                        }}
+                    >
                         {/* Panel header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                        <div className="property-detail-header">
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontFamily: 'monospace' }}>
@@ -327,41 +370,46 @@ export default function AdminPropertiesTab() {
                                     {[selected.locality, selected.city, selected.pincode].filter(Boolean).join(', ')}
                                 </p>
                             </div>
-                            <button onClick={() => { setSelected(null); setEditMode(false) }} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8', flexShrink: 0, marginLeft: 12 }}>
-                                <X size={16} />
+                            <button
+                                onClick={() => { setSelected(null); setEditMode(false) }}
+                                className="property-detail-close-btn"
+                                aria-label="Close"
+                            >
+                                <X size={18} />
                             </button>
                         </div>
 
-                        {/* Action buttons */}
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-                            {!editMode ? (
-                                <button onClick={startEdit} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 8, color: '#818cf8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                                    ✏️ Edit & Fix Pin
+                        {/* Panel body container */}
+                        <div className="property-detail-content">
+                            {/* Action buttons */}
+                            <div className="property-actions-grid">
+                                {!editMode ? (
+                                    <button onClick={startEdit} className="prop-action-btn prop-btn-edit">
+                                        ✏️ Edit & Fix Pin
+                                    </button>
+                                ) : (
+                                    <>
+                                        <button onClick={handleSaveEdit} disabled={saving} className="prop-action-btn prop-btn-save">
+                                            {saving ? '⏳ Saving...' : '💾 Save Changes'}
+                                        </button>
+                                        <button onClick={() => { setEditMode(false); setSaveError('') }} className="prop-action-btn prop-btn-cancel">
+                                            Cancel
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => setShowLinkCustomer(true)}
+                                    className="prop-action-btn prop-btn-link"
+                                >
+                                    <UserPlus size={15} /> Link Customer
                                 </button>
-                            ) : (
-                                <>
-                                    <button onClick={handleSaveEdit} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 8, color: '#10b981', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-                                        {saving ? '⏳ Saving...' : '💾 Save Changes'}
-                                    </button>
-                                    <button onClick={() => { setEditMode(false); setSaveError('') }} style={{ padding: '8px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#64748b', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                                        Cancel
-                                    </button>
-                                </>
-                            )}
-                            <button
-                                onClick={() => setShowLinkCustomer(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 8, color: '#38bdf8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                            >
-                                <UserPlus size={14} /> Link Customer
-                            </button>
-                            <a href={getMapsUrl(selected)} target="_blank" rel="noreferrer"
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, color: '#60a5fa', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
-                                🗺️ Google Maps
-                            </a>
-                            <button onClick={handleShareLocation} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: copied ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.1)', border: `1px solid ${copied ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.25)'}`, borderRadius: 8, color: copied ? '#10b981' : '#f59e0b', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                                {copied ? '✅ Copied!' : '🔗 Share Location'}
-                            </button>
-                        </div>
+                                <a href={getMapsUrl(selected)} target="_blank" rel="noreferrer" className="prop-action-btn prop-btn-maps">
+                                    🗺️ Google Maps
+                                </a>
+                                <button onClick={handleShareLocation} className={`prop-action-btn ${copied ? 'prop-btn-copied' : 'prop-btn-share'}`}>
+                                    {copied ? '✅ Copied!' : '🔗 Share Location'}
+                                </button>
+                            </div>
 
                         {/* Link Customer Modal */}
                         {showLinkCustomer && (
@@ -411,7 +459,7 @@ export default function AdminPropertiesTab() {
                                                     pincode={editForm.pincode}
                                                     onChange={(loc, pin) => setEditForm(p => ({ ...p, locality: loc, pincode: pin || p.pincode, city: loc && loc !== '__other__' ? 'Mumbai' : p.city }))}
                                                     inputStyle={{ ...S.input, paddingLeft: 14 }}
-                                                    dropdownZIndex={300}
+                                                    dropdownZIndex={10070}
                                                 />
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -568,6 +616,7 @@ export default function AdminPropertiesTab() {
                                 </div>
                             </>
                         )}
+                        </div>
                     </div>
                 </>
             )}
@@ -646,11 +695,62 @@ function AddPropertyModal({ onClose, onSaved }) {
     }
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div style={{ background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div
+            className="property-modal-overlay"
+            onClick={onClose}
+            style={{
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                background: 'rgba(0,0,0,0.7)',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
+                zIndex: 10050,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20
+            }}
+        >
+            <div
+                className="property-modal-card"
+                onClick={e => e.stopPropagation()}
+                style={{
+                    background: 'linear-gradient(180deg,#1e293b,#0f172a)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 20,
+                    padding: 28,
+                    width: '100%',
+                    maxWidth: 440,
+                    maxHeight: '90vh',
+                    overflowY: 'auto',
+                    zIndex: 10051
+                }}
+            >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                     <h3 style={{ color: '#f8fafc', fontWeight: 800, margin: 0 }}>Add Property</h3>
-                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 36,
+                            height: 36,
+                            minWidth: 36,
+                            minHeight: 36,
+                            color: '#94a3b8',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -696,7 +796,7 @@ function AddPropertyModal({ onClose, onSaved }) {
                             pincode={form.pincode}
                             onChange={(loc, pin) => setForm(p => ({ ...p, locality: loc, pincode: pin || p.pincode, city: loc && loc !== '__other__' ? 'Mumbai' : p.city }))}
                             inputStyle={{ ...S.input, paddingLeft: 14 }}
-                            dropdownZIndex={350}
+                            dropdownZIndex={10070}
                         />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -806,12 +906,40 @@ function LinkCustomerModal({ propertyId, linkedAccountIds, onClose, onLinked }) 
 
     return (
         <div
+            className="property-modal-overlay property-link-customer-overlay"
             onClick={onClose}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+            style={{
+                position: 'fixed',
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+                background: 'rgba(0,0,0,0.65)',
+                backdropFilter: 'blur(5px)',
+                WebkitBackdropFilter: 'blur(5px)',
+                zIndex: 10060,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20
+            }}
         >
             <div
+                className="property-modal-card property-link-customer-card"
                 onClick={e => e.stopPropagation()}
-                style={{ background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 460, maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16 }}
+                style={{
+                    background: 'linear-gradient(180deg,#1e293b,#0f172a)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 20,
+                    padding: 24,
+                    width: '100%',
+                    maxWidth: 460,
+                    maxHeight: '80vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 16,
+                    zIndex: 10061
+                }}
             >
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -819,8 +947,25 @@ function LinkCustomerModal({ propertyId, linkedAccountIds, onClose, onLinked }) 
                         <UserPlus size={18} color="#38bdf8" />
                         <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>Link Customer</span>
                     </div>
-                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
-                        <X size={14} />
+                    <button
+                        onClick={onClose}
+                        aria-label="Close"
+                        style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: 36,
+                            height: 36,
+                            minWidth: 36,
+                            minHeight: 36,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#94a3b8'
+                        }}
+                    >
+                        <X size={16} />
                     </button>
                 </div>
 
