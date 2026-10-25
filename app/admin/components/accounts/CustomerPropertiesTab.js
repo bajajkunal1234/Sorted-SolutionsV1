@@ -50,31 +50,43 @@ function CustomerPropertiesTab({ customerId, account }) {
     // Merge account.properties JSONB entries that didn't come back from the API
     const mergeInlineProperties = (apiResults) => {
         const seenKeys = new Set();
+        const seenNorms = new Set();
         const merged = [...(apiResults || [])];
+
+        const normalizeAddr = (p) => {
+            if (!p) return '';
+            return [p.flat_number, p.building_name, p.address, p.locality, p.pincode]
+                .map(v => (v || '').toString().trim().toLowerCase())
+                .filter(Boolean)
+                .join(' ')
+                .replace(/[^a-z0-9]/g, '');
+        };
+
         for (const p of merged) {
-            // track real ids AND synthetic inline keys
+            // track real ids AND normalized address keys
             seenKeys.add(String(p.id));
-            const addrKey = [p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|').toLowerCase();
-            seenKeys.add(addrKey);
+            const norm = normalizeAddr(p);
+            if (norm) seenNorms.add(norm);
         }
 
         const inlineProps = Array.isArray(account?.properties) ? account.properties : [];
         for (const p of inlineProps) {
             const addr = (p.address || '').trim();
             if (!addr) continue;
-            const addrKey = [p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|').toLowerCase();
-            if (seenKeys.has(addrKey)) continue;
-            seenKeys.add(addrKey);
-            // Use the booking-id if present (e.g. 'booking-uuid'), else synthetic
-            const id = p.id || `inline:${addrKey}`;
+            const norm = normalizeAddr(p);
+            if (seenKeys.has(String(p.id))) continue;
+            if (norm && seenNorms.has(norm)) continue;
+            if (norm) seenNorms.add(norm);
+            seenKeys.add(String(p.id));
+            const id = p.id || `inline:${norm || Date.now()}`;
             merged.push({
                 id,
-                flat_number: p.flat_number || '',
-                building_name: p.building_name || p.name || '',
+                flat_number: (p.flat_number || '').trim(),
+                building_name: (p.building_name || p.name || '').trim(),
                 address: addr,
-                locality: p.locality || '',
-                city: p.city || '',
-                pincode: p.pincode || '',
+                locality: (p.locality || '').trim(),
+                city: (p.city || '').trim(),
+                pincode: (p.pincode || '').trim(),
                 property_type: p.property_type || 'residential',
                 latitude: p.lat || p.latitude || null,
                 longitude: p.lng || p.longitude || null,
