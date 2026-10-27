@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { logInteractionServer } from '@/lib/log-interaction-server';
 
@@ -6,6 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
+        const supabase = createServerSupabase();
+        if (!supabase) return NextResponse.json({ success: false, error: 'Database connection failed' }, { status: 500 });
+
         const { searchParams } = new URL(request.url);
         const technicianId = searchParams.get('technicianId');
         const status = searchParams.get('status');
@@ -58,6 +61,9 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
+        const supabase = createServerSupabase();
+        if (!supabase) return NextResponse.json({ success: false, error: 'Database connection failed' }, { status: 500 });
+
         const body = await request.json();
         const {
             technician_id,
@@ -162,6 +168,9 @@ export async function POST(request) {
 
 export async function PUT(request) {
     try {
+        const supabase = createServerSupabase();
+        if (!supabase) return NextResponse.json({ success: false, error: 'Database connection failed' }, { status: 500 });
+
         const body = await request.json();
         const { id, status, verified_by, notes, action, technician_id } = body;
 
