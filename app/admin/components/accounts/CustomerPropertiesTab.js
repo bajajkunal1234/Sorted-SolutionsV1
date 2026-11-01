@@ -53,32 +53,71 @@ function CustomerPropertiesTab({ customerId, account }) {
         const seenNorms = new Set();
         const merged = [...(apiResults || [])];
 
-        const normalizeAddr = (p) => {
-            if (!p) return '';
-            return [p.flat_number, p.building_name, p.address, p.locality, p.pincode]
+        const getPropertyKeys = (p) => {
+            if (!p) return [];
+            const keys = [];
+
+            // Full address string with city
+            const fullWithCity = [p.flat_number, p.building_name || p.name, p.address, p.locality, p.city, p.pincode]
                 .map(v => (v || '').toString().trim().toLowerCase())
                 .filter(Boolean)
                 .join(' ')
                 .replace(/[^a-z0-9]/g, '');
+            if (fullWithCity) keys.push(fullWithCity);
+
+            // Full address string without city
+            const fullWithoutCity = [p.flat_number, p.building_name || p.name, p.address, p.locality, p.pincode]
+                .map(v => (v || '').toString().trim().toLowerCase())
+                .filter(Boolean)
+                .join(' ')
+                .replace(/[^a-z0-9]/g, '');
+            if (fullWithoutCity) keys.push(fullWithoutCity);
+
+            // Headline (flat + building/address)
+            const headline = [p.flat_number, p.building_name || p.name, p.address]
+                .map(v => (v || '').toString().trim().toLowerCase())
+                .filter(Boolean)
+                .join(' ')
+                .replace(/[^a-z0-9]/g, '');
+            
+            // Substantive headline match (e.g. "604, Moraccan Appt., Royal Palms")
+            if (headline && headline.length >= 8) {
+                keys.push(`hl:${headline}`);
+            }
+
+            const locOrPin = [p.locality, p.pincode]
+                .map(v => (v || '').toString().trim().toLowerCase())
+                .filter(Boolean)
+                .join(' ')
+                .replace(/[^a-z0-9]/g, '');
+            if (headline && locOrPin) {
+                keys.push(`${headline}__${locOrPin}`);
+            }
+
+            return keys;
         };
 
         for (const p of merged) {
-            // track real ids AND normalized address keys
             seenKeys.add(String(p.id));
-            const norm = normalizeAddr(p);
-            if (norm) seenNorms.add(norm);
+            const keys = getPropertyKeys(p);
+            for (const k of keys) seenNorms.add(k);
         }
 
         const inlineProps = Array.isArray(account?.properties) ? account.properties : [];
         for (const p of inlineProps) {
-            const addr = (p.address || '').trim();
-            if (!addr) continue;
-            const norm = normalizeAddr(p);
-            if (seenKeys.has(String(p.id))) continue;
-            if (norm && seenNorms.has(norm)) continue;
-            if (norm) seenNorms.add(norm);
-            seenKeys.add(String(p.id));
-            const id = p.id || `inline:${norm || Date.now()}`;
+            const addr = (p.address || p.building_name || p.name || '').trim();
+            if (!addr && !p.flat_number) continue;
+            
+            if (p.id && seenKeys.has(String(p.id))) continue;
+
+            const keys = getPropertyKeys(p);
+            const isDuplicate = keys.some(k => seenNorms.has(k));
+            if (isDuplicate) continue;
+
+            for (const k of keys) seenNorms.add(k);
+            if (p.id) seenKeys.add(String(p.id));
+
+            const id = p.id || `inline:${keys[0] || Date.now()}`;
             merged.push({
                 id,
                 flat_number: (p.flat_number || '').trim(),

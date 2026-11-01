@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
+import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine, Loader2, RotateCw } from 'lucide-react';
 import { inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 // ── Price resolution ─────────────────────────────────────────────────────────
@@ -84,6 +84,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
+    const [fetchError, setFetchError]     = useState(null);
     const [search, setSearch]             = useState('');
     const [filter, setFilter]             = useState(onlyParts ? 'product' : (hideParts ? 'service' : 'all')); // 'all' | 'product' | 'service'
     const [basket, setBasket]             = useState([]); // { ...item, qty, priceType, customPrice }
@@ -94,6 +95,16 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         setMounted(true);
         return () => setMounted(false);
     }, []);
+
+    // Sync filter when hideParts or onlyParts changes
+    useEffect(() => {
+        if (hideParts) {
+            setFilter('service');
+        } else if (onlyParts) {
+            setFilter('product');
+        }
+    }, [hideParts, onlyParts]);
+
     const [showManual, setShowManual]     = useState(false);
     const [manualItem, setManualItem]     = useState({ name: '', rate: '', type: hideParts ? 'service' : 'product' });
 
@@ -101,22 +112,44 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         job?.product?.warranty?.status === 'in-warranty' ||
         job?.warranty_status === 'in-warranty';
 
-    useEffect(() => {
+    const loadData = () => {
+        setLoading(true);
+        setFetchError(null);
         const isPurchase = invoiceLabel && invoiceLabel.toLowerCase().includes('purchase');
         if (isPurchase) {
             setShowTax(false);
         }
+
+        const fetchInventoryWithFallback = async () => {
+            try {
+                const res = await inventoryAPI.getAll();
+                const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+                if (items.length > 0) return items;
+            } catch (err) {
+                console.warn('[RepairCalculator] inventoryAPI.getAll failed, trying direct fetch:', err);
+            }
+            try {
+                const directRes = await fetch('/api/admin/inventory', { cache: 'no-store' });
+                if (directRes.ok) {
+                    const directData = await directRes.json();
+                    return Array.isArray(directData?.data) ? directData.data : [];
+                }
+            } catch (err) {
+                console.error('[RepairCalculator] Direct inventory fetch failed:', err);
+            }
+            return [];
+        };
+
         Promise.all([
-            inventoryAPI.getAll().catch(err => {
-                console.error('[RepairCalculator] Failed to fetch inventory:', err);
-                return [];
-            }),
+            fetchInventoryWithFallback(),
             productLinksAPI.getAll().catch(() => []),
             printSettingsAPI.get().catch(() => null)
         ])
             .then(([inv, links, printData]) => {
-                setInventory(inv || []);
-                setProductLinks(links || []);
+                const items = Array.isArray(inv) ? inv : (Array.isArray(inv?.data) ? inv.data : []);
+                const validLinks = Array.isArray(links) ? links : (Array.isArray(links?.data) ? links.data : []);
+                setInventory(items);
+                setProductLinks(validLinks);
                 if (printData && !isPurchase) {
                     setShowTax(printData.quotation_show_gst ?? printData.show_gst ?? true);
                 }
@@ -124,7 +157,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                 // If prefillItems is provided, initialize the basket
                 if (prefillItems && prefillItems.length > 0) {
                     const initialBasket = prefillItems.map(p => {
-                        const invItem = inv?.find(item => item.id === p.productId);
+                        const invItem = items.find(item => item.id === p.productId);
                         const isService = p.isCharge || p.type === 'service';
                         
                         return {
@@ -148,7 +181,15 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                     setBasket(initialBasket);
                 }
             })
+            .catch(err => {
+                console.error('[RepairCalculator] Failed to load calculator data:', err);
+                setFetchError(err.message || 'Failed to load inventory.');
+            })
             .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadData();
     }, [invoiceLabel, prefillItems]);
 
     // ── Basket helpers ────────────────────────────────────────────────────────
@@ -226,7 +267,9 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
 
     // ── Filtered item list ────────────────────────────────────────────────────
     const visible = inventory.filter(item => {
-        const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+        if (!item || typeof item !== 'object') return false;
+        const itemName    = String(item.name || '');
+        const matchSearch = !search || itemName.toLowerCase().includes(search.toLowerCase());
         const isService   = item.type === 'service' || item.product_type === 'service';
         if (onlyParts && isService) return false;
         const matchFilter = hideParts ? isService : (filter === 'all' || (filter === 'service' ? isService : !isService));
@@ -260,7 +303,27 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
 
     // ─────────────────────────────────────────────────────────────────────────
     const content = (
-        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+        <div
+            className="repair-calculator-modal"
+            onClick={e => e.stopPropagation()}
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100vw',
+                maxWidth: '100vw',
+                height: '100dvh',
+                maxHeight: '100dvh',
+                zIndex: 99999,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                backgroundColor: 'var(--bg-primary)',
+                boxSizing: 'border-box'
+            }}
+        >
 
             {/* ── TOP BAR ── */}
             <div style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', padding: 'calc(10px + env(safe-area-inset-top, 0px)) 14px 10px', flexShrink: 0 }}>
@@ -329,14 +392,63 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
             )}
 
             {/* ── ITEM CARDS GRID ── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px', paddingBottom: basket.length > 0 ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+            <div
+                className="repair-calculator-body"
+                style={{
+                    flex: '1 1 0%',
+                    minHeight: 0,
+                    height: '100%',
+                    width: '100%',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    WebkitOverflowScrolling: 'touch',
+                    padding: '12px 10px',
+                    paddingBottom: basket.length > 0 ? 'calc(95px + env(safe-area-inset-bottom, 16px))' : 'calc(24px + env(safe-area-inset-bottom, 16px))',
+                    boxSizing: 'border-box'
+                }}
+            >
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading inventory...</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '12px', color: 'var(--text-secondary)' }}>
+                        <Loader2 size={32} className="animate-spin" color="var(--color-primary)" />
+                        <span style={{ fontSize: '14px', fontWeight: 600 }}>Loading spare parts & services...</span>
+                    </div>
                 ) : (
                     <>
                         {visible.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-                                No items found. Use Manual Entry below.
+                            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                <p style={{ margin: 0, fontWeight: 600 }}>
+                                    {search
+                                        ? `No items found matching "${search}"`
+                                        : hideParts
+                                            ? 'No services available in inventory.'
+                                            : onlyParts
+                                                ? 'No spare parts available in inventory.'
+                                                : 'No items found in inventory.'
+                                    }
+                                </p>
+                                <p style={{ margin: '6px 0 16px 0', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                    You can add a custom item or service using Manual Entry below.
+                                </p>
+                                {fetchError && (
+                                    <button
+                                        onClick={loadData}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '8px 16px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border-primary)',
+                                            background: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <RotateCw size={14} /> Retry Loading
+                                    </button>
+                                )}
                             </div>
                         )}
 

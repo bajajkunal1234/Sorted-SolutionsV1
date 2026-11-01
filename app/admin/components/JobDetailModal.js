@@ -3461,6 +3461,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             {activeForm === 'calculator' && (
                 <RepairCalculator
                     job={editedJob}
+                    prefillItems={calculatorItems || (isCloseWithServiceCharge ? [] : savedQuotation?.items)}
                     onClose={() => {
                         setActiveForm(null);
                         setIsCloseWithServiceCharge(false);
