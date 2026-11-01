@@ -149,7 +149,9 @@ function formatAge(secondsAgo) {
  * Idle = grey dot, On-job = blue icon.
  * Refreshes every 60s automatically.
  */
-export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true, isDashboard = false, hideMap = false }) {
+const DEFAULT_TECHS = [];
+
+export default function TechnicianLiveMap({ activeTechnicians = DEFAULT_TECHS, activeJobs, height = 480, showRoster = true, isDashboard = false, hideMap = false }) {
     const [allLocations, setAllLocations] = useState([]);
     const [adminLocation, setAdminLocation] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -303,7 +305,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             clearInterval(interval);
             supabase.removeChannel(liveChannel);
         };
-    }, [activeJobs, activeTechnicians]);
+    }, []);
 
     const trackingList = activeTechnicians.length > 0 
         ? activeTechnicians 
@@ -315,7 +317,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
         channelsRef.current.forEach(ch => supabase.removeChannel(ch));
         channelsRef.current = [];
 
-        if (!trackingList || trackingList.length === 0) return;
+        if (hideMap || !trackingList || trackingList.length === 0) return;
 
         trackingList.forEach(tech => {
             if (!tech.job_id) return;

@@ -48,6 +48,11 @@ export default function AdminApp() {
     const [jobsViewNameToOpen, setJobsViewNameToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const handleAdminLogout = () => {
         if (typeof window !== 'undefined' && window.confirm('Are you sure you want to log out of Admin?')) {
@@ -431,6 +436,33 @@ export default function AdminApp() {
             default:
                 return null
         }
+    }
+
+    if (!mounted || !authChecked) {
+        return (
+            <div style={{
+                minHeight: "100vh",
+                backgroundColor: "#090d16",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#64748b",
+                fontFamily: "system-ui, -apple-system, sans-serif"
+            }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                    <div style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        border: "2px solid rgba(255, 255, 255, 0.1)",
+                        borderTopColor: "#6366f1",
+                        animation: "adminSpin 0.8s linear infinite"
+                    }} />
+                    <span style={{ fontSize: 13, letterSpacing: "0.02em", color: "#94a3b8" }}>Loading Admin Portal...</span>
+                </div>
+                <style>{`@keyframes adminSpin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
     }
 
     return (

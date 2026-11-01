@@ -15,6 +15,9 @@ export const metadata = {
         statusBarStyle: 'black-translucent',
         title: 'SS Admin',
     },
+    other: {
+        'mobile-web-app-capable': 'yes',
+    },
 }
 
 export default function AdminLayout({ children }) {
