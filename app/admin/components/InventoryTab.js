@@ -29,7 +29,7 @@ function InventoryTab() {
     
     // UI Utility states
     const [showColumnPicker, setShowColumnPicker] = useState(false);
-    const defaultVisibleCols = ['sku', 'name', 'type', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
+    const defaultVisibleCols = ['sku', 'name', 'type', 'subtype', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
     const [visibleColumns, setVisibleColumns] = useState(new Set(defaultVisibleCols));
     const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
     // Dependency modal state
@@ -354,6 +354,7 @@ function InventoryTab() {
         { id: 'name',             label: 'Item Name' },
         { id: 'sku',              label: 'SKU' },
         { id: 'type',             label: 'Type' },
+        { id: 'subtype',          label: 'Subtype' },
         { id: 'job_type',         label: 'Job Type' },
         { id: 'category',         label: 'Category' },
         { id: 'brand',            label: 'Brand' },

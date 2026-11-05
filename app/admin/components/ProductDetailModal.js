@@ -348,6 +348,20 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                     </div>
 
                                     <div className="form-group">
+                                        <label className="form-label">Subtype</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedProduct.subtype || 'tech'}
+                                            onChange={(e) => setEditedProduct({ ...editedProduct, subtype: e.target.value })}
+                                            disabled={!isEditing}
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
+                                        >
+                                            <option value="tech">Tech (Field / Internal)</option>
+                                            <option value="web">Web (Website Booking)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                                             <label className="form-label" style={{ margin: 0 }}>Category *</label>
                                             {isEditing && <button type="button" onClick={() => { setAddingList('category'); setNewListItem(''); setAddingListError(''); }} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}><Plus size={12} /> Add new</button>}

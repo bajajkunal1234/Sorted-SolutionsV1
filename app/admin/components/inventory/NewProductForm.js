@@ -32,6 +32,7 @@ function NewProductForm({
     const [formData, setFormData] = useState({
         name: '',
         type: 'product',
+        subtype: 'tech',      // 'tech' | 'web'
         jobType: '',          // 'install_uninstall' | 'service_maintenance' | 'repair'
         category: '',
         brand: '',
@@ -184,6 +185,7 @@ function NewProductForm({
                 name: formData.name,
                 sku: autoSKU,
                 type: formData.type,
+                subtype: formData.subtype || 'tech',
                 category: formData.category,
                 brand: formData.brand || null,
                 description: formData.description || null,
@@ -315,9 +317,9 @@ function NewProductForm({
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
 
-                            {/* Type + Job Type in one row */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                <div className="form-group">
+                            {/* Row 1: Item Type + Item Subtype + Job Type */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+                                <div className="form-group" style={{ margin: 0 }}>
                                     <label className="form-label">Item Type *</label>
                                     <select
                                         className="form-select"
@@ -329,11 +331,27 @@ function NewProductForm({
                                         <option value="service">Service</option>
                                     </select>
                                     <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                        Form fields adapt based on this selection
+                                        Product or Service
                                     </div>
                                 </div>
 
-                                <div className="form-group">
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label">Item Subtype *</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.subtype}
+                                        onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
+                                        required
+                                    >
+                                        <option value="tech">Tech (Field / Internal)</option>
+                                        <option value="web">Web (Website Booking)</option>
+                                    </select>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        Bifurcates Web &amp; Tech items
+                                    </div>
+                                </div>
+
+                                <div className="form-group" style={{ margin: 0 }}>
                                     <label className="form-label">Job Type</label>
                                     <select
                                         className="form-select"
@@ -346,41 +364,45 @@ function NewProductForm({
                                         <option value="repair">Repair</option>
                                     </select>
                                     <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                        Used to categorise jobs &amp; filter reports
+                                        Used to categorise jobs
                                     </div>
                                 </div>
                             </div>
 
-                            {/* SKU — auto-generated, read-only */}
-                            <div className="form-group">
-                                <label className="form-label">SKU (Auto-generated)</label>
-                                <div style={{
-                                    padding: '8px 12px',
-                                    backgroundColor: 'var(--bg-tertiary)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontFamily: 'monospace',
-                                    fontSize: 'var(--font-size-sm)',
-                                    color: 'var(--text-secondary)',
-                                    letterSpacing: '0.05em'
-                                }}>
-                                    {autoSKU}
+                            {/* Row 2: Product/Service Name + SKU Side-by-Side (Option A) */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 'var(--spacing-md)', alignItems: 'start' }}>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label">{formData.type === 'service' ? 'Service' : 'Product'} Name *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        required
+                                        placeholder={formData.type === 'service' ? 'e.g., AC Installation Service' : 'e.g., Samsung Split AC 1.5 Ton'}
+                                    />
                                 </div>
-                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                    Automatically assigned on create
-                                </div>
-                            </div>
 
-                            <div className="form-group">
-                                <label className="form-label">{formData.type === 'service' ? 'Service' : 'Product'} Name *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                    placeholder={formData.type === 'service' ? 'e.g., AC Installation Service' : 'e.g., Samsung Split AC 1.5 Ton'}
-                                />
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label">SKU (Auto)</label>
+                                    <div style={{
+                                        padding: '10px 12px',
+                                        backgroundColor: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontFamily: 'monospace',
+                                        fontSize: 'var(--font-size-sm)',
+                                        fontWeight: 600,
+                                        color: 'var(--text-secondary)',
+                                        letterSpacing: '0.05em',
+                                        textAlign: 'center',
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis'
+                                    }} title={`Assigned SKU: ${autoSKU}`}>
+                                        {autoSKU}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Inline add mini-modal */}

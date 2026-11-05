@@ -143,6 +143,21 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                     </td>
                 )}
 
+                {isVisible('subtype') && (
+                    <td style={td}>
+                        <span style={{
+                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
+                            fontWeight: 600,
+                            backgroundColor: (product.subtype || 'tech') === 'web' ? 'rgba(56,189,248,0.12)' : 'rgba(148,163,184,0.12)',
+                            color: (product.subtype || 'tech') === 'web' ? '#38bdf8' : '#94a3b8',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em'
+                        }}>
+                            {product.subtype || 'tech'}
+                        </span>
+                    </td>
+                )}
+
                 {isVisible('job_type') && (
                     <td style={td}>
                         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
@@ -381,6 +396,7 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                             {isVisible('sku')              && <th style={thBase}>SKU</th>}
                             {isVisible('name')             && <th style={thBase}>Name</th>}
                             {isVisible('type')             && <th style={thBase}>Type</th>}
+                            {isVisible('subtype')          && <th style={thBase}>Subtype</th>}
                             {isVisible('job_type')         && <th style={thBase}>Job Type</th>}
                             {isVisible('category')         && <th style={thBase}>Category</th>}
                             {isVisible('brand')            && <th style={thBase}>Brand</th>}

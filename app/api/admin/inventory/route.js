@@ -7,6 +7,7 @@ export async function GET(request) {
         const supabase = createServerSupabase();
         const { searchParams } = new URL(request.url)
         const category = searchParams.get('category')
+        const subtype = searchParams.get('subtype')
         const lowStock = searchParams.get('low_stock')
         const includeArchived = searchParams.get('include_archived') === 'true'
 
@@ -17,6 +18,9 @@ export async function GET(request) {
 
         if (category) {
             query = query.eq('category', category)
+        }
+        if (subtype) {
+            query = query.eq('subtype', subtype.toLowerCase().trim())
         }
         if (lowStock === 'true') {
             query = query.or('current_stock.lt.min_stock_level,quantity.lt.reorder_level')
@@ -43,7 +47,7 @@ export async function POST(request) {
 
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
         const ALLOWED_COLUMNS = [
-            'name', 'sku', 'type', 'job_type', 'category', 'brand', 'description', 'images',
+            'name', 'sku', 'type', 'subtype', 'job_type', 'category', 'brand', 'description', 'images',
             'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
@@ -82,10 +86,14 @@ export async function POST(request) {
             if (aliased[col] !== undefined) payload[col] = aliased[col];
         }
 
-        // ── 1. Normalise type ─────────────────────────────────────────────────
+        // ── 1. Normalise type & subtype ──────────────────────────────────────
         payload.type = payload.type
             ? String(payload.type).toLowerCase().trim()
             : 'product';
+
+        payload.subtype = payload.subtype && String(payload.subtype).toLowerCase().trim() === 'web'
+            ? 'web'
+            : 'tech';
 
         // ── 2. Normalise job_type labels → DB keys ────────────────────────────
         if (payload.job_type) {
@@ -186,7 +194,7 @@ export async function PUT(request) {
 
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
         const ALLOWED_COLUMNS = [
-            'name', 'sku', 'type', 'job_type', 'category', 'brand', 'description', 'images',
+            'name', 'sku', 'type', 'subtype', 'job_type', 'category', 'brand', 'description', 'images',
             'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
@@ -223,6 +231,10 @@ export async function PUT(request) {
         const updates = {};
         for (const col of ALLOWED_COLUMNS) {
             if (aliased[col] !== undefined) updates[col] = aliased[col];
+        }
+
+        if (updates.subtype !== undefined) {
+            updates.subtype = String(updates.subtype).toLowerCase().trim() === 'web' ? 'web' : 'tech';
         }
 
         const { data, error } = await supabase

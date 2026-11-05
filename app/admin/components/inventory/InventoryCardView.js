@@ -97,6 +97,21 @@ function InventoryCardView({ products, onProductClick, categories = [] }) {
                             overflow: 'hidden'
                         }}>
                             <Package size={48} style={{ color: 'var(--text-tertiary)', opacity: 0.3 }} />
+                            <div style={{
+                                position: 'absolute',
+                                top: 'var(--spacing-xs)',
+                                left: 'var(--spacing-xs)',
+                                padding: '2px 7px',
+                                backgroundColor: (product.subtype || 'tech') === 'web' ? 'rgba(56,189,248,0.2)' : 'rgba(148,163,184,0.2)',
+                                color: (product.subtype || 'tech') === 'web' ? '#38bdf8' : '#94a3b8',
+                                fontSize: '10px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em'
+                            }}>
+                                {product.subtype || 'tech'}
+                            </div>
                             {product.type === 'service' && (
                                 <div style={{
                                     position: 'absolute',
