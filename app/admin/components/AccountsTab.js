@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react';
-import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package, Archive } from 'lucide-react';
+import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package, Archive, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import AccountsSearchPanel from '@/components/shared/AccountsSearchPanel';
 import ImportExportButtons from './shared/ImportExportButtons';
 import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI, journalsAPI } from '@/lib/adminAPI';
@@ -900,21 +900,143 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         return result;
     };
 
+    const getAccountSortInfo = (val) => {
+        if (!val || val === 'name') return { colId: 'name', dir: 'asc' };
+        if (val === 'name_desc') return { colId: 'name', dir: 'desc' };
+        if (val === 'balance_desc') return { colId: 'closing_balance', dir: 'desc' };
+        if (val === 'balance_asc') return { colId: 'closing_balance', dir: 'asc' };
+        if (val === 'opening_desc') return { colId: 'opening_balance', dir: 'desc' };
+        if (val === 'opening_asc') return { colId: 'opening_balance', dir: 'asc' };
+        if (val === 'jobs') return { colId: 'jobs', dir: 'desc' };
+        if (val === 'jobs_asc') return { colId: 'jobs', dir: 'asc' };
+        if (val === 'updated_desc') return { colId: 'updated_at', dir: 'desc' };
+        if (val === 'updated_asc') return { colId: 'updated_at', dir: 'asc' };
+        if (val.endsWith('_desc')) return { colId: val.slice(0, -5), dir: 'desc' };
+        if (val.endsWith('_asc')) return { colId: val.slice(0, -4), dir: 'asc' };
+        return { colId: val, dir: 'asc' };
+    };
+
+    const getTxSortInfo = (val) => {
+        if (!val || val === 'date') return { colId: 'date', dir: 'desc' };
+        if (val === 'date_asc') return { colId: 'date', dir: 'asc' };
+        if (val === 'amount') return { colId: 'amount', dir: 'desc' };
+        if (val === 'amount_asc') return { colId: 'amount', dir: 'asc' };
+        if (val === 'account') return { colId: 'account_name', dir: 'asc' };
+        if (val === 'account_desc') return { colId: 'account_name', dir: 'desc' };
+        if (val === 'number') return { colId: 'number', dir: 'asc' };
+        if (val === 'number_desc') return { colId: 'number', dir: 'desc' };
+        if (val === 'updated_desc') return { colId: 'updated_at', dir: 'desc' };
+        if (val === 'updated_asc') return { colId: 'updated_at', dir: 'asc' };
+        if (val.endsWith('_desc')) return { colId: val.slice(0, -5), dir: 'desc' };
+        if (val.endsWith('_asc')) return { colId: val.slice(0, -4), dir: 'asc' };
+        return { colId: val, dir: 'asc' };
+    };
+
+    const handleHeaderSort = (tab, colId) => {
+        if (!colId || colId === 'actions') return;
+
+        if (tab === 'accounts') {
+            const current = getAccountSortInfo(sortBy);
+            let nextDir = 'asc';
+            if (current.colId === colId) {
+                nextDir = current.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                const isNumericOrDate = ['closing_balance', 'opening_balance', 'jobs', 'credit_limit', 'credit_period', 'created_at', 'updated_at'].includes(colId);
+                nextDir = isNumericOrDate ? 'desc' : 'asc';
+            }
+
+            if (colId === 'name') setSortBy(nextDir === 'asc' ? 'name' : 'name_desc');
+            else if (colId === 'closing_balance') setSortBy(nextDir === 'desc' ? 'balance_desc' : 'balance_asc');
+            else if (colId === 'opening_balance') setSortBy(nextDir === 'desc' ? 'opening_desc' : 'opening_asc');
+            else if (colId === 'jobs') setSortBy(nextDir === 'desc' ? 'jobs' : 'jobs_asc');
+            else if (colId === 'updated_at') setSortBy(nextDir === 'desc' ? 'updated_desc' : 'updated_asc');
+            else setSortBy(`${colId}_${nextDir}`);
+        } else {
+            const current = getTxSortInfo(txSortBy);
+            const activeColId = (colId === 'entry_number') ? 'number' : colId;
+            let nextDir = 'asc';
+            if (current.colId === activeColId || current.colId === colId) {
+                nextDir = current.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                const isNumericOrDate = ['date', 'amount', 'amc_amount', 'monthly_rent', 'security_deposit', 'start_date', 'end_date', 'next_due', 'created_at', 'updated_at'].includes(colId);
+                nextDir = isNumericOrDate ? 'desc' : 'asc';
+            }
+
+            if (activeColId === 'date') setTxSortBy(nextDir === 'desc' ? 'date' : 'date_asc');
+            else if (activeColId === 'amount') setTxSortBy(nextDir === 'desc' ? 'amount' : 'amount_asc');
+            else if (activeColId === 'account_name') setTxSortBy(nextDir === 'asc' ? 'account' : 'account_desc');
+            else if (activeColId === 'number') setTxSortBy(nextDir === 'asc' ? 'number' : 'number_desc');
+            else if (activeColId === 'updated_at') setTxSortBy(nextDir === 'desc' ? 'updated_desc' : 'updated_asc');
+            else setTxSortBy(`${colId}_${nextDir}`);
+        }
+    };
+
     const getProcessedTransactionData = () => {
         let data = getFilteredData();
         // Apply tag-based filters
         data = applyTxTags(data, txActiveTags);
+        const { colId, dir } = getTxSortInfo(txSortBy);
+        const mult = dir === 'asc' ? 1 : -1;
+
         return [...data].sort((a, b) => {
             const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
-            switch (txSortBy) {
-                case 'amount':    case 'amount_asc': { const va = isVoucher ? (a.amount||0):(a.total_amount||0), vb = isVoucher ? (b.amount||0):(b.total_amount||0); return txSortBy === 'amount_asc' ? va-vb : vb-va; }
-                case 'account':      { const va = a.account_name||'', vb = b.account_name||''; return va.localeCompare(vb); }
-                case 'number':       { const va = a.invoice_number||a.quote_number||a.receipt_number||a.payment_number||'', vb = b.invoice_number||b.quote_number||b.receipt_number||b.payment_number||''; return va.localeCompare(vb); }
-                case 'date_asc':     { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return va-vb; }
-                case 'updated_desc': { const va = (a.updated_at||a.created_at)?new Date(a.updated_at||a.created_at).getTime():0, vb = (b.updated_at||b.created_at)?new Date(b.updated_at||b.created_at).getTime():0; return vb-va; }
-                case 'updated_asc':  { const va = (a.updated_at||a.created_at)?new Date(a.updated_at||a.created_at).getTime():0, vb = (b.updated_at||b.created_at)?new Date(b.updated_at||b.created_at).getTime():0; return va-vb; }
-                default:             { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return vb-va; } // newest first
+
+            if (colId === 'amount') {
+                const va = isVoucher ? Number(a.amount || 0) : Number(a.total_amount ?? a.amount ?? 0);
+                const vb = isVoucher ? Number(b.amount || 0) : Number(b.total_amount ?? b.amount ?? 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'account_name') {
+                const va = a.account_name || a.accounts?.name || a.customer_name || a.party_name || a.name || '';
+                const vb = b.account_name || b.accounts?.name || b.customer_name || b.party_name || b.name || '';
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'number') {
+                const va = String(a.invoice_number || a.quote_number || a.receipt_number || a.payment_number || a.entry_number || a.number || a.id || '');
+                const vb = String(b.invoice_number || b.quote_number || b.receipt_number || b.payment_number || b.entry_number || b.number || b.id || '');
+                const cmp = va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'date') {
+                const va = a.date ? new Date(a.date).getTime() : 0;
+                const vb = b.date ? new Date(b.date).getTime() : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'status') {
+                const va = String(a.status || a.payment_mode || '');
+                const vb = String(b.status || b.payment_mode || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'created_by') {
+                const va = String(a.created_by || a.users?.name || '');
+                const vb = String(b.created_by || b.users?.name || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'reference_type') {
+                const va = String(a.reference_type || '');
+                const vb = String(b.reference_type || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'created_at') {
+                const va = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const vb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'updated_at') {
+                const va = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
+                const vb = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else {
+                const va = a[colId];
+                const vb = b[colId];
+                if (typeof va === 'number' && typeof vb === 'number') {
+                    if (va !== vb) return mult * (va - vb);
+                } else if (va || vb) {
+                    const cmp = String(va || '').localeCompare(String(vb || ''));
+                    if (cmp !== 0) return mult * cmp;
+                }
             }
+
+            // Secondary fallback: newest date first
+            const dateA = a.date ? new Date(a.date).getTime() : 0;
+            const dateB = b.date ? new Date(b.date).getTime() : 0;
+            return dateB - dateA;
         });
     };
 
@@ -962,14 +1084,99 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             });
         }
         data = applyAccTags(data, activeTags);
+        const { colId, dir } = getAccountSortInfo(sortBy);
+        const mult = dir === 'asc' ? 1 : -1;
+
         return [...data].sort((a, b) => {
-            if (sortBy === 'balance_desc') return (b.closing_balance||b.closingBalance||0) - (a.closing_balance||a.closingBalance||0);
-            if (sortBy === 'balance_asc')  return (a.closing_balance||a.closingBalance||0) - (b.closing_balance||b.closingBalance||0);
-            if (sortBy === 'jobs')         return (b.jobs_done||b.jobsDone||0) - (a.jobs_done||a.jobsDone||0);
-            if (sortBy === 'opening_desc') return (b.opening_balance||b.openingBalance||0) - (a.opening_balance||a.openingBalance||0);
-            if (sortBy === 'name_desc')    return (b.name || '').localeCompare(a.name || '');
-            if (sortBy === 'updated_desc') return new Date(b.updated_at||b.created_at||0) - new Date(a.updated_at||a.created_at||0);
-            if (sortBy === 'updated_asc')  return new Date(a.updated_at||a.created_at||0) - new Date(b.updated_at||b.created_at||0);
+            if (colId === 'closing_balance') {
+                const va = Number(a.closing_balance ?? a.closingBalance ?? 0);
+                const vb = Number(b.closing_balance ?? b.closingBalance ?? 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'opening_balance') {
+                const va = Number(a.opening_balance ?? a.openingBalance ?? 0);
+                const vb = Number(b.opening_balance ?? b.openingBalance ?? 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'jobs') {
+                const va = Number(a.jobs_done ?? a.jobsDone ?? a.jobs_count ?? 0);
+                const vb = Number(b.jobs_done ?? b.jobsDone ?? b.jobs_count ?? 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'credit_limit') {
+                const va = Number(a.credit_limit || 0);
+                const vb = Number(b.credit_limit || 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'credit_period') {
+                const va = Number(a.credit_period || 0);
+                const vb = Number(b.credit_period || 0);
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'name') {
+                const va = String(a.name || '');
+                const vb = String(b.name || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'sku') {
+                const va = String(a.sku || a.account_number || '');
+                const vb = String(b.sku || b.account_number || '');
+                const cmp = va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' });
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'group') {
+                const va = String(getGroupPath(a.parent_id, groups) || a.under || a.type || '');
+                const vb = String(getGroupPath(b.parent_id, groups) || b.under || b.type || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'source') {
+                const va = String(a.source || a.created_by || '');
+                const vb = String(b.source || b.created_by || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'mobile') {
+                const va = String(a.mobile || a.phone || '');
+                const vb = String(b.mobile || b.phone || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'email') {
+                const va = String(a.email || '');
+                const vb = String(b.email || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'gstin') {
+                const va = String(a.gstin || '');
+                const vb = String(b.gstin || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'status') {
+                const va = String(a.status || '');
+                const vb = String(b.status || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'balance_type') {
+                const va = String(a.balance_type || '');
+                const vb = String(b.balance_type || '');
+                const cmp = va.localeCompare(vb);
+                if (cmp !== 0) return mult * cmp;
+            } else if (colId === 'is_claimed') {
+                const va = a.is_claimed ? 1 : 0;
+                const vb = b.is_claimed ? 1 : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'created_at') {
+                const va = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const vb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else if (colId === 'updated_at') {
+                const va = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
+                const vb = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+                if (va !== vb) return mult * (va - vb);
+            } else {
+                const va = a[colId];
+                const vb = b[colId];
+                if (typeof va === 'number' && typeof vb === 'number') {
+                    if (va !== vb) return mult * (va - vb);
+                } else if (va || vb) {
+                    const cmp = String(va || '').localeCompare(String(vb || ''));
+                    if (cmp !== 0) return mult * cmp;
+                }
+            }
+
+            // Fallback: Name A-Z
             return (a.name || '').localeCompare(b.name || '');
         });
     })() : [];
@@ -1648,24 +1855,71 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                                     <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', width: '40px', minWidth: '40px', maxWidth: '40px', boxSizing: 'border-box' }}>
                                         <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(filteredLedgers)} />
                                     </th>
-                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: nameColWidth, minWidth: nameColWidth, maxWidth: nameColWidth, boxSizing: 'border-box' }}>
-                                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Ledger Name</div>
-                                        <div
-                                            onMouseDown={(e) => {
-                                                e.stopPropagation();
-                                                handleColResizeMouseDown(e, 'name', nameColWidth);
-                                            }}
-                                            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
-                                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
-                                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                        />
-                                    </th>
+                                    {(() => {
+                                        const sortInfo = getAccountSortInfo(sortBy);
+                                        const isSorted = sortInfo.colId === 'name';
+                                        const sortDir = isSorted ? sortInfo.dir : null;
+                                        return (
+                                            <th
+                                                onClick={() => handleHeaderSort('accounts', 'name')}
+                                                title={`Sort by Ledger Name (${isSorted ? (sortDir === 'asc' ? 'Ascending - click for Descending' : 'Descending - click for Ascending') : 'click to sort'})`}
+                                                style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: nameColWidth, minWidth: nameColWidth, maxWidth: nameColWidth, boxSizing: 'border-box', cursor: 'pointer', userSelect: 'none', transition: 'background-color 0.15s ease' }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <span>Ledger Name</span>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', opacity: isSorted ? 1 : 0.25, color: isSorted ? 'var(--color-primary)' : 'inherit', flexShrink: 0 }}>
+                                                        {isSorted ? (
+                                                            sortDir === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                        ) : (
+                                                            <ArrowUpDown size={11} strokeWidth={1.8} />
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    onMouseDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleColResizeMouseDown(e, 'name', nameColWidth);
+                                                    }}
+                                                    style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '6px', cursor: 'col-resize', zIndex: 15, userSelect: 'none' }}
+                                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.4)'; }}
+                                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                />
+                                            </th>
+                                        );
+                                    })()}
                                     {activeCols.map(col => {
                                         const colWidth = getColWidth('accounts', col.id, col.width || 120);
+                                        const isSortable = col.id !== 'actions';
+                                        const sortInfo = getAccountSortInfo(sortBy);
+                                        const isSorted = isSortable && sortInfo.colId === col.id;
+                                        const sortDir = isSorted ? sortInfo.dir : null;
+
                                         return (
-                                            <th key={col.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {col.label}
+                                            <th
+                                                key={col.id}
+                                                onClick={() => isSortable && handleHeaderSort('accounts', col.id)}
+                                                title={isSortable ? `Sort by ${col.label} (${isSorted ? (sortDir === 'asc' ? 'Ascending - click for Descending' : 'Descending - click for Ascending') : 'click to sort'})` : undefined}
+                                                style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', cursor: isSortable ? 'pointer' : 'default', userSelect: 'none', transition: 'background-color 0.15s ease' }}
+                                                onMouseEnter={(e) => {
+                                                    if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <span>{col.label}</span>
+                                                    {isSortable && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', opacity: isSorted ? 1 : 0.25, color: isSorted ? 'var(--color-primary)' : 'inherit', flexShrink: 0 }}>
+                                                            {isSorted ? (
+                                                                sortDir === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                            ) : (
+                                                                <ArrowUpDown size={11} strokeWidth={1.8} />
+                                                            )}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div
                                                     onMouseDown={(e) => {
@@ -1726,6 +1980,45 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
             });
             amcFiltered = applyTxTags(amcFiltered, txActiveTags);
+            const { colId: amcCol, dir: amcDir } = getTxSortInfo(txSortBy);
+            const amcMult = amcDir === 'asc' ? 1 : -1;
+            amcFiltered = [...amcFiltered].sort((a, b) => {
+                if (amcCol === 'plan_name') {
+                    const va = String(a.plan_name || a.amc_plans?.name || ''), vb = String(b.plan_name || b.amc_plans?.name || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return amcMult * cmp;
+                } else if (amcCol === 'account_name') {
+                    const va = String(a.accounts?.name || a.customer_name || ''), vb = String(b.accounts?.name || b.customer_name || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return amcMult * cmp;
+                } else if (amcCol === 'product') {
+                    const va = String(`${a.product_brand || ''} ${a.product_model || ''}`).trim();
+                    const vb = String(`${b.product_brand || ''} ${b.product_model || ''}`).trim();
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return amcMult * cmp;
+                } else if (amcCol === 'amc_amount' || amcCol === 'amount') {
+                    const va = Number(a.amc_amount || a.amount || 0), vb = Number(b.amc_amount || b.amount || 0);
+                    if (va !== vb) return amcMult * (va - vb);
+                } else if (amcCol === 'start_date') {
+                    const va = a.start_date ? new Date(a.start_date).getTime() : 0, vb = b.start_date ? new Date(b.start_date).getTime() : 0;
+                    if (va !== vb) return amcMult * (va - vb);
+                } else if (amcCol === 'end_date') {
+                    const va = a.end_date ? new Date(a.end_date).getTime() : 0, vb = b.end_date ? new Date(b.end_date).getTime() : 0;
+                    if (va !== vb) return amcMult * (va - vb);
+                } else if (amcCol === 'status') {
+                    const va = String(a.status || ''), vb = String(b.status || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return amcMult * cmp;
+                } else if (amcCol === 'updated_at') {
+                    const va = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
+                    const vb = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+                    if (va !== vb) return amcMult * (va - vb);
+                } else if (amcCol === 'created_at' || amcCol === 'date') {
+                    const va = a.created_at ? new Date(a.created_at).getTime() : 0, vb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    if (va !== vb) return amcMult * (va - vb);
+                }
+                return (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0);
+            });
             const totalAMC = amcSubscriptions.length;
             const monthlyRev = amcSubscriptions.reduce((s, a) => s + (Number(a.amc_amount || 0) / 12), 0);
             const soonExpiring = amcSubscriptions.filter(a => {
@@ -1750,10 +2043,35 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => {
                                     const colWidth = getColWidth('amc', c.id, c.width || 120);
+                                    const isSortable = c.id !== 'actions';
+                                    const sortInfo = getTxSortInfo(txSortBy);
+                                    const isSorted = isSortable && sortInfo.colId === c.id;
+                                    const sortDir = isSorted ? sortInfo.dir : null;
+
                                     return (
-                                        <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {c.label}
+                                        <th
+                                            key={c.id}
+                                            onClick={() => isSortable && handleHeaderSort('amc', c.id)}
+                                            title={isSortable ? `Sort by ${c.label} (${isSorted ? (sortDir === 'asc' ? 'Ascending - click for Descending' : 'Descending - click for Ascending') : 'click to sort'})` : undefined}
+                                            style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', cursor: isSortable ? 'pointer' : 'default', userSelect: 'none', transition: 'background-color 0.15s ease' }}
+                                            onMouseEnter={(e) => {
+                                                if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <span>{c.label}</span>
+                                                {isSortable && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', opacity: isSorted ? 1 : 0.25, color: isSorted ? 'var(--color-primary)' : 'inherit', flexShrink: 0 }}>
+                                                        {isSorted ? (
+                                                            sortDir === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                        ) : (
+                                                            <ArrowUpDown size={11} strokeWidth={1.8} />
+                                                        )}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div
                                                 onMouseDown={(e) => {
@@ -1829,6 +2147,43 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             });
             // Apply txActiveTags conditionally
             rentFiltered = applyTxTags(rentFiltered, txActiveTags);
+            const { colId: rentCol, dir: rentDir } = getTxSortInfo(txSortBy);
+            const rentMult = rentDir === 'asc' ? 1 : -1;
+            rentFiltered = [...rentFiltered].sort((a, b) => {
+                if (rentCol === 'product_name') {
+                    const va = String(a.product_name || a.product || ''), vb = String(b.product_name || b.product || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return rentMult * cmp;
+                } else if (rentCol === 'account_name') {
+                    const va = String(a.accounts?.name || a.customer_name || ''), vb = String(b.accounts?.name || b.customer_name || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return rentMult * cmp;
+                } else if (rentCol === 'monthly_rent') {
+                    const va = Number(a.monthly_rent || 0), vb = Number(b.monthly_rent || 0);
+                    if (va !== vb) return rentMult * (va - vb);
+                } else if (rentCol === 'security_deposit') {
+                    const va = Number(a.security_deposit || 0), vb = Number(b.security_deposit || 0);
+                    if (va !== vb) return rentMult * (va - vb);
+                } else if (rentCol === 'start_date') {
+                    const va = a.start_date ? new Date(a.start_date).getTime() : 0, vb = b.start_date ? new Date(b.start_date).getTime() : 0;
+                    if (va !== vb) return rentMult * (va - vb);
+                } else if (rentCol === 'next_due') {
+                    const va = a.next_rent_due_date ? new Date(a.next_rent_due_date).getTime() : 0, vb = b.next_rent_due_date ? new Date(b.next_rent_due_date).getTime() : 0;
+                    if (va !== vb) return rentMult * (va - vb);
+                } else if (rentCol === 'status') {
+                    const va = String(a.status || ''), vb = String(b.status || '');
+                    const cmp = va.localeCompare(vb);
+                    if (cmp !== 0) return rentMult * cmp;
+                } else if (rentCol === 'updated_at') {
+                    const va = (a.updated_at || a.created_at) ? new Date(a.updated_at || a.created_at).getTime() : 0;
+                    const vb = (b.updated_at || b.created_at) ? new Date(b.updated_at || b.created_at).getTime() : 0;
+                    if (va !== vb) return rentMult * (va - vb);
+                } else if (rentCol === 'created_at' || rentCol === 'date') {
+                    const va = a.created_at ? new Date(a.created_at).getTime() : 0, vb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                    if (va !== vb) return rentMult * (va - vb);
+                }
+                return (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0);
+            });
             const totalRentals = rentalAgreements.length;
             const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
             const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
@@ -1849,10 +2204,35 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => {
                                     const colWidth = getColWidth('rentals', c.id, c.width || 120);
+                                    const isSortable = c.id !== 'actions';
+                                    const sortInfo = getTxSortInfo(txSortBy);
+                                    const isSorted = isSortable && sortInfo.colId === c.id;
+                                    const sortDir = isSorted ? sortInfo.dir : null;
+
                                     return (
-                                        <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {c.label}
+                                        <th
+                                            key={c.id}
+                                            onClick={() => isSortable && handleHeaderSort('rentals', c.id)}
+                                            title={isSortable ? `Sort by ${c.label} (${isSorted ? (sortDir === 'asc' ? 'Ascending - click for Descending' : 'Descending - click for Ascending') : 'click to sort'})` : undefined}
+                                            style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600, width: colWidth, minWidth: colWidth, maxWidth: colWidth, boxSizing: 'border-box', cursor: isSortable ? 'pointer' : 'default', userSelect: 'none', transition: 'background-color 0.15s ease' }}
+                                            onMouseEnter={(e) => {
+                                                if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: c.align === 'right' ? 'flex-end' : (c.align === 'center' ? 'center' : 'flex-start'), gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <span>{c.label}</span>
+                                                {isSortable && (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', opacity: isSorted ? 1 : 0.25, color: isSorted ? 'var(--color-primary)' : 'inherit', flexShrink: 0 }}>
+                                                        {isSorted ? (
+                                                            sortDir === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                        ) : (
+                                                            <ArrowUpDown size={11} strokeWidth={1.8} />
+                                                        )}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div
                                                 onMouseDown={(e) => {
@@ -1965,20 +2345,46 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                             </th>
                             {activeTxCols.map(col => {
                                 const colWidth = getColWidth(activeTab, col.id, col.width || 120);
+                                const isSortable = col.id !== 'actions';
+                                const sortInfo = getTxSortInfo(txSortBy);
+                                const activeColId = (col.id === 'entry_number') ? 'number' : col.id;
+                                const isSorted = isSortable && (sortInfo.colId === activeColId || sortInfo.colId === col.id);
+                                const sortDir = isSorted ? sortInfo.dir : null;
+
                                 return (
                                     <th
                                         key={col.id}
+                                        onClick={() => isSortable && handleHeaderSort(activeTab, col.id)}
+                                        title={isSortable ? `Sort by ${col.label} (${isSorted ? (sortDir === 'asc' ? 'Ascending - click for Descending' : 'Descending - click for Ascending') : 'click to sort'})` : undefined}
                                         style={{
                                             ...thBase,
                                             textAlign: col.align,
                                             width: colWidth,
                                             minWidth: colWidth,
                                             maxWidth: colWidth,
-                                            boxSizing: 'border-box'
+                                            boxSizing: 'border-box',
+                                            cursor: isSortable ? 'pointer' : 'default',
+                                            userSelect: 'none',
+                                            transition: 'background-color 0.15s ease',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (isSortable) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
                                         }}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {col.label}
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : (col.align === 'center' ? 'center' : 'flex-start'), gap: '5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            <span>{col.label}</span>
+                                            {isSortable && (
+                                                <span style={{ display: 'inline-flex', alignItems: 'center', opacity: isSorted ? 1 : 0.25, color: isSorted ? 'var(--color-primary)' : 'inherit', flexShrink: 0 }}>
+                                                    {isSorted ? (
+                                                        sortDir === 'asc' ? <ArrowUp size={12} strokeWidth={2.5} /> : <ArrowDown size={12} strokeWidth={2.5} />
+                                                    ) : (
+                                                        <ArrowUpDown size={11} strokeWidth={1.8} />
+                                                    )}
+                                                </span>
+                                            )}
                                         </div>
                                         <div
                                             onMouseDown={(e) => {

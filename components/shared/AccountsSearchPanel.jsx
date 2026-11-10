@@ -105,8 +105,10 @@ const ACCOUNT_SORT_BY = [
     { value: 'name_desc',    label: 'Name Z → A' },
     { value: 'balance_desc', label: 'Balance ↓' },
     { value: 'balance_asc',  label: 'Balance ↑' },
-    { value: 'opening_desc', label: 'Opening Balance' },
-    { value: 'jobs',         label: 'Jobs Done' },
+    { value: 'opening_desc', label: 'Opening Balance ↓' },
+    { value: 'opening_asc',  label: 'Opening Balance ↑' },
+    { value: 'jobs',         label: 'Jobs Done ↓' },
+    { value: 'jobs_asc',     label: 'Jobs Done ↑' },
     { value: 'updated_desc', label: 'Last Modified (Newest)' },
     { value: 'updated_asc',  label: 'Last Modified (Oldest)' },
 ];
@@ -118,8 +120,12 @@ const TX_SORT_BY = [
     { value: 'updated_asc',  label: 'Last Modified (Oldest)' },
     { value: 'amount',       label: 'Amount ↓' },
     { value: 'amount_asc',   label: 'Amount ↑' },
-    { value: 'number',       label: 'Reference No.' },
-    { value: 'account',      label: 'Account Name' },
+    { value: 'number',       label: 'Reference No. A → Z' },
+    { value: 'number_desc',  label: 'Reference No. Z → A' },
+    { value: 'account',      label: 'Account Name A → Z' },
+    { value: 'account_desc', label: 'Account Name Z → A' },
+    { value: 'status_asc',   label: 'Status A → Z' },
+    { value: 'status_desc',  label: 'Status Z → A' },
 ];
 
 // ─── Sub-components ═══════════════════════════════════════════════════════════
@@ -253,7 +259,7 @@ export default function AccountsSearchPanel({
     };
 
     const activeGroupByLabel = groupByOptions.find(o => o.value === groupBy)?.label;
-    const activeSortByLabel = sortByOptions.find(o => o.value === sortBy)?.label;
+    const activeSortByLabel = sortByOptions.find(o => o.value === sortBy)?.label || (sortBy && sortBy !== defaultSortBy ? `Sort: ${sortBy.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` : undefined);
     const hasActiveState = searchTerm || activeTags.length || groupBy !== defaultGroupBy || sortBy !== defaultSortBy;
 
     return (
