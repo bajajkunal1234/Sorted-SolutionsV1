@@ -19,7 +19,7 @@ export default function FirstPartyTracker() {
     useEffect(() => {
         // ── Skip internal / admin paths — never track these ──────────────────
         // /admin, /technician, /customer are internal apps, not visitor pages.
-        const EXCLUDED_PATHS = ['/admin', '/technician', '/customer'];
+        const EXCLUDED_PATHS = ['/admin', '/technician', '/customer', '/v2'];
         if (EXCLUDED_PATHS.some(p => pathname.startsWith(p))) return;
         // ─────────────────────────────────────────────────────────────────────
 

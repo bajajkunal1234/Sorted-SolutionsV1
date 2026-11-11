@@ -19,6 +19,7 @@ export default function ClickTracker() {
                 if (!Array.isArray(triggers) || triggers.length === 0) return;
 
                 const currentPath = window.location.pathname;
+                if (currentPath.startsWith('/v2')) return;
 
                 triggers.forEach(trigger => {
                     // If page_pattern is set, only attach on matching pages
