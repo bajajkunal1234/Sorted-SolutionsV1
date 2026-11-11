@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
@@ -23,21 +24,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
     const [allocations, setAllocations] = useState(existingReceipt?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
-    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
-
-    useEffect(() => {
-        if (!existingReceipt?.receipt_number) {
-            fetch('/api/admin/voucher-settings?action=preview&type=receipt')
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success && res.preview) {
-                        setAutoPreviewNum(res.preview);
-                        setFormData(prev => ({ ...prev, receipt_number: prev.receipt_number || res.preview }));
-                    }
-                })
-                .catch(() => {});
-        }
-    }, [existingReceipt]);
+    const previewReceiptNumber = useVoucherPreview('receipt', existingReceipt?.receipt_number);
 
     const paymentModes = [
         { value: 'cash', label: 'Cash' },
@@ -68,9 +55,12 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
             ...formData,
             amount: parseFloat(formData.amount),
             type: 'receipt',
-            auto_number: !existingReceipt?.id && (!formData.receipt_number || formData.receipt_number === autoPreviewNum),
+            auto_number: !existingReceipt?.id,
             allocations,
         };
+        if (!existingReceipt?.id) {
+            delete voucher.receipt_number;
+        }
 
         if (onSave) {
             onSave(voucher);
@@ -115,7 +105,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
                             {existingReceipt?.id ? 'Edit Receipt Voucher' : 'Create Receipt Voucher'}
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-                            Receipt No: {formData.receipt_number}
+                            Receipt No: {previewReceiptNumber || 'Auto-generated'}
                         </p>
                     </div>
                     <button
@@ -135,18 +125,24 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {/* Date */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Voucher Date *
-                            </label>
-                            <input
-                                type="date"
-                                className="form-input"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                style={{ width: '100%' }}
+                        {/* Receipt Number & Date */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                            <SystemNumberField
+                                label="Receipt Number"
+                                value={previewReceiptNumber}
                             />
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                    Voucher Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.date}
+                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
                         </div>
 
                         {/* Account Selector */}

@@ -137,7 +137,7 @@ export async function POST(request) {
         }
 
         // ── 4. Auto-generate SKU ──────────────────────────────────────────────
-        if (!payload.sku) {
+        if (!payload.sku || body.auto_number === true) {
             const vType = payload.type === 'service' ? 'inventory_service' : 'inventory_product';
             const nextSKU = await getNextVoucherNumber(vType);
             if (nextSKU) {

@@ -678,9 +678,18 @@ export async function PUT(request) {
         };
 
         const allowedCols = tableColumns[type];
+        const protectedNumFields = {
+            sales: 'invoice_number',
+            purchase: 'invoice_number',
+            quotation: 'quote_number',
+            receipt: 'receipt_number',
+            payment: 'payment_number',
+        };
+        const protectedField = protectedNumFields[type];
         const updates = {};
         if (allowedCols) {
             allowedCols.forEach(col => {
+                if (col === protectedField) return;
                 if (rawUpdates[col] !== undefined) {
                     updates[col] = rawUpdates[col] === '' ? null : rawUpdates[col];
                 }

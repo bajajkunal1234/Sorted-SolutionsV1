@@ -23,6 +23,7 @@ import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import SearchableSelect from '@/components/admin/SearchableSelect';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import { formatMobileNumber } from '@/lib/utils/validation';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 
 const normalizeAddress = (p) => {
@@ -77,6 +78,7 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
 
     const [availableSlots, setAvailableSlots] = useState([]);
     const [fetchingSlots, setFetchingSlots] = useState(false);
+    const previewJobNumber = useVoucherPreview('job', existingJob?.job_number, 'Auto-generated on save');
 
     const [formData, setFormData] = useState({
         thumbnail: existingJob?.thumbnail || null,
@@ -1082,19 +1084,10 @@ function CreateJobForm({ onClose, onCreate, existingJob, existingJobs = [] }) {
                 <div className="modal-body" style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
                     {/* 0. Job ID / SKU (Auto-generated) */}
                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label className="form-label">Job ID / SKU</label>
-                        <input
-                            type="text"
-                            className="form-input"
-                            value={existingJob?.job_number || "Auto-generated on save"}
-                            disabled
-                            style={{
-                                backgroundColor: 'var(--bg-tertiary)',
-                                color: 'var(--text-secondary)',
-                                cursor: 'not-allowed',
-                                fontStyle: existingJob?.job_number ? 'normal' : 'italic',
-                                opacity: 0.8
-                            }}
+                        <SystemNumberField
+                            label="Job ID / SKU"
+                            value={previewJobNumber}
+                            placeholder="Auto-generated on save"
                         />
                     </div>
 

@@ -7,6 +7,7 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems, saving = false }) {
     // Build initial items from prefillItems (from RepairCalculator) or existingQuotation or blank
@@ -75,7 +76,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
     const [charges, setCharges] = useState(buildInitialCharges);
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
-    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
+    const previewQuoteNumber = useVoucherPreview('quotation', existingQuotation?.quote_number);
 
     // Fetch services and product-links and print settings
     useEffect(() => {
@@ -91,17 +92,6 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 setFormData(prev => ({ ...prev, showTax: printSettings.quotation_show_gst ?? printSettings.show_gst ?? true }));
             }
         }).catch(() => {});
-        if (!existingQuotation?.quote_number) {
-            fetch('/api/admin/voucher-settings?action=preview&type=quotation')
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success && res.preview) {
-                        setAutoPreviewNum(res.preview);
-                        setFormData(prev => ({ ...prev, quote_number: prev.quote_number || res.preview }));
-                    }
-                })
-                .catch(() => {});
-        }
     }, [existingQuotation]);
 
     const companyState = 'Maharashtra';
@@ -300,9 +290,12 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             items: combinedItems,
             ...totals,
             __formType: 'quotation',
-            auto_number: !existingQuotation?.id && (!formData.quote_number || formData.quote_number === autoPreviewNum),
+            auto_number: !existingQuotation?.id,
             status: 'sent'
         };
+        if (!existingQuotation?.id) {
+            delete quotationData.quote_number;
+        }
 
         // Remove UI-only fields
         delete quotationData.accountGSTIN;
@@ -377,15 +370,9 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Quotation Number
-                            </label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.quote_number}
-                                readOnly
-                                style={{ width: '100%', backgroundColor: 'var(--bg-secondary)' }}
+                            <SystemNumberField
+                                label="Quotation Number"
+                                value={previewQuoteNumber}
                             />
                         </div>
                         <div>

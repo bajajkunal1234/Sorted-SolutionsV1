@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Printer, RefreshCcw, Plus, Trash2 } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
 import { formatMobileNumber } from '@/lib/utils/validation';
+import { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 export default function SetupInvoiceModal({ type, data, onClose }) {
     const [settings, setSettings] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    // Invoice specific state editable by admin before printing
-    const [invoiceNumber, setInvoiceNumber] = useState(`INV-${Date.now().toString().slice(-6)}`);
+    // Invoice number sourced from existing record or centralized voucher_settings preview
+    const invoiceNumber = useVoucherPreview('sales', data?.invoice_number, 'PROFORMA');
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
     const [dueDate, setDueDate] = useState('');
     const [items, setItems] = useState([]);

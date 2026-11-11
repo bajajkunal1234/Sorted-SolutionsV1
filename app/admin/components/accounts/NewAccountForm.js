@@ -7,6 +7,7 @@ import { acquisitionSources } from '@/lib/data/interactionTypes';
 import GroupCreationModal from './GroupCreationModal';
 import { accountGroupsAPI } from '@/lib/adminAPI';
 import ConfirmDialog from '@/app/admin/components/common/ConfirmDialog';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 import {
     generateSKU,
     generateShortKU,
@@ -217,6 +218,14 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             }
         }
     }, [formData.under, groups, localLedgers, initialData]);
+
+    const selectedGroupName = (groups.find(g => g.id === formData.under)?.name || formData.under || '').toLowerCase();
+    const accountVoucherType = (selectedGroupName.includes('customer') || selectedGroupName.includes('debtor'))
+        ? 'account_customer'
+        : (selectedGroupName.includes('supplier') || selectedGroupName.includes('vendor') || selectedGroupName.includes('creditor'))
+            ? 'account_supplier'
+            : 'account_general';
+    const previewAccountSKU = useVoucherPreview(initialData ? null : accountVoucherType, initialData?.sku, formData.sku);
 
     // Update 'under' if preselectedType or groups change
     useEffect(() => {
@@ -811,15 +820,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     {/* SKU */}
                                     <div className="form-group">
-                                        <label className="form-label">Account Code *</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={formData.sku}
-                                            disabled
-                                            placeholder="Auto-generated"
-                                            style={{ backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed', color: 'var(--text-tertiary)' }}
-                                            required
+                                        <SystemNumberField
+                                            label="Account Code *"
+                                            value={initialData ? formData.sku : previewAccountSKU}
+                                            placeholder="Auto-generated on save"
                                         />
                                     </div>
 

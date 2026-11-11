@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import InvoiceAllocations from './InvoiceAllocations';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
@@ -23,21 +24,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
     const [allocations, setAllocations] = useState(existingPayment?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
-    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
-
-    useEffect(() => {
-        if (!existingPayment?.payment_number) {
-            fetch('/api/admin/voucher-settings?action=preview&type=payment')
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success && res.preview) {
-                        setAutoPreviewNum(res.preview);
-                        setFormData(prev => ({ ...prev, payment_number: prev.payment_number || res.preview }));
-                    }
-                })
-                .catch(() => {});
-        }
-    }, [existingPayment]);
+    const previewPaymentNumber = useVoucherPreview('payment', existingPayment?.payment_number);
 
     const paymentModes = [
         { value: 'cash', label: 'Cash' },
@@ -68,9 +55,12 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
             ...formData,
             amount: parseFloat(formData.amount),
             type: 'payment',
-            auto_number: !existingPayment?.id && (!formData.payment_number || formData.payment_number === autoPreviewNum),
+            auto_number: !existingPayment?.id,
             allocations,
         };
+        if (!existingPayment?.id) {
+            delete voucher.payment_number;
+        }
 
         if (onSave) {
             onSave(voucher);
@@ -115,7 +105,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
                             {existingPayment?.id ? 'Edit Payment Voucher' : 'Create Payment Voucher'}
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-                            Payment No: {formData.payment_number}
+                            Payment No: {previewPaymentNumber || 'Auto-generated'}
                         </p>
                     </div>
                     <button
@@ -135,18 +125,24 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {/* Date */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Voucher Date *
-                            </label>
-                            <input
-                                type="date"
-                                className="form-input"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                style={{ width: '100%' }}
+                        {/* Payment Number & Date */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                            <SystemNumberField
+                                label="Payment Number"
+                                value={previewPaymentNumber}
                             />
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                    Voucher Date *
+                                </label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.date}
+                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
                         </div>
 
                         {/* Account Selector */}

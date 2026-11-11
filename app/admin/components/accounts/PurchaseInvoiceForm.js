@@ -8,6 +8,7 @@ import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import JobSelector from './JobSelector';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false }) {
     const [formData, setFormData] = useState({
@@ -38,6 +39,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
     const [loadingAccount, setLoadingAccount] = useState(false);
     const [invoiceMode, setInvoiceMode] = useState('item');
     const [expenseAccounts, setExpenseAccounts] = useState([]);
+    const previewPurchaseNumber = useVoucherPreview('purchase', existingInvoice?.invoice_number);
 
     const handleCreateSuggestedAccount = (suggested) => {
         setSuggestedInitialData({
@@ -272,8 +274,12 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
             items: cleanedItems,
             ...totals,
             __formType: 'purchase',
+            auto_number: !existingInvoice?.id,
             status: 'finalized'
         };
+        if (!existingInvoice?.id) {
+            delete purchaseData.invoice_number;
+        }
 
         // Remove UI-only fields
         delete purchaseData.accountGSTIN;
@@ -322,7 +328,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
                         {existingInvoice?.id && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                                    Invoice: {existingInvoice.vendor_invoice_number || 'DRAFT'}
+                                    Voucher: {existingInvoice.invoice_number || existingInvoice.vendor_invoice_number || 'DRAFT'}
                                 </p>
                                 {existingInvoice.paid_by && (
                                     <span style={{
@@ -424,15 +430,21 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice, saving = false 
                             />
                         </div>
                         <div>
+                            <SystemNumberField
+                                label="Purchase Voucher Number"
+                                value={previewPurchaseNumber}
+                            />
+                        </div>
+                        <div>
                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Vendor Invoice Number *
+                                Vendor / Supplier Invoice No. *
                             </label>
                             <input
                                 type="text"
                                 className="form-input"
                                 value={formData.vendor_invoice_number}
                                 onChange={(e) => setFormData({ ...formData, vendor_invoice_number: e.target.value })}
-                                placeholder="Enter vendor's invoice number"
+                                placeholder="Enter vendor's bill / invoice number"
                                 style={{ width: '100%' }}
                             />
                         </div>

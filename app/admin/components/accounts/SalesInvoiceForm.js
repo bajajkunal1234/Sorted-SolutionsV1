@@ -8,6 +8,7 @@ import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems, saving = false }) {
     const buildInitialItems = () => {
@@ -85,7 +86,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     const [productLinks, setProductLinks] = useState([]);
 
     const [technicians, setTechnicians] = useState([]);
-    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
+    const previewInvoiceNumber = useVoucherPreview('sales', existingInvoice?.invoice_number);
 
     // Fetch services, product-links, and technicians
     useEffect(() => {
@@ -103,17 +104,6 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 setFormData(prev => ({ ...prev, showTax: printData.invoice_show_gst ?? printData.show_gst ?? true }));
             }
         }).catch(() => {});
-        if (!existingInvoice?.invoice_number) {
-            fetch('/api/admin/voucher-settings?action=preview&type=sales')
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success && res.preview) {
-                        setAutoPreviewNum(res.preview);
-                        setFormData(prev => ({ ...prev, invoice_number: prev.invoice_number || res.preview }));
-                    }
-                })
-                .catch(() => {});
-        }
     }, [existingInvoice]);
 
     const companyState = 'Maharashtra';
@@ -322,9 +312,12 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             items: combinedItems,
             ...totals,
             __formType: 'sales',
-            auto_number: !existingInvoice?.id && (!formData.invoice_number || formData.invoice_number === autoPreviewNum),
+            auto_number: !existingInvoice?.id,
             status: action === 'draft' ? 'draft' : (existingInvoice?.status && existingInvoice.status !== 'finalized' ? existingInvoice.status : 'unpaid')
         };
+        if (!existingInvoice?.id) {
+            delete invoiceData.invoice_number;
+        }
 
         // Remove UI-only fields before saving
         delete invoiceData.accountGSTIN;
@@ -415,15 +408,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Invoice Number
-                            </label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.invoice_number}
-                                readOnly
-                                style={{ width: '100%', backgroundColor: 'var(--bg-secondary)' }}
+                            <SystemNumberField
+                                label="Invoice Number"
+                                value={previewInvoiceNumber}
                             />
                         </div>
                         <div>

@@ -5,6 +5,7 @@ import { X, Upload, Plus, Trash2, Sparkles } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { lookupHSN } from '@/lib/data/hsnData';
+import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 
 async function uploadImage(file) {
@@ -103,8 +104,13 @@ function NewProductForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.hsnCode]);
 
-    // Auto-generate SKU from type + existing products
+    // Auto-generate SKU from type + voucher_settings preview (fallback to local helper)
     const autoSKU = generateProductSKU(formData.type, existingProducts);
+    const previewSKU = useVoucherPreview(
+        formData.type === 'service' ? 'inventory_service' : 'inventory_product',
+        null,
+        autoSKU
+    );
 
     const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -183,7 +189,8 @@ function NewProductForm({
             // 2. Build product payload
             const newProduct = {
                 name: formData.name,
-                sku: autoSKU,
+                sku: '',
+                auto_number: true,
                 type: formData.type,
                 subtype: formData.subtype || 'tech',
                 category: formData.category,
@@ -384,24 +391,11 @@ function NewProductForm({
                                 </div>
 
                                 <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label">SKU (Auto)</label>
-                                    <div style={{
-                                        padding: '10px 12px',
-                                        backgroundColor: 'var(--bg-tertiary)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontFamily: 'monospace',
-                                        fontSize: 'var(--font-size-sm)',
-                                        fontWeight: 600,
-                                        color: 'var(--text-secondary)',
-                                        letterSpacing: '0.05em',
-                                        textAlign: 'center',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
-                                    }} title={`Assigned SKU: ${autoSKU}`}>
-                                        {autoSKU}
-                                    </div>
+                                    <SystemNumberField
+                                        label="SKU"
+                                        value={previewSKU}
+                                        compact
+                                    />
                                 </div>
                             </div>
 
