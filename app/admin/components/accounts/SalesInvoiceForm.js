@@ -66,7 +66,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         property: existingInvoice?.property || null,
         billing_address: existingInvoice?.billing_address || '',
         shipping_address: existingInvoice?.shipping_address || '',
-        invoice_number: existingInvoice?.invoice_number || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        invoice_number: existingInvoice?.invoice_number || '',
         date: existingInvoice?.date || new Date().toISOString().split('T')[0],
         items: buildInitialItems(),
         notes: existingInvoice?.notes || '',
@@ -85,6 +85,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     const [productLinks, setProductLinks] = useState([]);
 
     const [technicians, setTechnicians] = useState([]);
+    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
 
     // Fetch services, product-links, and technicians
     useEffect(() => {
@@ -102,7 +103,18 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 setFormData(prev => ({ ...prev, showTax: printData.invoice_show_gst ?? printData.show_gst ?? true }));
             }
         }).catch(() => {});
-    }, []);
+        if (!existingInvoice?.invoice_number) {
+            fetch('/api/admin/voucher-settings?action=preview&type=sales')
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.preview) {
+                        setAutoPreviewNum(res.preview);
+                        setFormData(prev => ({ ...prev, invoice_number: prev.invoice_number || res.preview }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [existingInvoice]);
 
     const companyState = 'Maharashtra';
 
@@ -310,6 +322,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             items: combinedItems,
             ...totals,
             __formType: 'sales',
+            auto_number: !existingInvoice?.id && (!formData.invoice_number || formData.invoice_number === autoPreviewNum),
             status: action === 'draft' ? 'draft' : (existingInvoice?.status && existingInvoice.status !== 'finalized' ? existingInvoice.status : 'unpaid')
         };
 

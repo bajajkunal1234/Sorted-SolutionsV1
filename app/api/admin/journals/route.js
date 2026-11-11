@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { getNextVoucherNumber } from '@/lib/voucherNumberService'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,7 +113,8 @@ export async function POST(request) {
         const dateObj = new Date(date || Date.now());
         const yy = String(dateObj.getFullYear()).slice(-2);
         const { count } = await supabase.from('journal_entries').select('*', { count: 'exact', head: true });
-        const entry_number = `JE-${yy}-${String((count || 0) + 1).padStart(4, '0')}`;
+        const nextNum = await getNextVoucherNumber('journal');
+        const entry_number = nextNum || `JE-${yy}-${String((count || 0) + 1).padStart(4, '0')}`;
 
         // Insert Header
         const { data: header, error: headerErr } = await supabase

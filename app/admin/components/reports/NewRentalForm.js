@@ -346,7 +346,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                     const invoiceData = {
                         account_id: formData.customerId,
                         account_name: customers.find(c => String(c.id) === String(formData.customerId))?.name,
-                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        auto_number: true,
                         date: new Date().toISOString().split('T')[0],
                         items,
                         items_subtotal: subtotal,
@@ -364,7 +364,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                     };
 
                     try {
-                        await transactionsAPI.create(invoiceData, 'sales_invoice');
+                        await transactionsAPI.create(invoiceData, 'sales');
                     } catch (e) {
                         console.error('Failed to auto-generate invoice', e);
                     }

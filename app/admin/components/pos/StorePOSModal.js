@@ -372,7 +372,6 @@ export default function StorePOSModal({ isOpen, onClose }) {
             setGenerating(true);
             setErrorMsg('');
 
-            const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
             const today = invoiceDate || new Date().toISOString().split('T')[0];
 
             const formattedItems = validItems.map((it, idx) => ({
@@ -389,7 +388,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
             }));
 
             const invoicePayload = {
-                invoice_number: invoiceNumber,
+                auto_number: true,
                 account_id: selectedAccount.id,
                 account_name: selectedAccount.name,
                 account_phone: selectedAccount.phone || selectedAccount.mobile || '',
@@ -414,6 +413,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
 
             const savedInvoice = await transactionsAPI.create(invoicePayload, 'sales');
             const savedInvoiceId = savedInvoice?.data?.id || savedInvoice?.id;
+            const assignedInvoiceNumber = savedInvoice?.data?.invoice_number || savedInvoice?.invoice_number || '';
 
             if (!savedInvoiceId) {
                 throw new Error(savedInvoice?.error || savedInvoice?.message || 'Invoice could not be confirmed on server. Please try again.');
@@ -421,10 +421,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
 
             // Also create a linked receipt voucher to record the payment in accounting
             try {
-                const receiptNumber = `REC-${Date.now().toString().slice(-6)}`;
                 await transactionsAPI.create({
-                    receipt_number: receiptNumber,
-                    reference_number: invoiceNumber,
+                    auto_number: true,
+                    reference_number: assignedInvoiceNumber,
                     account_id: selectedAccount.id,
                     account_name: selectedAccount.name,
                     payment_account_id: (selectedAccount.type === 'bank' || selectedAccount.under === 'bank-accounts') ? selectedAccount.id : undefined,
@@ -432,7 +431,7 @@ export default function StorePOSModal({ isOpen, onClose }) {
                     payment_mode: paymentMode || 'Cash',
                     status: 'cleared',
                     date: today,
-                    narration: `Store POS payment for ${invoiceNumber} (${paymentMode})`,
+                    narration: `Store POS payment for ${assignedInvoiceNumber} (${paymentMode})`,
                     allocations: [{
                         invoice_id: savedInvoiceId,
                         amount_applied: grandTotal
@@ -444,7 +443,9 @@ export default function StorePOSModal({ isOpen, onClose }) {
 
             const finalInvoice = {
                 ...invoicePayload,
-                id: savedInvoiceId
+                ...(savedInvoice?.data || savedInvoice || {}),
+                id: savedInvoiceId,
+                invoice_number: assignedInvoiceNumber
             };
 
             setCreatedInvoice(finalInvoice);

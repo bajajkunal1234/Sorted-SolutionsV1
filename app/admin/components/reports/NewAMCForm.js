@@ -74,7 +74,7 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                     const invoiceData = {
                         account_id: formData.customerId,
                         account_name: customerName,
-                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        auto_number: true,
                         date: new Date().toISOString().split('T')[0],
                         items: [{
                             id: Date.now(),
@@ -100,7 +100,7 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                         notes: `Generated for AMC: ${selectedPlan.name} (${formData.productBrand})`
                     };
                     try {
-                        await transactionsAPI.create(invoiceData, 'sales_invoice');
+                        await transactionsAPI.create(invoiceData, 'sales');
                     } catch (e) {
                         console.error('Failed to auto-generate invoice', e);
                     }

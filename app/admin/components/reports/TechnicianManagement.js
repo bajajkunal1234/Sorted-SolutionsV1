@@ -828,10 +828,8 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             const descriptionText = expense.description?.trim() || '';
             const formattedNotes = `Technician Expense: ${tech.name}${notesText ? ` | Admin Note: ${notesText}` : ''}`;
 
-            const invoice_number = `EXP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
-
             const purchaseData = {
-                invoice_number,
+                auto_number: true,
                 reference: 'Technician Purchase',
                 status: 'finalized',
                 account_id: tech.ledger_id,

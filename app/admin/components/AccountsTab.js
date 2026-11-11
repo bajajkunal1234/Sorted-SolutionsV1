@@ -1266,8 +1266,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     delete cleanData.items;
                 }
 
-                if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, cleanData, type);
-                else await transactionsAPI.create(cleanData, type);
+                let savedRecord = null;
+                if (selectedTransaction?.id) savedRecord = await transactionsAPI.update(selectedTransaction.id, cleanData, type);
+                else savedRecord = await transactionsAPI.create(cleanData, type);
             }
 
             // ✅ Save succeeded — close form and notify user immediately
@@ -1276,8 +1277,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             setSelectedTransaction(null);
 
             // Trigger print if requested
-            if (action === 'print' && data) {
-                setTimeout(() => handlePrintItem(data, activeTab), 300);
+            if (action === 'print' && (savedRecord || data)) {
+                setTimeout(() => handlePrintItem(savedRecord || data, activeTab), 300);
             }
 
             // Refresh data in the background — errors here don't matter for the user

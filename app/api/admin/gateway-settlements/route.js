@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
+import { getNextVoucherNumber } from '@/lib/voucherNumberService';
 
 export const dynamic = 'force-dynamic';
 
@@ -406,7 +407,7 @@ export async function POST(request) {
 
             // Auto-generate invoice number: PUR-YY-XXXXX
             const yy = new Date().getFullYear().toString().slice(-2);
-            const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+            const invoiceNumber = (await getNextVoucherNumber('purchase')) || `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
 
             const subtotal = parseFloat(fee_amount) || 0;
             const tax = parseFloat(tax_amount) || 0;
@@ -507,7 +508,7 @@ export async function POST(request) {
 
             if (create_commission_voucher && totalCommission > 0) {
                 const yy = new Date().getFullYear().toString().slice(-2);
-                const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                const invoiceNumber = (await getNextVoucherNumber('purchase')) || `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
                 const subtotal = parseFloat(fee_amount) || 0;
                 const tax = parseFloat(tax_amount) || 0;
                 const halfTax = +(tax / 2).toFixed(2);
@@ -548,7 +549,7 @@ export async function POST(request) {
             }
 
             const yy = new Date().getFullYear().toString().slice(-2);
-            const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+            const transferVoucherNumber = (await getNextVoucherNumber('payment')) || `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
 
             const transferPayload = {
                 payment_number: transferVoucherNumber,
@@ -664,7 +665,7 @@ export async function POST(request) {
             let balancingVoucher = null;
             if (create_missing_voucher && parseFloat(missing_amount) > 0) {
                 const yy = new Date().getFullYear().toString().slice(-2);
-                const balRecNumber = `REC-${yy}-BAL${Math.floor(1000 + Math.random() * 9000)}`;
+                const balRecNumber = (await getNextVoucherNumber('receipt')) || `REC-${yy}-BAL${Math.floor(1000 + Math.random() * 9000)}`;
 
                 const balancingPayload = {
                     receipt_number: balRecNumber,
@@ -700,7 +701,7 @@ export async function POST(request) {
 
             if (create_commission_voucher && totalCommission > 0) {
                 const yy = new Date().getFullYear().toString().slice(-2);
-                const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                const invoiceNumber = (await getNextVoucherNumber('purchase')) || `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
                 const subtotal = parseFloat(fee_amount) || 0;
                 const tax = parseFloat(tax_amount) || 0;
                 const halfTax = +(tax / 2).toFixed(2);
@@ -742,7 +743,7 @@ export async function POST(request) {
 
             // 3. Create Transfer Payment Voucher to HDFC
             const yy = new Date().getFullYear().toString().slice(-2);
-            const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+            const transferVoucherNumber = (await getNextVoucherNumber('payment')) || `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
 
             const transferPayload = {
                 payment_number: transferVoucherNumber,
@@ -922,7 +923,7 @@ export async function PUT(request) {
                     .eq('id', purchaseInvoiceId);
             } else {
                 const yy = new Date().getFullYear().toString().slice(-2);
-                const invoiceNumber = `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                const invoiceNumber = (await getNextVoucherNumber('purchase')) || `PUR-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
                 const { data: newPi } = await supabase
                     .from('purchase_invoices')
                     .insert([{

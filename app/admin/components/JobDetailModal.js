@@ -1288,7 +1288,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     job_id: editedJob.id,
                     date: new Date().toISOString().split('T')[0],
                     due_date: new Date().toISOString().split('T')[0],
-                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    auto_number: true,
                     reference: editedJob.job_number,
                     status: 'unpaid',
                     items: formattedItems,
@@ -2830,7 +2830,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                             job_id: editedJob.id,
                                                                             date: new Date().toISOString().split('T')[0],
                                                                             due_date: new Date().toISOString().split('T')[0],
-                                                                            invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                            auto_number: true,
                                                                             reference: serviceQuote.quote_number,
                                                                             status: 'unpaid',
                                                                             items: serviceQuote.items,
@@ -2919,7 +2919,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                                         job_id: editedJob.id,
                                                                                         date: new Date().toISOString().split('T')[0],
                                                                                         due_date: new Date().toISOString().split('T')[0],
-                                                                                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                                        auto_number: true,
                                                                                         reference: savedQuotation.quote_number,
                                                                                         status: 'unpaid',
                                                                                         items: savedQuotation.items,
@@ -3500,7 +3500,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 })
                             });
                             const saveJson = await saveRes.json();
-                            if (saveJson.success) savedData = saveJson.data;
+                            if (!saveJson.success) {
+                                alert(`Failed to save quotation: ${saveJson.error || 'Server error'}`);
+                                return;
+                            }
+                            savedData = saveJson.data;
                         } catch (e) { console.error('Failed to save quotation to DB', e); }
 
                         // 2. Save quotation in local state
@@ -3535,7 +3539,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         setCalculatorItems(null);
                         setShowWhatsappPopup({ type: 'quotation', doc: savedData });
                     }}
-                    defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                    defaultAccount={(editedJob?.customer_id || job?.customer_id) ? { id: editedJob?.customer_id || job?.customer_id, name: editedJob?.customer_name || editedJob?.customerName || job?.customer_name || editedJob?.customer?.name || '' } : null}
                     prefillItems={calculatorItems}
                     existingQuotation={isNewQuotationOption ? null : savedQuotation}
                 />
@@ -3558,7 +3562,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 })
                             });
                             const saveJson = await saveRes.json();
-                            if (saveJson.success) savedData = saveJson.data;
+                            if (!saveJson.success) {
+                                alert(`Failed to save invoice: ${saveJson.error || 'Server error'}`);
+                                return;
+                            }
+                            savedData = saveJson.data;
                         } catch (e) { console.error('Failed to save sales invoice to DB', e); }
 
                         // 2. Log invoice creation to job interactions timeline
@@ -3568,7 +3576,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         }).catch(() => {});
                         setActiveForm(null);
                     }}
-                    defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                    defaultAccount={(editedJob?.customer_id || job?.customer_id) ? { id: editedJob?.customer_id || job?.customer_id, name: editedJob?.customer_name || editedJob?.customerName || job?.customer_name || editedJob?.customer?.name || '' } : null}
                     prefillItems={savedQuotation?.items || calculatorItems}
                 />
             )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
@@ -9,7 +9,7 @@ import InvoiceAllocations from './InvoiceAllocations';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
-        receipt_number: existingReceipt?.receipt_number || `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
+        receipt_number: existingReceipt?.receipt_number || '',
         date: existingReceipt?.date || new Date().toISOString().split('T')[0],
         account_id: existingReceipt?.account_id || '',
         account_name: existingReceipt?.account_name || '',
@@ -23,6 +23,21 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
     const [allocations, setAllocations] = useState(existingReceipt?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
+
+    useEffect(() => {
+        if (!existingReceipt?.receipt_number) {
+            fetch('/api/admin/voucher-settings?action=preview&type=receipt')
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.preview) {
+                        setAutoPreviewNum(res.preview);
+                        setFormData(prev => ({ ...prev, receipt_number: prev.receipt_number || res.preview }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [existingReceipt]);
 
     const paymentModes = [
         { value: 'cash', label: 'Cash' },
@@ -53,6 +68,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt, accountType = 'a
             ...formData,
             amount: parseFloat(formData.amount),
             type: 'receipt',
+            auto_number: !existingReceipt?.id && (!formData.receipt_number || formData.receipt_number === autoPreviewNum),
             allocations,
         };
 

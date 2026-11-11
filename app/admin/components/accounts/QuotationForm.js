@@ -60,7 +60,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         property: existingQuotation?.property || null,
         billing_address: existingQuotation?.billing_address || defaultAccount?.address || '',
         shipping_address: existingQuotation?.shipping_address || '',
-        quote_number: existingQuotation?.quote_number || `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        quote_number: existingQuotation?.quote_number || '',
         date: existingQuotation?.date || new Date().toISOString().split('T')[0],
         valid_until: existingQuotation?.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         subject: existingQuotation?.subject || '',
@@ -75,6 +75,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
     const [charges, setCharges] = useState(buildInitialCharges);
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
+    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
 
     // Fetch services and product-links and print settings
     useEffect(() => {
@@ -90,7 +91,18 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 setFormData(prev => ({ ...prev, showTax: printSettings.quotation_show_gst ?? printSettings.show_gst ?? true }));
             }
         }).catch(() => {});
-    }, []);
+        if (!existingQuotation?.quote_number) {
+            fetch('/api/admin/voucher-settings?action=preview&type=quotation')
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.preview) {
+                        setAutoPreviewNum(res.preview);
+                        setFormData(prev => ({ ...prev, quote_number: prev.quote_number || res.preview }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [existingQuotation]);
 
     const companyState = 'Maharashtra';
 
@@ -288,6 +300,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             items: combinedItems,
             ...totals,
             __formType: 'quotation',
+            auto_number: !existingQuotation?.id && (!formData.quote_number || formData.quote_number === autoPreviewNum),
             status: 'sent'
         };
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
@@ -9,7 +9,7 @@ import InvoiceAllocations from './InvoiceAllocations';
 
 function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'all', saving = false }) {
     const [formData, setFormData] = useState({
-        payment_number: existingPayment?.payment_number || `PAY-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
+        payment_number: existingPayment?.payment_number || '',
         date: existingPayment?.date || new Date().toISOString().split('T')[0],
         account_id: existingPayment?.account_id || '',
         account_name: existingPayment?.account_name || '',
@@ -23,6 +23,21 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
     const [allocations, setAllocations] = useState(existingPayment?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+    const [autoPreviewNum, setAutoPreviewNum] = useState(null);
+
+    useEffect(() => {
+        if (!existingPayment?.payment_number) {
+            fetch('/api/admin/voucher-settings?action=preview&type=payment')
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.preview) {
+                        setAutoPreviewNum(res.preview);
+                        setFormData(prev => ({ ...prev, payment_number: prev.payment_number || res.preview }));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [existingPayment]);
 
     const paymentModes = [
         { value: 'cash', label: 'Cash' },
@@ -53,6 +68,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment, accountType = 'a
             ...formData,
             amount: parseFloat(formData.amount),
             type: 'payment',
+            auto_number: !existingPayment?.id && (!formData.payment_number || formData.payment_number === autoPreviewNum),
             allocations,
         };
 

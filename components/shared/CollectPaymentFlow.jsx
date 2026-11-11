@@ -279,9 +279,22 @@ export default function CollectPaymentFlow({
                     screenshotUrl = await uploadImage(screenshotFile);
                 }
 
+                let dynamicReceiptNumber = `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`;
+                try {
+                    const vRes = await fetch('/api/admin/voucher-settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'next', voucher_type: 'receipt' })
+                    });
+                    const vJson = await vRes.json();
+                    if (vJson.success && vJson.voucher_number) {
+                        dynamicReceiptNumber = vJson.voucher_number;
+                    }
+                } catch (_) {}
+
                 // Prepare pending receipt payload
                 const receiptPayload = {
-                    receipt_number: `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
+                    receipt_number: dynamicReceiptNumber,
                     date,
                     account_id: selectedCustomer.id,
                     account_name: selectedCustomer.name,

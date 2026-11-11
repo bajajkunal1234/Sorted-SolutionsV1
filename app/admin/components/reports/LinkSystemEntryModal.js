@@ -283,7 +283,20 @@ export default function LinkSystemEntryModal({
 
                     // Create transfer voucher to maintain double entry balance
                     const yy = new Date().getFullYear().toString().slice(-2);
-                    const transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                    let transferVoucherNumber = `PAY-${yy}-${Math.floor(10000 + Math.random() * 90000)}`;
+                    try {
+                        const voucherRes = await fetch('/api/admin/voucher-settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'next', voucher_type: 'payment' })
+                        });
+                        const voucherData = await voucherRes.json();
+                        if (voucherData.success && voucherData.voucherNumber) {
+                            transferVoucherNumber = voucherData.voucherNumber;
+                        }
+                    } catch (vErr) {
+                        console.warn('Fallback transfer voucher number used:', vErr);
+                    }
                     await supabase
                         .from('payment_vouchers')
                         .insert([{

@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
+import { getNextVoucherNumber } from '@/lib/voucherNumberService'
 
 // Map transaction types to Supabase tables
 const tableMap = {
@@ -311,9 +312,28 @@ export async function POST(request) {
             });
         }
 
-        // Auto-generate unique internal invoice number for purchase invoices if not sent
-        if (type === 'purchase' && !payload.invoice_number) {
-            payload.invoice_number = `PUR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        // Ensure account_name is populated if account_id is provided (avoids DB not-null constraint failure)
+        if (payload.account_id && !payload.account_name) {
+            const { data: acc } = await supabase.from('accounts').select('name').eq('id', payload.account_id).maybeSingle();
+            if (acc?.name) payload.account_name = acc.name;
+        }
+
+        // Auto-assign sequential voucher numbers via voucher_settings when not sent or flagged auto_number
+        const numFieldMap = {
+            sales: 'invoice_number',
+            purchase: 'invoice_number',
+            quotation: 'quote_number',
+            receipt: 'receipt_number',
+            payment: 'payment_number',
+        };
+        const numField = numFieldMap[type];
+        if (numField && (body.auto_number === true || !payload[numField])) {
+            const seqNum = await getNextVoucherNumber(type);
+            if (seqNum) {
+                payload[numField] = seqNum;
+            } else if (type === 'purchase' && !payload[numField]) {
+                payload[numField] = `EXP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+            }
         }
 
         // Prevent duplicate sales invoices for the same job

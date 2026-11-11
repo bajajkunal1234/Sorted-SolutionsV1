@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { getNextVoucherNumber } from '@/lib/voucherNumberService'
 
 // GET - Fetch all inventory items
 export async function GET(request) {
@@ -137,16 +138,22 @@ export async function POST(request) {
 
         // ── 4. Auto-generate SKU ──────────────────────────────────────────────
         if (!payload.sku) {
-            const prefix = payload.type === 'service' ? 'SVC' : 'PRD';
-            const { data: existing } = await supabase
-                .from('inventory')
-                .select('sku')
-                .like('sku', `${prefix}%`);
-            const maxNum = (existing || []).reduce((max, r) => {
-                const n = parseInt((r.sku || '').replace(prefix, '')) || 0;
-                return n > max ? n : max;
-            }, 0);
-            payload.sku = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+            const vType = payload.type === 'service' ? 'inventory_service' : 'inventory_product';
+            const nextSKU = await getNextVoucherNumber(vType);
+            if (nextSKU) {
+                payload.sku = nextSKU;
+            } else {
+                const prefix = payload.type === 'service' ? 'SVC' : 'PRD';
+                const { data: existing } = await supabase
+                    .from('inventory')
+                    .select('sku')
+                    .like('sku', `${prefix}%`);
+                const maxNum = (existing || []).reduce((max, r) => {
+                    const n = parseInt((r.sku || '').replace(prefix, '')) || 0;
+                    return n > max ? n : max;
+                }, 0);
+                payload.sku = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+            }
         }
 
         // Defaults
