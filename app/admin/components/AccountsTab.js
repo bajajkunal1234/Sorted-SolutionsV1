@@ -1207,11 +1207,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         if (saving) return;
         try {
             setSaving(true);
+            let savedRecord = null;
             if (activeTab === 'accounts') {
                 if (selectedTransaction?.id) {
-                    await accountsAPI.update(selectedTransaction.id, data);
+                    savedRecord = await accountsAPI.update(selectedTransaction.id, data);
                 } else {
                     const result = await accountsAPI.create(data);
+                    savedRecord = result;
                     if (result?.id && data.properties?.length > 0) {
                         const validProps = data.properties.filter(p => p.address?.trim());
                         await Promise.all(validProps.map(prop =>
@@ -1239,6 +1241,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 // Journal entries are saved internally by JournalEntryForm.
                 // It calls onSave with the completed record data.
                 // We just need to fall-through and let the state refresh.
+                savedRecord = data;
             } else {
                 const formToTypeMap = {
                     'sales-invoice': 'sales',
@@ -1266,7 +1269,6 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     delete cleanData.items;
                 }
 
-                let savedRecord = null;
                 if (selectedTransaction?.id) savedRecord = await transactionsAPI.update(selectedTransaction.id, cleanData, type);
                 else savedRecord = await transactionsAPI.create(cleanData, type);
             }
@@ -1278,7 +1280,16 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
 
             // Trigger print if requested
             if (action === 'print' && (savedRecord || data)) {
-                setTimeout(() => handlePrintItem(savedRecord || data, activeTab), 300);
+                const printRecord = { ...(data || {}), ...(savedRecord || {}) };
+                const printTabMap = {
+                    sales: 'sales',
+                    purchase: 'purchases',
+                    quotation: 'quotations',
+                    receipt: 'receipts',
+                    payment: 'payments',
+                };
+                const printTab = printTabMap[data?.__formType] || activeTab;
+                setTimeout(() => handlePrintItem(printRecord, printTab), 300);
             }
 
             // Refresh data in the background — errors here don't matter for the user
