@@ -23,20 +23,41 @@ export default function SubcategoryStorefront({
 
     const subcategoriesList = category?.subcategories || [];
 
-    // Filter services by subcategory keyword matching, fallback to category services if no specific keywords match
+    // Filter services by item.subcategory first, fallback to keyword matching, then category services
     const subcategoryServices = useMemo(() => {
-        if (!subcategory || !subcategory.keywords || subcategory.keywords.length === 0) {
-            return services;
-        }
+        if (!subcategory) return services;
 
-        const keywords = subcategory.keywords.map(k => k.toLowerCase());
-        const matched = services.filter(service => {
-            const text = `${service.name} ${service.description || ''} ${service.subgroup || ''}`.toLowerCase();
-            return keywords.some(k => text.includes(k));
+        const normSubSlug = (subcategory.slug || '').toLowerCase().trim();
+        const normSubName = (subcategory.name || '').toLowerCase().trim();
+
+        // 1. Direct match on item.subcategory (by slug or name)
+        const directMatches = services.filter(service => {
+            const itemSub = (service.subcategory || '').toLowerCase().trim();
+            if (!itemSub) return false;
+            return (
+                itemSub === normSubSlug ||
+                itemSub === normSubName ||
+                itemSub.replace(/\s+/g, '-') === normSubSlug ||
+                normSubSlug.includes(itemSub)
+            );
         });
 
-        // If specific keyword matching found results, return them. Otherwise return all category services.
-        return matched.length > 0 ? matched : services;
+        if (directMatches.length > 0) {
+            return directMatches;
+        }
+
+        // 2. Keyword fallback match if subcategory is not explicitly set on item
+        if (subcategory.keywords && subcategory.keywords.length > 0) {
+            const keywords = subcategory.keywords.map(k => k.toLowerCase());
+            const matched = services.filter(service => {
+                const text = `${service.name} ${service.description || ''} ${service.subgroup || ''}`.toLowerCase();
+                return keywords.some(k => text.includes(k));
+            });
+            if (matched.length > 0) return matched;
+        }
+
+        // 3. Fallback to all category services
+        return services;
     }, [services, subcategory]);
 
     // Apply search filter if user types in search box

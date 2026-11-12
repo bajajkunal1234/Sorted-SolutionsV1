@@ -3,6 +3,7 @@ import { X, Package, BarChart2, MessageSquare, Edit2, Save, Trash2, RefreshCcw, 
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
+import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 
 function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -217,6 +218,9 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         ? purchaseMovement.reduce((sum, m) => sum + (m.unit_price || 0), 0) / purchaseMovement.length
         : null;
 
+    const matchedCategory = findCategoryForDbName(editedProduct.category);
+    const availableSubcategories = matchedCategory?.subcategories || [];
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh' }}>
@@ -380,24 +384,53 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                         </select>
                                     </div>
 
-                                    <div className="form-group">
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                            <label className="form-label" style={{ margin: 0 }}>Brand</label>
-                                            {isEditing && <button type="button" onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}><Plus size={12} /> Add new</button>}
+                                    {(editedProduct.subtype || 'tech') === 'web' ? (
+                                        <div className="form-group">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <label className="form-label" style={{ margin: 0 }}>Subcategory</label>
+                                            </div>
+                                            <select
+                                                className="form-select"
+                                                value={editedProduct.subcategory || ''}
+                                                onChange={(e) => setEditedProduct({ ...editedProduct, subcategory: e.target.value })}
+                                                disabled={!isEditing}
+                                                style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="">
+                                                    {!editedProduct.category
+                                                        ? '— Select category first —'
+                                                        : availableSubcategories.length === 0
+                                                        ? '— No subcategories found —'
+                                                        : '— Select subcategory —'}
+                                                </option>
+                                                {availableSubcategories.map(sub => (
+                                                    <option key={sub.slug} value={sub.slug}>{sub.name}</option>
+                                                ))}
+                                                {availableSubcategories.length === 0 && V2_CATEGORIES.flatMap(c => c.subcategories || []).map(sub => (
+                                                    <option key={sub.slug} value={sub.slug}>{sub.name}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                        <select
-                                            className="form-select"
-                                            value={editedProduct.brand || ''}
-                                            onChange={(e) => setEditedProduct({ ...editedProduct, brand: e.target.value })}
-                                            disabled={!isEditing}
-                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
-                                        >
-                                            <option value="">— Select brand —</option>
-                                            {localBrands.map(b => (
-                                                <option key={b.id} value={b.name}>{b.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    ) : (
+                                        <div className="form-group">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <label className="form-label" style={{ margin: 0 }}>Brand</label>
+                                                {isEditing && <button type="button" onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}><Plus size={12} /> Add new</button>}
+                                            </div>
+                                            <select
+                                                className="form-select"
+                                                value={editedProduct.brand || ''}
+                                                onChange={(e) => setEditedProduct({ ...editedProduct, brand: e.target.value })}
+                                                disabled={!isEditing}
+                                                style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
+                                            >
+                                                <option value="">— Select brand —</option>
+                                                {localBrands.map(b => (
+                                                    <option key={b.id} value={b.name}>{b.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
 
                                     <div className="form-group">
                                         <label className="form-label">Unit of Measure</label>

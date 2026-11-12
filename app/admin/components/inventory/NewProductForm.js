@@ -6,6 +6,7 @@ import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { lookupHSN } from '@/lib/data/hsnData';
 import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
+import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 
 
 async function uploadImage(file) {
@@ -34,6 +35,7 @@ function NewProductForm({
         name: '',
         type: 'product',
         subtype: 'tech',      // 'tech' | 'web'
+        subcategory: '',      // e.g. 'split-ac', 'front-load'
         jobType: '',          // 'install_uninstall' | 'service_maintenance' | 'repair'
         category: '',
         brand: '',
@@ -146,6 +148,10 @@ function NewProductForm({
         if (brands.length > 0) setLocalBrands(brands);
     }, [brands]);
 
+    // Derived subcategories for Web subtype
+    const matchedCategory = findCategoryForDbName(formData.category);
+    const availableSubcategories = matchedCategory?.subcategories || [];
+
     const handleAddListItem = async () => {
         const name = newListItem.trim();
         if (!name) return;
@@ -187,14 +193,16 @@ function NewProductForm({
             }
 
             // 2. Build product payload
+            const isWeb = formData.subtype === 'web';
             const newProduct = {
                 name: formData.name,
                 sku: '',
                 auto_number: true,
                 type: formData.type,
                 subtype: formData.subtype || 'tech',
+                subcategory: isWeb ? (formData.subcategory || null) : null,
                 category: formData.category,
-                brand: formData.brand || null,
+                brand: isWeb ? null : (formData.brand || null),
                 description: formData.description || null,
                 images: imageUrls,                          // ✅ saved to DB
                 unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
@@ -211,7 +219,7 @@ function NewProductForm({
                 hsn_code: formData.hsnCode || null,
                 hsn_description: formData.hsnDescription || null,
                 service_terms_template: formData.serviceTermsTemplate || null,
-                job_type: formData.jobType || null,
+                job_type: isWeb ? null : (formData.jobType || null),
                 status: 'active',
                 terms_conditions: formData.termsConditions
             };
@@ -324,8 +332,13 @@ function NewProductForm({
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
 
-                            {/* Row 1: Item Type + Item Subtype + Job Type */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+                            {/* Row 1: Item Type + Item Subtype + Job Type (Job Type hidden for Web items) */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: formData.subtype === 'web' ? '1fr 1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+                                gap: 'var(--spacing-md)',
+                                marginBottom: 'var(--spacing-md)'
+                            }}>
                                 <div className="form-group" style={{ margin: 0 }}>
                                     <label className="form-label">Item Type *</label>
                                     <select
@@ -347,7 +360,15 @@ function NewProductForm({
                                     <select
                                         className="form-select"
                                         value={formData.subtype}
-                                        onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
+                                        onChange={(e) => {
+                                            const newSubtype = e.target.value;
+                                            setFormData({
+                                                ...formData,
+                                                subtype: newSubtype,
+                                                jobType: newSubtype === 'web' ? '' : formData.jobType,
+                                                brand: newSubtype === 'web' ? '' : formData.brand,
+                                            });
+                                        }}
                                         required
                                     >
                                         <option value="tech">Tech (Field / Internal)</option>
@@ -358,22 +379,24 @@ function NewProductForm({
                                     </div>
                                 </div>
 
-                                <div className="form-group" style={{ margin: 0 }}>
-                                    <label className="form-label">Job Type</label>
-                                    <select
-                                        className="form-select"
-                                        value={formData.jobType}
-                                        onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
-                                    >
-                                        <option value="">— Select job type —</option>
-                                        <option value="install_uninstall">Install / Uninstall</option>
-                                        <option value="service_maintenance">Service / Maintenance</option>
-                                        <option value="repair">Repair</option>
-                                    </select>
-                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                        Used to categorise jobs
+                                {formData.subtype !== 'web' && (
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label">Job Type</label>
+                                        <select
+                                            className="form-select"
+                                            value={formData.jobType}
+                                            onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                                        >
+                                            <option value="">— Select job type —</option>
+                                            <option value="install_uninstall">Install / Uninstall</option>
+                                            <option value="service_maintenance">Service / Maintenance</option>
+                                            <option value="repair">Repair</option>
+                                        </select>
+                                        <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                            Used to categorise jobs
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
 
                             {/* Row 2: Product/Service Name + SKU Side-by-Side (Option A) */}
@@ -444,7 +467,10 @@ function NewProductForm({
                                     <select
                                         className="form-select"
                                         value={formData.category}
-                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                        onChange={(e) => {
+                                            const newCat = e.target.value;
+                                            setFormData({ ...formData, category: newCat, subcategory: '' });
+                                        }}
                                         required
                                     >
                                         <option value="">— Select category —</option>
@@ -454,33 +480,73 @@ function NewProductForm({
                                     </select>
                                 </div>
 
-                                <div className="form-group">
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        {/* Brand is required for products, optional for services */}
-                                        <label className="form-label" style={{ margin: 0 }}>
-                                            Brand {formData.type === 'product' ? '*' : ''}
-                                        </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
-                                            title="Add new brand"
+                                {formData.subtype === 'web' ? (
+                                    /* ── Subcategory Field for Web items (replaces Brand) ── */
+                                    <div className="form-group">
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <label className="form-label" style={{ margin: 0 }}>
+                                                Subcategory *
+                                            </label>
+                                        </div>
+                                        <select
+                                            className="form-select"
+                                            value={formData.subcategory || ''}
+                                            onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                                            required
                                         >
-                                            <Plus size={12} /> Add new
-                                        </button>
+                                            <option value="">
+                                                {!formData.category
+                                                    ? '— Select category first —'
+                                                    : availableSubcategories.length === 0
+                                                    ? '— No subcategories found —'
+                                                    : '— Select subcategory —'}
+                                            </option>
+                                            {availableSubcategories.map(sub => (
+                                                <option key={sub.slug} value={sub.slug}>
+                                                    {sub.name}
+                                                </option>
+                                            ))}
+                                            {/* Fallback if category has no matched subcategories */}
+                                            {availableSubcategories.length === 0 && V2_CATEGORIES.flatMap(c => c.subcategories || []).map(sub => (
+                                                <option key={sub.slug} value={sub.slug}>
+                                                    {sub.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                            Displays under this subcategory on the /v2 storefront
+                                        </div>
                                     </div>
-                                    <select
-                                        className="form-select"
-                                        value={formData.brand}
-                                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                                        required={formData.type === 'product'}   /* ✅ optional for services */
-                                    >
-                                        <option value="">— Select brand —</option>
-                                        {localBrands.map(b => (
-                                            <option key={b.id} value={b.name}>{b.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                ) : (
+                                    /* ── Brand Field for Tech items ── */
+                                    <div className="form-group">
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            {/* Brand is required for products, optional for services */}
+                                            <label className="form-label" style={{ margin: 0 }}>
+                                                Brand {formData.type === 'product' ? '*' : ''}
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+                                                title="Add new brand"
+                                            >
+                                                <Plus size={12} /> Add new
+                                            </button>
+                                        </div>
+                                        <select
+                                            className="form-select"
+                                            value={formData.brand}
+                                            onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                                            required={formData.type === 'product'}   /* ✅ optional for services */
+                                        >
+                                            <option value="">— Select brand —</option>
+                                            {localBrands.map(b => (
+                                                <option key={b.id} value={b.name}>{b.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-group">

@@ -174,6 +174,14 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                     </td>
                 )}
 
+                {isVisible('subcategory') && (
+                    <td style={td}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            {product.subcategory || '—'}
+                        </span>
+                    </td>
+                )}
+
                 {isVisible('brand') && (
                     <td style={td}>
                         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
@@ -399,6 +407,7 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                             {isVisible('subtype')          && <th style={thBase}>Subtype</th>}
                             {isVisible('job_type')         && <th style={thBase}>Job Type</th>}
                             {isVisible('category')         && <th style={thBase}>Category</th>}
+                            {isVisible('subcategory')      && <th style={thBase}>Subcategory</th>}
                             {isVisible('brand')            && <th style={thBase}>Brand</th>}
                             {isVisible('current_stock')    && <th style={thRight}>Stock</th>}
                             {isVisible('min_stock_level')  && <th style={thRight}>Min Stock</th>}

@@ -357,6 +357,7 @@ function InventoryTab() {
         { id: 'subtype',          label: 'Subtype' },
         { id: 'job_type',         label: 'Job Type' },
         { id: 'category',         label: 'Category' },
+        { id: 'subcategory',      label: 'Subcategory' },
         { id: 'brand',            label: 'Brand' },
         { id: 'current_stock',    label: 'Current Stock' },
         { id: 'min_stock_level',  label: 'Min Stock Level' },

@@ -48,7 +48,7 @@ export async function POST(request) {
 
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
         const ALLOWED_COLUMNS = [
-            'name', 'sku', 'type', 'subtype', 'job_type', 'category', 'brand', 'description', 'images',
+            'name', 'sku', 'type', 'subtype', 'subcategory', 'job_type', 'category', 'brand', 'description', 'images',
             'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
@@ -58,6 +58,7 @@ export async function POST(request) {
 
         // camelCase → snake_case aliases
         const ALIAS_MAP = {
+            subCategory:       'subcategory',
             currentStock:      'current_stock',
             minStockLevel:     'min_stock_level',
             reorderLevel:      'min_stock_level',
@@ -201,7 +202,7 @@ export async function PUT(request) {
 
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
         const ALLOWED_COLUMNS = [
-            'name', 'sku', 'type', 'subtype', 'job_type', 'category', 'brand', 'description', 'images',
+            'name', 'sku', 'type', 'subtype', 'subcategory', 'job_type', 'category', 'brand', 'description', 'images',
             'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
@@ -211,6 +212,7 @@ export async function PUT(request) {
 
         // camelCase → snake_case aliases
         const ALIAS_MAP = {
+            subCategory:       'subcategory',
             currentStock:      'current_stock',
             minStockLevel:     'min_stock_level',
             reorderLevel:      'min_stock_level',
