@@ -431,6 +431,72 @@
     color: #ffffff !important;
 }
 
+/* ── Hero Carousel (Urban Company 3-Slide Auto-Sliding Banner) ── */
+.v2-hero-carousel-wrap {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    margin: 12px 0 16px 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+@keyframes v2FadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.v2-hero-arrow-btn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 6;
+}
+
+.v2-hero-arrow-btn:hover {
+    background: rgba(0, 0, 0, 0.65);
+    transform: translateY(-50%) scale(1.08);
+}
+
+.v2-hero-arrow-left {
+    left: 10px;
+}
+
+.v2-hero-arrow-right {
+    right: 10px;
+}
+
+@media (min-width: 768px) {
+    .v2-hero-carousel-wrap {
+        margin: 18px 0 24px 0;
+    }
+    .v2-hero-carousel-wrap:hover .v2-hero-arrow-btn {
+        display: flex;
+    }
+    .v2-hero-carousel-slide {
+        padding: 24px 32px 30px 32px !important;
+        min-height: 200px !important;
+    }
+}
+
 /* Promo Banner Strip (Scroll-snap mobile, 4-col grid desktop) */
 .v2-promo-strip {
     display: flex;

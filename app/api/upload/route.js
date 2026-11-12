@@ -26,7 +26,7 @@ export async function POST(request) {
             return NextResponse.json({ success: false, error: 'No valid file uploaded' }, { status: 400 });
         }
 
-        const bucket = formData.get('bucket') || 'media';
+        let bucket = formData.get('bucket') || 'media';
         const folder = formData.get('folder') || 'uploads';
 
         const bytes = await file.arrayBuffer();
@@ -35,8 +35,13 @@ export async function POST(request) {
         }
         const rawBuffer = Buffer.from(bytes);
 
-        // Compress images; videos/PDFs pass through unchanged
+        // Compress images; videos/PDFs/GIFs pass through unchanged
         const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type || 'image/jpeg');
+
+        // Route large files, videos, or ecom-v2 assets to 'website-assets' bucket (which has no 5MB limit)
+        if (bucket === 'media' && (rawBuffer.byteLength > 4.5 * 1024 * 1024 || (contentType && contentType.startsWith('video/')) || folder.startsWith('ecom-v2'))) {
+            bucket = 'website-assets';
+        }
 
         const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 

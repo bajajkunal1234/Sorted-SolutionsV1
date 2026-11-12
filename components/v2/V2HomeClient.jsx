@@ -6,6 +6,7 @@ import { V2_CATEGORIES, V2_HERO_CARDS } from '@/lib/v2/catalogConfig';
 import { useV2Cart } from './CartContext';
 import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
+import HeroCarousel from './HeroCarousel';
 
 export default function V2HomeClient({ services = [], categoryCounts = {} }) {
     const { location, setLocationModalOpen } = useV2Cart();
@@ -85,21 +86,8 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                         </Link>
                     </div>
 
-                    {/* Offer / Service Highlight Strip (Horizontal Mobile + 4-Col Desktop) */}
-                    <div className="v2-promo-strip">
-                        {V2_HERO_CARDS.map(card => (
-                            <Link key={card.id} href={card.href} className="v2-promo-card">
-                                <div className="v2-promo-thumb">
-                                    <img src={card.image} alt={card.title} />
-                                    <span className="v2-promo-badge">{card.badge}</span>
-                                </div>
-                                <div className="v2-promo-meta">
-                                    <strong>{card.title}</strong>
-                                    <span>{card.subtitle}</span>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
+                    {/* Dynamic Auto-Sliding Hero Carousel (GIFs, Videos & Offers) */}
+                    <HeroCarousel />
                 </div>
             </section>
 
