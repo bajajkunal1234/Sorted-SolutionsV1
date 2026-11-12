@@ -22,6 +22,7 @@ import GoogleAPIsSettings from '@/components/reports/GoogleAPIsSettings';
 import WebsiteAnalytics from '@/components/reports/WebsiteAnalytics';
 import BookingSlots from '@/components/reports/BookingSlots';
 import EcomV2HeroSettings from './EcomV2HeroSettings';
+import EcomV2SubcategorySettings from './EcomV2SubcategorySettings';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -470,6 +471,13 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 <StaticPagesSettings />
             ) : activeCategory === 'ecom-v2-hero' ? (
                 <EcomV2HeroSettings
+                    onBack={() => {
+                        setActiveCategory('ecom-v2');
+                        if (setSubSection) setSubSection('ecom-v2');
+                    }}
+                />
+            ) : activeCategory === 'ecom-v2-subcategories' ? (
+                <EcomV2SubcategorySettings
                     onBack={() => {
                         setActiveCategory('ecom-v2');
                         if (setSubSection) setSubSection('ecom-v2');
