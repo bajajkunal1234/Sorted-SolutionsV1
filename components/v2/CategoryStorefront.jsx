@@ -158,7 +158,7 @@ export default function CategoryStorefront({
                         {V2_CATEGORIES.map(cat => (
                             <Link
                                 key={cat.slug}
-                                href={`/v2/services/${cat.slug}`}
+                                href={cat.subcategories?.[0] ? `/v2/services/${cat.slug}/${cat.subcategories[0].slug}` : `/v2/services/${cat.slug}`}
                                 className={`v2-cat-pill ${activeCategory?.slug === cat.slug ? 'active' : ''}`}
                             >
                                 <img src={cat.icon} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
@@ -167,6 +167,35 @@ export default function CategoryStorefront({
                             </Link>
                         ))}
                     </div>
+
+                    {/* Subcategory Pills Row */}
+                    {activeCategory?.subcategories?.length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', marginTop: 10, paddingBottom: 4, scrollbarWidth: 'none' }}>
+                            {activeCategory.subcategories.map(sub => (
+                                <Link
+                                    key={sub.slug}
+                                    href={`/v2/services/${activeCategory.slug}/${sub.slug}`}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '6px 14px',
+                                        borderRadius: 999,
+                                        border: '1px solid #e2e8f0',
+                                        backgroundColor: '#f8fafc',
+                                        color: '#334155',
+                                        fontSize: 12.5,
+                                        fontWeight: 600,
+                                        textDecoration: 'none',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <img src={sub.icon || activeCategory.icon} alt="" style={{ width: 16, height: 16, objectFit: 'contain' }} />
+                                    <span>{sub.name}</span>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Mobile Subgroup Pills */}
                     {subgroupNames.length > 0 && (

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { MapPin, ChevronDown, ArrowRight, ShieldCheck, Clock, Receipt, Sparkles, Wrench, FileText } from 'lucide-react';
 import { V2_CATEGORIES, V2_HERO_CARDS } from '@/lib/v2/catalogConfig';
@@ -7,9 +8,11 @@ import { useV2Cart } from './CartContext';
 import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
+import SubcategoryModal from './SubcategoryModal';
 
 export default function V2HomeClient({ services = [], categoryCounts = {} }) {
     const { location, setLocationModalOpen } = useV2Cart();
+    const [selectedModalCategory, setSelectedModalCategory] = useState(null);
 
     const primaryAddressTitle = location.flat && location.building
         ? `${location.flat}, ${location.building}`
@@ -106,7 +109,20 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
 
                     <div className="v2-cat-grid">
                         {V2_CATEGORIES.map(cat => (
-                            <Link key={cat.slug} href={`/v2/services/${cat.slug}`} className="v2-cat-tile">
+                            <button
+                                key={cat.slug}
+                                type="button"
+                                onClick={() => setSelectedModalCategory(cat)}
+                                className="v2-cat-tile"
+                                style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'center',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    fontFamily: 'inherit'
+                                }}
+                            >
                                 <div className="v2-cat-icon-box" style={{ background: cat.accent }}>
                                     <img src={cat.icon} alt={cat.name} />
                                 </div>
@@ -116,7 +132,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                                         {categoryCounts[cat.slug]} services
                                     </span>
                                 )}
-                            </Link>
+                            </button>
                         ))}
 
                         {/* 2 Utility Tiles to complete balanced 4x2 mobile grid */}
@@ -254,6 +270,14 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                     </div>
                 </div>
             </section>
+
+            {/* Urban Company-inspired Subcategory Bottom Sheet Modal */}
+            {selectedModalCategory && (
+                <SubcategoryModal
+                    category={selectedModalCategory}
+                    onClose={() => setSelectedModalCategory(null)}
+                />
+            )}
         </div>
     );
 }

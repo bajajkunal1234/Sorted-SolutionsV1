@@ -722,6 +722,55 @@
     }
 }
 
+/* ── Urban Company Subcategory Bottom Sheet Modal ── */
+@keyframes v2BackdropFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes v2SheetSlideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.v2-submodal-card:hover {
+    border-color: #6338f5 !important;
+    background-color: #f5f3ff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(99, 56, 245, 0.12);
+}
+
+.v2-submodal-card:active {
+    transform: scale(0.96);
+}
+
+.v2-submodal-close-btn:hover {
+    transform: scale(1.08);
+}
+
+@media (min-width: 640px) {
+    .v2-submodal-backdrop {
+        align-items: center !important;
+        padding: 20px;
+    }
+    .v2-submodal-sheet {
+        border-radius: 24px !important;
+        animation: v2FadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .v2-submodal-close-btn {
+        top: 14px !important;
+        right: 14px !important;
+        background-color: #f1f5f9 !important;
+        box-shadow: none !important;
+    }
+}
+
 /* ── Desktop 3-Column Category Layout ───────────────────────── */
 .v2-cat-page-header {
     background: #fff;
