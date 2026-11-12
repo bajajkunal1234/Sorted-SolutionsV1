@@ -51,8 +51,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                     {/* Mobile Compact Headline */}
                     <div className="v2-hero-mobile-banner">
                         <div>
-                            <span className="v2-hero-kicker">Mumbai Doorstep Care</span>
-                            <h1>Appliance care, sorted in 90 mins</h1>
+                            <h1 style={{ color: '#ffffff' }}>Appliance care, sorted in 90 mins</h1>
                         </div>
                     </div>
 
