@@ -29,25 +29,106 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
             {/* ── Urban Company Inspired Dark Violet Hero ── */}
             <section className="v2-hero-wrap">
                 <div className="v2-container" style={{ paddingLeft: 0, paddingRight: 0 }}>
-                    {/* Mobile Top Locality Selector */}
-                    <button
-                        type="button"
-                        className="v2-mobile-loc-btn"
-                        onClick={() => setLocationModalOpen(true)}
-                    >
-                        <span className="v2-mobile-loc-left">
-                            <MapPin size={19} style={{ flexShrink: 0 }} />
-                            <span style={{ minWidth: 0 }}>
-                                <span className="v2-mobile-loc-title" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                                    {primaryAddressTitle}
-                                    <ChevronDown size={16} />
-                                </span>
-                                <span className="v2-mobile-loc-sub" style={{ display: 'block' }}>
-                                    {secondaryAddressSub}
+                    {/* Top Header Row: Locality Selector (Left) + Sorted Solutions Brand (Right) */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 14,
+                        padding: '0 4px'
+                    }}>
+                        {/* Mobile Top Locality Selector */}
+                        <button
+                            type="button"
+                            className="v2-mobile-loc-btn"
+                            onClick={() => setLocationModalOpen(true)}
+                            style={{
+                                flex: 1,
+                                minWidth: 0,
+                                padding: 0,
+                                margin: 0,
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                textAlign: 'left'
+                            }}
+                        >
+                            <span className="v2-mobile-loc-left" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                <MapPin size={20} style={{ flexShrink: 0, color: '#ffffff' }} />
+                                <span style={{ minWidth: 0, display: 'block' }}>
+                                    <span className="v2-mobile-loc-title" style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#ffffff' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {primaryAddressTitle}
+                                        </span>
+                                        <ChevronDown size={15} style={{ flexShrink: 0, opacity: 0.85 }} />
+                                    </span>
+                                    <span className="v2-mobile-loc-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
+                                        {secondaryAddressSub}
+                                    </span>
                                 </span>
                             </span>
-                        </span>
-                    </button>
+                        </button>
+
+                        {/* Top Right Aligned Brand: Sorted Solutions */}
+                        <Link
+                            href="/v2"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                flexShrink: 0,
+                                textDecoration: 'none',
+                                padding: '5px 12px 5px 8px',
+                                borderRadius: 999,
+                                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                                backdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(255, 255, 255, 0.22)',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            <div style={{
+                                width: 26,
+                                height: 26,
+                                borderRadius: '50%',
+                                backgroundColor: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                flexShrink: 0,
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
+                            }}>
+                                <img
+                                    src="/logo.jpg"
+                                    alt="Sorted Solutions"
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
+                                <span style={{
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    color: '#ffffff',
+                                    letterSpacing: '-0.02em',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    Sorted Solutions
+                                </span>
+                                <span style={{
+                                    fontSize: 9.5,
+                                    fontWeight: 600,
+                                    color: 'rgba(255, 255, 255, 0.75)',
+                                    letterSpacing: '0.04em',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    Doorstep Care
+                                </span>
+                            </div>
+                        </Link>
+                    </div>
 
                     {/* Mobile Search Pill */}
                     <ServiceSearchBox variant="mobile-hero" />

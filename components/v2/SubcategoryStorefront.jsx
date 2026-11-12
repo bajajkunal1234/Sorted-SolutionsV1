@@ -101,58 +101,142 @@ export default function SubcategoryStorefront({
 
     return (
         <div style={{ backgroundColor: '#ffffff', minHeight: '100vh', paddingBottom: 100 }}>
-            {/* ── Subcategory Top Bar ── */}
-            <div style={{
-                backgroundColor: '#ffffff',
-                borderBottom: '1px solid #f1f5f9',
-                position: 'sticky',
-                top: 0,
-                zIndex: 40
-            }}>
-                <div className="v2-container" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 16px'
+            {/* ══════════════ 1. TOP HERO MEDIA BANNER (FLUSH TO TOP LIKE URBAN COMPANY) ══════════════ */}
+            {hero.enabled !== false && (
+                <section className="v2-subcat-hero-section" style={{
+                    width: '100%',
+                    position: 'relative',
+                    backgroundColor: '#0f172a'
                 }}>
-                    <Link
-                        href="/v2"
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            textDecoration: 'none',
-                            color: '#1e293b',
-                            fontSize: 14,
-                            fontWeight: 700
-                        }}
-                    >
-                        <ArrowLeft size={18} />
-                        <span>{subcategory?.name || category?.name}</span>
-                    </Link>
+                    <div style={{
+                        width: '100%',
+                        position: 'relative',
+                        aspectRatio: '16/9',
+                        maxHeight: 420,
+                        overflow: 'hidden'
+                    }} className="v2-subcat-hero-media-wrap">
+                        {hero.mediaType === 'video' ? (
+                            <video
+                                src={hero.mediaUrl || '/images/banners/banner_speed_90_mins.png'}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
+                        ) : (
+                            <img
+                                src={hero.mediaUrl || subcategory?.icon || '/images/banners/banner_problem_solved_expert.png'}
+                                alt={hero.title || subcategory?.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
+                        )}
 
-                    <button
-                        type="button"
-                        onClick={() => setLocationModalOpen(true)}
-                        style={{
-                            display: 'inline-flex',
+                        {/* Top Gradient Vignette (Ensures back button and brand are readable over any photo) */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 90,
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)',
+                            pointerEvents: 'none'
+                        }} />
+
+                        {/* Top Floating Controls: Circular Back Button (Left) + Sorted Solutions Brand (Right) */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 14,
+                            left: 14,
+                            right: 14,
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: 5,
-                            border: '1px solid #e2e8f0',
-                            background: '#f8fafc',
-                            borderRadius: 999,
-                            padding: '5px 12px',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            color: '#1e293b'
-                        }}
-                    >
-                        <MapPin size={13} color="#6338f5" />
-                        <span>{location.locality || 'Mumbai'}</span>
-                    </button>
-                </div>
-            </div>
+                            justifyContent: 'space-between',
+                            zIndex: 10
+                        }}>
+                            {/* Circular Back Button (Matching Urban Company) */}
+                            <Link
+                                href="/v2"
+                                style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#ffffff',
+                                    boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#0f172a',
+                                    textDecoration: 'none',
+                                    flexShrink: 0,
+                                    transition: 'transform 0.1s ease'
+                                }}
+                                title="Back to Services"
+                            >
+                                <ArrowLeft size={19} />
+                            </Link>
+
+                            {/* Right Aligned: Sorted Solutions Brand */}
+                            <Link
+                                href="/v2"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '5px 14px 5px 8px',
+                                    borderRadius: 999,
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    backdropFilter: 'blur(10px)',
+                                    boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+                                    border: '1px solid rgba(255, 255, 255, 0.8)',
+                                    textDecoration: 'none',
+                                    flexShrink: 0
+                                }}
+                            >
+                                <div style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#6338f5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    overflow: 'hidden',
+                                    flexShrink: 0
+                                }}>
+                                    <img
+                                        src="/logo.jpg"
+                                        alt="Sorted Solutions"
+                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                    />
+                                </div>
+                                <span style={{
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    color: '#0f172a',
+                                    letterSpacing: '-0.02em',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    Sorted Solutions
+                                </span>
+                            </Link>
+                        </div>
+
+                        {/* Stories Progress Bar at bottom of media */}
+                        <div style={{
+                            position: 'absolute',
+                            bottom: 12,
+                            left: 16,
+                            right: 16,
+                            height: 3,
+                            backgroundColor: 'rgba(255,255,255,0.3)',
+                            borderRadius: 99
+                        }}>
+                            <div style={{ width: '65%', height: '100%', backgroundColor: '#ffffff', borderRadius: 99 }} />
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* ── Main Layout: Left Content Column + Right Sticky Sidebar ── */}
             <div className="v2-container" style={{ padding: '0 16px' }}>
@@ -165,116 +249,73 @@ export default function SubcategoryStorefront({
                 }} className="v2-subcat-desktop-grid">
                     {/* ══════════════ LEFT COLUMN (URBAN COMPANY STOREFRONT FLOW) ══════════════ */}
                     <div style={{ minWidth: 0 }}>
-                        {/* 1. TOP HERO MEDIA BANNER */}
-                        {hero.enabled !== false && (
-                            <section style={{ marginBottom: 20 }}>
-                                <div style={{
-                                    width: '100%',
-                                    borderRadius: 16,
-                                    overflow: 'hidden',
-                                    position: 'relative',
-                                    backgroundColor: '#0f172a',
-                                    aspectRatio: '16/9',
-                                    maxHeight: 380
+                        {/* Title, Rating & Rate Card Pill */}
+                        <section style={{ marginBottom: 20 }}>
+                            <div>
+                                <h1 style={{
+                                    fontSize: 'clamp(22px, 5vw, 28px)',
+                                    fontWeight: 800,
+                                    color: '#0f172a',
+                                    margin: '0 0 6px 0',
+                                    letterSpacing: '-0.02em'
                                 }}>
-                                    {hero.mediaType === 'video' ? (
-                                        <video
-                                            src={hero.mediaUrl || '/images/banners/banner_speed_90_mins.png'}
-                                            autoPlay
-                                            loop
-                                            muted
-                                            playsInline
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    ) : (
-                                        <img
-                                            src={hero.mediaUrl || subcategory?.icon || '/images/banners/banner_problem_solved_expert.png'}
-                                            alt={hero.title || subcategory?.name}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        />
-                                    )}
+                                    {hero.title || `${subcategory?.name || 'Appliance'} check-up`}
+                                </h1>
 
-                                    {/* Stories Progress Bar at bottom of media */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 12,
-                                        left: 16,
-                                        right: 16,
-                                        height: 3,
-                                        backgroundColor: 'rgba(255,255,255,0.3)',
-                                        borderRadius: 99
-                                    }}>
-                                        <div style={{ width: '65%', height: '100%', backgroundColor: '#ffffff', borderRadius: 99 }} />
-                                    </div>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    fontSize: 14,
+                                    color: '#475569',
+                                    marginBottom: 14
+                                }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, color: '#0f172a' }}>
+                                        ★ {hero.rating || '4.84'}
+                                    </span>
+                                    <span style={{ textDecoration: 'underline dotted', color: '#64748b' }}>
+                                        ({hero.reviewsCount || '60K'} reviews)
+                                    </span>
                                 </div>
 
-                                {/* Title & Rating */}
-                                <div style={{ marginTop: 16 }}>
-                                    <h1 style={{
-                                        fontSize: 'clamp(22px, 5vw, 28px)',
-                                        fontWeight: 800,
-                                        color: '#0f172a',
-                                        margin: '0 0 6px 0',
-                                        letterSpacing: '-0.02em'
-                                    }}>
-                                        {hero.title || `${subcategory?.name || 'Appliance'} check-up`}
-                                    </h1>
-
-                                    <div style={{
+                                {/* Rate Card / Cover Banner Pill */}
+                                <button
+                                    type="button"
+                                    onClick={scrollToPromise}
+                                    style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 6,
-                                        fontSize: 14,
-                                        color: '#475569',
-                                        marginBottom: 14
-                                    }}>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, color: '#0f172a' }}>
-                                            ★ {hero.rating || '4.84'}
+                                        justifyContent: 'space-between',
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        borderRadius: 12,
+                                        backgroundColor: '#f8fafc',
+                                        border: '1px solid #e2e8f0',
+                                        cursor: 'pointer',
+                                        textAlign: 'left',
+                                        transition: 'background-color 0.15s ease'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{
+                                            fontSize: 11,
+                                            fontWeight: 800,
+                                            color: '#0d9488',
+                                            textTransform: 'lowercase',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 3
+                                        }}>
+                                            ✓ {hero.rateCardBadge || 'sorted cover'}
                                         </span>
-                                        <span style={{ textDecoration: 'underline dotted', color: '#64748b' }}>
-                                            ({hero.reviewsCount || '60K'} reviews)
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
+                                            {hero.rateCardText || 'Standard rate card'}
                                         </span>
                                     </div>
-
-                                    {/* Rate Card / Cover Banner Pill */}
-                                    <button
-                                        type="button"
-                                        onClick={scrollToPromise}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            width: '100%',
-                                            padding: '12px 16px',
-                                            borderRadius: 12,
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            cursor: 'pointer',
-                                            textAlign: 'left',
-                                            transition: 'background-color 0.15s ease'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{
-                                                fontSize: 11,
-                                                fontWeight: 800,
-                                                color: '#0d9488',
-                                                textTransform: 'lowercase',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: 3
-                                            }}>
-                                                ✓ {hero.rateCardBadge || 'sorted cover'}
-                                            </span>
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>
-                                                {hero.rateCardText || 'Standard rate card'}
-                                            </span>
-                                        </div>
-                                        <ChevronRight size={16} color="#64748b" />
-                                    </button>
-                                </div>
-                            </section>
-                        )}
+                                    <ChevronRight size={16} color="#64748b" />
+                                </button>
+                            </div>
+                        </section>
 
                         <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '20px 0' }} />
 
@@ -912,6 +953,12 @@ export default function SubcategoryStorefront({
             {/* Embedded styles for responsive desktop/mobile layout */}
             <style jsx global>{`
                 @media (min-width: 900px) {
+                    .v2-subcat-hero-section {
+                        max-width: 1140px;
+                        margin: 16px auto 24px auto !important;
+                        border-radius: 20px;
+                        overflow: hidden;
+                    }
                     .v2-subcat-desktop-grid {
                         grid-template-columns: minmax(0, 1fr) 340px !important;
                     }
@@ -923,6 +970,15 @@ export default function SubcategoryStorefront({
                     }
                 }
                 @media (max-width: 899px) {
+                    .v2-subcat-hero-section {
+                        width: 100%;
+                        margin-top: 0 !important;
+                        margin-left: 0 !important;
+                        margin-right: 0 !important;
+                        margin-bottom: 18px;
+                        border-radius: 0 0 16px 16px;
+                        overflow: hidden;
+                    }
                     .v2-subcat-desktop-sidebar {
                         display: none !important;
                     }
