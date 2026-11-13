@@ -183,7 +183,26 @@ export default function EcomV2SubcategorySettings({ onBack }) {
             const res = await fetch(`/api/v2/subcategory-pages/${page.categorySlug}/${page.subcategorySlug}`);
             const json = await res.json();
             if (json.success && json.data) {
-                setPageConfig(json.data);
+                const cfg = json.data;
+                const h = cfg.hero || {};
+                const defaultHeroSlides = [
+                    { id: 'slide-1', mediaType: h.mediaType || 'image', mediaUrl: h.mediaUrl || '/images/banners/banner_speed_90_mins.png', title: '90-Min Arrival', active: true },
+                    { id: 'slide-2', mediaType: 'image', mediaUrl: '/images/banners/banner_expertise_v3.png', title: 'Certified Pros', active: true },
+                    { id: 'slide-3', mediaType: 'image', mediaUrl: '/images/banners/banner_30_day_warranty.png', title: '30-Day Warranty', active: true }
+                ];
+                const resolvedSlides = Array.isArray(h.slides) && h.slides.length > 0
+                    ? h.slides
+                    : defaultHeroSlides;
+
+                cfg.hero = {
+                    ...h,
+                    slides: resolvedSlides,
+                    mediaUrl: resolvedSlides[0]?.mediaUrl || h.mediaUrl,
+                    autoSlideSeconds: Number(h.autoSlideSeconds) || 5,
+                    enableVideoAdvance: h.enableVideoAdvance !== false
+                };
+
+                setPageConfig(cfg);
             } else {
                 setErrorMessage(json.error || 'Failed to load page config');
             }
@@ -199,6 +218,24 @@ export default function EcomV2SubcategorySettings({ onBack }) {
         setSaving(true);
         setErrorMessage('');
         setSaveSuccess(false);
+
+        // Ensure pageConfig.hero.slides is explicitly synced from heroSlides
+        const finalSlides = Array.isArray(pageConfig.hero?.slides) && pageConfig.hero.slides.length > 0
+            ? pageConfig.hero.slides
+            : heroSlides;
+
+        const payloadConfig = {
+            ...pageConfig,
+            hero: {
+                ...pageConfig.hero,
+                slides: finalSlides,
+                mediaUrl: finalSlides[0]?.mediaUrl || pageConfig.hero?.mediaUrl,
+                mediaType: finalSlides[0]?.mediaType || pageConfig.hero?.mediaType || 'image',
+                autoSlideSeconds: Number(pageConfig.hero?.autoSlideSeconds) || 5,
+                enableVideoAdvance: pageConfig.hero?.enableVideoAdvance !== false
+            }
+        };
+
         try {
             const res = await fetch(`/api/v2/subcategory-pages/${activePage.categorySlug}/${activePage.subcategorySlug}`, {
                 method: 'POST',
@@ -206,7 +243,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                 body: JSON.stringify({
                     categoryName: activePage.categoryName,
                     subcategoryName: activePage.subcategoryName,
-                    data: pageConfig
+                    data: payloadConfig
                 })
             });
             const json = await res.json();
@@ -250,15 +287,27 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         const curSlides = Array.isArray(prev.hero?.slides) && prev.hero.slides.length > 0
                             ? [...prev.hero.slides]
                             : [
-                                { id: 'slide-1', mediaType: prev.hero?.mediaType || 'image', mediaUrl: prev.hero?.mediaUrl || '' }
+                                { id: 'slide-1', mediaType: prev.hero?.mediaType || 'image', mediaUrl: prev.hero?.mediaUrl || '', title: 'Slide #1', active: true },
+                                { id: 'slide-2', mediaType: 'image', mediaUrl: '', title: 'Slide #2', active: true },
+                                { id: 'slide-3', mediaType: 'image', mediaUrl: '', title: 'Slide #3', active: true }
                             ];
-                        if (curSlides[slideIndex]) {
-                            curSlides[slideIndex] = {
-                                ...curSlides[slideIndex],
-                                mediaUrl: json.url,
-                                mediaType: detectedType
-                            };
+                        
+                        while (curSlides.length <= slideIndex) {
+                            curSlides.push({
+                                id: `slide-${curSlides.length + 1}`,
+                                mediaType: 'image',
+                                mediaUrl: '',
+                                title: `Slide #${curSlides.length + 1}`,
+                                active: true
+                            });
                         }
+
+                        curSlides[slideIndex] = {
+                            ...curSlides[slideIndex],
+                            mediaUrl: json.url,
+                            mediaType: detectedType
+                        };
+
                         return {
                             ...prev,
                             hero: {

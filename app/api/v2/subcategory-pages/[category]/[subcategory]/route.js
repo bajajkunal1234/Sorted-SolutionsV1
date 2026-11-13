@@ -88,6 +88,16 @@ async function handleSave(request, params) {
         const body = await request.json();
         const configData = body.data || body;
 
+        // Clean & sanitize slides array
+        const rawSlides = Array.isArray(configData.hero?.slides) ? configData.hero.slides : [];
+        const sanitizedSlides = rawSlides.map((s, idx) => ({
+            id: String(s.id || `slide-${idx + 1}`),
+            mediaType: ['image', 'gif', 'video'].includes(s.mediaType) ? s.mediaType : 'image',
+            mediaUrl: String(s.mediaUrl || '').trim(),
+            title: String(s.title || '').trim(),
+            active: s.active !== false
+        })).filter(s => s.mediaUrl);
+
         // Clean & sanitize config fields
         const sanitizedConfig = {
             categorySlug,
@@ -96,7 +106,10 @@ async function handleSave(request, params) {
             subcategoryName: body.subcategoryName || subcategorySlug,
             hero: {
                 mediaType: ['image', 'gif', 'video'].includes(configData.hero?.mediaType) ? configData.hero.mediaType : 'image',
-                mediaUrl: String(configData.hero?.mediaUrl || '').trim(),
+                mediaUrl: String(configData.hero?.mediaUrl || sanitizedSlides[0]?.mediaUrl || '').trim(),
+                slides: sanitizedSlides,
+                autoSlideSeconds: Number(configData.hero?.autoSlideSeconds) || 5,
+                enableVideoAdvance: configData.hero?.enableVideoAdvance !== false,
                 title: String(configData.hero?.title || '').trim(),
                 subtitle: String(configData.hero?.subtitle || '').trim(),
                 rating: String(configData.hero?.rating || '4.8').trim(),
