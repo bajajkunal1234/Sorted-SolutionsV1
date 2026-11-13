@@ -82,9 +82,12 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     // Media upload
     const [uploading, setUploading] = useState(false);
     const heroFileInputRef = useRef(null);
+    const slideFileInputRef = useRef(null);
     const techFileInputRef = useRef(null);
     const stepFileInputRef = useRef(null);
     const [uploadingStepIdx, setUploadingStepIdx] = useState(null);
+    const [uploadingSlideIdx, setUploadingSlideIdx] = useState(null);
+    const [adminPreviewIdx, setAdminPreviewIdx] = useState(0);
 
     // Initial fetch
     useEffect(() => {
@@ -222,7 +225,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
         }
     };
 
-    const handleUploadMedia = async (file, target, stepIndex = null) => {
+    const handleUploadMedia = async (file, target, stepIndex = null, slideIndex = null) => {
         if (!file) return;
         setUploading(true);
         setErrorMessage('');
@@ -238,15 +241,40 @@ export default function EcomV2SubcategorySettings({ onBack }) {
             });
             const json = await res.json();
             if (json.success && json.url) {
-                if (target === 'hero') {
-                    const isVideo = file.type?.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i);
-                    const isGif = file.type?.includes('gif') || file.name.match(/\.gif$/i);
+                const isVideo = file.type?.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i);
+                const isGif = file.type?.includes('gif') || file.name.match(/\.gif$/i);
+                const detectedType = isVideo ? 'video' : isGif ? 'gif' : 'image';
+
+                if (target === 'slide' && slideIndex !== null) {
+                    setPageConfig(prev => {
+                        const curSlides = Array.isArray(prev.hero?.slides) && prev.hero.slides.length > 0
+                            ? [...prev.hero.slides]
+                            : [
+                                { id: 'slide-1', mediaType: prev.hero?.mediaType || 'image', mediaUrl: prev.hero?.mediaUrl || '' }
+                            ];
+                        if (curSlides[slideIndex]) {
+                            curSlides[slideIndex] = {
+                                ...curSlides[slideIndex],
+                                mediaUrl: json.url,
+                                mediaType: detectedType
+                            };
+                        }
+                        return {
+                            ...prev,
+                            hero: {
+                                ...prev.hero,
+                                slides: curSlides,
+                                ...(slideIndex === 0 ? { mediaUrl: json.url, mediaType: detectedType } : {})
+                            }
+                        };
+                    });
+                } else if (target === 'hero') {
                     setPageConfig(prev => ({
                         ...prev,
                         hero: {
                             ...prev.hero,
                             mediaUrl: json.url,
-                            mediaType: isVideo ? 'video' : isGif ? 'gif' : 'image'
+                            mediaType: detectedType
                         }
                     }));
                 } else if (target === 'technicians') {
@@ -814,6 +842,16 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     const reviews = pageConfig.reviews || { items: [] };
     const servicesSection = pageConfig.servicesSection || {};
 
+    const heroSlides = Array.isArray(hero.slides) && hero.slides.length > 0
+        ? hero.slides
+        : (hero.mediaUrl
+            ? [{ id: 'slide-1', mediaType: hero.mediaType || 'image', mediaUrl: hero.mediaUrl, title: hero.title || '90-Min Arrival', active: true }]
+            : [
+                { id: 'slide-1', mediaType: 'image', mediaUrl: '/images/banners/banner_speed_90_mins.png', title: '90-Min Doorstep Arrival', active: true },
+                { id: 'slide-2', mediaType: 'image', mediaUrl: '/images/banners/banner_expertise_v3.png', title: 'Certified Pros', active: true },
+                { id: 'slide-3', mediaType: 'image', mediaUrl: '/images/banners/banner_30_day_warranty.png', title: '30-Day Warranty', active: true }
+            ]);
+
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 80 }}>
             {/* Hidden file inputs for uploads */}
@@ -825,6 +863,19 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                 onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUploadMedia(f, 'hero');
+                }}
+            />
+            <input
+                ref={slideFileInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm,image/gif"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f && uploadingSlideIdx !== null) {
+                        handleUploadMedia(f, 'slide', null, uploadingSlideIdx);
+                    }
+                    e.target.value = '';
                 }}
             />
             <input
@@ -992,7 +1043,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                 scrollbarWidth: 'none'
             }}>
                 {[
-                    { id: 'hero', label: '🎬 Top Media & Hero' },
+                    { id: 'hero', label: `🎬 Hero Slides (${heroSlides.length})` },
                     { id: 'services', label: linkedServices.length > 0 ? `📦 Services Carousel (${linkedServices.length})` : '📦 Services Carousel' },
                     { id: 'process', label: '🛠️ Our Process' },
                     { id: 'technicians', label: '👨‍🔧 Top Technicians' },
@@ -1049,77 +1100,133 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         </label>
                     </div>
 
-                    {/* Media Type Toggle + Upload */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                        <div className="form-group">
-                            <label className="form-label">Media Type</label>
-                            <select
-                                className="form-select"
-                                value={hero.mediaType || 'image'}
-                                onChange={(e) => setPageConfig(prev => ({
-                                    ...prev,
-                                    hero: { ...prev.hero, mediaType: e.target.value }
-                                }))}
-                            >
-                                <option value="image">Static Image (JPG / PNG / WebP)</option>
-                                <option value="gif">Animated GIF</option>
-                                <option value="video">Looping Video (MP4 / WebM)</option>
-                            </select>
+                    {/* Multi-Slide Carousel Controls & Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-primary)',
+                        marginBottom: 16,
+                        flexWrap: 'wrap',
+                        gap: 12
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                Hero Banner Slides (Auto-Scroll Carousel)
+                            </span>
+                            <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: 999,
+                                backgroundColor: 'rgba(99,56,245,0.15)',
+                                color: '#8b5cf6'
+                            }}>
+                                🎬 {heroSlides.length} Slide{heroSlides.length > 1 ? 's' : ''}
+                            </span>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Upload or Change Media</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                <span>Auto-advance:</span>
                                 <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="https://... or upload"
-                                    value={hero.mediaUrl || ''}
+                                    type="number"
+                                    min="2"
+                                    max="30"
+                                    style={{
+                                        width: 52,
+                                        padding: '4px 6px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: 12,
+                                        textAlign: 'center'
+                                    }}
+                                    value={hero.autoSlideSeconds || 5}
                                     onChange={(e) => setPageConfig(prev => ({
                                         ...prev,
-                                        hero: { ...prev.hero, mediaUrl: e.target.value }
+                                        hero: { ...prev.hero, autoSlideSeconds: Number(e.target.value) || 5 }
                                     }))}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => heroFileInputRef.current?.click()}
-                                    disabled={uploading}
-                                    style={{
-                                        padding: '6px 14px',
-                                        borderRadius: 'var(--radius-md)',
-                                        backgroundColor: '#6338f5',
-                                        color: '#fff',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 5,
-                                        fontSize: 'var(--font-size-xs)',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    <Upload size={13} /> {uploading ? 'Uploading...' : 'Upload'}
-                                </button>
+                                <span>sec</span>
                             </div>
+
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={hero.enableVideoAdvance !== false}
+                                    onChange={(e) => setPageConfig(prev => ({
+                                        ...prev,
+                                        hero: { ...prev.hero, enableVideoAdvance: e.target.checked }
+                                    }))}
+                                />
+                                Video end auto-advance
+                            </label>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newSlide = {
+                                        id: `slide-${Date.now()}`,
+                                        mediaType: 'image',
+                                        mediaUrl: '/images/banners/banner_speed_90_mins.png',
+                                        title: `Slide #${heroSlides.length + 1}`,
+                                        active: true
+                                    };
+                                    const updated = [...heroSlides, newSlide];
+                                    setPageConfig(prev => ({
+                                        ...prev,
+                                        hero: {
+                                            ...prev.hero,
+                                            slides: updated,
+                                            mediaUrl: updated[0]?.mediaUrl || prev.hero?.mediaUrl,
+                                            mediaType: updated[0]?.mediaType || prev.hero?.mediaType
+                                        }
+                                    }));
+                                    setAdminPreviewIdx(updated.length - 1);
+                                }}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 5,
+                                    padding: '6px 14px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    backgroundColor: '#6338f5',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    fontSize: 'var(--font-size-xs)',
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <Plus size={13} /> Add Slide
+                            </button>
                         </div>
                     </div>
 
-                    {/* Live Media Preview Box */}
-                    {hero.mediaUrl && (
+                    {/* Live Stories Carousel Preview in Admin */}
+                    {heroSlides.length > 0 && (
                         <div style={{
                             width: '100%',
-                            maxWidth: 520,
-                            height: 220,
-                            borderRadius: 'var(--radius-md)',
+                            maxWidth: 580,
+                            margin: '0 auto 20px auto',
+                            borderRadius: 'var(--radius-lg)',
                             overflow: 'hidden',
                             backgroundColor: '#0f172a',
                             position: 'relative',
-                            marginBottom: 20,
-                            border: '1px solid var(--border-primary)'
+                            border: '1px solid var(--border-primary)',
+                            aspectRatio: '16/9',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
                         }}>
-                            {hero.mediaType === 'video' ? (
+                            {/* Current Preview Media */}
+                            {heroSlides[adminPreviewIdx]?.mediaType === 'video' ? (
                                 <video
-                                    src={hero.mediaUrl}
+                                    key={heroSlides[adminPreviewIdx]?.mediaUrl}
+                                    src={heroSlides[adminPreviewIdx]?.mediaUrl}
                                     autoPlay
                                     loop
                                     muted
@@ -1128,25 +1235,392 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                 />
                             ) : (
                                 <img
-                                    src={hero.mediaUrl}
-                                    alt="Hero media"
+                                    src={heroSlides[adminPreviewIdx]?.mediaUrl}
+                                    alt="Slide preview"
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    onError={(e) => { e.currentTarget.src = '/images/banners/banner_speed_90_mins.png'; }}
                                 />
                             )}
-                            {/* Stories progress line simulation */}
+
+                            {/* Top Vignette Simulation */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 60,
+                                background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)',
+                                pointerEvents: 'none'
+                            }} />
+
+                            {/* Top Mock Buttons */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 10,
+                                left: 10,
+                                right: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                zIndex: 3
+                            }}>
+                                <div style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: '#0f172a'
+                                }}>
+                                    ←
+                                </div>
+                                <div style={{
+                                    padding: '3px 8px',
+                                    borderRadius: 999,
+                                    backgroundColor: 'rgba(255,255,255,0.9)',
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    color: '#0f172a'
+                                }}>
+                                    Sorted Solutions
+                                </div>
+                            </div>
+
+                            {/* Desktop Prev/Next Buttons */}
+                            {heroSlides.length > 1 && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdminPreviewIdx(prev => (prev - 1 + heroSlides.length) % heroSlides.length)}
+                                        style={{
+                                            position: 'absolute',
+                                            left: 10,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: '50%',
+                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            zIndex: 4
+                                        }}
+                                        title="Previous Slide"
+                                    >
+                                        ‹
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdminPreviewIdx(prev => (prev + 1) % heroSlides.length)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 10,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: '50%',
+                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'pointer',
+                                            zIndex: 4
+                                        }}
+                                        title="Next Slide"
+                                    >
+                                        ›
+                                    </button>
+                                </>
+                            )}
+
+                            {/* Segmented Stories Progress Bars in Preview */}
                             <div style={{
                                 position: 'absolute',
                                 bottom: 10,
-                                left: 14,
-                                right: 14,
-                                height: 3,
-                                backgroundColor: 'rgba(255,255,255,0.3)',
-                                borderRadius: 99
+                                left: 12,
+                                right: 12,
+                                display: 'flex',
+                                gap: 5,
+                                zIndex: 4
                             }}>
-                                <div style={{ width: '40%', height: '100%', backgroundColor: '#ffffff', borderRadius: 99 }} />
+                                {heroSlides.map((_, idx) => (
+                                    <div
+                                        key={idx}
+                                        onClick={() => setAdminPreviewIdx(idx)}
+                                        style={{
+                                            flex: 1,
+                                            height: 3,
+                                            borderRadius: 99,
+                                            backgroundColor: idx === adminPreviewIdx ? '#ffffff' : 'rgba(255,255,255,0.35)',
+                                            cursor: 'pointer',
+                                            transition: 'background-color 0.2s ease'
+                                        }}
+                                        title={`Preview slide ${idx + 1}`}
+                                    />
+                                ))}
                             </div>
                         </div>
                     )}
+
+                    {/* Slides List / Cards */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+                        {heroSlides.map((slide, sIdx) => (
+                            <div
+                                key={slide.id || sIdx}
+                                style={{
+                                    padding: 14,
+                                    borderRadius: 'var(--radius-md)',
+                                    border: adminPreviewIdx === sIdx ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
+                                    backgroundColor: adminPreviewIdx === sIdx ? 'rgba(99,56,245,0.04)' : 'var(--bg-primary)',
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            Slide #{sIdx + 1}
+                                        </span>
+                                        {adminPreviewIdx === sIdx && (
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#6338f5', color: '#fff' }}>
+                                                Previewing
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdminPreviewIdx(sIdx)}
+                                            style={{
+                                                fontSize: 11,
+                                                padding: '2px 8px',
+                                                borderRadius: 4,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'transparent',
+                                                color: 'var(--text-secondary)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            👁️ Preview
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <button
+                                            type="button"
+                                            disabled={sIdx === 0}
+                                            onClick={() => {
+                                                const targetIdx = sIdx - 1;
+                                                const updated = [...heroSlides];
+                                                const temp = updated[sIdx];
+                                                updated[sIdx] = updated[targetIdx];
+                                                updated[targetIdx] = temp;
+                                                setPageConfig(prev => ({
+                                                    ...prev,
+                                                    hero: {
+                                                        ...prev.hero,
+                                                        slides: updated,
+                                                        mediaUrl: updated[0]?.mediaUrl || '',
+                                                        mediaType: updated[0]?.mediaType || 'image'
+                                                    }
+                                                }));
+                                                setAdminPreviewIdx(targetIdx);
+                                            }}
+                                            style={{
+                                                padding: '4px 6px',
+                                                borderRadius: 4,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                color: sIdx === 0 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                cursor: sIdx === 0 ? 'not-allowed' : 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}
+                                            title="Move Up"
+                                        >
+                                            <ArrowUp size={13} />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            disabled={sIdx === heroSlides.length - 1}
+                                            onClick={() => {
+                                                const targetIdx = sIdx + 1;
+                                                const updated = [...heroSlides];
+                                                const temp = updated[sIdx];
+                                                updated[sIdx] = updated[targetIdx];
+                                                updated[targetIdx] = temp;
+                                                setPageConfig(prev => ({
+                                                    ...prev,
+                                                    hero: {
+                                                        ...prev.hero,
+                                                        slides: updated,
+                                                        mediaUrl: updated[0]?.mediaUrl || '',
+                                                        mediaType: updated[0]?.mediaType || 'image'
+                                                    }
+                                                }));
+                                                setAdminPreviewIdx(targetIdx);
+                                            }}
+                                            style={{
+                                                padding: '4px 6px',
+                                                borderRadius: 4,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                color: sIdx === heroSlides.length - 1 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                cursor: sIdx === heroSlides.length - 1 ? 'not-allowed' : 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}
+                                            title="Move Down"
+                                        >
+                                            <ArrowDown size={13} />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            disabled={heroSlides.length <= 1}
+                                            onClick={() => {
+                                                if (heroSlides.length <= 1) {
+                                                    alert('You must have at least one slide.');
+                                                    return;
+                                                }
+                                                const updated = heroSlides.filter((_, i) => i !== sIdx);
+                                                setPageConfig(prev => ({
+                                                    ...prev,
+                                                    hero: {
+                                                        ...prev.hero,
+                                                        slides: updated,
+                                                        mediaUrl: updated[0]?.mediaUrl || '',
+                                                        mediaType: updated[0]?.mediaType || 'image'
+                                                    }
+                                                }));
+                                                if (adminPreviewIdx >= updated.length) {
+                                                    setAdminPreviewIdx(Math.max(0, updated.length - 1));
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '4px 6px',
+                                                borderRadius: 4,
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                backgroundColor: 'transparent',
+                                                color: '#ef4444',
+                                                cursor: heroSlides.length <= 1 ? 'not-allowed' : 'pointer',
+                                                opacity: heroSlides.length <= 1 ? 0.4 : 1,
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}
+                                            title="Delete Slide"
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 180px', gap: 12, alignItems: 'flex-start' }}>
+                                    {/* Media Type */}
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label" style={{ fontSize: 11 }}>Media Type</label>
+                                        <select
+                                            className="form-select"
+                                            value={slide.mediaType || 'image'}
+                                            onChange={(e) => {
+                                                const updated = [...heroSlides];
+                                                updated[sIdx] = { ...updated[sIdx], mediaType: e.target.value };
+                                                setPageConfig(prev => ({
+                                                    ...prev,
+                                                    hero: {
+                                                        ...prev.hero,
+                                                        slides: updated,
+                                                        ...(sIdx === 0 ? { mediaType: e.target.value } : {})
+                                                    }
+                                                }));
+                                            }}
+                                        >
+                                            <option value="image">Static Image</option>
+                                            <option value="gif">Animated GIF</option>
+                                            <option value="video">Looping Video</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Media URL + Upload Button */}
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label" style={{ fontSize: 11 }}>Media URL or Upload</label>
+                                        <div style={{ display: 'flex', gap: 6 }}>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="https://... or click Upload"
+                                                value={slide.mediaUrl || ''}
+                                                onChange={(e) => {
+                                                    const updated = [...heroSlides];
+                                                    updated[sIdx] = { ...updated[sIdx], mediaUrl: e.target.value };
+                                                    setPageConfig(prev => ({
+                                                        ...prev,
+                                                        hero: {
+                                                            ...prev.hero,
+                                                            slides: updated,
+                                                            ...(sIdx === 0 ? { mediaUrl: e.target.value } : {})
+                                                        }
+                                                    }));
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                disabled={uploading}
+                                                onClick={() => {
+                                                    setUploadingSlideIdx(sIdx);
+                                                    slideFileInputRef.current?.click();
+                                                }}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    backgroundColor: '#6338f5',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                    fontSize: 11,
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                <Upload size={12} />
+                                                {uploading && uploadingSlideIdx === sIdx ? 'Uploading...' : 'Upload'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Slide Title / Caption */}
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label" style={{ fontSize: 11 }}>Title / Caption</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="e.g. 90-Min Arrival"
+                                            value={slide.title || ''}
+                                            onChange={(e) => {
+                                                const updated = [...heroSlides];
+                                                updated[sIdx] = { ...updated[sIdx], title: e.target.value };
+                                                setPageConfig(prev => ({
+                                                    ...prev,
+                                                    hero: { ...prev.hero, slides: updated }
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
                     {/* Title & Subtitle */}
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>

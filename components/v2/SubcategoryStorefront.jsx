@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,6 +8,7 @@ import {
     ShieldCheck,
     Clock,
     CheckCircle2,
+    ChevronLeft,
     ChevronRight,
     ChevronDown,
     ChevronUp,
@@ -94,6 +95,83 @@ export default function SubcategoryStorefront({
     const reviews = pageConfig?.reviews || { items: [] };
     const desktopStickyPromise = pageConfig?.desktopStickyPromise || {};
 
+    // ── Multi-Slide Hero Carousel (Auto-scroll with Urban Company Stories Progress Bars) ──
+    const heroSlides = useMemo(() => {
+        if (Array.isArray(hero.slides) && hero.slides.length > 0) {
+            const activeOnly = hero.slides.filter(s => s && s.mediaUrl && s.active !== false);
+            if (activeOnly.length > 0) return activeOnly;
+        }
+        if (hero.mediaUrl) {
+            return [{
+                id: 'slide-1',
+                mediaType: hero.mediaType || 'image',
+                mediaUrl: hero.mediaUrl,
+                title: hero.title || ''
+            }];
+        }
+        return [
+            {
+                id: 'slide-1',
+                mediaType: 'image',
+                mediaUrl: subcategory?.icon || '/images/banners/banner_speed_90_mins.png',
+                title: '90-Min Arrival'
+            }
+        ];
+    }, [hero.slides, hero.mediaUrl, hero.mediaType, subcategory]);
+
+    const [currentHeroIdx, setCurrentHeroIdx] = useState(0);
+    const [isHeroPaused, setIsHeroPaused] = useState(false);
+    const heroTouchStartX = useRef(0);
+    const heroTouchEndX = useRef(0);
+    const heroVideoRef = useRef(null);
+
+    const autoSlideSeconds = Number(hero.autoSlideSeconds) || 5;
+    const enableVideoAdvance = hero.enableVideoAdvance !== false;
+    const totalHeroSlides = heroSlides.length;
+    const activeHeroSlide = heroSlides[currentHeroIdx] || heroSlides[0] || {};
+
+    const nextHeroSlide = useCallback(() => {
+        if (totalHeroSlides <= 1) return;
+        setCurrentHeroIdx(prev => (prev + 1) % totalHeroSlides);
+    }, [totalHeroSlides]);
+
+    const prevHeroSlide = useCallback(() => {
+        if (totalHeroSlides <= 1) return;
+        setCurrentHeroIdx(prev => (prev - 1 + totalHeroSlides) % totalHeroSlides);
+    }, [totalHeroSlides]);
+
+    // Timer-based auto advance
+    useEffect(() => {
+        if (totalHeroSlides <= 1 || isHeroPaused) return;
+
+        if (activeHeroSlide.mediaType === 'video' && enableVideoAdvance) {
+            const safety = setTimeout(() => {
+                nextHeroSlide();
+            }, 18000);
+            return () => clearTimeout(safety);
+        }
+
+        const timer = setTimeout(() => {
+            nextHeroSlide();
+        }, autoSlideSeconds * 1000);
+
+        return () => clearTimeout(timer);
+    }, [currentHeroIdx, totalHeroSlides, isHeroPaused, activeHeroSlide.mediaType, enableVideoAdvance, autoSlideSeconds, nextHeroSlide]);
+
+    const handleHeroTouchStart = (e) => {
+        heroTouchStartX.current = e.touches[0].clientX;
+    };
+    const handleHeroTouchMove = (e) => {
+        heroTouchEndX.current = e.touches[0].clientX;
+    };
+    const handleHeroTouchEnd = () => {
+        const delta = heroTouchStartX.current - heroTouchEndX.current;
+        if (Math.abs(delta) > 40) {
+            if (delta > 0) nextHeroSlide();
+            else prevHeroSlide();
+        }
+    };
+
     const scrollToPromise = () => {
         const el = document.getElementById('v2-cover-promise-section');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -101,36 +179,67 @@ export default function SubcategoryStorefront({
 
     return (
         <div style={{ backgroundColor: '#ffffff', minHeight: '100vh', paddingBottom: 100 }}>
-            {/* ══════════════ 1. TOP HERO MEDIA BANNER (FLUSH TO TOP LIKE URBAN COMPANY) ══════════════ */}
+            {/* ══════════════ 1. TOP HERO MEDIA BANNER (AUTO-SCROLLING CAROUSEL) ══════════════ */}
             {hero.enabled !== false && (
-                <section className="v2-subcat-hero-section" style={{
-                    width: '100%',
-                    position: 'relative',
-                    backgroundColor: '#0f172a'
-                }}>
+                <section
+                    className="v2-subcat-hero-section"
+                    style={{
+                        width: '100%',
+                        position: 'relative',
+                        backgroundColor: '#0f172a',
+                        overflow: 'hidden'
+                    }}
+                    onMouseEnter={() => setIsHeroPaused(true)}
+                    onMouseLeave={() => setIsHeroPaused(false)}
+                    onTouchStart={handleHeroTouchStart}
+                    onTouchMove={handleHeroTouchMove}
+                    onTouchEnd={handleHeroTouchEnd}
+                >
                     <div style={{
                         width: '100%',
                         position: 'relative',
                         aspectRatio: '16/9',
-                        maxHeight: 420,
+                        maxHeight: 440,
                         overflow: 'hidden'
                     }} className="v2-subcat-hero-media-wrap">
-                        {hero.mediaType === 'video' ? (
-                            <video
-                                src={hero.mediaUrl || '/images/banners/banner_speed_90_mins.png'}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            />
-                        ) : (
-                            <img
-                                src={hero.mediaUrl || subcategory?.icon || '/images/banners/banner_problem_solved_expert.png'}
-                                alt={hero.title || subcategory?.name}
-                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            />
-                        )}
+                        {/* Slides track with cross-fade transition */}
+                        {heroSlides.map((slide, idx) => {
+                            const isCurrent = idx === currentHeroIdx;
+                            return (
+                                <div
+                                    key={slide.id || idx}
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        opacity: isCurrent ? 1 : 0,
+                                        pointerEvents: isCurrent ? 'auto' : 'none',
+                                        transition: 'opacity 0.45s ease-in-out',
+                                        zIndex: isCurrent ? 1 : 0
+                                    }}
+                                >
+                                    {slide.mediaType === 'video' ? (
+                                        <video
+                                            ref={isCurrent ? heroVideoRef : null}
+                                            src={slide.mediaUrl}
+                                            autoPlay={isCurrent}
+                                            loop={!enableVideoAdvance}
+                                            muted
+                                            playsInline
+                                            onEnded={() => {
+                                                if (enableVideoAdvance) nextHeroSlide();
+                                            }}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                        />
+                                    ) : (
+                                        <img
+                                            src={slide.mediaUrl}
+                                            alt={slide.title || hero.title || subcategory?.name}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
 
                         {/* Top Gradient Vignette (Ensures back button and brand are readable over any photo) */}
                         <div style={{
@@ -139,8 +248,9 @@ export default function SubcategoryStorefront({
                             left: 0,
                             right: 0,
                             height: 90,
-                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)',
-                            pointerEvents: 'none'
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)',
+                            pointerEvents: 'none',
+                            zIndex: 5
                         }} />
 
                         {/* Top Floating Controls: Circular Back Button (Left) + Sorted Solutions Brand (Right) */}
@@ -222,18 +332,124 @@ export default function SubcategoryStorefront({
                             </Link>
                         </div>
 
-                        {/* Stories Progress Bar at bottom of media */}
-                        <div style={{
-                            position: 'absolute',
-                            bottom: 12,
-                            left: 16,
-                            right: 16,
-                            height: 3,
-                            backgroundColor: 'rgba(255,255,255,0.3)',
-                            borderRadius: 99
-                        }}>
-                            <div style={{ width: '65%', height: '100%', backgroundColor: '#ffffff', borderRadius: 99 }} />
-                        </div>
+                        {/* Desktop Navigation Arrows (Prev / Next) */}
+                        {totalHeroSlides > 1 && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); prevHeroSlide(); }}
+                                    aria-label="Previous slide"
+                                    style={{
+                                        position: 'absolute',
+                                        left: 12,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(0,0,0,0.45)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        zIndex: 8,
+                                        backdropFilter: 'blur(4px)',
+                                        transition: 'background-color 0.15s ease'
+                                    }}
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); nextHeroSlide(); }}
+                                    aria-label="Next slide"
+                                    style={{
+                                        position: 'absolute',
+                                        right: 12,
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        width: 34,
+                                        height: 34,
+                                        borderRadius: '50%',
+                                        backgroundColor: 'rgba(0,0,0,0.45)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        zIndex: 8,
+                                        backdropFilter: 'blur(4px)',
+                                        transition: 'background-color 0.15s ease'
+                                    }}
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
+                            </>
+                        )}
+
+                        {/* Segmented Stories Progress Bars (Urban Company style) */}
+                        {totalHeroSlides > 1 ? (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 12,
+                                left: 16,
+                                right: 16,
+                                display: 'flex',
+                                gap: 6,
+                                zIndex: 10
+                            }}>
+                                {heroSlides.map((slide, idx) => {
+                                    const isPassed = idx < currentHeroIdx;
+                                    const isCurrent = idx === currentHeroIdx;
+                                    return (
+                                        <button
+                                            key={slide.id || idx}
+                                            type="button"
+                                            onClick={() => setCurrentHeroIdx(idx)}
+                                            style={{
+                                                flex: 1,
+                                                height: 3,
+                                                borderRadius: 99,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.35)',
+                                                overflow: 'hidden',
+                                                border: 'none',
+                                                padding: 0,
+                                                cursor: 'pointer',
+                                                position: 'relative'
+                                            }}
+                                            aria-label={`Go to slide ${idx + 1}`}
+                                        >
+                                            <div
+                                                key={`subcat-slide-${currentHeroIdx}-${idx}`}
+                                                style={{
+                                                    width: isPassed ? '100%' : isCurrent ? '100%' : '0%',
+                                                    height: '100%',
+                                                    backgroundColor: '#ffffff',
+                                                    borderRadius: 99,
+                                                    animation: isCurrent && !isHeroPaused ? `v2StoryProgressFill ${autoSlideSeconds}s linear forwards` : undefined
+                                                }}
+                                            />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 12,
+                                left: 16,
+                                right: 16,
+                                height: 3,
+                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                borderRadius: 99,
+                                zIndex: 10
+                            }}>
+                                <div style={{ width: '65%', height: '100%', backgroundColor: '#ffffff', borderRadius: 99 }} />
+                            </div>
+                        )}
                     </div>
                 </section>
             )}

@@ -440,6 +440,15 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
 }
 
+@keyframes v2StoryProgressFill {
+    from {
+        width: 0%;
+    }
+    to {
+        width: 100%;
+    }
+}
+
 @keyframes v2FadeIn {
     from {
         opacity: 0;

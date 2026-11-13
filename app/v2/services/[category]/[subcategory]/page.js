@@ -76,10 +76,41 @@ export default async function V2SubcategoryPage({ params, searchParams }) {
     }
 
     const defaultConfig = getSubcategoryDefaultConfig(category.slug, subcategory.slug, category.name, subcategory.name);
+    
+    // Resolve hero slides ensuring multiple slides are available
+    let resolvedHero = { ...defaultConfig.hero };
+    if (savedConfig?.hero) {
+        const savedHero = savedConfig.hero;
+        const defaultSlides = defaultConfig.hero.slides || [];
+        let slides = defaultSlides;
+        
+        if (Array.isArray(savedHero.slides) && savedHero.slides.length > 0) {
+            slides = savedHero.slides;
+        } else if (savedHero.mediaUrl) {
+            slides = [
+                {
+                    id: 'slide-1',
+                    mediaType: savedHero.mediaType || 'image',
+                    mediaUrl: savedHero.mediaUrl,
+                    title: savedHero.title || 'Doorstep Service'
+                },
+                ...(defaultSlides.slice(1))
+            ];
+        }
+
+        resolvedHero = {
+            ...defaultConfig.hero,
+            ...savedHero,
+            slides,
+            autoSlideSeconds: savedHero.autoSlideSeconds || defaultConfig.hero.autoSlideSeconds || 5,
+            enableVideoAdvance: savedHero.enableVideoAdvance ?? true
+        };
+    }
+
     const finalPageConfig = savedConfig ? {
         ...defaultConfig,
         ...savedConfig,
-        hero: { ...defaultConfig.hero, ...(savedConfig.hero || {}) },
+        hero: resolvedHero,
         servicesSection: { ...defaultConfig.servicesSection, ...(savedConfig.servicesSection || {}) },
         process: { ...defaultConfig.process, ...(savedConfig.process || {}) },
         technicians: { ...defaultConfig.technicians, ...(savedConfig.technicians || {}) },
