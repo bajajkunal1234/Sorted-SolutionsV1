@@ -20,19 +20,9 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function V2SubcategoryPage({ params, searchParams }) {
-    const result = getSubcategoryBySlug(params.category, params.subcategory);
-    if (!result || !result.category || !result.subcategory) {
-        notFound();
-    }
-
-    const { category, subcategory } = result;
-
-    let data = { services: [], categoryCounts: {} };
-    try {
-        data = await fetchPublishedWebServices({ categorySlug: category.slug });
-    } catch (err) {
-        console.error('[V2SubcategoryPage] error:', err?.message);
-    }
+    let result = getSubcategoryBySlug(params.category, params.subcategory);
+    let category = result?.category || null;
+    let subcategory = result?.subcategory || null;
 
     // Fetch custom subcategory page configuration saved by Admin
     let savedConfig = null;
@@ -42,7 +32,7 @@ export default async function V2SubcategoryPage({ params, searchParams }) {
             const { data: configRow } = await supabase
                 .from('website_section_configs')
                 .select('extra_config')
-                .eq('section_id', `ecom-v2-sub-${category.slug}-${subcategory.slug}`)
+                .eq('section_id', `ecom-v2-sub-${params.category}-${params.subcategory}`)
                 .maybeSingle();
 
             if (configRow?.extra_config) {
@@ -51,6 +41,38 @@ export default async function V2SubcategoryPage({ params, searchParams }) {
         }
     } catch (err) {
         console.error('[V2SubcategoryPage] pageConfig error:', err?.message);
+    }
+
+    // Fallback: If not in static catalog, check if category exists and subcategory was created by admin
+    if (!category) {
+        category = {
+            slug: params.category,
+            name: savedConfig?.categoryName || params.category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            tagline: 'Professional doorstep appliance care in Mumbai',
+            icon: '/images/services/ac_3d.png'
+        };
+    }
+
+    if (!subcategory) {
+        if (savedConfig) {
+            subcategory = {
+                slug: params.subcategory,
+                name: savedConfig.subcategoryName || params.subcategory.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                headline: savedConfig.hero?.title || `${params.subcategory} Check-up & Repair`,
+                shortDesc: savedConfig.hero?.subtitle || '',
+                icon: savedConfig.hero?.mediaUrl || category.icon || '/images/services/ac_3d.png',
+                keywords: [params.subcategory.toLowerCase().replace(/-/g, ' ')]
+            };
+        } else {
+            notFound();
+        }
+    }
+
+    let data = { services: [], categoryCounts: {} };
+    try {
+        data = await fetchPublishedWebServices({ categorySlug: category.slug });
+    } catch (err) {
+        console.error('[V2SubcategoryPage] error:', err?.message);
     }
 
     const defaultConfig = getSubcategoryDefaultConfig(category.slug, subcategory.slug, category.name, subcategory.name);

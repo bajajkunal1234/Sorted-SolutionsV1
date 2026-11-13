@@ -63,6 +63,13 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     const [errorMessage, setErrorMessage] = useState('');
     const [activeTab, setActiveTab] = useState('hero');
 
+    // Linked inventory services for active subcategory
+    const [linkedServices, setLinkedServices] = useState([]);
+    const [otherCategoryServices, setOtherCategoryServices] = useState([]);
+    const [loadingServices, setLoadingServices] = useState(false);
+    const [reassigningId, setReassigningId] = useState(null);
+    const [showOtherServices, setShowOtherServices] = useState(false);
+
     // Create New Page Modal
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [newCategorySlug, setNewCategorySlug] = useState('ac-repair');
@@ -99,11 +106,76 @@ export default function EcomV2SubcategorySettings({ onBack }) {
         }
     };
 
+    const fetchSubcategoryServices = async (categorySlug, subcategorySlug, subcategoryName) => {
+        if (!categorySlug) return;
+        setLoadingServices(true);
+        try {
+            const res = await fetch(`/api/v2/services?category=${categorySlug}`);
+            const json = await res.json();
+            if (json.success && Array.isArray(json.services)) {
+                const normSubSlug = (subcategorySlug || '').toLowerCase().trim();
+                const normSubName = (subcategoryName || '').toLowerCase().trim();
+
+                const linked = [];
+                const other = [];
+
+                json.services.forEach(item => {
+                    const itemSub = (item.subcategory || '').toLowerCase().trim();
+                    const isDirectMatch = itemSub && (
+                        itemSub === normSubSlug ||
+                        itemSub === normSubName ||
+                        itemSub.replace(/\s+/g, '-') === normSubSlug ||
+                        normSubSlug.includes(itemSub)
+                    );
+
+                    if (isDirectMatch) {
+                        linked.push(item);
+                    } else {
+                        other.push(item);
+                    }
+                });
+
+                setLinkedServices(linked);
+                setOtherCategoryServices(other);
+            }
+        } catch (err) {
+            console.error('Failed to load subcategory services:', err);
+        } finally {
+            setLoadingServices(false);
+        }
+    };
+
+    const handleAssignService = async (serviceId) => {
+        if (!activePage || !serviceId) return;
+        setReassigningId(serviceId);
+        try {
+            const res = await fetch('/api/admin/inventory', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: serviceId,
+                    subcategory: activePage.subcategorySlug
+                })
+            });
+            const json = await res.json();
+            if (json.success) {
+                await fetchSubcategoryServices(activePage.categorySlug, activePage.subcategorySlug, activePage.subcategoryName);
+            } else {
+                alert(json.error || 'Failed to update service subcategory');
+            }
+        } catch (err) {
+            alert('Error updating service: ' + err.message);
+        } finally {
+            setReassigningId(null);
+        }
+    };
+
     const handleSelectPage = async (page) => {
         setActivePage(page);
         setLoadingConfig(true);
         setErrorMessage('');
         setSaveSuccess(false);
+        fetchSubcategoryServices(page.categorySlug, page.subcategorySlug, page.subcategoryName);
         try {
             const res = await fetch(`/api/v2/subcategory-pages/${page.categorySlug}/${page.subcategorySlug}`);
             const json = await res.json();
@@ -921,7 +993,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
             }}>
                 {[
                     { id: 'hero', label: '🎬 Top Media & Hero' },
-                    { id: 'services', label: '📦 Services Carousel' },
+                    { id: 'services', label: linkedServices.length > 0 ? `📦 Services Carousel (${linkedServices.length})` : '📦 Services Carousel' },
                     { id: 'process', label: '🛠️ Our Process' },
                     { id: 'technicians', label: '👨‍🔧 Top Technicians' },
                     { id: 'brands', label: '🏷️ Brands Serviced' },
@@ -1154,71 +1226,406 @@ export default function EcomV2SubcategorySettings({ onBack }) {
 
             {/* ─── TAB 2: SERVICES CAROUSEL ─────────────────────────────────── */}
             {activeTab === 'services' && (
-                <div className="card" style={{ padding: 24, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <div>
-                            <h3 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                Horizontal Services / Issues Carousel
-                            </h3>
-                            <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                Displays all active published web services tagged under this subcategory on a smooth horizontal swipeable track.
-                            </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    {/* 1. Header & Section Settings Card */}
+                    <div className="card" style={{ padding: 24, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div>
+                                <h3 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    Horizontal Services / Issues Carousel
+                                </h3>
+                                <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                    Displays all active published web services tagged under this subcategory on a smooth horizontal swipeable track.
+                                </p>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 'var(--font-size-xs)' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={servicesSection.enabled !== false}
+                                    onChange={(e) => setPageConfig(prev => ({
+                                        ...prev,
+                                        servicesSection: { ...prev.servicesSection, enabled: e.target.checked }
+                                    }))}
+                                />
+                                Section Visible
+                            </label>
                         </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 'var(--font-size-xs)' }}>
-                            <input
-                                type="checkbox"
-                                checked={servicesSection.enabled !== false}
-                                onChange={(e) => setPageConfig(prev => ({
-                                    ...prev,
-                                    servicesSection: { ...prev.servicesSection, enabled: e.target.checked }
-                                }))}
-                            />
-                            Section Visible
-                        </label>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                            <div className="form-group">
+                                <label className="form-label">Section Title</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Select a Service"
+                                    value={servicesSection.title || ''}
+                                    onChange={(e) => setPageConfig(prev => ({
+                                        ...prev,
+                                        servicesSection: { ...prev.servicesSection, title: e.target.value }
+                                    }))}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Subtitle / Description</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Transparent diagnostic pricing • Genuine spare parts"
+                                    value={servicesSection.subtitle || ''}
+                                    onChange={(e) => setPageConfig(prev => ({
+                                        ...prev,
+                                        servicesSection: { ...prev.servicesSection, subtitle: e.target.value }
+                                    }))}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{
+                            padding: 12,
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'rgba(99,56,245,0.08)',
+                            border: '1px solid rgba(99,56,245,0.2)',
+                            fontSize: 'var(--font-size-xs)',
+                            color: 'var(--text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 10
+                        }}>
+                            <div>
+                                <strong style={{ color: 'var(--text-primary)' }}>💡 How services appear here:</strong>
+                                <span style={{ marginLeft: 6 }}>
+                                    Services are pulled dynamically from your <strong>Inventory Tab</strong> where <code>Item Subtype = 'Web'</code> and <code>Subcategory = '{activePage.subcategorySlug}'</code>.
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => fetchSubcategoryServices(activePage.categorySlug, activePage.subcategorySlug, activePage.subcategoryName)}
+                                    disabled={loadingServices}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        padding: '5px 12px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <RefreshCw size={12} className={loadingServices ? 'spin' : ''} />
+                                    {loadingServices ? 'Refreshing...' : 'Refresh Services'}
+                                </button>
+                                <a
+                                    href={`/v2/services/${activePage.categorySlug}/${activePage.subcategorySlug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 5,
+                                        padding: '5px 12px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        backgroundColor: '#6338f5',
+                                        color: '#ffffff',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        textDecoration: 'none'
+                                    }}
+                                >
+                                    <ExternalLink size={12} />
+                                    Open Live Page ↗
+                                </a>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                        <div className="form-group">
-                            <label className="form-label">Section Title</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="Select a Service"
-                                value={servicesSection.title || ''}
-                                onChange={(e) => setPageConfig(prev => ({
-                                    ...prev,
-                                    servicesSection: { ...prev.servicesSection, title: e.target.value }
-                                }))}
-                            />
+                    {/* 2. Linked Inventory Services List & Live Customer Preview */}
+                    <div className="card" style={{ padding: 24, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        Services Linked to {activePage.subcategoryName}
+                                    </h3>
+                                    <span style={{
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        padding: '2px 8px',
+                                        borderRadius: 999,
+                                        backgroundColor: linkedServices.length > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                                        color: linkedServices.length > 0 ? '#10b981' : '#ef4444'
+                                    }}>
+                                        {linkedServices.length > 0 ? `🟢 ${linkedServices.length} Active` : '⚠️ 0 Linked'}
+                                    </span>
+                                </div>
+                                <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                    These services are published from Admin Inventory and appear inside this subcategory carousel.
+                                </p>
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Subtitle / Description</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="Transparent diagnostic pricing • Genuine spare parts"
-                                value={servicesSection.subtitle || ''}
-                                onChange={(e) => setPageConfig(prev => ({
-                                    ...prev,
-                                    servicesSection: { ...prev.servicesSection, subtitle: e.target.value }
-                                }))}
-                            />
-                        </div>
-                    </div>
 
-                    <div style={{
-                        padding: 14,
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'rgba(99,56,245,0.08)',
-                        border: '1px solid rgba(99,56,245,0.2)',
-                        fontSize: 'var(--font-size-xs)',
-                        color: 'var(--text-secondary)'
-                    }}>
-                        <strong style={{ color: 'var(--text-primary)' }}>💡 How services appear here:</strong>
-                        <div style={{ marginTop: 4 }}>
-                            Services are pulled dynamically from your <strong>Inventory Tab</strong> where <code>Item Subtype = 'Web'</code> and <code>Subcategory = '{activePage.subcategorySlug}'</code>.
-                            Each service card shows its title, rating, price, duration, and an <strong>Add</strong> button that links directly to the customer checkout cart.
-                        </div>
+                        {loadingServices ? (
+                            <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                <RefreshCw size={20} className="spin" style={{ marginBottom: 8 }} />
+                                <div style={{ fontSize: 'var(--font-size-xs)' }}>Loading linked services from inventory...</div>
+                            </div>
+                        ) : linkedServices.length === 0 ? (
+                            <div style={{
+                                padding: 24,
+                                borderRadius: 'var(--radius-md)',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px dashed var(--border-primary)',
+                                textAlign: 'center'
+                            }}>
+                                <AlertCircle size={28} color="#f59e0b" style={{ marginBottom: 8 }} />
+                                <h4 style={{ margin: '0 0 6px 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
+                                    No services assigned to "{activePage.subcategoryName}" yet
+                                </h4>
+                                <p style={{ margin: '0 0 14px 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', maxWidth: 520, marginInline: 'auto' }}>
+                                    To show services here, go to <strong>Inventory</strong> &gt; <strong>Create New Service</strong> (or edit an existing service), set <strong>Item Subtype = 'Web'</strong> and select <strong>Subcategory = '{activePage.subcategoryName}'</strong>.
+                                </p>
+                            </div>
+                        ) : (
+                            <div>
+                                {/* Services Table / List */}
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 10,
+                                    marginBottom: 24
+                                }}>
+                                    {linkedServices.map(svc => (
+                                        <div
+                                            key={svc.id}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '12px 16px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-primary)',
+                                                flexWrap: 'wrap',
+                                                gap: 12
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 220 }}>
+                                                <div style={{
+                                                    width: 42,
+                                                    height: 42,
+                                                    borderRadius: 8,
+                                                    backgroundColor: 'rgba(99,56,245,0.1)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexShrink: 0,
+                                                    overflow: 'hidden'
+                                                }}>
+                                                    {svc.image ? (
+                                                        <img src={svc.image} alt={svc.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    ) : (
+                                                        <Wrench size={20} color="#6338f5" />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                        {svc.name}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                                                        <span>SKU: {svc.sku || 'N/A'}</span>
+                                                        <span>•</span>
+                                                        <span style={{ color: '#8b5cf6', fontWeight: 600 }}>Tag: {svc.subcategory || activePage.subcategorySlug}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 800, color: '#10b981' }}>
+                                                        ₹{svc.price}
+                                                    </div>
+                                                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                                                        Live Storefront Price
+                                                    </div>
+                                                </div>
+
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 600,
+                                                    padding: '3px 8px',
+                                                    borderRadius: 999,
+                                                    backgroundColor: 'rgba(16,185,129,0.12)',
+                                                    color: '#10b981'
+                                                }}>
+                                                    ✓ Active
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Live Customer Storefront Preview (Urban Company style card) */}
+                                <div style={{
+                                    padding: 16,
+                                    borderRadius: 'var(--radius-lg)',
+                                    backgroundColor: '#0b0f19',
+                                    border: '1px solid rgba(255,255,255,0.08)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            👁️ Live Customer Storefront Preview
+                                        </div>
+                                        <span style={{ fontSize: 11, color: '#64748b' }}>
+                                            Horizontal Scrollable Cards
+                                        </span>
+                                    </div>
+
+                                    {/* Preview container simulating white background storefront */}
+                                    <div style={{
+                                        backgroundColor: '#ffffff',
+                                        borderRadius: 12,
+                                        padding: '16px 14px',
+                                        overflowX: 'auto',
+                                        scrollbarWidth: 'none'
+                                    }}>
+                                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a', marginBottom: 10 }}>
+                                            {servicesSection.title || 'Select a Service'}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+                                            {linkedServices.map(svc => (
+                                                <div
+                                                    key={svc.id}
+                                                    style={{
+                                                        width: 175,
+                                                        flexShrink: 0,
+                                                        borderRadius: 12,
+                                                        border: '1px solid #e2e8f0',
+                                                        backgroundColor: '#ffffff',
+                                                        padding: 12,
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', lineHeight: 1.3, marginBottom: 6 }}>
+                                                            {svc.name}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#64748b' }}>
+                                                            <span style={{ color: '#16a34a', fontWeight: 700 }}>★</span>
+                                                            <span style={{ fontWeight: 600, color: '#334155' }}>4.85</span>
+                                                            <span style={{ color: '#94a3b8' }}>(44K reviews)</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        marginTop: 12,
+                                                        paddingTop: 8,
+                                                        borderTop: '1px solid #f1f5f9'
+                                                    }}>
+                                                        <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+                                                            ₹{svc.price}
+                                                        </div>
+                                                        <div style={{
+                                                            padding: '4px 14px',
+                                                            borderRadius: 6,
+                                                            border: '1px solid #6338f5',
+                                                            backgroundColor: '#ffffff',
+                                                            color: '#6338f5',
+                                                            fontWeight: 700,
+                                                            fontSize: 12
+                                                        }}>
+                                                            Add
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Expandable: Other Web Services under this Category */}
+                        {otherCategoryServices.length > 0 && (
+                            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border-primary)' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOtherServices(!showOtherServices)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        width: '100%',
+                                        padding: '8px 12px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-primary)',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: 'var(--font-size-xs)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <span>
+                                        ℹ️ Other published web services under {activePage.categoryName} ({otherCategoryServices.length})
+                                    </span>
+                                    {showOtherServices ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+
+                                {showOtherServices && (
+                                    <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {otherCategoryServices.map(svc => (
+                                            <div
+                                                key={svc.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '8px 12px',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    backgroundColor: 'var(--bg-primary)',
+                                                    fontSize: 'var(--font-size-xs)'
+                                                }}
+                                            >
+                                                <div>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{svc.name}</span>
+                                                    <span style={{ marginLeft: 8, color: 'var(--text-tertiary)', fontSize: 11 }}>
+                                                        (Subcategory: {svc.subcategory || 'None'})
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={reassigningId === svc.id}
+                                                    onClick={() => handleAssignService(svc.id)}
+                                                    style={{
+                                                        padding: '3px 10px',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        backgroundColor: 'rgba(99,56,245,0.15)',
+                                                        color: '#8b5cf6',
+                                                        border: '1px solid rgba(99,56,245,0.3)',
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {reassigningId === svc.id ? 'Moving...' : `+ Move to ${activePage.subcategoryName}`}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
