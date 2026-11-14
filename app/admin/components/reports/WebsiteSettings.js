@@ -24,6 +24,7 @@ import BookingSlots from '@/components/reports/BookingSlots';
 import EcomV2HeroSettings from './EcomV2HeroSettings';
 import EcomV2SubcategorySettings from './EcomV2SubcategorySettings';
 import EcomV2ThumbnailsSettings from './EcomV2ThumbnailsSettings';
+import EcomV2HomepageSettings from './EcomV2HomepageSettings';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -477,8 +478,8 @@ function WebsiteSettings({ subSection, setSubSection }) {
                         if (setSubSection) setSubSection('ecom-v2');
                     }}
                 />
-            ) : activeCategory === 'ecom-v2-thumbnails' ? (
-                <EcomV2ThumbnailsSettings
+            ) : activeCategory === 'ecom-v2-homepage' || activeCategory === 'ecom-v2-thumbnails' ? (
+                <EcomV2HomepageSettings
                     onBack={() => {
                         setActiveCategory('ecom-v2');
                         if (setSubSection) setSubSection('ecom-v2');

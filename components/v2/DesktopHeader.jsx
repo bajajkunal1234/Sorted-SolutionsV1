@@ -15,18 +15,21 @@ export default function DesktopHeader() {
         totals,
         setCartOpen,
         customerSession,
+        brandLogos,
     } = useV2Cart();
 
     const locText = location.locality
         ? `${location.locality}${location.pincode ? `, ${location.pincode}` : ''}`
         : 'Mumbai — Select Locality';
 
+    const headerLogo = brandLogos?.dayModeLogo || '/logo.jpg';
+
     return (
         <header className="v2-desktop-header">
             <div className="v2-container v2-header-inner">
                 <Link href="/v2" className="v2-brand-link">
                     <span className="v2-brand-badge">
-                        <img src="/logo.jpg" alt="Sorted Solutions" />
+                        <img src={headerLogo} alt={brandLogos?.altText || "Sorted Solutions"} />
                     </span>
                     <span className="v2-brand-text">
                         <strong>Sorted Solutions</strong>

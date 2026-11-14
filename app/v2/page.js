@@ -7,15 +7,24 @@ export default async function V2HomePage() {
     let services = [];
     let categoryCounts = {};
     let categories = [];
+    let logos = null;
 
     try {
         const data = await fetchPublishedWebServices();
         services = data.services;
         categoryCounts = data.categoryCounts;
         categories = data.categories || [];
+        logos = data.logos || null;
     } catch (err) {
         console.error('[V2HomePage] Failed to load web services:', err?.message);
     }
 
-    return <V2HomeClient services={services} categoryCounts={categoryCounts} categories={categories} />;
+    return (
+        <V2HomeClient
+            services={services}
+            categoryCounts={categoryCounts}
+            categories={categories}
+            initialLogos={logos}
+        />
+    );
 }

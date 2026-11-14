@@ -38,7 +38,7 @@ export default function SubcategoryStorefront({
     pageConfig = null
 }) {
     const router = useRouter();
-    const { location, setLocationModalOpen, getItemQty, addItem, incrementItem, decrementItem, totals, items: cartItems } = useV2Cart();
+    const { location, setLocationModalOpen, getItemQty, addItem, incrementItem, decrementItem, totals, items: cartItems, brandLogos } = useV2Cart();
 
     // Accordion state for FAQs
     const [openFaqIndex, setOpenFaqIndex] = useState(0);
@@ -315,8 +315,8 @@ export default function SubcategoryStorefront({
                                     flexShrink: 0
                                 }}>
                                     <img
-                                        src="/logo.jpg"
-                                        alt="Sorted Solutions"
+                                        src={brandLogos?.dayModeLogo || '/logo.jpg'}
+                                        alt={brandLogos?.altText || "Sorted Solutions"}
                                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                     />
                                 </div>

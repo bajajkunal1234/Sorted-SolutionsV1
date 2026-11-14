@@ -20,6 +20,23 @@ export function CartProvider({ children }) {
         building: '',
     });
     const [customerSession, setCustomerSession] = useState(null);
+    const [brandLogos, setBrandLogos] = useState({
+        dayModeLogo: '/logo.jpg',
+        darkModeLogo: '/logo.jpg',
+        altText: 'Sorted Solutions'
+    });
+
+    useEffect(() => {
+        // Fetch dynamic branding/logos from homepage config
+        fetch('/api/v2/homepage-config')
+            .then(res => res.json())
+            .then(json => {
+                if (json.success && json.data?.logos) {
+                    setBrandLogos(json.data.logos);
+                }
+            })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         try {
@@ -180,6 +197,8 @@ export function CartProvider({ children }) {
             removeItem,
             clearCart,
             getItemQty,
+            brandLogos,
+            setBrandLogos,
         }),
         [
             items,
@@ -199,6 +218,7 @@ export function CartProvider({ children }) {
             removeItem,
             clearCart,
             getItemQty,
+            brandLogos,
         ]
     );
 

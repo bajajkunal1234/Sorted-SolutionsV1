@@ -11,13 +11,16 @@ import HeroCarousel from './HeroCarousel';
 import SubcategoryModal from './SubcategoryModal';
 import SlidingThumbnail from './SlidingThumbnail';
 
-export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [] }) {
-    const { location, setLocationModalOpen } = useV2Cart();
+export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null }) {
+    const { location, setLocationModalOpen, brandLogos } = useV2Cart();
     const [selectedModalCategory, setSelectedModalCategory] = useState(null);
 
     const activeCategories = Array.isArray(categories) && categories.length > 0
         ? categories
         : V2_CATEGORIES;
+
+    const effectiveLogos = brandLogos || initialLogos;
+    const heroDarkLogo = effectiveLogos?.darkModeLogo || effectiveLogos?.dayModeLogo || '/logo.jpg';
 
     const primaryAddressTitle = location.flat && location.building
         ? `${location.flat}, ${location.building}`
@@ -107,8 +110,8 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                                 boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
                             }}>
                                 <img
-                                    src="/logo.jpg"
-                                    alt="Sorted Solutions"
+                                    src={heroDarkLogo}
+                                    alt={effectiveLogos?.altText || "Sorted Solutions"}
                                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                 />
                             </div>
