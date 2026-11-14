@@ -43,6 +43,11 @@ export default async function V2SubcategoryPage({ params, searchParams }) {
         console.error('[V2SubcategoryPage] pageConfig error:', err?.message);
     }
 
+    // If marked deleted by admin, return 404
+    if (savedConfig?.isDeleted) {
+        notFound();
+    }
+
     // Fallback: If not in static catalog, check if category exists and subcategory was created by admin
     if (!category) {
         category = {
@@ -60,12 +65,20 @@ export default async function V2SubcategoryPage({ params, searchParams }) {
                 name: savedConfig.subcategoryName || params.subcategory.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
                 headline: savedConfig.hero?.title || `${params.subcategory} Check-up & Repair`,
                 shortDesc: savedConfig.hero?.subtitle || '',
-                icon: savedConfig.hero?.mediaUrl || category.icon || '/images/services/ac_3d.png',
+                icon: savedConfig.thumbnailUrl || savedConfig.hero?.mediaUrl || category.icon || '/images/services/ac_3d.png',
                 keywords: [params.subcategory.toLowerCase().replace(/-/g, ' ')]
             };
         } else {
             notFound();
         }
+    } else if (savedConfig?.subcategoryName) {
+        // Apply custom subcategory name if customized
+        subcategory = {
+            ...subcategory,
+            name: savedConfig.subcategoryName,
+            headline: savedConfig.hero?.title || subcategory.headline || `${savedConfig.subcategoryName} Service & Repair`,
+            icon: savedConfig.thumbnailUrl || subcategory.icon
+        };
     }
 
     let data = { services: [], categoryCounts: {} };

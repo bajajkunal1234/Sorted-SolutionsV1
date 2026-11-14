@@ -31,9 +31,12 @@ import {
     FileText,
     CheckCircle2,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Pencil,
+    RotateCcw
 } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
 
 const SECTION_LABELS = {
     hero: '🎬 Top Media & Hero',
@@ -85,9 +88,24 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     const slideFileInputRef = useRef(null);
     const techFileInputRef = useRef(null);
     const stepFileInputRef = useRef(null);
+    const subcatThumbFileRef = useRef(null);
     const [uploadingStepIdx, setUploadingStepIdx] = useState(null);
     const [uploadingSlideIdx, setUploadingSlideIdx] = useState(null);
+    const [uploadingSubcatSlideIdx, setUploadingSubcatSlideIdx] = useState(null);
     const [adminPreviewIdx, setAdminPreviewIdx] = useState(0);
+
+    // View Tab: 'active' | 'trash'
+    const [viewTab, setViewTab] = useState('active');
+
+    // Quick Edit Subcategory Info & Thumbnail Modal
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editingSubcat, setEditingSubcat] = useState(null);
+    const [savingEditSubcat, setSavingEditSubcat] = useState(false);
+
+    // Delete Confirmation Modal
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deletingSubcat, setDeletingSubcat] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Initial fetch
     useEffect(() => {
@@ -97,7 +115,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     const fetchPagesList = async () => {
         setLoadingPages(true);
         try {
-            const res = await fetch('/api/v2/subcategory-pages');
+            const res = await fetch('/api/v2/subcategory-pages?includeDeleted=true');
             const json = await res.json();
             if (json.success && Array.isArray(json.data)) {
                 setPages(json.data);
@@ -106,6 +124,165 @@ export default function EcomV2SubcategorySettings({ onBack }) {
             console.error('Failed to load subcategory pages list:', err);
         } finally {
             setLoadingPages(false);
+        }
+    };
+
+    const handleOpenEditSubcat = (page) => {
+        const rawSlides = Array.isArray(page.thumbnailSlides) && page.thumbnailSlides.length > 0
+            ? page.thumbnailSlides
+            : (page.thumbnailUrl || page.mediaUrl ? [{ id: 's-1', url: page.thumbnailUrl || page.mediaUrl, title: page.subcategoryName }] : []);
+        setEditingSubcat({
+            categorySlug: page.categorySlug,
+            subcategorySlug: page.subcategorySlug,
+            categoryName: page.categoryName,
+            subcategoryName: page.subcategoryName,
+            headline: page.headline || '',
+            thumbnailUrl: page.thumbnailUrl || page.mediaUrl || '',
+            thumbnailSlides: rawSlides
+        });
+        setEditModalOpen(true);
+    };
+
+    const handleSaveEditSubcat = async () => {
+        if (!editingSubcat) return;
+        setSavingEditSubcat(true);
+        setErrorMessage('');
+        try {
+            const getRes = await fetch(`/api/v2/subcategory-pages/${editingSubcat.categorySlug}/${editingSubcat.subcategorySlug}`);
+            const getJson = await getRes.json();
+            const existingData = getJson.data || {};
+
+            const finalSlides = Array.isArray(editingSubcat.thumbnailSlides)
+                ? editingSubcat.thumbnailSlides.filter(s => s && s.url)
+                : [];
+
+            const payloadData = {
+                ...existingData,
+                subcategoryName: editingSubcat.subcategoryName,
+                thumbnailUrl: editingSubcat.thumbnailUrl || finalSlides[0]?.url || '',
+                thumbnailSlides: finalSlides,
+                hero: {
+                    ...(existingData.hero || {}),
+                    title: editingSubcat.headline || existingData.hero?.title || `${editingSubcat.subcategoryName} Service`
+                }
+            };
+
+            const res = await fetch(`/api/v2/subcategory-pages/${editingSubcat.categorySlug}/${editingSubcat.subcategorySlug}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    categoryName: editingSubcat.categoryName,
+                    subcategoryName: editingSubcat.subcategoryName,
+                    data: payloadData
+                })
+            });
+            const json = await res.json();
+            if (json.success) {
+                setEditModalOpen(false);
+                fetchPagesList();
+            } else {
+                alert(json.error || 'Failed to save changes');
+            }
+        } catch (err) {
+            alert('Error updating subcategory: ' + err.message);
+        } finally {
+            setSavingEditSubcat(false);
+        }
+    };
+
+    const handleOpenDeleteSubcat = (page) => {
+        setDeletingSubcat(page);
+        setDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deletingSubcat) return;
+        setDeleting(true);
+        try {
+            const res = await fetch(`/api/v2/subcategory-pages/${deletingSubcat.categorySlug}/${deletingSubcat.subcategorySlug}`, {
+                method: 'DELETE'
+            });
+            const json = await res.json();
+            if (json.success) {
+                setDeleteModalOpen(false);
+                setDeletingSubcat(null);
+                fetchPagesList();
+            } else {
+                alert(json.error || 'Failed to delete subcategory');
+            }
+        } catch (err) {
+            alert('Error deleting subcategory: ' + err.message);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    const handleRestoreSubcat = async (page) => {
+        try {
+            const getRes = await fetch(`/api/v2/subcategory-pages/${page.categorySlug}/${page.subcategorySlug}`);
+            const getJson = await getRes.json();
+            const existingData = getJson.data || {};
+
+            const res = await fetch(`/api/v2/subcategory-pages/${page.categorySlug}/${page.subcategorySlug}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    categoryName: page.categoryName,
+                    subcategoryName: page.subcategoryName,
+                    data: {
+                        ...existingData,
+                        isDeleted: false
+                    }
+                })
+            });
+            const json = await res.json();
+            if (json.success) {
+                fetchPagesList();
+            } else {
+                alert(json.error || 'Failed to restore subcategory');
+            }
+        } catch (err) {
+            alert('Error restoring subcategory: ' + err.message);
+        }
+    };
+
+    const handleUploadSubcatSlide = async (file, slideIdx) => {
+        if (!file || !editingSubcat) return;
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('bucket', 'website-assets');
+            formData.append('folder', 'ecom-v2/subcategories');
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const json = await res.json();
+            if (json.success && json.url) {
+                setEditingSubcat(prev => {
+                    const slides = Array.isArray(prev.thumbnailSlides) ? [...prev.thumbnailSlides] : [];
+                    while (slides.length <= slideIdx) {
+                        slides.push({ id: `slide-${slides.length + 1}`, url: '', title: `Slide #${slides.length + 1}` });
+                    }
+                    slides[slideIdx] = {
+                        ...slides[slideIdx],
+                        url: json.url,
+                        title: slides[slideIdx]?.title || file.name.replace(/\.[^/.]+$/, '')
+                    };
+                    return {
+                        ...prev,
+                        thumbnailUrl: slideIdx === 0 ? json.url : (prev.thumbnailUrl || json.url),
+                        thumbnailSlides: slides
+                    };
+                });
+            }
+        } catch (err) {
+            alert('Upload error: ' + err.message);
+        } finally {
+            setUploading(false);
+            setUploadingSubcatSlideIdx(null);
         }
     };
 
@@ -224,8 +401,12 @@ export default function EcomV2SubcategorySettings({ onBack }) {
             ? pageConfig.hero.slides
             : heroSlides;
 
+        const resolvedSubName = String(pageConfig.subcategoryName || activePage.subcategoryName).trim();
         const payloadConfig = {
             ...pageConfig,
+            subcategoryName: resolvedSubName,
+            thumbnailUrl: pageConfig.thumbnailUrl || '',
+            thumbnailSlides: Array.isArray(pageConfig.thumbnailSlides) ? pageConfig.thumbnailSlides : [],
             hero: {
                 ...pageConfig.hero,
                 slides: finalSlides,
@@ -242,7 +423,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     categoryName: activePage.categoryName,
-                    subcategoryName: activePage.subcategoryName,
+                    subcategoryName: resolvedSubName,
                     data: payloadConfig
                 })
             });
@@ -403,7 +584,14 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     };
 
     // Filter pages
+    const activePagesCount = pages.filter(p => !p.isDeleted).length;
+    const trashPagesCount = pages.filter(p => Boolean(p.isDeleted)).length;
+
     const filteredPages = pages.filter(p => {
+        const isTrash = Boolean(p.isDeleted);
+        if (viewTab === 'trash' && !isTrash) return false;
+        if (viewTab === 'active' && isTrash) return false;
+
         const matchesCat = selectedCategoryFilter === 'ALL' || p.categorySlug === selectedCategoryFilter;
         const q = searchQuery.toLowerCase().trim();
         const matchesQuery = !q ||
@@ -420,6 +608,21 @@ export default function EcomV2SubcategorySettings({ onBack }) {
     if (!activePage) {
         return (
             <div style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 60 }}>
+                {/* Hidden File Input for Subcategory Thumbnail Upload */}
+                <input
+                    ref={subcatThumbFileRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && uploadingSubcatSlideIdx !== null) {
+                            handleUploadSubcatSlide(file, uploadingSubcatSlideIdx);
+                        }
+                        e.target.value = '';
+                    }}
+                />
+
                 {/* Header with Back button and Create New Page */}
                 <div style={{
                     display: 'flex',
@@ -427,7 +630,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
                     gap: 16,
-                    marginBottom: 24,
+                    marginBottom: 20,
                     paddingBottom: 16,
                     borderBottom: '1px solid var(--border-primary)'
                 }}>
@@ -454,7 +657,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                             Sub Category Pages (Urban Company UI)
                         </h2>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                            Configure top video/gif, horizontal services, process steps, technicians, brands, promise, FAQs & reviews for all {pages.length} subcategory pages.
+                            Configure top video/gif, horizontal services, process steps, technicians, brands, promise, FAQs & reviews for all subcategories.
                         </p>
                     </div>
 
@@ -476,6 +679,52 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         }}
                     >
                         <Plus size={16} /> Create New Subcategory Page
+                    </button>
+                </div>
+
+                {/* View Switch: Active Subcategories vs Trash / Removed */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginBottom: 16
+                }}>
+                    <button
+                        onClick={() => setViewTab('active')}
+                        style={{
+                            padding: '8px 18px',
+                            borderRadius: 'var(--radius-md)',
+                            border: viewTab === 'active' ? '2px solid #6338f5' : '1px solid var(--border-primary)',
+                            backgroundColor: viewTab === 'active' ? 'rgba(99,56,245,0.12)' : 'var(--bg-elevated)',
+                            color: viewTab === 'active' ? '#6338f5' : 'var(--text-secondary)',
+                            fontWeight: 700,
+                            fontSize: 'var(--font-size-xs)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                        }}
+                    >
+                        <Layers size={14} /> Active Subcategories ({activePagesCount})
+                    </button>
+
+                    <button
+                        onClick={() => setViewTab('trash')}
+                        style={{
+                            padding: '8px 18px',
+                            borderRadius: 'var(--radius-md)',
+                            border: viewTab === 'trash' ? '2px solid #ef4444' : '1px solid var(--border-primary)',
+                            backgroundColor: viewTab === 'trash' ? 'rgba(239,68,68,0.12)' : 'var(--bg-elevated)',
+                            color: viewTab === 'trash' ? '#ef4444' : 'var(--text-secondary)',
+                            fontWeight: 700,
+                            fontSize: 'var(--font-size-xs)',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                        }}
+                    >
+                        <Trash2 size={14} /> Trash / Removed ({trashPagesCount})
                     </button>
                 </div>
 
@@ -504,10 +753,10 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                 whiteSpace: 'nowrap'
                             }}
                         >
-                            All Categories ({pages.length})
+                            All Categories
                         </button>
                         {V2_CATEGORIES.map(c => {
-                            const count = pages.filter(p => p.categorySlug === c.slug).length;
+                            const count = pages.filter(p => p.categorySlug === c.slug && (viewTab === 'trash' ? p.isDeleted : !p.isDeleted)).length;
                             const isActive = selectedCategoryFilter === c.slug;
                             return (
                                 <button
@@ -564,9 +813,9 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                 ) : filteredPages.length === 0 ? (
                     <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
                         <Layers size={36} color="var(--text-tertiary)" style={{ marginBottom: 10 }} />
-                        <h3>No pages matched your search</h3>
+                        <h3>{viewTab === 'trash' ? 'Trash is empty' : 'No subcategory pages matched your search'}</h3>
                         <p style={{ margin: '4px 0 16px 0', fontSize: 'var(--font-size-sm)' }}>
-                            Try selecting another category or click "Create New Subcategory Page".
+                            {viewTab === 'trash' ? 'No subcategories have been removed.' : 'Try selecting another category or click "Create New Subcategory Page".'}
                         </p>
                     </div>
                 ) : (
@@ -581,9 +830,9 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                 className="card"
                                 style={{
                                     padding: 16,
-                                    border: '1px solid var(--border-primary)',
+                                    border: page.isDeleted ? '1px solid rgba(239,68,68,0.3)' : '1px solid var(--border-primary)',
                                     borderRadius: 'var(--radius-lg)',
-                                    backgroundColor: 'var(--bg-elevated)',
+                                    backgroundColor: page.isDeleted ? 'rgba(239,68,68,0.03)' : 'var(--bg-elevated)',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
@@ -592,7 +841,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                 }}
                             >
                                 <div>
-                                    {/* Top row: Category tag + Customized badge */}
+                                    {/* Top row: Category tag + Status badge */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                         <span style={{
                                             fontSize: 11,
@@ -607,7 +856,21 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                             {page.categoryName}
                                         </span>
 
-                                        {page.isCustomized ? (
+                                        {page.isDeleted ? (
+                                            <span style={{
+                                                fontSize: 11,
+                                                fontWeight: 700,
+                                                padding: '2px 8px',
+                                                borderRadius: 999,
+                                                backgroundColor: 'rgba(239,68,68,0.15)',
+                                                color: '#ef4444',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 4
+                                            }}>
+                                                <Trash2 size={11} /> Removed / Trash
+                                            </span>
+                                        ) : page.isCustomized ? (
                                             <span style={{
                                                 fontSize: 11,
                                                 fontWeight: 700,
@@ -638,36 +901,37 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                     {/* Title and Media preview */}
                                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
                                         <div style={{
-                                            width: 52,
-                                            height: 52,
-                                            borderRadius: 8,
+                                            width: 56,
+                                            height: 56,
+                                            borderRadius: 10,
                                             backgroundColor: '#1e293b',
                                             overflow: 'hidden',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             flexShrink: 0,
-                                            border: '1px solid var(--border-primary)'
+                                            border: '1px solid var(--border-primary)',
+                                            position: 'relative'
                                         }}>
-                                            {page.mediaType === 'video' ? (
-                                                <Film size={24} color="#6338f5" />
-                                            ) : (
-                                                <img
-                                                    src={page.mediaUrl}
-                                                    alt={page.subcategoryName}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    onError={(e) => { e.currentTarget.src = '/images/banners/banner_speed_90_mins.png'; }}
-                                                />
-                                            )}
+                                            <SlidingThumbnail
+                                                slides={page.thumbnailSlides}
+                                                fallbackUrl={page.thumbnailUrl || page.mediaUrl}
+                                                alt={page.subcategoryName}
+                                                interval={3500}
+                                                directionCycle={['from-top', 'from-right', 'from-bottom', 'from-left']}
+                                                width="100%"
+                                                height="100%"
+                                                objectFit="cover"
+                                            />
                                         </div>
-                                        <div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
                                             <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, margin: '0 0 2px 0', color: 'var(--text-primary)' }}>
                                                 {page.subcategoryName}
                                             </h3>
-                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.3 }}>
+                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {page.headline}
                                             </p>
-                                            <p style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
+                                            <p style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-tertiary)', margin: '4px 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {page.pageUrl}
                                             </p>
                                         </div>
@@ -678,54 +942,457 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8,
+                                    gap: 6,
                                     paddingTop: 12,
                                     borderTop: '1px solid var(--border-primary)'
                                 }}>
-                                    <button
-                                        onClick={() => handleSelectPage(page)}
-                                        style={{
-                                            flex: 1,
-                                            padding: '8px 14px',
-                                            borderRadius: 'var(--radius-md)',
-                                            backgroundColor: '#6338f5',
-                                            color: '#ffffff',
-                                            fontWeight: 700,
-                                            fontSize: 'var(--font-size-xs)',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: 6
-                                        }}
-                                    >
-                                        <Sliders size={13} /> Edit Page UI
-                                    </button>
+                                    {!page.isDeleted ? (
+                                        <>
+                                            <button
+                                                onClick={() => handleSelectPage(page)}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '8px 10px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    backgroundColor: '#6338f5',
+                                                    color: '#ffffff',
+                                                    fontWeight: 700,
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: 5
+                                                }}
+                                            >
+                                                <Sliders size={13} /> Edit Page UI
+                                            </button>
 
-                                    <a
-                                        href={page.pageUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            padding: '8px 12px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-elevated)',
-                                            color: 'var(--text-secondary)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            textDecoration: 'none',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: 4
-                                        }}
-                                        title="Preview Live Page in new tab"
-                                    >
-                                        <Eye size={13} /> Live
-                                    </a>
+                                            <button
+                                                onClick={() => handleOpenEditSubcat(page)}
+                                                style={{
+                                                    padding: '8px 10px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    color: 'var(--text-primary)',
+                                                    fontWeight: 600,
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4
+                                                }}
+                                                title="Edit subcategory name, headline & thumbnail"
+                                            >
+                                                <Pencil size={13} /> Edit Info
+                                            </button>
+
+                                            <a
+                                                href={page.pageUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    padding: '8px 10px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    color: 'var(--text-secondary)',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    textDecoration: 'none',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4
+                                                }}
+                                                title="Preview Live Page in new tab"
+                                            >
+                                                <Eye size={13} />
+                                            </a>
+
+                                            <button
+                                                onClick={() => handleOpenDeleteSubcat(page)}
+                                                style={{
+                                                    padding: '8px 10px',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    border: '1px solid rgba(239,68,68,0.25)',
+                                                    backgroundColor: 'rgba(239,68,68,0.08)',
+                                                    color: '#ef4444',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                title="Remove subcategory page"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleRestoreSubcat(page)}
+                                            style={{
+                                                flex: 1,
+                                                padding: '8px 14px',
+                                                borderRadius: 'var(--radius-md)',
+                                                backgroundColor: 'rgba(16,185,129,0.15)',
+                                                color: '#10b981',
+                                                fontWeight: 700,
+                                                fontSize: 'var(--font-size-xs)',
+                                                border: '1px solid #10b981',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: 6
+                                            }}
+                                        >
+                                            <RotateCcw size={13} /> Restore Subcategory Page
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Edit Subcategory Info & Thumbnail Modal */}
+                {editModalOpen && editingSubcat && (
+                    <div style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: 16
+                    }}>
+                        <div className="card" style={{
+                            width: '100%',
+                            maxWidth: 580,
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 24,
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                        Edit Subcategory Details
+                                    </h3>
+                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                        {editingSubcat.categoryName} • /v2/services/{editingSubcat.categorySlug}/{editingSubcat.subcategorySlug}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setEditModalOpen(false)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                {/* Subcategory Display Name Input */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                        Subcategory Display Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="e.g. Split AC or Double Door Refrigerator"
+                                        value={editingSubcat.subcategoryName}
+                                        onChange={(e) => setEditingSubcat(prev => ({ ...prev, subcategoryName: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            padding: '9px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)',
+                                            fontWeight: 600
+                                        }}
+                                    />
+                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                        Appears on subcategory buttons, category popups, and page title
+                                    </span>
+                                </div>
+
+                                {/* Headline / Subtitle */}
+                                <div>
+                                    <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                        Page Headline / Title
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="e.g. Split AC Service & Repair"
+                                        value={editingSubcat.headline}
+                                        onChange={(e) => setEditingSubcat(prev => ({ ...prev, headline: e.target.value }))}
+                                        style={{
+                                            width: '100%',
+                                            padding: '9px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Thumbnail Configuration (Up to 3 Slides with Top/Bottom/Left/Right Transitions) */}
+                                <div style={{
+                                    borderTop: '1px solid var(--border-primary)',
+                                    paddingTop: 16
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                        <div>
+                                            <strong style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', display: 'block' }}>
+                                                Subcategory Thumbnail (1 to 3 Sliding Images)
+                                            </strong>
+                                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                                Used in the category popup. Adding 3 images activates auto-sliding from top, right, bottom & left.
+                                            </span>
+                                        </div>
+
+                                        {/* Mini Live Preview */}
+                                        <div style={{
+                                            width: 48,
+                                            height: 48,
+                                            borderRadius: 10,
+                                            backgroundColor: '#1e293b',
+                                            overflow: 'hidden',
+                                            flexShrink: 0,
+                                            border: '1px solid var(--border-primary)',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                                        }}>
+                                            <SlidingThumbnail
+                                                slides={editingSubcat.thumbnailSlides}
+                                                fallbackUrl={editingSubcat.thumbnailUrl}
+                                                alt={editingSubcat.subcategoryName}
+                                                interval={3000}
+                                                directionCycle={['from-top', 'from-right', 'from-bottom', 'from-left']}
+                                                width="100%"
+                                                height="100%"
+                                                objectFit="cover"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 3 Slide Slots */}
+                                    {[0, 1, 2].map((slotIdx) => {
+                                        const slide = editingSubcat.thumbnailSlides?.[slotIdx] || {};
+                                        return (
+                                            <div
+                                                key={slotIdx}
+                                                style={{
+                                                    display: 'flex',
+                                                    gap: 8,
+                                                    alignItems: 'center',
+                                                    marginBottom: 8
+                                                }}
+                                            >
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    color: 'var(--text-tertiary)',
+                                                    width: 52
+                                                }}>
+                                                    {slotIdx === 0 ? 'Slide 1 *' : `Slide ${slotIdx + 1}`}
+                                                </span>
+
+                                                <input
+                                                    type="text"
+                                                    className="form-control"
+                                                    placeholder={slotIdx === 0 ? 'Primary thumbnail image URL' : `Optional slide ${slotIdx + 1} URL`}
+                                                    value={slide.url || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setEditingSubcat(prev => {
+                                                            const slides = [...(prev.thumbnailSlides || [])];
+                                                            while (slides.length <= slotIdx) {
+                                                                slides.push({ id: `slide-${slides.length + 1}`, url: '' });
+                                                            }
+                                                            slides[slotIdx] = { ...slides[slotIdx], url: val };
+                                                            return {
+                                                                ...prev,
+                                                                thumbnailUrl: slotIdx === 0 ? val : prev.thumbnailUrl,
+                                                                thumbnailSlides: slides
+                                                            };
+                                                        });
+                                                    }}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '7px 10px',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: 'var(--font-size-xs)'
+                                                    }}
+                                                />
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setUploadingSubcatSlideIdx(slotIdx);
+                                                        subcatThumbFileRef.current?.click();
+                                                    }}
+                                                    disabled={uploading}
+                                                    style={{
+                                                        padding: '7px 12px',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-elevated)',
+                                                        color: 'var(--text-secondary)',
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 4
+                                                    }}
+                                                >
+                                                    <Upload size={12} /> Upload
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22, borderTop: '1px solid var(--border-primary)', paddingTop: 16 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditModalOpen(false)}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'transparent',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveEditSubcat}
+                                    disabled={savingEditSubcat}
+                                    style={{
+                                        padding: '8px 20px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: '#6338f5',
+                                        color: '#ffffff',
+                                        fontWeight: 700,
+                                        fontSize: 'var(--font-size-sm)',
+                                        border: 'none',
+                                        cursor: savingEditSubcat ? 'not-allowed' : 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    {savingEditSubcat ? <RefreshCw size={14} className="spin" /> : <Check size={14} />}
+                                    Save Subcategory Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deleteModalOpen && deletingSubcat && (
+                    <div style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 9999,
+                        padding: 16
+                    }}>
+                        <div className="card" style={{
+                            width: '100%',
+                            maxWidth: 440,
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 24,
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                        }}>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 14 }}>
+                                <div style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: '50%',
+                                    backgroundColor: 'rgba(239,68,68,0.12)',
+                                    color: '#ef4444',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0
+                                }}>
+                                    <Trash2 size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)', fontWeight: 800, color: 'var(--text-primary)' }}>
+                                        Remove Subcategory Page?
+                                    </h3>
+                                    <p style={{ margin: '6px 0 0 0', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                        Are you sure you want to remove <strong>{deletingSubcat.subcategoryName}</strong> ({deletingSubcat.categoryName})?
+                                    </p>
+                                </div>
+                            </div>
+
+                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-md)', margin: '0 0 18px 0' }}>
+                                This will hide the page from the live storefront catalog, category popups, and search. You can restore it anytime from the <strong>Trash / Removed</strong> tab.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'transparent',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmDelete}
+                                    disabled={deleting}
+                                    style={{
+                                        padding: '8px 18px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: '#ef4444',
+                                        color: '#ffffff',
+                                        fontWeight: 700,
+                                        fontSize: 'var(--font-size-sm)',
+                                        border: 'none',
+                                        cursor: deleting ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {deleting ? 'Removing...' : 'Yes, Remove Subcategory'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 

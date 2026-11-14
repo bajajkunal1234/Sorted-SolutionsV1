@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
     try {
+        const { searchParams } = new URL(request.url);
+        const includeDeleted = searchParams.get('includeDeleted') === 'true';
         const supabase = createServerSupabase();
 
         // 1. Collect all standard catalog subcategories
@@ -29,6 +31,9 @@ export async function GET(request) {
                     isCustomized: false,
                     mediaType: 'image',
                     mediaUrl: sub.icon || cat.banner,
+                    thumbnailUrl: sub.icon || '',
+                    thumbnailSlides: [],
+                    isDeleted: false,
                     updatedAt: null
                 });
             });
@@ -53,9 +58,13 @@ export async function GET(request) {
                     if (row) {
                         p.isCustomized = true;
                         p.updatedAt = row.updated_at;
+                        if (row.extra_config?.subcategoryName) p.subcategoryName = row.extra_config.subcategoryName;
                         if (row.extra_config?.hero?.mediaType) p.mediaType = row.extra_config.hero.mediaType;
                         if (row.extra_config?.hero?.mediaUrl) p.mediaUrl = row.extra_config.hero.mediaUrl;
                         if (row.extra_config?.hero?.title) p.headline = row.extra_config.hero.title;
+                        if (row.extra_config?.thumbnailUrl) p.thumbnailUrl = row.extra_config.thumbnailUrl;
+                        if (Array.isArray(row.extra_config?.thumbnailSlides)) p.thumbnailSlides = row.extra_config.thumbnailSlides;
+                        if (row.extra_config?.isDeleted !== undefined) p.isDeleted = Boolean(row.extra_config.isDeleted);
                     }
                 });
 
@@ -80,6 +89,9 @@ export async function GET(request) {
                             isCustomized: true,
                             mediaType: cfg.hero?.mediaType || 'image',
                             mediaUrl: cfg.hero?.mediaUrl || '/images/banners/banner_speed_90_mins.png',
+                            thumbnailUrl: cfg.thumbnailUrl || cfg.hero?.mediaUrl || '',
+                            thumbnailSlides: Array.isArray(cfg.thumbnailSlides) ? cfg.thumbnailSlides : [],
+                            isDeleted: Boolean(cfg.isDeleted),
                             updatedAt: row.updated_at,
                             isCustomCreated: true
                         });
@@ -88,10 +100,15 @@ export async function GET(request) {
             }
         }
 
+        const filteredPages = includeDeleted
+            ? allPages
+            : allPages.filter(p => !p.isDeleted);
+
         return NextResponse.json({
             success: true,
-            data: allPages,
-            totalCount: allPages.length
+            data: filteredPages,
+            allPagesCount: allPages.length,
+            totalCount: filteredPages.length
         });
     } catch (err) {
         console.error('[API subcategory-pages] GET error:', err);

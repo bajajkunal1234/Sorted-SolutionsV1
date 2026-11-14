@@ -75,6 +75,53 @@ export async function PUT(request, { params }) {
     return handleSave(request, params);
 }
 
+export async function DELETE(request, { params }) {
+    try {
+        const { category: categorySlug, subcategory: subcategorySlug } = params;
+        const sectionId = `ecom-v2-sub-${categorySlug}-${subcategorySlug}`;
+        const supabase = createServerSupabase();
+
+        if (!supabase) {
+            return NextResponse.json({ success: false, error: 'Database connection failed' }, { status: 500 });
+        }
+
+        // Fetch existing config if any
+        const { data: existing } = await supabase
+            .from('website_section_configs')
+            .select('*')
+            .eq('section_id', sectionId)
+            .maybeSingle();
+
+        const currentConfig = existing?.extra_config || {};
+        const updatedConfig = {
+            ...currentConfig,
+            categorySlug,
+            subcategorySlug,
+            isDeleted: true,
+            deletedAt: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+            .from('website_section_configs')
+            .upsert({
+                section_id: sectionId,
+                extra_config: updatedConfig,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'section_id' });
+
+        if (error) throw error;
+
+        return NextResponse.json({
+            success: true,
+            message: 'Subcategory page removed successfully',
+            sectionId
+        });
+    } catch (err) {
+        console.error('[API subcategory-page] DELETE error:', err);
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+}
+
 async function handleSave(request, params) {
     try {
         const { category: categorySlug, subcategory: subcategorySlug } = params;
@@ -98,12 +145,23 @@ async function handleSave(request, params) {
             active: s.active !== false
         })).filter(s => s.mediaUrl);
 
+        // Clean & sanitize thumbnail slides array (up to 3 images with multi-directional sliding)
+        const rawThumbSlides = Array.isArray(configData.thumbnailSlides) ? configData.thumbnailSlides : [];
+        const sanitizedThumbSlides = rawThumbSlides.map((s, idx) => ({
+            id: String(s.id || `thumb-${idx + 1}`),
+            url: String(s.url || s.mediaUrl || '').trim(),
+            title: String(s.title || '').trim()
+        })).filter(s => s.url);
+
         // Clean & sanitize config fields
         const sanitizedConfig = {
             categorySlug,
             subcategorySlug,
-            categoryName: body.categoryName || categorySlug,
-            subcategoryName: body.subcategoryName || subcategorySlug,
+            categoryName: String(body.categoryName || configData.categoryName || categorySlug).trim(),
+            subcategoryName: String(body.subcategoryName || configData.subcategoryName || subcategorySlug).trim(),
+            thumbnailUrl: String(configData.thumbnailUrl || sanitizedThumbSlides[0]?.url || '').trim(),
+            thumbnailSlides: sanitizedThumbSlides,
+            isDeleted: Boolean(configData.isDeleted),
             hero: {
                 mediaType: ['image', 'gif', 'video'].includes(configData.hero?.mediaType) ? configData.hero.mediaType : 'image',
                 mediaUrl: String(configData.hero?.mediaUrl || sanitizedSlides[0]?.mediaUrl || '').trim(),

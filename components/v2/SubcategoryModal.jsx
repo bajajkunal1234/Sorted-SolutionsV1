@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { X, ChevronRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import SlidingThumbnail from './SlidingThumbnail';
 
 export default function SubcategoryModal({ category = null, onClose = () => {} }) {
     const router = useRouter();
@@ -186,17 +187,19 @@ export default function SubcategoryModal({ category = null, onClose = () => {} }
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    borderRadius: 10
                                 }}>
-                                    <img
-                                        src={sub.icon || activeCat.icon}
+                                    <SlidingThumbnail
+                                        slides={sub.thumbnailSlides}
+                                        fallbackUrl={sub.icon || activeCat.icon}
                                         alt={sub.name}
-                                        style={{
-                                            maxWidth: '85%',
-                                            maxHeight: '85%',
-                                            objectFit: 'contain',
-                                            filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))'
-                                        }}
+                                        interval={3500}
+                                        directionCycle={['from-top', 'from-right', 'from-bottom', 'from-left']}
+                                        width="100%"
+                                        height="100%"
+                                        objectFit="contain"
                                     />
                                 </div>
                                 <strong style={{

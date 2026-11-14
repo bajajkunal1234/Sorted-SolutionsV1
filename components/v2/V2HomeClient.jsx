@@ -9,10 +9,15 @@ import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
 import SubcategoryModal from './SubcategoryModal';
+import SlidingThumbnail from './SlidingThumbnail';
 
-export default function V2HomeClient({ services = [], categoryCounts = {} }) {
+export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [] }) {
     const { location, setLocationModalOpen } = useV2Cart();
     const [selectedModalCategory, setSelectedModalCategory] = useState(null);
+
+    const activeCategories = Array.isArray(categories) && categories.length > 0
+        ? categories
+        : V2_CATEGORIES;
 
     const primaryAddressTitle = location.flat && location.building
         ? `${location.flat}, ${location.building}`
@@ -189,7 +194,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                     </div>
 
                     <div className="v2-cat-grid">
-                        {V2_CATEGORIES.map(cat => (
+                        {activeCategories.map(cat => (
                             <button
                                 key={cat.slug}
                                 type="button"
@@ -204,10 +209,25 @@ export default function V2HomeClient({ services = [], categoryCounts = {} }) {
                                     fontFamily: 'inherit'
                                 }}
                             >
-                                <div className="v2-cat-icon-box" style={{ background: cat.accent }}>
-                                    <img src={cat.icon} alt={cat.name} />
+                                <div className="v2-cat-icon-box" style={{ background: cat.accent, overflow: 'hidden', position: 'relative' }}>
+                                    <SlidingThumbnail
+                                        slides={cat.thumbnailSlides}
+                                        fallbackUrl={cat.icon}
+                                        alt={cat.name}
+                                        interval={cat.thumbnailInterval || 3500}
+                                        directionCycle={
+                                            cat.thumbnailDirection === 'vertical'
+                                                ? ['from-top', 'from-bottom']
+                                                : cat.thumbnailDirection === 'horizontal'
+                                                ? ['from-right', 'from-left']
+                                                : ['from-top', 'from-right', 'from-bottom', 'from-left']
+                                        }
+                                        width="100%"
+                                        height="100%"
+                                        objectFit="contain"
+                                    />
                                 </div>
-                                <span className="v2-cat-label">{cat.mobileLabel}</span>
+                                <span className="v2-cat-label">{cat.mobileLabel || cat.name}</span>
                                 {categoryCounts[cat.slug] > 0 && (
                                     <span style={{ fontSize: 10.5, color: '#64748b', fontWeight: 600 }}>
                                         {categoryCounts[cat.slug]} services
