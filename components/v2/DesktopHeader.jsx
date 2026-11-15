@@ -22,19 +22,25 @@ export default function DesktopHeader() {
         ? `${location.locality}${location.pincode ? `, ${location.pincode}` : ''}`
         : 'Mumbai — Select Locality';
 
-    const headerLogo = brandLogos?.dayModeLogo || '/logo.jpg';
+    const headerLogo = brandLogos?.dayModeLogo || '/images/logos/logo-day.png';
 
     return (
         <header className="v2-desktop-header">
             <div className="v2-container v2-header-inner">
-                <Link href="/v2" className="v2-brand-link">
-                    <span className="v2-brand-badge">
-                        <img src={headerLogo} alt={brandLogos?.altText || "Sorted Solutions"} />
-                    </span>
-                    <span className="v2-brand-text">
-                        <strong>Sorted Solutions</strong>
-                        <span>Mumbai Home Care</span>
-                    </span>
+                <Link href="/v2" className="v2-brand-link" aria-label={brandLogos?.altText || "Sorted Solutions"} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <img
+                        src={headerLogo}
+                        alt={brandLogos?.altText || "Sorted Solutions"}
+                        style={{
+                            height: 38,
+                            maxHeight: 44,
+                            width: 'auto',
+                            maxWidth: 160,
+                            objectFit: 'contain',
+                            display: 'block'
+                        }}
+                        onError={(e) => { e.currentTarget.src = '/logo.jpg'; }}
+                    />
                 </Link>
 
                 <div className="v2-header-controls">

@@ -44,8 +44,8 @@ export default function EcomV2HomepageSettings({ onBack }) {
 
     // Logos State
     const [logos, setLogos] = useState({
-        dayModeLogo: '/logo.jpg',
-        darkModeLogo: '/logo.jpg',
+        dayModeLogo: '/images/logos/logo-day.png',
+        darkModeLogo: '/images/logos/logo-dark.png',
         altText: 'Sorted Solutions'
     });
     const [uploadingLogoType, setUploadingLogoType] = useState(null); // 'day' | 'dark'
@@ -80,8 +80,8 @@ export default function EcomV2HomepageSettings({ onBack }) {
             if (json.success && json.data) {
                 if (json.data.logos) {
                     setLogos({
-                        dayModeLogo: json.data.logos.dayModeLogo || '/logo.jpg',
-                        darkModeLogo: json.data.logos.darkModeLogo || json.data.logos.dayModeLogo || '/logo.jpg',
+                        dayModeLogo: json.data.logos.dayModeLogo || '/images/logos/logo-day.png',
+                        darkModeLogo: json.data.logos.darkModeLogo || json.data.logos.dayModeLogo || '/images/logos/logo-dark.png',
                         altText: json.data.logos.altText || 'Sorted Solutions'
                     });
                 }
@@ -141,11 +141,25 @@ export default function EcomV2HomepageSettings({ onBack }) {
         if (!file) return;
         setUploadingLogoType(type);
         setErrorMessage('');
+
+        // Immediate local preview for zero-latency feedback
+        try {
+            const previewUrl = URL.createObjectURL(file);
+            if (type === 'day') {
+                setLogos(prev => ({ ...prev, dayModeLogo: previewUrl }));
+            } else {
+                setLogos(prev => ({ ...prev, darkModeLogo: previewUrl }));
+            }
+        } catch (e) {
+            // ignore
+        }
+
         try {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('bucket', 'website-assets');
             formData.append('folder', 'ecom-v2/logos');
+            formData.append('preserveFormat', 'true');
 
             const res = await fetch('/api/upload', {
                 method: 'POST',
@@ -282,11 +296,11 @@ export default function EcomV2HomepageSettings({ onBack }) {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)', maxWidth: 1280, margin: '0 auto' }}>
-            {/* Hidden Logo File Input */}
+            {/* Hidden Logo File Input (Supports PNG with transparency, SVG, WebP, JPG) */}
             <input
                 ref={logoFileInputRef}
                 type="file"
-                accept="image/*"
+                accept=".png,image/png,.svg,image/svg+xml,.jpg,.jpeg,image/jpeg,.webp,image/webp,image/*"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -617,21 +631,37 @@ export default function EcomV2HomepageSettings({ onBack }) {
                             </div>
 
                             {/* Visual Preview Box (White Background) */}
-                            <div style={{
-                                width: '100%',
-                                height: 160,
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: '#ffffff',
-                                border: '2px dashed #cbd5e1',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                padding: 16,
-                                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.04)'
-                            }}>
+                            <div
+                                onClick={() => {
+                                    setUploadingLogoType('day');
+                                    logoFileInputRef.current?.click();
+                                }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file) handleUploadLogo(file, 'day');
+                                }}
+                                title="Click or drag & drop a PNG/SVG/JPG logo here"
+                                style={{
+                                    width: '100%',
+                                    height: 160,
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: '#ffffff',
+                                    border: '2px dashed #cbd5e1',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    padding: 16,
+                                    cursor: 'pointer',
+                                    boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.04)',
+                                    transition: 'border-color 0.15s ease'
+                                }}
+                            >
                                 {logos.dayModeLogo ? (
                                     <img
                                         src={logos.dayModeLogo}
@@ -654,12 +684,13 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                     right: 8,
                                     fontSize: 10,
                                     color: '#64748b',
-                                    backgroundColor: 'rgba(255,255,255,0.9)',
-                                    padding: '2px 6px',
+                                    backgroundColor: 'rgba(255,255,255,0.92)',
+                                    padding: '2px 8px',
                                     borderRadius: 4,
-                                    border: '1px solid #e2e8f0'
+                                    border: '1px solid #e2e8f0',
+                                    fontWeight: 600
                                 }}>
-                                    Preview on White Surface
+                                    Preview on White Surface (Click / Drag to Upload PNG)
                                 </div>
                             </div>
 
@@ -706,17 +737,17 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                         }}
                                     >
                                         {uploadingLogoType === 'day' ? (
-                                            <RefreshCw size={13} className="spin" />
+                                             <RefreshCw size={13} className="spin" />
                                         ) : (
                                             <Upload size={13} />
                                         )}
-                                        Upload Logo
+                                        Upload PNG / Logo
                                     </button>
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                                        Recommended: SVG or 512×512 PNG with transparent background
+                                    <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>
+                                        Supports PNG (transparency preserved) • SVG • WebP • JPG
                                     </span>
                                     <button
                                         type="button"
@@ -784,21 +815,37 @@ export default function EcomV2HomepageSettings({ onBack }) {
                             </div>
 
                             {/* Visual Preview Box (Dark Violet Background) */}
-                            <div style={{
-                                width: '100%',
-                                height: 160,
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: '#1d1042',
-                                border: '2px dashed rgba(167,139,250,0.4)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                padding: 16,
-                                boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.4)'
-                            }}>
+                            <div
+                                onClick={() => {
+                                    setUploadingLogoType('dark');
+                                    logoFileInputRef.current?.click();
+                                }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const file = e.dataTransfer.files?.[0];
+                                    if (file) handleUploadLogo(file, 'dark');
+                                }}
+                                title="Click or drag & drop a PNG/SVG/JPG logo here"
+                                style={{
+                                    width: '100%',
+                                    height: 160,
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: '#1d1042',
+                                    border: '2px dashed rgba(167,139,250,0.4)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    padding: 16,
+                                    cursor: 'pointer',
+                                    boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.4)',
+                                    transition: 'border-color 0.15s ease'
+                                }}
+                            >
                                 {logos.darkModeLogo ? (
                                     <img
                                         src={logos.darkModeLogo}
@@ -821,12 +868,13 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                     right: 8,
                                     fontSize: 10,
                                     color: '#c4b5fd',
-                                    backgroundColor: 'rgba(0,0,0,0.6)',
-                                    padding: '2px 6px',
+                                    backgroundColor: 'rgba(0,0,0,0.65)',
+                                    padding: '2px 8px',
                                     borderRadius: 4,
-                                    border: '1px solid rgba(255,255,255,0.15)'
+                                    border: '1px solid rgba(255,255,255,0.18)',
+                                    fontWeight: 600
                                 }}>
-                                    Preview on Dark Surface
+                                    Preview on Dark Surface (Click / Drag to Upload PNG)
                                 </div>
                             </div>
 
@@ -877,13 +925,13 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                         ) : (
                                             <Upload size={13} />
                                         )}
-                                        Upload Logo
+                                        Upload PNG / Logo
                                     </button>
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                                        Tip: Use high-contrast light icon for best readability
+                                    <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 600 }}>
+                                        Supports PNG (transparency preserved) • SVG • WebP • JPG
                                     </span>
                                     <button
                                         type="button"
@@ -911,11 +959,16 @@ export default function EcomV2HomepageSettings({ onBack }) {
                         borderRadius: 'var(--radius-lg)',
                         border: '1px solid var(--border-primary)'
                     }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                            <Sparkles size={18} color="#6338f5" />
-                            <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>
-                                Live Storefront UI Simulation
-                            </strong>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Sparkles size={18} color="#6338f5" />
+                                <strong style={{ fontSize: 15, color: 'var(--text-primary)' }}>
+                                    Live Storefront UI Simulation
+                                </strong>
+                            </div>
+                            <span style={{ fontSize: 11, color: '#10b981', fontWeight: 700, backgroundColor: 'rgba(16,185,129,0.12)', padding: '3px 10px', borderRadius: 20 }}>
+                                ✓ Clean Brand Logo (No Pill, No Extra Text)
+                            </span>
                         </div>
 
                         <div style={{
@@ -937,32 +990,45 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: 10,
-                                    padding: '8px 12px',
-                                    backgroundColor: '#f8fafc',
+                                    justifyContent: 'space-between',
+                                    gap: 12,
+                                    padding: '10px 16px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #e2e8f0',
                                     borderRadius: 8
                                 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                        <img
+                                            src={logos.dayModeLogo || '/logo.jpg'}
+                                            alt={logos.altText || "Logo"}
+                                            style={{
+                                                height: 38,
+                                                maxHeight: 44,
+                                                width: 'auto',
+                                                maxWidth: 160,
+                                                objectFit: 'contain',
+                                                display: 'block'
+                                            }}
+                                            onError={(e) => { e.currentTarget.src = '/logo.jpg'; }}
+                                        />
+                                    </div>
                                     <div style={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: '50%',
-                                        backgroundColor: '#ffffff',
-                                        boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: 'center',
-                                        overflow: 'hidden'
+                                        gap: 6,
+                                        padding: '6px 12px',
+                                        borderRadius: 20,
+                                        border: '1px solid #e2e8f0',
+                                        backgroundColor: '#f8fafc',
+                                        fontSize: 11,
+                                        color: '#64748b'
                                     }}>
-                                        <img src={logos.dayModeLogo || '/logo.jpg'} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <strong style={{ fontSize: 13, color: '#0f172a' }}>{logos.altText || 'Sorted Solutions'}</strong>
-                                        <span style={{ fontSize: 10, color: '#64748b' }}>Mumbai Home Care</span>
+                                        <span>📍 Mumbai — Select Locality</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Mobile Dark Hero Banner Pill Mock */}
+                            {/* Mobile Dark Hero Banner Mock */}
                             <div style={{
                                 padding: 16,
                                 backgroundColor: '#1d1042',
@@ -971,32 +1037,37 @@ export default function EcomV2HomepageSettings({ onBack }) {
                                 boxShadow: '0 4px 16px rgba(0,0,0,0.25)'
                             }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
-                                    Mobile Hero Banner (Dark Mode)
+                                    Mobile Hero Banner (Dark Mode — Just Clean Logo)
                                 </span>
                                 <div style={{
-                                    display: 'inline-flex',
+                                    display: 'flex',
                                     alignItems: 'center',
-                                    gap: 8,
-                                    padding: '5px 12px 5px 8px',
-                                    borderRadius: 999,
-                                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                                    border: '1px solid rgba(255, 255, 255, 0.22)'
+                                    justifyContent: 'space-between',
+                                    gap: 12,
+                                    padding: '8px 4px'
                                 }}>
-                                    <div style={{
-                                        width: 26,
-                                        height: 26,
-                                        borderRadius: '50%',
-                                        backgroundColor: '#ffffff',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        overflow: 'hidden'
-                                    }}>
-                                        <img src={logos.darkModeLogo || logos.dayModeLogo || '/logo.jpg'} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ffffff', fontSize: 12, fontWeight: 600 }}>
+                                        <span>📍 Select Mumbai Locality</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                                        <span style={{ fontSize: 12.5, fontWeight: 800, color: '#ffffff' }}>{logos.altText || 'Sorted Solutions'}</span>
-                                        <span style={{ fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase' }}>Doorstep Care</span>
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'flex-end',
+                                        flexShrink: 0
+                                    }}>
+                                        <img
+                                            src={logos.darkModeLogo || logos.dayModeLogo || '/logo.jpg'}
+                                            alt={logos.altText || "Logo"}
+                                            style={{
+                                                height: 38,
+                                                maxHeight: 44,
+                                                width: 'auto',
+                                                maxWidth: 140,
+                                                objectFit: 'contain',
+                                                display: 'block'
+                                            }}
+                                            onError={(e) => { e.currentTarget.src = '/logo.jpg'; }}
+                                        />
                                     </div>
                                 </div>
                             </div>

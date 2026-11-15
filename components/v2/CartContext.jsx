@@ -21,8 +21,8 @@ export function CartProvider({ children }) {
     });
     const [customerSession, setCustomerSession] = useState(null);
     const [brandLogos, setBrandLogos] = useState({
-        dayModeLogo: '/logo.jpg',
-        darkModeLogo: '/logo.jpg',
+        dayModeLogo: '/images/logos/logo-day.png',
+        darkModeLogo: '/images/logos/logo-dark.png',
         altText: 'Sorted Solutions'
     });
 

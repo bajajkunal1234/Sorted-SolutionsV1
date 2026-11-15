@@ -5,8 +5,8 @@ import { DEFAULT_CATEGORY_THUMBNAILS } from '../thumbnails-config/route';
 export const dynamic = 'force-dynamic';
 
 export const DEFAULT_LOGOS = {
-    dayModeLogo: '/logo.jpg',
-    darkModeLogo: '/logo.jpg',
+    dayModeLogo: '/images/logos/logo-day.png',
+    darkModeLogo: '/images/logos/logo-dark.png',
     altText: 'Sorted Solutions'
 };
 

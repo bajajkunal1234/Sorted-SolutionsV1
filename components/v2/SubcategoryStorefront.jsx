@@ -286,49 +286,32 @@ export default function SubcategoryStorefront({
                                 <ArrowLeft size={19} />
                             </Link>
 
-                            {/* Right Aligned: Sorted Solutions Brand */}
+                            {/* Right Aligned: Brand Logo (Clean, No Pill, No Text) */}
                             <Link
                                 href="/v2"
+                                aria-label={brandLogos?.altText || "Sorted Solutions"}
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: 8,
-                                    padding: '5px 14px 5px 8px',
-                                    borderRadius: 999,
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    backdropFilter: 'blur(10px)',
-                                    boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
-                                    border: '1px solid rgba(255, 255, 255, 0.8)',
+                                    justifyContent: 'flex-end',
                                     textDecoration: 'none',
                                     flexShrink: 0
                                 }}
                             >
-                                <div style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: '50%',
-                                    backgroundColor: '#6338f5',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden',
-                                    flexShrink: 0
-                                }}>
-                                    <img
-                                        src={brandLogos?.dayModeLogo || '/logo.jpg'}
-                                        alt={brandLogos?.altText || "Sorted Solutions"}
-                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                    />
-                                </div>
-                                <span style={{
-                                    fontSize: 13,
-                                    fontWeight: 800,
-                                    color: '#0f172a',
-                                    letterSpacing: '-0.02em',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    Sorted Solutions
-                                </span>
+                                <img
+                                    src={brandLogos?.darkModeLogo || brandLogos?.dayModeLogo || '/images/logos/logo-dark.png'}
+                                    alt={brandLogos?.altText || "Sorted Solutions"}
+                                    style={{
+                                        height: 34,
+                                        maxHeight: 38,
+                                        width: 'auto',
+                                        maxWidth: 130,
+                                        objectFit: 'contain',
+                                        display: 'block',
+                                        filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.35))'
+                                    }}
+                                    onError={(e) => { e.currentTarget.src = '/images/logos/logo-dark.png'; }}
+                                />
                             </Link>
                         </div>
 

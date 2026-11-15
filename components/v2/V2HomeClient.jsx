@@ -20,7 +20,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
         : V2_CATEGORIES;
 
     const effectiveLogos = brandLogos || initialLogos;
-    const heroDarkLogo = effectiveLogos?.darkModeLogo || effectiveLogos?.dayModeLogo || '/logo.jpg';
+    const heroDarkLogo = effectiveLogos?.darkModeLogo || effectiveLogos?.dayModeLogo || '/images/logos/logo-dark.png';
 
     const primaryAddressTitle = location.flat && location.building
         ? `${location.flat}, ${location.building}`
@@ -79,62 +79,39 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                             </span>
                         </button>
 
-                        {/* Top Right Aligned Brand: Sorted Solutions */}
+                        {/* Top Right Brand Logo (Clean, No Pill, No Text) */}
                         <Link
                             href="/v2"
+                            aria-label={effectiveLogos?.altText || "Sorted Solutions"}
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 8,
+                                justifyContent: 'flex-end',
                                 flexShrink: 0,
                                 textDecoration: 'none',
-                                padding: '5px 12px 5px 8px',
-                                borderRadius: 999,
-                                backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                                backdropFilter: 'blur(10px)',
-                                border: '1px solid rgba(255, 255, 255, 0.22)',
-                                boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
-                                transition: 'all 0.15s ease'
+                                padding: '2px 0',
+                                transition: 'opacity 0.15s ease'
                             }}
                         >
-                            <div style={{
-                                width: 26,
-                                height: 26,
-                                borderRadius: '50%',
-                                backgroundColor: '#ffffff',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                overflow: 'hidden',
-                                flexShrink: 0,
-                                boxShadow: '0 1px 4px rgba(0,0,0,0.15)'
-                            }}>
-                                <img
-                                    src={heroDarkLogo}
-                                    alt={effectiveLogos?.altText || "Sorted Solutions"}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
-                                <span style={{
-                                    fontSize: 13,
-                                    fontWeight: 800,
-                                    color: '#ffffff',
-                                    letterSpacing: '-0.02em',
-                                    whiteSpace: 'nowrap'
-                                }}>
-                                    Sorted Solutions
-                                </span>
-                                <span style={{
-                                    fontSize: 9.5,
-                                    fontWeight: 600,
-                                    color: 'rgba(255, 255, 255, 0.75)',
-                                    letterSpacing: '0.04em',
-                                    textTransform: 'uppercase'
-                                }}>
-                                    Doorstep Care
-                                </span>
-                            </div>
+                            <img
+                                src={heroDarkLogo}
+                                alt={effectiveLogos?.altText || "Sorted Solutions"}
+                                style={{
+                                    height: 38,
+                                    maxHeight: 44,
+                                    width: 'auto',
+                                    maxWidth: 140,
+                                    objectFit: 'contain',
+                                    display: 'block'
+                                }}
+                                onError={(e) => {
+                                    if (effectiveLogos?.dayModeLogo && e.currentTarget.src !== effectiveLogos.dayModeLogo) {
+                                        e.currentTarget.src = effectiveLogos.dayModeLogo;
+                                    } else {
+                                        e.currentTarget.src = '/logo.jpg';
+                                    }
+                                }}
+                            />
                         </Link>
                     </div>
 

@@ -35,8 +35,15 @@ export async function POST(request) {
         }
         const rawBuffer = Buffer.from(bytes);
 
-        // Compress images; videos/PDFs/GIFs pass through unchanged
-        const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type || 'image/jpeg');
+        const preserveFormatParam = formData.get('preserveFormat');
+        const isLogo = folder.includes('logos') || folder.includes('brand');
+        const isPng = (file.type && file.type.includes('png')) || (file.name && file.name.toLowerCase().endsWith('.png'));
+        const preserveFormat = preserveFormatParam === 'true' || (isLogo && isPng);
+
+        // Compress images; videos/PDFs/GIFs pass through unchanged; PNG logos preserved as pure PNG
+        const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type || (isPng ? 'image/png' : 'image/jpeg'), {
+            preserveFormat
+        });
 
         // Route large files, videos, or ecom-v2 assets to 'website-assets' bucket (which has no 5MB limit)
         if (bucket === 'media' && (rawBuffer.byteLength > 4.5 * 1024 * 1024 || (contentType && contentType.startsWith('video/')) || folder.startsWith('ecom-v2'))) {
