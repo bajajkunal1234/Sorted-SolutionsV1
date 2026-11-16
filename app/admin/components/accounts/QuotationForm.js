@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Loader2 } from 'lucide-react';
+import { Plus, Trash2, X, Loader2, Home, MapPin } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
+import PropertyForm from './PropertyForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI, propertiesAPI } from '@/lib/adminAPI';
 import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems, saving = false }) {
@@ -58,6 +59,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         account_name: existingQuotation?.account_name || defaultAccount?.name || '',
         accountGSTIN: existingQuotation?.accountGSTIN || defaultAccount?.gstin || '',
         accountState: existingQuotation?.accountState || defaultAccount?.state || 'Maharashtra',
+        property_id: existingQuotation?.property_id || existingQuotation?.property?.id || null,
         property: existingQuotation?.property || null,
         billing_address: existingQuotation?.billing_address || defaultAccount?.address || '',
         shipping_address: existingQuotation?.shipping_address || '',
@@ -70,6 +72,10 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : false
     });
 
+    const [properties, setProperties] = useState([]);
+    const [loadingProperties, setLoadingProperties] = useState(false);
+    const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
+    const [customAddressMode, setCustomAddressMode] = useState(false);
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
@@ -151,13 +157,119 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
 
     const totals = calculateTotals();
 
-    const buildPropertyAddress = (p) => [
-        p.flat_number,
-        p.building_name,
-        p.address,
-        p.locality,
-        p.pincode ? `- ${p.pincode}` : ''
-    ].filter(Boolean).join(', ');
+    const buildPropertyAddress = (p) => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        const street = typeof p.address === 'string' ? p.address : (p.address?.line1 || '');
+        return [
+            p.flat_number,
+            p.building_name,
+            street,
+            p.locality,
+            p.city,
+            p.pincode ? `- ${p.pincode}` : ''
+        ].filter(Boolean).join(', ');
+    };
+
+    // Load properties for a customer account
+    const loadProperties = async (accountId, preferredPropId = null) => {
+        if (!accountId) {
+            setProperties([]);
+            return;
+        }
+        setLoadingProperties(true);
+        try {
+            const res = await fetch(`/api/admin/properties?customer_id=${accountId}`);
+            const json = await res.json();
+            const props = (json.data || []);
+            setProperties(props);
+
+            let matched = null;
+            if (preferredPropId) {
+                matched = props.find(p => String(p.id) === String(preferredPropId));
+            }
+            if (!matched && (formData.property_id || existingQuotation?.property_id)) {
+                const targetId = formData.property_id || existingQuotation?.property_id;
+                matched = props.find(p => String(p.id) === String(targetId));
+            }
+            if (!matched && (existingQuotation?.billing_address || formData.billing_address)) {
+                const targetAddr = (existingQuotation?.billing_address || formData.billing_address).toLowerCase();
+                matched = props.find(p => {
+                    const full = buildPropertyAddress(p).toLowerCase();
+                    if (full && targetAddr.includes(full)) return true;
+                    const b = (p.building_name || '').toLowerCase();
+                    const f = (p.flat_number || '').toLowerCase();
+                    if (b && f && targetAddr.includes(b) && targetAddr.includes(f)) return true;
+                    if (b && targetAddr.includes(b)) return true;
+                    return false;
+                });
+            }
+            if (!matched && props.length > 0) {
+                matched = props[0];
+            }
+
+            if (matched) {
+                const addr = buildPropertyAddress(matched);
+                setFormData(prev => ({
+                    ...prev,
+                    property_id: matched.id,
+                    property: matched,
+                    billing_address: prev.billing_address || addr
+                }));
+            }
+        } catch (e) {
+            console.warn('Failed to load properties for account:', e);
+        } finally {
+            setLoadingProperties(false);
+        }
+    };
+
+    // Load initial properties if account is already selected
+    useEffect(() => {
+        if (formData.account_id) {
+            loadProperties(formData.account_id, formData.property_id);
+        }
+    }, [formData.account_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handlePropertyChange = (propertyId) => {
+        if (!propertyId) {
+            setFormData(prev => ({
+                ...prev,
+                property_id: null,
+                property: null,
+                billing_address: ''
+            }));
+            return;
+        }
+        const selected = properties.find(p => String(p.id) === String(propertyId));
+        if (selected) {
+            const addr = buildPropertyAddress(selected);
+            setFormData(prev => ({
+                ...prev,
+                property_id: selected.id,
+                property: selected,
+                billing_address: addr
+            }));
+        }
+    };
+
+    const handlePropertySave = async (propertyData) => {
+        try {
+            const newProperty = await propertiesAPI.create(propertyData);
+            setProperties(prev => [...prev, newProperty]);
+            const addr = buildPropertyAddress(newProperty);
+            setFormData(prev => ({
+                ...prev,
+                property_id: newProperty.id,
+                property: newProperty,
+                billing_address: addr
+            }));
+            setShowAddPropertyModal(false);
+        } catch (err) {
+            console.error('Error saving property:', err);
+            alert('Failed to save property: ' + err.message);
+        }
+    };
 
     const handleAccountChange = async (account) => {
         if (!account) return;
@@ -167,26 +279,13 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             account_name: account.name,
             accountGSTIN: account.gstin || '',
             accountState: account.address?.state || account.state || 'Maharashtra',
+            property_id: null,
             property: null,
             billing_address: '',
             shipping_address: ''
         }));
 
-        try {
-            const res = await fetch(`/api/admin/properties?customer_id=${account.id}`);
-            const json = await res.json();
-            const props = (json.data || []);
-            const firstProp = props[0];
-            const addr = firstProp ? buildPropertyAddress(firstProp) : '';
-            if (addr) {
-                setFormData(prev => ({
-                    ...prev,
-                    billing_address: addr
-                }));
-            }
-        } catch (e) {
-            // No properties found
-        }
+        await loadProperties(account.id);
     };
 
     const handleItemChange = (index, field, value) => {
@@ -301,6 +400,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         delete quotationData.accountGSTIN;
         delete quotationData.accountState;
         delete quotationData.property;
+        delete quotationData.property_id;
 
         onSave(quotationData, action);
     };
@@ -375,6 +475,131 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                 value={previewQuoteNumber}
                             />
                         </div>
+
+                        {/* Property Selection - Appears once an Account is selected */}
+                        {formData.account_id && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                                        <Home size={14} style={{ color: '#8b5cf6' }} />
+                                        Property / Service Address *
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddPropertyModal(true)}
+                                        className="btn btn-secondary"
+                                        style={{
+                                            padding: '2px 8px',
+                                            fontSize: 11,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 4,
+                                            height: 'auto',
+                                            color: '#60a5fa',
+                                            borderColor: 'rgba(96,165,250,0.3)'
+                                        }}
+                                    >
+                                        <Plus size={12} /> Add Property
+                                    </button>
+                                </div>
+                                <select
+                                    className="form-input"
+                                    value={formData.property_id ? String(formData.property_id) : ''}
+                                    onChange={(e) => handlePropertyChange(e.target.value)}
+                                    disabled={loadingProperties}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">
+                                        {loadingProperties ? 'Loading properties...' : (properties.length === 0 ? '— No properties registered for this customer —' : '— Select Property —')}
+                                    </option>
+                                    {properties.map(p => {
+                                        const prefix = [p.flat_number, p.building_name].filter(Boolean).join(', ');
+                                        const street = typeof p.address === 'string' ? p.address : (p.address?.line1 || '');
+                                        const mainAddr = [prefix, street, p.locality, p.city].filter(Boolean).join(', ');
+                                        const nameTag = p.name || p.property_name || p.property_type || '';
+                                        const label = `${nameTag ? `[${nameTag}] ` : ''}${mainAddr || 'Property #' + String(p.id).slice(0, 6)}${p.pincode ? ` - ${p.pincode}` : ''}`;
+                                        return (
+                                            <option key={p.id} value={String(p.id)}>
+                                                {label}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+
+                                {/* Address preview & edit */}
+                                {formData.billing_address ? (
+                                    <div style={{
+                                        marginTop: 6,
+                                        padding: '8px 12px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                        border: '1px solid rgba(139, 92, 246, 0.25)',
+                                        fontSize: '12px',
+                                        color: 'var(--text-secondary)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, lineHeight: 1.4 }}>
+                                                <MapPin size={13} style={{ color: '#8b5cf6', marginTop: 2, flexShrink: 0 }} />
+                                                <div>
+                                                    <span style={{ color: '#8b5cf6', fontWeight: 600 }}>Billing Address on Quotation: </span>
+                                                    <span style={{ color: 'var(--text-primary)' }}>{formData.billing_address}</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCustomAddressMode(prev => !prev)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#60a5fa',
+                                                    fontSize: 11,
+                                                    cursor: 'pointer',
+                                                    textDecoration: 'underline',
+                                                    flexShrink: 0
+                                                }}
+                                            >
+                                                {customAddressMode ? 'Done' : 'Edit'}
+                                            </button>
+                                        </div>
+                                        {customAddressMode && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={formData.billing_address}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, billing_address: e.target.value }))}
+                                                    placeholder="Enter custom billing address..."
+                                                    style={{ width: '100%', fontSize: 12, padding: '6px 10px' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (properties.length === 0 && !loadingProperties) ? (
+                                    <div style={{
+                                        marginTop: 6,
+                                        padding: '8px 12px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                                        border: '1px solid rgba(234, 179, 8, 0.25)',
+                                        fontSize: '12px',
+                                        color: '#facc15',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 6
+                                    }}>
+                                        <span>⚠️ No properties registered for this customer yet.</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddPropertyModal(true)}
+                                            style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
+                                            + Add Property
+                                        </button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
                         <div>
                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
                                 Quotation Date *
@@ -761,6 +986,14 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                     job={{}} 
                     onClose={() => setShowCalculator(false)}
                     onApply={handleCalculatorItems}
+                />
+            )}
+
+            {showAddPropertyModal && (
+                <PropertyForm
+                    customerId={formData.account_id}
+                    onSave={handlePropertySave}
+                    onClose={() => setShowAddPropertyModal(false)}
                 />
             )}
         </div>

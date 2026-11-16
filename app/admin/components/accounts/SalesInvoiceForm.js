@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Loader2 } from 'lucide-react';
+import { Plus, Trash2, X, Loader2, Home, MapPin } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
+import PropertyForm from './PropertyForm';
 import JobSelector from './JobSelector';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI, propertiesAPI } from '@/lib/adminAPI';
 import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems, saving = false }) {
@@ -64,6 +65,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         account_address: existingInvoice?.account_address || '',
         accountGSTIN: existingInvoice?.accountGSTIN || defaultAccount?.gstin || '',
         accountState: existingInvoice?.accountState || defaultAccount?.state || 'Maharashtra',
+        property_id: existingInvoice?.property_id || existingInvoice?.property?.id || null,
         property: existingInvoice?.property || null,
         billing_address: existingInvoice?.billing_address || '',
         shipping_address: existingInvoice?.shipping_address || '',
@@ -78,6 +80,10 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         job_id: existingInvoice?.job_id || defaultAccount?.job_id || null
     });
 
+    const [properties, setProperties] = useState([]);
+    const [loadingProperties, setLoadingProperties] = useState(false);
+    const [showAddPropertyModal, setShowAddPropertyModal] = useState(false);
+    const [customAddressMode, setCustomAddressMode] = useState(false);
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
@@ -176,24 +182,134 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         ].filter(Boolean).join(', ');
     };
 
+    // Load properties for a customer account
+    const loadProperties = async (accountId, preferredPropId = null, jobObj = null) => {
+        if (!accountId) {
+            setProperties([]);
+            return;
+        }
+        setLoadingProperties(true);
+        try {
+            const res = await fetch(`/api/admin/properties?customer_id=${accountId}`);
+            const json = await res.json();
+            const props = (json.data || []);
+            setProperties(props);
+
+            let matched = null;
+            if (preferredPropId) {
+                matched = props.find(p => String(p.id) === String(preferredPropId));
+            }
+            if (!matched && jobObj?.property?.id) {
+                matched = props.find(p => String(p.id) === String(jobObj.property.id));
+            }
+            if (!matched && (formData.property_id || existingInvoice?.property_id)) {
+                const targetId = formData.property_id || existingInvoice?.property_id;
+                matched = props.find(p => String(p.id) === String(targetId));
+            }
+            if (!matched && (existingInvoice?.billing_address || formData.billing_address)) {
+                const targetAddr = (existingInvoice?.billing_address || formData.billing_address).toLowerCase();
+                matched = props.find(p => {
+                    const full = buildPropertyAddress(p).toLowerCase();
+                    if (full && targetAddr.includes(full)) return true;
+                    const b = (p.building_name || '').toLowerCase();
+                    const f = (p.flat_number || '').toLowerCase();
+                    if (b && f && targetAddr.includes(b) && targetAddr.includes(f)) return true;
+                    if (b && targetAddr.includes(b)) return true;
+                    return false;
+                });
+            }
+            if (!matched && props.length > 0) {
+                matched = props[0];
+            }
+
+            if (matched) {
+                const addr = buildPropertyAddress(matched);
+                setFormData(prev => ({
+                    ...prev,
+                    property_id: matched.id,
+                    property: matched,
+                    billing_address: prev.billing_address || addr,
+                    account_address: prev.account_address || addr
+                }));
+            }
+        } catch (e) {
+            console.warn('Failed to load properties for account:', e);
+        } finally {
+            setLoadingProperties(false);
+        }
+    };
+
+    // Load initial properties if account is already selected
+    useEffect(() => {
+        if (formData.account_id) {
+            loadProperties(formData.account_id, formData.property_id);
+        }
+    }, [formData.account_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const handlePropertyChange = (propertyId) => {
+        if (!propertyId) {
+            setFormData(prev => ({
+                ...prev,
+                property_id: null,
+                property: null,
+                billing_address: '',
+                account_address: ''
+            }));
+            return;
+        }
+        const selected = properties.find(p => String(p.id) === String(propertyId));
+        if (selected) {
+            const addr = buildPropertyAddress(selected);
+            setFormData(prev => ({
+                ...prev,
+                property_id: selected.id,
+                property: selected,
+                billing_address: addr,
+                account_address: addr
+            }));
+        }
+    };
+
+    const handlePropertySave = async (propertyData) => {
+        try {
+            const newProperty = await propertiesAPI.create(propertyData);
+            setProperties(prev => [...prev, newProperty]);
+            const addr = buildPropertyAddress(newProperty);
+            setFormData(prev => ({
+                ...prev,
+                property_id: newProperty.id,
+                property: newProperty,
+                billing_address: addr,
+                account_address: addr
+            }));
+            setShowAddPropertyModal(false);
+        } catch (err) {
+            console.error('Error saving property:', err);
+            alert('Failed to save property: ' + err.message);
+        }
+    };
+
     const handleJobChange = (jobId, job) => {
         if (!jobId) {
             setFormData(prev => ({ ...prev, job_id: null }));
             return;
         }
-        let jobPropAddr = '';
-        if (job?.property) {
-            jobPropAddr = buildPropertyAddress(job.property);
-        } else if (job?.address) {
+        const jobPropId = job?.property_id || job?.property?.id || null;
+        let jobProp = job?.property;
+        if (!jobProp && jobPropId) {
+            jobProp = properties.find(p => String(p.id) === String(jobPropId));
+        }
+        let jobPropAddr = jobProp ? buildPropertyAddress(jobProp) : '';
+        if (!jobPropAddr && job?.address) {
             jobPropAddr = [job.address, job.locality, job.city, job.pincode ? `- ${job.pincode}` : ''].filter(Boolean).join(', ');
         }
         setFormData(prev => ({
             ...prev,
             job_id: jobId,
+            ...(jobPropId ? { property_id: jobPropId, property: jobProp } : {}),
             ...(jobPropAddr ? { billing_address: jobPropAddr, account_address: jobPropAddr } : {})
         }));
     };
-
 
     const handleAccountChange = async (account) => {
         if (!account) return;
@@ -210,29 +326,14 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             account_address: '',
             accountGSTIN: account.gstin || '',
             accountState: 'Maharashtra',
+            property_id: null,
             property: null,
             billing_address: '',
             shipping_address: '',
             job_id: null
         }));
 
-        // Fetch linked properties for this account to get the billing address
-        try {
-            const res = await fetch(`/api/admin/properties?customer_id=${account.id}`);
-            const json = await res.json();
-            const props = (json.data || []);
-            const firstProp = props[0]; // API returns property objects directly
-            const addr = firstProp ? buildPropertyAddress(firstProp) : '';
-            if (addr) {
-                setFormData(prev => ({
-                    ...prev,
-                    account_address: addr,
-                    billing_address: addr,
-                }));
-            }
-        } catch (e) {
-            // No properties found — address stays empty
-        }
+        await loadProperties(account.id);
     };
 
     const handleItemChange = (index, field, value) => {
@@ -347,6 +448,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         delete invoiceData.accountGSTIN;
         delete invoiceData.accountState;
         delete invoiceData.property;
+        delete invoiceData.property_id;
 
         onSave(invoiceData, action);
     };
@@ -431,6 +533,131 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                 label="Link to Job (optional)"
                             />
                         </div>
+
+                        {/* Property Selection - Appears once an Account is selected */}
+                        {formData.account_id && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                    <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                                        <Home size={14} style={{ color: '#10b981' }} />
+                                        Property / Service Address *
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddPropertyModal(true)}
+                                        className="btn btn-secondary"
+                                        style={{
+                                            padding: '2px 8px',
+                                            fontSize: 11,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 4,
+                                            height: 'auto',
+                                            color: '#60a5fa',
+                                            borderColor: 'rgba(96,165,250,0.3)'
+                                        }}
+                                    >
+                                        <Plus size={12} /> Add Property
+                                    </button>
+                                </div>
+                                <select
+                                    className="form-input"
+                                    value={formData.property_id ? String(formData.property_id) : ''}
+                                    onChange={(e) => handlePropertyChange(e.target.value)}
+                                    disabled={loadingProperties}
+                                    style={{ width: '100%' }}
+                                >
+                                    <option value="">
+                                        {loadingProperties ? 'Loading properties...' : (properties.length === 0 ? '— No properties registered for this customer —' : '— Select Property —')}
+                                    </option>
+                                    {properties.map(p => {
+                                        const prefix = [p.flat_number, p.building_name].filter(Boolean).join(', ');
+                                        const street = typeof p.address === 'string' ? p.address : (p.address?.line1 || '');
+                                        const mainAddr = [prefix, street, p.locality, p.city].filter(Boolean).join(', ');
+                                        const nameTag = p.name || p.property_name || p.property_type || '';
+                                        const label = `${nameTag ? `[${nameTag}] ` : ''}${mainAddr || 'Property #' + String(p.id).slice(0, 6)}${p.pincode ? ` - ${p.pincode}` : ''}`;
+                                        return (
+                                            <option key={p.id} value={String(p.id)}>
+                                                {label}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+
+                                {/* Address preview & edit */}
+                                {formData.billing_address ? (
+                                    <div style={{
+                                        marginTop: 6,
+                                        padding: '8px 12px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                                        fontSize: '12px',
+                                        color: 'var(--text-secondary)'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, lineHeight: 1.4 }}>
+                                                <MapPin size={13} style={{ color: '#10b981', marginTop: 2, flexShrink: 0 }} />
+                                                <div>
+                                                    <span style={{ color: '#10b981', fontWeight: 600 }}>Billing Address on Bill: </span>
+                                                    <span style={{ color: 'var(--text-primary)' }}>{formData.billing_address}</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCustomAddressMode(prev => !prev)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#60a5fa',
+                                                    fontSize: 11,
+                                                    cursor: 'pointer',
+                                                    textDecoration: 'underline',
+                                                    flexShrink: 0
+                                                }}
+                                            >
+                                                {customAddressMode ? 'Done' : 'Edit'}
+                                            </button>
+                                        </div>
+                                        {customAddressMode && (
+                                            <div style={{ marginTop: 8 }}>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={formData.billing_address}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, billing_address: e.target.value, account_address: e.target.value }))}
+                                                    placeholder="Enter custom billing address..."
+                                                    style={{ width: '100%', fontSize: 12, padding: '6px 10px' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (properties.length === 0 && !loadingProperties) ? (
+                                    <div style={{
+                                        marginTop: 6,
+                                        padding: '8px 12px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                                        border: '1px solid rgba(234, 179, 8, 0.25)',
+                                        fontSize: '12px',
+                                        color: '#facc15',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 6
+                                    }}>
+                                        <span>⚠️ No properties registered for this customer yet.</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAddPropertyModal(true)}
+                                            style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
+                                            + Add Property
+                                        </button>
+                                    </div>
+                                ) : null}
+                            </div>
+                        )}
                         <div>
                             <SystemNumberField
                                 label="Invoice Number"
@@ -827,6 +1054,14 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                     job={{}} // Dummy job, won't need job integration since it's just a selector
                     onClose={() => setShowCalculator(false)}
                     onApply={handleCalculatorItems}
+                />
+            )}
+
+            {showAddPropertyModal && (
+                <PropertyForm
+                    customerId={formData.account_id}
+                    onSave={handlePropertySave}
+                    onClose={() => setShowAddPropertyModal(false)}
                 />
             )}
         </div>
