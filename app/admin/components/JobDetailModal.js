@@ -978,18 +978,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         }
         if (match) {
             property = {
-                ...match,
                 ...property,
-                flat_number: property.flat_number || match.flat_number,
-                building_name: property.building_name || match.building_name,
-                address: property.address || match.address,
-                locality: property.locality || match.locality,
-                city: property.city || match.city,
-                pincode: property.pincode || match.pincode,
+                ...match,
+                flat_number: match.flat_number !== undefined && match.flat_number !== null && match.flat_number !== '' ? match.flat_number : property.flat_number,
+                building_name: match.building_name || property.building_name,
+                address: match.address || property.address,
+                locality: match.locality || property.locality,
+                city: match.city || property.city,
+                pincode: match.pincode || property.pincode,
                 name: match.name || property.name || 'Home',
                 property_name: match.property_name || property.property_name || match.name || property.name,
-                latitude: property.latitude || property.lat || match.lat || match.latitude || null,
-                longitude: property.longitude || property.lng || match.lng || match.longitude || null,
+                latitude: match.lat || match.latitude || property.latitude || property.lat || null,
+                longitude: match.lng || match.longitude || property.longitude || property.lng || null,
             };
         }
     }
@@ -1284,7 +1284,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     account_name: editedJob.customer_name || editedJob.customerName || 'Customer',
                     accountGSTIN: editedJob.customer?.gstin || '',
                     accountState: accountState,
-                    billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    billing_address: jobAddress || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
                     job_id: editedJob.id,
                     date: new Date().toISOString().split('T')[0],
                     due_date: new Date().toISOString().split('T')[0],
@@ -2826,7 +2826,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                             account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
                                                                             accountGSTIN: serviceQuote.accountGSTIN || '',
                                                                             accountState: serviceQuote.accountState || 'Maharashtra',
-                                                                            billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                            billing_address: serviceQuote.billing_address || jobAddress || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
                                                                             job_id: editedJob.id,
                                                                             date: new Date().toISOString().split('T')[0],
                                                                             due_date: new Date().toISOString().split('T')[0],
@@ -2915,7 +2915,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                                         account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
                                                                                         accountGSTIN: savedQuotation.accountGSTIN || '',
                                                                                         accountState: savedQuotation.accountState || 'Maharashtra',
-                                                                                        billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                                        billing_address: savedQuotation.billing_address || jobAddress || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
                                                                                         job_id: editedJob.id,
                                                                                         date: new Date().toISOString().split('T')[0],
                                                                                         due_date: new Date().toISOString().split('T')[0],
@@ -3584,7 +3584,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <DocumentWhatsAppPopup
                     document={showWhatsappPopup.doc}
                     type={showWhatsappPopup.type}
-                    job={{ ...editedJob, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '' }}
+                    job={{ ...editedJob, address: jobAddress || editedJob.address, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '' }}
                     onClose={() => setShowWhatsappPopup(null)}
                 />
             )}

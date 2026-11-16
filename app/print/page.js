@@ -63,9 +63,9 @@ function PrintViewContent() {
 
                     const itemForPrint = {
                         ...tx,
-                        account_name: tx.accounts?.name || tx.account_name || '',
-                        account_phone: tx.accounts?.mobile || tx.accounts?.phone || tx.account_phone || '',
-                        account_address: tx.accounts?.address || tx.account_address || tx.billing_address || '',
+                        account_name: tx.account_name || tx.accounts?.name || '',
+                        account_phone: tx.account_phone || tx.accounts?.mobile || tx.accounts?.phone || '',
+                        account_address: tx.billing_address || tx.account_address || tx.accounts?.address || '',
                         job_number: tx.jobs?.job_number || tx.job_number || '',
                         date: tx.created_at || tx.date || new Date().toISOString()
                     };

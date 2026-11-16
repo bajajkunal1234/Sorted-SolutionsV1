@@ -162,13 +162,37 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     const totals = calculateTotals();
 
     // Build a formatted address string from a property object
-    const buildPropertyAddress = (p) => [
-        p.flat_number,
-        p.building_name,
-        p.address,
-        p.locality,
-        p.pincode ? `- ${p.pincode}` : ''
-    ].filter(Boolean).join(', ');
+    const buildPropertyAddress = (p) => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        const street = typeof p.address === 'string' ? p.address : (p.address?.line1 || '');
+        return [
+            p.flat_number,
+            p.building_name,
+            street,
+            p.locality,
+            p.city,
+            p.pincode ? `- ${p.pincode}` : ''
+        ].filter(Boolean).join(', ');
+    };
+
+    const handleJobChange = (jobId, job) => {
+        if (!jobId) {
+            setFormData(prev => ({ ...prev, job_id: null }));
+            return;
+        }
+        let jobPropAddr = '';
+        if (job?.property) {
+            jobPropAddr = buildPropertyAddress(job.property);
+        } else if (job?.address) {
+            jobPropAddr = [job.address, job.locality, job.city, job.pincode ? `- ${job.pincode}` : ''].filter(Boolean).join(', ');
+        }
+        setFormData(prev => ({
+            ...prev,
+            job_id: jobId,
+            ...(jobPropAddr ? { billing_address: jobPropAddr, account_address: jobPropAddr } : {})
+        }));
+    };
 
 
     const handleAccountChange = async (account) => {
@@ -402,7 +426,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                         <div>
                             <JobSelector
                                 value={formData.job_id}
-                                onChange={(jobId) => setFormData(prev => ({ ...prev, job_id: jobId }))}
+                                onChange={(jobId, job) => handleJobChange(jobId, job)}
                                 accountId={formData.account_id}
                                 label="Link to Job (optional)"
                             />

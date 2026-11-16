@@ -1325,20 +1325,47 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
         if (typeof window !== 'undefined' && window.generatePrintHtml) {
             const liveLedger = (ledgers || []).find(l => l.id === item.account_id);
             
-            // Fetch linked properties to guarantee we get the real linked property address
+            // Fetch linked properties or job property to guarantee we get the real property address
             let propertyAddress = '';
             const accountId = item.account_id || item.customer_id;
-            if (accountId) {
+
+            // 1. If linked to a job and no billing address is yet recorded, fetch the job's specific property
+            if (item.job_id && !item.billing_address) {
+                try {
+                    const jobRes = await fetch(`/api/admin/jobs?id=${item.job_id}`);
+                    const jobJson = await jobRes.json();
+                    const linkedJob = (jobJson.data || []).find(j => j.id === item.job_id) || jobJson.data?.[0];
+                    if (linkedJob?.property) {
+                        const p = linkedJob.property;
+                        const street = typeof p.address === 'string' ? p.address : (p.address?.line1 || '');
+                        propertyAddress = [
+                            p.flat_number,
+                            p.building_name,
+                            street,
+                            p.locality,
+                            p.city,
+                            p.pincode ? `- ${p.pincode}` : ''
+                        ].filter(Boolean).join(', ');
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch job property for printing:', e);
+                }
+            }
+
+            // 2. Fallback to customer's primary property ONLY if invoice doesn't already have its own billing_address
+            if (!propertyAddress && !item.billing_address && accountId) {
                 try {
                     const res = await fetch(`/api/admin/properties?customer_id=${accountId}`);
                     const json = await res.json();
                     if (json.success && json.data && json.data.length > 0) {
                         const primaryProp = json.data[0];
+                        const street = typeof primaryProp.address === 'string' ? primaryProp.address : (primaryProp.address?.line1 || '');
                         propertyAddress = [
                             primaryProp.flat_number,
                             primaryProp.building_name,
-                            primaryProp.address,
+                            street,
                             primaryProp.locality,
+                            primaryProp.city,
                             primaryProp.pincode ? `- ${primaryProp.pincode}` : ''
                         ].filter(Boolean).join(', ');
                     }
@@ -1389,22 +1416,24 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     mobile: liveLedger.mobile || liveLedger.phone || item.accounts?.mobile,
                     email: liveLedger.email || item.accounts?.email,
                     gstin: liveLedger.gstin || item.accounts?.gstin,
-                    address: propertyAddress || liveLedger.address || item.accounts?.address,
-                    billing_address: propertyAddress || liveLedger.billing_address || item.accounts?.billing_address,
-                    mailing_address: propertyAddress || liveLedger.mailing_address || item.accounts?.mailing_address
+                    address: item.billing_address || propertyAddress || liveLedger.address || item.accounts?.address,
+                    billing_address: item.billing_address || propertyAddress || liveLedger.billing_address || item.accounts?.billing_address,
+                    mailing_address: item.billing_address || propertyAddress || liveLedger.mailing_address || item.accounts?.mailing_address
                 };
                 
-                // Also set the main item address fields to guarantee it resolves in case the print template directly checks them
-                if (propertyAddress) {
+                // Do NOT overwrite existing item.billing_address if already set!
+                if (!item.billing_address && propertyAddress) {
                     item.billing_address = propertyAddress;
-                    item.account_address = propertyAddress;
+                }
+                if (!item.account_address) {
+                    item.account_address = item.billing_address || propertyAddress;
                 }
 
                 // Guarantee customer name is filled
                 if (!item.account_name) {
                     item.account_name = liveLedger.name || item.accounts?.name || '';
                 }
-            } else if (propertyAddress) {
+            } else if (!item.billing_address && propertyAddress) {
                 // If liveLedger is not found locally, still set it if we found a property address
                 item.billing_address = propertyAddress;
                 item.account_address = propertyAddress;

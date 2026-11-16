@@ -641,6 +641,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
         }
     }, [editedJob?.interactions, savedInvoice]);
 
+    const getJobBillingAddress = () => {
+        const rawProp = editedJob._raw_property || editedJob.property;
+        if (rawProp && (rawProp.flat_number || rawProp.building_name || rawProp.address)) {
+            const street = typeof rawProp.address === 'string' ? rawProp.address : (rawProp.address?.line1 || '');
+            return [
+                rawProp.flat_number,
+                rawProp.building_name,
+                street,
+                rawProp.locality || editedJob.locality,
+                rawProp.city || editedJob.city,
+                (rawProp.pincode || editedJob.pincode) ? `- ${rawProp.pincode || editedJob.pincode}` : ''
+            ].filter(Boolean).join(', ');
+        }
+        return [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode ? `- ${editedJob.pincode}` : ''].filter(Boolean).join(', ') || '';
+    };
+
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
@@ -1495,7 +1511,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 account_email: editedJob.email || editedJob.customer?.email || '',
                 account_gstin: editedJob.customer?.gstin || '',
                 account_state: accountState,
-                billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                billing_address: getJobBillingAddress(),
                 auto_number: !isEditing,
                 quote_number: isEditing ? savedQuotation.quote_number : `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                 date: isEditing ? savedQuotation.date : new Date().toISOString().split('T')[0],
@@ -1760,7 +1776,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 account_email: editedJob.email || editedJob.customer?.email || '',
                 account_gstin: editedJob.customer?.gstin || '',
                 account_state: accountState,
-                billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                billing_address: getJobBillingAddress(),
                 auto_number: !isEditing,
                 quote_number: isEditing ? savedQuotation.quote_number : `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                 date: isEditing ? savedQuotation.date : new Date().toISOString().split('T')[0],
@@ -1797,7 +1813,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                 account_name: savedData.account_name || editedJob.customer?.name || 'Customer',
                 accountGSTIN: savedData.accountGSTIN || '',
                 accountState: savedData.account_state || 'Maharashtra',
-                billing_address: savedData.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                billing_address: savedData.billing_address || getJobBillingAddress(),
                 job_id: editedJob.id,
                 date: new Date().toISOString().split('T')[0],
                 due_date: new Date().toISOString().split('T')[0],
@@ -2549,7 +2565,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
                     accountGSTIN: savedQuotation.accountGSTIN || '',
                     accountState: savedQuotation.accountState || 'Maharashtra',
-                    billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    billing_address: savedQuotation.billing_address || getJobBillingAddress(),
                     job_id: editedJob.id,
                     date: new Date().toISOString().split('T')[0],
                     due_date: new Date().toISOString().split('T')[0],
@@ -3898,7 +3914,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                                                                             account_name: serviceQuote.account_name || editedJob.customer?.name || 'Customer',
                                                                             accountGSTIN: serviceQuote.accountGSTIN || '',
                                                                             accountState: serviceQuote.accountState || 'Maharashtra',
-                                                                            billing_address: serviceQuote.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                            billing_address: serviceQuote.billing_address || getJobBillingAddress(),
                                                                             job_id: editedJob.id,
                                                                             date: new Date().toISOString().split('T')[0],
                                                                             due_date: new Date().toISOString().split('T')[0],
@@ -5214,7 +5230,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = tr
                     <DocumentWhatsAppPopup
                         document={showWhatsappPopup.doc}
                         type={showWhatsappPopup.type}
-                        job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '' }}
+                        job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '', address: getJobBillingAddress() }}
                         onClose={() => setShowWhatsappPopup(null)}
                     />
                 )}

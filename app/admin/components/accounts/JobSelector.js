@@ -68,7 +68,7 @@ function JobSelector({ value, onChange, accountId, label = 'Link to Job (optiona
     const clear = (e) => {
         e.stopPropagation();
         setSelectedJob(null);
-        onChange(null);
+        onChange(null, null);
         setSearch('');
     };
 
@@ -138,7 +138,7 @@ function JobSelector({ value, onChange, accountId, label = 'Link to Job (optiona
                         {/* Clear option */}
                         {selectedJob && (
                             <div
-                                onClick={() => { setSelectedJob(null); onChange(null); setOpen(false); setSearch(''); }}
+                                onClick={() => { setSelectedJob(null); onChange(null, null); setOpen(false); setSearch(''); }}
                                 style={{ padding: '8px 12px', fontSize: 12, color: '#ef4444', cursor: 'pointer', borderBottom: '1px solid var(--border-primary)' }}
                             >
                                 ✕ Clear selection
@@ -152,7 +152,7 @@ function JobSelector({ value, onChange, accountId, label = 'Link to Job (optiona
                             filtered.map(job => (
                                 <div
                                     key={job.id}
-                                    onClick={() => { setSelectedJob(job); onChange(job.id); setOpen(false); setSearch(''); }}
+                                    onClick={() => { setSelectedJob(job); onChange(job.id, job); setOpen(false); setSearch(''); }}
                                     style={{
                                         padding: '9px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
                                         backgroundColor: selectedJob?.id === job.id ? 'rgba(59,130,246,0.08)' : 'transparent',
