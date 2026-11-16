@@ -8,12 +8,10 @@ import { useV2Cart } from './CartContext';
 import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
-import SubcategoryModal from './SubcategoryModal';
 import SlidingThumbnail from './SlidingThumbnail';
 
 export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null }) {
     const { location, setLocationModalOpen, brandLogos } = useV2Cart();
-    const [selectedModalCategory, setSelectedModalCategory] = useState(null);
 
     const activeCategories = Array.isArray(categories) && categories.length > 0
         ? categories
@@ -175,16 +173,17 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
 
                     <div className="v2-cat-grid">
                         {activeCategories.map(cat => (
-                            <button
+                            <Link
                                 key={cat.slug}
-                                type="button"
-                                onClick={() => setSelectedModalCategory(cat)}
+                                href={`/v2/services/${cat.slug}`}
                                 className="v2-cat-tile"
                                 style={{
-                                    border: 'none',
-                                    background: 'transparent',
+                                    textDecoration: 'none',
+                                    color: 'inherit',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
                                     textAlign: 'center',
-                                    cursor: 'pointer',
                                     padding: 0,
                                     fontFamily: 'inherit'
                                 }}
@@ -213,7 +212,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                                         {categoryCounts[cat.slug]} services
                                     </span>
                                 )}
-                            </button>
+                            </Link>
                         ))}
 
                         {/* 2 Utility Tiles to complete balanced 4x2 mobile grid */}
@@ -352,13 +351,6 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                 </div>
             </section>
 
-            {/* Urban Company-inspired Subcategory Bottom Sheet Modal */}
-            {selectedModalCategory && (
-                <SubcategoryModal
-                    category={selectedModalCategory}
-                    onClose={() => setSelectedModalCategory(null)}
-                />
-            )}
         </div>
     );
 }

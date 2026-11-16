@@ -36,6 +36,7 @@ export default function CategoryStorefront({
     categoryCounts = {},
     highlightId = null,
     initialQuery = '',
+    initialType = null,
     pageConfig = null
 }) {
     const router = useRouter();
@@ -57,6 +58,26 @@ export default function CategoryStorefront({
         }
         return [];
     }, [subcategories, category]);
+
+    // Appliance type filter state (in-page subcategory filter)
+    const [selectedSubcategory, setSelectedSubcategory] = useState(initialType || null);
+
+    // Filter services based on selected appliance type
+    const displayedServices = useMemo(() => {
+        if (!selectedSubcategory) return services;
+        const targetClean = selectedSubcategory.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetWords = selectedSubcategory.toLowerCase().replace(/-/g, ' ');
+        const matched = services.filter(s => {
+            const subClean = (s.subcategory || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const nameLower = (s.name || '').toLowerCase();
+            const descLower = (s.description || '').toLowerCase();
+            return subClean.includes(targetClean) ||
+                targetClean.includes(subClean) ||
+                nameLower.includes(targetWords) ||
+                descLower.includes(targetWords);
+        });
+        return matched.length > 0 ? matched : services;
+    }, [services, selectedSubcategory]);
 
     // Config sections (from admin or defaults)
     const hero = pageConfig?.hero || {};
@@ -529,19 +550,58 @@ export default function CategoryStorefront({
 
                         {/* ══════════════ 2. HORIZONTAL SCROLLING SERVICES CAROUSEL ══════════════ */}
                         {servicesSection.enabled !== false && (
-                            <section style={{ marginBottom: 28 }}>
+                            <section id="v2-services-section" style={{ marginBottom: 28, scrollMarginTop: 80 }}>
                                 <div style={{ marginBottom: 12 }}>
-                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 2px 0' }}>
-                                        {servicesSection.title || 'Select a Service'}
-                                    </h2>
-                                    {servicesSection.subtitle && (
-                                        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                                            {servicesSection.subtitle}
-                                        </p>
-                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                                        <div>
+                                            <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 2px 0' }}>
+                                                {servicesSection.title || 'Select a Service'}
+                                            </h2>
+                                            {servicesSection.subtitle && (
+                                                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                                                    {servicesSection.subtitle}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {selectedSubcategory && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <span style={{
+                                                    fontSize: 12,
+                                                    fontWeight: 700,
+                                                    color: '#6338f5',
+                                                    backgroundColor: '#f5f3ff',
+                                                    padding: '4px 10px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid #c4b5fd',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4
+                                                }}>
+                                                    ✓ {activeSubcategories.find(s => s.slug === selectedSubcategory)?.name || selectedSubcategory}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedSubcategory(null)}
+                                                    style={{
+                                                        fontSize: 11.5,
+                                                        fontWeight: 600,
+                                                        color: '#64748b',
+                                                        background: '#f1f5f9',
+                                                        border: 'none',
+                                                        borderRadius: 6,
+                                                        padding: '4px 8px',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    Show all
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                {services.length === 0 ? (
+                                {displayedServices.length === 0 ? (
                                     <div style={{
                                         padding: 24,
                                         borderRadius: 12,
@@ -600,7 +660,7 @@ export default function CategoryStorefront({
                                                 msOverflowStyle: 'none'
                                             }}
                                         >
-                                            {services.map(service => {
+                                            {displayedServices.map(service => {
                                                 const qty = getItemQty(service.id);
                                                 const isHighlighted = highlightId && service.id === highlightId;
                                                 const serviceImg = service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
@@ -819,16 +879,25 @@ export default function CategoryStorefront({
                                     gap: 12
                                 }} className="v2-appliance-types-grid">
                                     {activeSubcategories.map(sub => {
-                                        const subUrl = `/v2/services/${category?.slug || 'ac-repair'}/${sub.slug}`;
+                                        const isSelected = selectedSubcategory === sub.slug;
                                         const subSlides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
                                             ? sub.thumbnailSlides
                                             : null;
                                         const subIcon = sub.icon || sub.thumbnailUrl || category?.icon || '/images/services/ac_3d.png';
 
                                         return (
-                                            <Link
+                                            <button
                                                 key={sub.slug}
-                                                href={subUrl}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (isSelected) {
+                                                        setSelectedSubcategory(null);
+                                                    } else {
+                                                        setSelectedSubcategory(sub.slug);
+                                                        const el = document.getElementById('v2-services-section');
+                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }
+                                                }}
                                                 className="v2-appliance-type-card"
                                                 style={{
                                                     display: 'flex',
@@ -836,21 +905,41 @@ export default function CategoryStorefront({
                                                     alignItems: 'center',
                                                     textAlign: 'center',
                                                     padding: '16px 12px',
-                                                    backgroundColor: '#ffffff',
+                                                    backgroundColor: isSelected ? '#f5f3ff' : '#ffffff',
                                                     borderRadius: 14,
-                                                    border: '1px solid #e2e8f0',
-                                                    textDecoration: 'none',
+                                                    border: isSelected ? '2px solid #6338f5' : '1px solid #e2e8f0',
                                                     color: 'inherit',
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                                                    boxShadow: isSelected ? '0 4px 14px rgba(99,56,245,0.18)' : '0 2px 8px rgba(0,0,0,0.03)',
                                                     transition: 'all 0.18s ease',
-                                                    cursor: 'pointer'
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    position: 'relative'
                                                 }}
                                             >
+                                                {isSelected && (
+                                                    <span style={{
+                                                        position: 'absolute',
+                                                        top: 8,
+                                                        right: 8,
+                                                        backgroundColor: '#6338f5',
+                                                        color: '#ffffff',
+                                                        borderRadius: '50%',
+                                                        width: 18,
+                                                        height: 18,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: 10,
+                                                        fontWeight: 900
+                                                    }}>
+                                                        ✓
+                                                    </span>
+                                                )}
                                                 <div style={{
                                                     width: 68,
                                                     height: 68,
                                                     borderRadius: 12,
-                                                    backgroundColor: category?.accent || '#f8fafc',
+                                                    backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
@@ -881,7 +970,7 @@ export default function CategoryStorefront({
                                                 <span style={{
                                                     fontSize: 13.5,
                                                     fontWeight: 700,
-                                                    color: '#0f172a',
+                                                    color: isSelected ? '#6338f5' : '#0f172a',
                                                     lineHeight: 1.25,
                                                     marginBottom: 4
                                                 }}>
@@ -906,14 +995,14 @@ export default function CategoryStorefront({
                                                     marginTop: 8,
                                                     fontSize: 11,
                                                     fontWeight: 700,
-                                                    color: '#6338f5',
+                                                    color: isSelected ? '#6338f5' : '#6338f5',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     gap: 3
                                                 }}>
-                                                    Select <ChevronRight size={12} />
+                                                    {isSelected ? 'Selected' : 'Select'} <ChevronRight size={12} />
                                                 </span>
-                                            </Link>
+                                            </button>
                                         );
                                     })}
                                 </div>

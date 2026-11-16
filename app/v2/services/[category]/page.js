@@ -81,6 +81,7 @@ export default async function V2CategoryPage({ params, searchParams }) {
             categoryCounts={data.categoryCounts || {}}
             highlightId={searchParams?.highlight || null}
             initialQuery={searchParams?.q || ''}
+            initialType={searchParams?.type || null}
             pageConfig={finalPageConfig}
         />
     );
