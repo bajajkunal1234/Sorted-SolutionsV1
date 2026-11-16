@@ -1736,10 +1736,10 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
             // Strip internal/non-db fields
             const cleanData = { ...voucherData };
             delete cleanData.__formType;
-            delete cleanData.billing_address;
-            delete cleanData.shipping_address;
             delete cleanData.charges;
             if (type === 'receipt' || type === 'payment') {
+                delete cleanData.billing_address;
+                delete cleanData.shipping_address;
                 delete cleanData.cgst;
                 delete cleanData.sgst;
                 delete cleanData.igst;
@@ -1747,6 +1747,12 @@ export default function BankAccountsReport({ activeSubTab: propActiveSubTab, set
                 delete cleanData.items_subtotal;
                 delete cleanData.charges_total;
                 delete cleanData.items;
+            }
+            if (cleanData.billing_address && !cleanData.account_address) {
+                cleanData.account_address = cleanData.billing_address;
+            }
+            if (cleanData.account_address && !cleanData.billing_address) {
+                cleanData.billing_address = cleanData.account_address;
             }
 
             const labelMap = {

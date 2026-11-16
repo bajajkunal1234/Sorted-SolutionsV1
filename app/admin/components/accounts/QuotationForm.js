@@ -205,7 +205,9 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 });
             }
             if (!matched && props.length > 0) {
-                matched = props[0];
+                if (!existingQuotation?.id || (!existingQuotation?.billing_address && !formData.billing_address)) {
+                    matched = props[0];
+                }
             }
 
             if (matched) {
@@ -214,7 +216,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                     ...prev,
                     property_id: matched.id,
                     property: matched,
-                    billing_address: prev.billing_address || addr
+                    billing_address: prev.billing_address || addr,
+                    account_address: prev.account_address || addr
                 }));
             }
         } catch (e) {
@@ -237,7 +240,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 ...prev,
                 property_id: null,
                 property: null,
-                billing_address: ''
+                billing_address: '',
+                account_address: ''
             }));
             return;
         }
@@ -248,7 +252,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 ...prev,
                 property_id: selected.id,
                 property: selected,
-                billing_address: addr
+                billing_address: addr,
+                account_address: addr
             }));
         }
     };
@@ -262,7 +267,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 ...prev,
                 property_id: newProperty.id,
                 property: newProperty,
-                billing_address: addr
+                billing_address: addr,
+                account_address: addr
             }));
             setShowAddPropertyModal(false);
         } catch (err) {
@@ -282,6 +288,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             property_id: null,
             property: null,
             billing_address: '',
+            account_address: '',
             shipping_address: ''
         }));
 
@@ -567,7 +574,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                                     type="text"
                                                     className="form-input"
                                                     value={formData.billing_address}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, billing_address: e.target.value }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, billing_address: e.target.value, account_address: e.target.value }))}
                                                     placeholder="Enter custom billing address..."
                                                     style={{ width: '100%', fontSize: 12, padding: '6px 10px' }}
                                                 />

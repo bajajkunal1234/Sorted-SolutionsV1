@@ -12,6 +12,7 @@ import PurchaseInvoiceForm from './PurchaseInvoiceForm';
 import ReceiptVoucherForm from './ReceiptVoucherForm';
 import PaymentVoucherForm from './PaymentVoucherForm';
 import QuotationForm from './QuotationForm';
+import { transactionsAPI } from '@/lib/adminAPI';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -559,6 +560,47 @@ function TransactionsTab({ accountId, accountName, account }) {
         fetchAll();
     };
 
+    const handleFormSave = async (data) => {
+        try {
+            const formToTypeMap = {
+                'sales_invoice': 'sales',
+                'purchase_invoice': 'purchase',
+                'receipt': 'receipt',
+                'payment': 'payment',
+                'quotation': 'quotation'
+            };
+            const type = formToTypeMap[activeForm] || data.__formType || activeForm;
+            const cleanData = { ...data };
+            delete cleanData.__formType;
+            delete cleanData.charges;
+            if (type === 'receipt' || type === 'payment') {
+                delete cleanData.billing_address;
+                delete cleanData.shipping_address;
+                delete cleanData.cgst;
+                delete cleanData.sgst;
+                delete cleanData.igst;
+                delete cleanData.total_tax;
+                delete cleanData.items_subtotal;
+                delete cleanData.charges_total;
+                delete cleanData.items;
+            }
+            if (cleanData.billing_address && !cleanData.account_address) {
+                cleanData.account_address = cleanData.billing_address;
+            }
+            if (cleanData.account_address && !cleanData.billing_address) {
+                cleanData.billing_address = cleanData.account_address;
+            }
+
+            if (editingTransaction?.id) {
+                await transactionsAPI.update(editingTransaction.id, cleanData, type);
+            }
+            alert('Saved successfully!');
+            closeForm();
+        } catch (err) {
+            alert('Failed to save: ' + err.message);
+        }
+    };
+
     // ─── Styles ──────────────────────────────────────────────────────────────
     const S = {
         container: { display: 'flex', flexDirection: 'column', gap: '12px' },
@@ -928,19 +970,19 @@ function TransactionsTab({ accountId, accountName, account }) {
 
             {/* ── Edit Forms (inline modals) ── */}
             {activeForm === 'sales_invoice' && editingTransaction && (
-                <SalesInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={closeForm} />
+                <SalesInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={handleFormSave} />
             )}
             {activeForm === 'purchase_invoice' && editingTransaction && (
-                <PurchaseInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={closeForm} />
+                <PurchaseInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={handleFormSave} />
             )}
             {activeForm === 'receipt' && editingTransaction && (
-                <ReceiptVoucherForm onClose={closeForm} existingReceipt={editingTransaction} onSave={closeForm} />
+                <ReceiptVoucherForm onClose={closeForm} existingReceipt={editingTransaction} onSave={handleFormSave} />
             )}
             {activeForm === 'payment' && editingTransaction && (
-                <PaymentVoucherForm onClose={closeForm} existingPayment={editingTransaction} onSave={closeForm} />
+                <PaymentVoucherForm onClose={closeForm} existingPayment={editingTransaction} onSave={handleFormSave} />
             )}
             {activeForm === 'quotation' && editingTransaction && (
-                <QuotationForm onClose={closeForm} existingQuotation={editingTransaction} onSave={closeForm} />
+                <QuotationForm onClose={closeForm} existingQuotation={editingTransaction} onSave={handleFormSave} />
             )}
         </div>
     );

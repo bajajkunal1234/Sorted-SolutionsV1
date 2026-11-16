@@ -1256,10 +1256,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 // Strip fields not in DB (internal flags, UI state, and invoice-specific GST columns for receipt/payment tables)
                 const cleanData = { ...data };
                 delete cleanData.__formType;
-                delete cleanData.billing_address;
-                delete cleanData.shipping_address;
                 delete cleanData.charges;
                 if (type === 'receipt' || type === 'payment') {
+                    delete cleanData.billing_address;
+                    delete cleanData.shipping_address;
                     delete cleanData.cgst;
                     delete cleanData.sgst;
                     delete cleanData.igst;
@@ -1267,6 +1267,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     delete cleanData.items_subtotal;
                     delete cleanData.charges_total;
                     delete cleanData.items;
+                }
+                // Ensure billing_address and account_address remain synchronized for invoices/quotations
+                if (cleanData.billing_address && !cleanData.account_address) {
+                    cleanData.account_address = cleanData.billing_address;
+                }
+                if (cleanData.account_address && !cleanData.billing_address) {
+                    cleanData.billing_address = cleanData.account_address;
                 }
 
                 if (selectedTransaction?.id) savedRecord = await transactionsAPI.update(selectedTransaction.id, cleanData, type);
@@ -1280,7 +1287,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
 
             // Trigger print if requested
             if (action === 'print' && (savedRecord || data)) {
-                const printRecord = { ...(data || {}), ...(savedRecord || {}) };
+                const printRecord = {
+                    ...(savedRecord || {}),
+                    ...(data || {}),
+                    billing_address: data?.billing_address || savedRecord?.billing_address,
+                    account_address: data?.account_address || data?.billing_address || savedRecord?.account_address
+                };
                 const printTabMap = {
                     sales: 'sales',
                     purchase: 'purchases',
@@ -1328,9 +1340,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             // Fetch linked properties or job property to guarantee we get the real property address
             let propertyAddress = '';
             const accountId = item.account_id || item.customer_id;
+            const effectiveAddress = item.billing_address || item.account_address;
 
             // 1. If linked to a job and no billing address is yet recorded, fetch the job's specific property
-            if (item.job_id && !item.billing_address) {
+            if (item.job_id && !effectiveAddress) {
                 try {
                     const jobRes = await fetch(`/api/admin/jobs?id=${item.job_id}`);
                     const jobJson = await jobRes.json();
@@ -1353,7 +1366,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             }
 
             // 2. Fallback to customer's primary property ONLY if invoice doesn't already have its own billing_address
-            if (!propertyAddress && !item.billing_address && accountId) {
+            if (!propertyAddress && !effectiveAddress && accountId) {
                 try {
                     const res = await fetch(`/api/admin/properties?customer_id=${accountId}`);
                     const json = await res.json();
@@ -1409,6 +1422,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                 });
             }
 
+            const finalAddr = effectiveAddress || propertyAddress;
+
             if (liveLedger) {
                 item.accounts = {
                     ...((item.accounts && typeof item.accounts === 'object') ? item.accounts : {}),
@@ -1416,27 +1431,29 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
                     mobile: liveLedger.mobile || liveLedger.phone || item.accounts?.mobile,
                     email: liveLedger.email || item.accounts?.email,
                     gstin: liveLedger.gstin || item.accounts?.gstin,
-                    address: item.billing_address || propertyAddress || liveLedger.address || item.accounts?.address,
-                    billing_address: item.billing_address || propertyAddress || liveLedger.billing_address || item.accounts?.billing_address,
-                    mailing_address: item.billing_address || propertyAddress || liveLedger.mailing_address || item.accounts?.mailing_address
+                    address: finalAddr || liveLedger.address || item.accounts?.address,
+                    billing_address: finalAddr || liveLedger.billing_address || item.accounts?.billing_address,
+                    mailing_address: finalAddr || liveLedger.mailing_address || item.accounts?.mailing_address
                 };
                 
-                // Do NOT overwrite existing item.billing_address if already set!
-                if (!item.billing_address && propertyAddress) {
-                    item.billing_address = propertyAddress;
-                }
-                if (!item.account_address) {
-                    item.account_address = item.billing_address || propertyAddress;
+                if (finalAddr) {
+                    item.billing_address = finalAddr;
+                    item.account_address = finalAddr;
                 }
 
                 // Guarantee customer name is filled
                 if (!item.account_name) {
                     item.account_name = liveLedger.name || item.accounts?.name || '';
                 }
-            } else if (!item.billing_address && propertyAddress) {
-                // If liveLedger is not found locally, still set it if we found a property address
-                item.billing_address = propertyAddress;
-                item.account_address = propertyAddress;
+            } else if (finalAddr) {
+                item.accounts = {
+                    ...((item.accounts && typeof item.accounts === 'object') ? item.accounts : {}),
+                    address: finalAddr,
+                    billing_address: finalAddr,
+                    mailing_address: finalAddr
+                };
+                item.billing_address = finalAddr;
+                item.account_address = finalAddr;
             }
 
             // Fetch latest print settings directly to guarantee they are never null or stale

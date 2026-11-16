@@ -219,7 +219,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 });
             }
             if (!matched && props.length > 0) {
-                matched = props[0];
+                if (!existingInvoice?.id || (!existingInvoice?.billing_address && !formData.billing_address)) {
+                    matched = props[0];
+                }
             }
 
             if (matched) {

@@ -293,7 +293,6 @@ function TechnicianManagement({ initialSubTab, navigateToSection }) {
             
             // Clean/remove any UI-only fields
             delete cleanData.__formType;
-            delete cleanData.billing_address;
             delete cleanData.shipping_address;
             delete cleanData.charges;
             

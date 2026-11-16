@@ -777,7 +777,18 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                         setEditingTransaction(null);
                     }}
                     existingInvoice={editingTransaction.relatedTo}
-                    onSave={(data) => {
+                    onSave={async (data) => {
+                        try {
+                            if (editingTransaction.relatedTo?.id) {
+                                await fetch('/api/admin/transactions?type=sales', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ...data, id: editingTransaction.relatedTo.id })
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Failed to update sales invoice', e);
+                        }
                         onUpdate();
                         setActiveForm(null);
                         setEditingTransaction(null);
@@ -792,7 +803,18 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                         setEditingTransaction(null);
                     }}
                     existingQuotation={editingTransaction.relatedTo}
-                    onSave={(data) => {
+                    onSave={async (data) => {
+                        try {
+                            if (editingTransaction.relatedTo?.id) {
+                                await fetch('/api/admin/transactions?type=quotation', {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ...data, id: editingTransaction.relatedTo.id })
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Failed to update quotation', e);
+                        }
                         onUpdate();
                         setActiveForm(null);
                         setEditingTransaction(null);
