@@ -10,7 +10,7 @@ import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
 import SlidingThumbnail from './SlidingThumbnail';
 
-export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null }) {
+export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null, homepageProcess = null }) {
     const { location, setLocationModalOpen, brandLogos } = useV2Cart();
 
     const activeCategories = Array.isArray(categories) && categories.length > 0
@@ -309,6 +309,85 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                     )}
                 </div>
             </section>
+
+            {/* ── Dynamic Our Process Section (Linked from Admin Our Process Templates) ── */}
+            {homepageProcess?.enabled !== false && Array.isArray(homepageProcess?.steps) && homepageProcess.steps.length > 0 && (
+                <section style={{ padding: '8px 0 24px' }}>
+                    <div className="v2-container">
+                        <div className="v2-card" style={{ padding: '22px 20px' }}>
+                            <div style={{ marginBottom: 18 }}>
+                                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
+                                    {homepageProcess.title || 'Our process'}
+                                </h2>
+                                {homepageProcess.subtitle && (
+                                    <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                                        {homepageProcess.subtitle}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                                {homepageProcess.steps.map((step, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: 'flex',
+                                            gap: 14,
+                                            alignItems: 'flex-start',
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: 26,
+                                            height: 26,
+                                            borderRadius: '50%',
+                                            backgroundColor: '#f1f5f9',
+                                            border: '1px solid #cbd5e1',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            color: '#0f172a',
+                                            flexShrink: 0
+                                        }}>
+                                            {idx + 1}
+                                        </div>
+
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#0f172a', margin: '0 0 3px 0' }}>
+                                                {step.title}
+                                            </h3>
+                                            {step.desc && (
+                                                <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.45, margin: 0 }}>
+                                                    {step.desc}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {step.imageUrl && (
+                                            <div style={{
+                                                width: 56,
+                                                height: 56,
+                                                borderRadius: 10,
+                                                overflow: 'hidden',
+                                                flexShrink: 0,
+                                                border: '1px solid #e2e8f0'
+                                            }}>
+                                                <img
+                                                    src={step.imageUrl}
+                                                    alt={step.title}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* ── Sorted Trust & Transparency Pillars ── */}
             <section style={{ padding: '4px 0 28px' }}>

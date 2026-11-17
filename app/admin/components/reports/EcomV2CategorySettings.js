@@ -34,9 +34,12 @@ import {
     ChevronUp,
     Pencil,
     RotateCcw,
-    Layout
+    Layout,
+    Link2,
+    ListOrdered
 } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import { getDefaultTemplateIdForCategory } from '@/lib/v2/processTemplates';
 import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
 
 const SECTION_LABELS = {
@@ -52,11 +55,15 @@ const SECTION_LABELS = {
     reviews: '⭐ Customer Reviews & Ratings'
 };
 
-export default function EcomV2CategorySettings({ onBack }) {
+export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates }) {
     // List state
     const [pages, setPages] = useState([]);
     const [loadingPages, setLoadingPages] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Our Process Templates state
+    const [processTemplates, setProcessTemplates] = useState([]);
+    const [loadingProcessTemplates, setLoadingProcessTemplates] = useState(false);
 
     // Active editing page
     const [activePage, setActivePage] = useState(null); // { categorySlug, categoryName, ... }
@@ -77,10 +84,26 @@ export default function EcomV2CategorySettings({ onBack }) {
     const [uploadingSlideIdx, setUploadingSlideIdx] = useState(null);
     const [adminPreviewIdx, setAdminPreviewIdx] = useState(0);
 
-    // Fetch all category pages on mount
+    // Fetch all category pages & Our Process templates on mount
     useEffect(() => {
         fetchCategoryPages();
+        fetchProcessTemplates();
     }, []);
+
+    const fetchProcessTemplates = async () => {
+        setLoadingProcessTemplates(true);
+        try {
+            const res = await fetch('/api/v2/process-templates');
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data?.templates)) {
+                setProcessTemplates(json.data.templates);
+            }
+        } catch (err) {
+            console.error('Failed to fetch process templates:', err);
+        } finally {
+            setLoadingProcessTemplates(false);
+        }
+    };
 
     const fetchCategoryPages = async () => {
         setLoadingPages(true);
@@ -130,10 +153,24 @@ export default function EcomV2CategorySettings({ onBack }) {
         setErrorMessage('');
         setSaveSuccess(false);
         try {
+            const fallbackTplId =
+                pageConfig.process?.templateId ||
+                getDefaultTemplateIdForCategory(activePage.categorySlug) ||
+                processTemplates[0]?.id ||
+                null;
+
+            const payloadToSave = {
+                ...pageConfig,
+                process: {
+                    enabled: pageConfig.process?.enabled !== false,
+                    templateId: fallbackTplId
+                }
+            };
+
             const res = await fetch(`/api/v2/category-pages/${activePage.categorySlug}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(pageConfig)
+                body: JSON.stringify(payloadToSave)
             });
             const json = await res.json();
             if (json.success) {
@@ -941,96 +978,283 @@ export default function EcomV2CategorySettings({ onBack }) {
                         </div>
                     )}
 
-                    {/* TAB 4: OUR PROCESS */}
-                    {activeTab === 'process' && (
-                        <div className="card" style={{ padding: 24, backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                <div>
-                                    <h2 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 800 }}>
-                                        Step-by-Step Service Process
-                                    </h2>
-                                    <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                        Show customer what happens during the service visit.
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const newSteps = [...(pageConfig.process?.steps || [])];
-                                        newSteps.push({
-                                            title: `Step ${newSteps.length + 1}`,
-                                            desc: 'Description of service step',
-                                            imageUrl: ''
-                                        });
-                                        setPageConfig(prev => ({
-                                            ...prev,
-                                            process: { ...prev.process, steps: newSteps }
-                                        }));
-                                    }}
-                                    style={{ padding: '6px 12px', borderRadius: 6, backgroundColor: '#6338f5', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                >
-                                    <Plus size={13} /> Add Step
-                                </button>
-                            </div>
+                    {/* TAB 4: OUR PROCESS (LINK TEMPLATE) */}
+                    {activeTab === 'process' && (() => {
+                        const selectedTplId =
+                            pageConfig.process?.templateId ||
+                            getDefaultTemplateIdForCategory(activePage.categorySlug) ||
+                            processTemplates[0]?.id ||
+                            '';
+                        const linkedTemplate =
+                            processTemplates.find(t => t.id === selectedTplId) ||
+                            processTemplates[0] ||
+                            null;
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                {(pageConfig.process?.steps || []).map((step, idx) => (
-                                    <div
-                                        key={idx}
-                                        style={{
-                                            padding: 14,
-                                            borderRadius: 10,
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            border: '1px solid var(--border-primary)',
-                                            display: 'flex',
-                                            gap: 12,
-                                            alignItems: 'flex-start'
-                                        }}
-                                    >
-                                        <span style={{ width: 24, height: 24, borderRadius: '50%', backgroundColor: '#6338f5', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            {idx + 1}
-                                        </span>
+                        return (
+                            <div className="card" style={{ padding: 24, backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+                                    <div>
+                                        <h2 style={{ margin: '0 0 4px 0', fontSize: 'var(--font-size-base)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <Link2 size={18} color="#10b981" /> Link an "Our Process" Template
+                                        </h2>
+                                        <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                            Select which reusable Our Process template should display on the <strong>{activePage.categoryName}</strong> page.
+                                        </p>
+                                    </div>
 
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                                             <input
-                                                type="text"
-                                                placeholder="Step title"
-                                                value={step.title || ''}
-                                                onChange={(e) => {
-                                                    const newSteps = [...pageConfig.process.steps];
-                                                    newSteps[idx].title = e.target.value;
-                                                    setPageConfig(prev => ({ ...prev, process: { ...prev.process, steps: newSteps } }));
-                                                }}
-                                                style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}
+                                                type="checkbox"
+                                                checked={pageConfig.process?.enabled !== false}
+                                                onChange={(e) => setPageConfig(prev => ({
+                                                    ...prev,
+                                                    process: { ...prev.process, enabled: e.target.checked }
+                                                }))}
                                             />
-                                            <textarea
-                                                rows={2}
-                                                placeholder="Step description"
-                                                value={step.desc || ''}
-                                                onChange={(e) => {
-                                                    const newSteps = [...pageConfig.process.steps];
-                                                    newSteps[idx].desc = e.target.value;
-                                                    setPageConfig(prev => ({ ...prev, process: { ...prev.process, steps: newSteps } }));
-                                                }}
-                                                style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12 }}
-                                            />
-                                        </div>
+                                            Section Visible
+                                        </label>
 
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                const newSteps = pageConfig.process.steps.filter((_, i) => i !== idx);
-                                                setPageConfig(prev => ({ ...prev, process: { ...prev.process, steps: newSteps } }));
+                                            onClick={fetchProcessTemplates}
+                                            title="Refresh templates list"
+                                            style={{
+                                                padding: '6px 10px',
+                                                borderRadius: 6,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                color: 'var(--text-secondary)',
+                                                fontSize: 12,
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 4
                                             }}
-                                            style={{ padding: '6px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
                                         >
-                                            <Trash2 size={16} />
+                                            <RefreshCw size={12} /> Refresh
                                         </button>
+
+                                        {onOpenProcessTemplates && (
+                                            <button
+                                                type="button"
+                                                onClick={onOpenProcessTemplates}
+                                                style={{
+                                                    padding: '7px 12px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid #10b981',
+                                                    backgroundColor: 'rgba(16,185,129,0.12)',
+                                                    color: '#10b981',
+                                                    fontSize: 12,
+                                                    fontWeight: 700,
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 5
+                                                }}
+                                            >
+                                                <ListOrdered size={13} /> Manage / Create Templates
+                                            </button>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+
+                                {loadingProcessTemplates ? (
+                                    <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                                        Loading Our Process templates...
+                                    </div>
+                                ) : processTemplates.length === 0 ? (
+                                    <div style={{
+                                        padding: 28,
+                                        borderRadius: 12,
+                                        border: '1px dashed var(--border-primary)',
+                                        textAlign: 'center',
+                                        color: 'var(--text-secondary)'
+                                    }}>
+                                        <p style={{ margin: '0 0 10px 0', fontSize: 13.5 }}>
+                                            No Our Process templates created yet.
+                                        </p>
+                                        {onOpenProcessTemplates && (
+                                            <button
+                                                type="button"
+                                                onClick={onOpenProcessTemplates}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: 8,
+                                                    border: 'none',
+                                                    backgroundColor: '#6338f5',
+                                                    color: '#fff',
+                                                    fontWeight: 700,
+                                                    fontSize: 13,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Go to Our Process Templates →
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* Dropdown Selector */}
+                                        <div style={{ marginBottom: 18 }}>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--text-secondary)' }}>
+                                                Assigned Our Process Template
+                                            </label>
+                                            <select
+                                                value={linkedTemplate?.id || ''}
+                                                onChange={(e) => setPageConfig(prev => ({
+                                                    ...prev,
+                                                    process: {
+                                                        enabled: prev.process?.enabled !== false,
+                                                        templateId: e.target.value
+                                                    }
+                                                }))}
+                                                style={{
+                                                    width: '100%',
+                                                    maxWidth: 480,
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid var(--border-primary)',
+                                                    backgroundColor: 'var(--bg-secondary)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: 13.5,
+                                                    fontWeight: 700
+                                                }}
+                                            >
+                                                {processTemplates.map(tpl => (
+                                                    <option key={tpl.id} value={tpl.id}>
+                                                        {tpl.name} ({(tpl.steps || []).length} steps)
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Quick Visual Template Cards */}
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                            gap: 10,
+                                            marginBottom: 22
+                                        }}>
+                                            {processTemplates.map(tpl => {
+                                                const isPicked = linkedTemplate?.id === tpl.id;
+                                                return (
+                                                    <button
+                                                        key={tpl.id}
+                                                        type="button"
+                                                        onClick={() => setPageConfig(prev => ({
+                                                            ...prev,
+                                                            process: {
+                                                                enabled: prev.process?.enabled !== false,
+                                                                templateId: tpl.id
+                                                            }
+                                                        }))}
+                                                        style={{
+                                                            padding: 12,
+                                                            borderRadius: 10,
+                                                            border: isPicked ? '2px solid #6338f5' : '1px solid var(--border-primary)',
+                                                            backgroundColor: isPicked ? 'rgba(99,56,245,0.12)' : 'var(--bg-secondary)',
+                                                            textAlign: 'left',
+                                                            cursor: 'pointer',
+                                                            color: 'var(--text-primary)',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+                                                            <strong style={{ fontSize: 13 }}>{tpl.name}</strong>
+                                                            {isPicked && <CheckCircle2 size={15} color="#6338f5" />}
+                                                        </div>
+                                                        <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                                            Heading: &ldquo;{tpl.title || 'Our process'}&rdquo; • {(tpl.steps || []).length} steps
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Read-only Linked Template Preview */}
+                                        {linkedTemplate && (
+                                            <div style={{
+                                                padding: 18,
+                                                borderRadius: 12,
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                                                    <div>
+                                                        <div style={{ fontSize: 11, fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                            Linked Template Preview (Read-Only)
+                                                        </div>
+                                                        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>
+                                                            {linkedTemplate.title || 'Our process'}
+                                                        </div>
+                                                        {linkedTemplate.subtitle && (
+                                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                                                {linkedTemplate.subtitle}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)' }}>
+                                                        Edit steps in <strong>Ecom V2 Settings → Our Process</strong>
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                                    {(linkedTemplate.steps || []).map((step, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            style={{
+                                                                padding: 12,
+                                                                borderRadius: 9,
+                                                                backgroundColor: 'var(--bg-elevated)',
+                                                                border: '1px solid var(--border-primary)',
+                                                                display: 'flex',
+                                                                gap: 12,
+                                                                alignItems: 'flex-start'
+                                                            }}
+                                                        >
+                                                            <span style={{
+                                                                width: 24,
+                                                                height: 24,
+                                                                borderRadius: '50%',
+                                                                backgroundColor: '#6338f5',
+                                                                color: '#fff',
+                                                                fontSize: 11,
+                                                                fontWeight: 800,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {idx + 1}
+                                                            </span>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                    {step.title}
+                                                                </div>
+                                                                {step.desc && (
+                                                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                                                                        {step.desc}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {step.imageUrl && (
+                                                                <img
+                                                                    src={step.imageUrl}
+                                                                    alt={step.title}
+                                                                    style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* TAB 5: TECHNICIANS */}
                     {activeTab === 'technicians' && (

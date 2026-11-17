@@ -24,6 +24,7 @@ import BookingSlots from '@/components/reports/BookingSlots';
 import EcomV2HeroSettings from './EcomV2HeroSettings';
 import EcomV2SubcategorySettings from './EcomV2SubcategorySettings';
 import EcomV2CategorySettings from './EcomV2CategorySettings';
+import EcomV2ProcessSettings from './EcomV2ProcessSettings';
 import EcomV2ThumbnailsSettings from './EcomV2ThumbnailsSettings';
 import EcomV2HomepageSettings from './EcomV2HomepageSettings';
 
@@ -495,6 +496,17 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 />
             ) : activeCategory === 'ecom-v2-categories' ? (
                 <EcomV2CategorySettings
+                    onBack={() => {
+                        setActiveCategory('ecom-v2');
+                        if (setSubSection) setSubSection('ecom-v2');
+                    }}
+                    onOpenProcessTemplates={() => {
+                        setActiveCategory('ecom-v2-process');
+                        if (setSubSection) setSubSection('Our Process');
+                    }}
+                />
+            ) : activeCategory === 'ecom-v2-process' ? (
+                <EcomV2ProcessSettings
                     onBack={() => {
                         setActiveCategory('ecom-v2');
                         if (setSubSection) setSubSection('ecom-v2');

@@ -1014,9 +1014,16 @@ export default function CategoryStorefront({
                         {/* ══════════════ 4. OUR PROCESS (STEP-BY-STEP) ══════════════ */}
                         {process.enabled !== false && Array.isArray(process.steps) && process.steps.length > 0 && (
                             <section style={{ marginBottom: 32 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0' }}>
-                                    {process.title || 'Our process'}
-                                </h2>
+                                <div style={{ marginBottom: 16 }}>
+                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 3px 0' }}>
+                                        {process.title || 'Our process'}
+                                    </h2>
+                                    {process.subtitle && (
+                                        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                                            {process.subtitle}
+                                        </p>
+                                    )}
+                                </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                                     {process.steps.map((step, idx) => (

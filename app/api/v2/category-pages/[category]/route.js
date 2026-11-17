@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { getCategoryBySlug } from '@/lib/v2/catalogConfig';
 import { getCategoryDefaultConfig } from '@/lib/v2/categoryPageDefaults';
+import { getDefaultTemplateIdForCategory } from '@/lib/v2/processTemplates';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,13 +34,17 @@ export async function GET(request, { params }) {
         const defaultConfig = getCategoryDefaultConfig(categorySlug, categoryName);
 
         // Merge saved config over default config
+        const defaultTemplateId = getDefaultTemplateIdForCategory(categorySlug);
         const finalConfig = savedConfig ? {
             ...defaultConfig,
             ...savedConfig,
             hero: { ...defaultConfig.hero, ...(savedConfig.hero || {}) },
             servicesSection: { ...defaultConfig.servicesSection, ...(savedConfig.servicesSection || {}) },
             applianceType: { ...defaultConfig.applianceType, ...(savedConfig.applianceType || {}) },
-            process: { ...defaultConfig.process, ...(savedConfig.process || {}) },
+            process: {
+                enabled: savedConfig.process?.enabled !== false,
+                templateId: savedConfig.process?.templateId || defaultTemplateId
+            },
             technicians: { ...defaultConfig.technicians, ...(savedConfig.technicians || {}) },
             brands: { ...defaultConfig.brands, ...(savedConfig.brands || {}) },
             coverPromise: { ...defaultConfig.coverPromise, ...(savedConfig.coverPromise || {}) },
@@ -47,7 +52,13 @@ export async function GET(request, { params }) {
             faqs: { ...defaultConfig.faqs, ...(savedConfig.faqs || {}) },
             reviews: { ...defaultConfig.reviews, ...(savedConfig.reviews || {}) },
             desktopStickyPromise: { ...defaultConfig.desktopStickyPromise, ...(savedConfig.desktopStickyPromise || {}) },
-        } : defaultConfig;
+        } : {
+            ...defaultConfig,
+            process: {
+                enabled: true,
+                templateId: defaultTemplateId
+            }
+        };
 
         return NextResponse.json({
             success: true,

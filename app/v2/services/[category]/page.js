@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { getCategoryBySlug } from '@/lib/v2/catalogConfig';
 import { fetchPublishedWebServices, fetchDynamicCatalogConfig } from '@/lib/v2/serverCatalog';
 import { getCategoryDefaultConfig } from '@/lib/v2/categoryPageDefaults';
+import { fetchProcessTemplatesConfig } from '@/lib/v2/processTemplatesServer';
+import { resolveProcessForCategory } from '@/lib/v2/processTemplates';
 import { createServerSupabase } from '@/lib/supabase-server';
 import CategoryStorefront from '@/components/v2/CategoryStorefront';
 
@@ -38,18 +40,25 @@ export default async function V2CategoryPage({ params, searchParams }) {
         console.error('[V2CategoryPage] failed to fetch web services:', err?.message);
     }
 
-    // Fetch saved category page config from Supabase or use defaults
+    // Fetch saved category page config & Our Process templates from Supabase
     const defaultConfig = getCategoryDefaultConfig(category.slug, category.name);
     let finalPageConfig = defaultConfig;
+    let processTemplatesConfig = null;
 
     try {
         const supabase = createServerSupabase();
         if (supabase) {
-            const { data: row } = await supabase
-                .from('website_section_configs')
-                .select('extra_config')
-                .eq('section_id', `ecom-v2-cat-${category.slug}`)
-                .maybeSingle();
+            const [catRes, tplConfig] = await Promise.all([
+                supabase
+                    .from('website_section_configs')
+                    .select('extra_config')
+                    .eq('section_id', `ecom-v2-cat-${category.slug}`)
+                    .maybeSingle(),
+                fetchProcessTemplatesConfig(supabase)
+            ]);
+
+            processTemplatesConfig = tplConfig;
+            const row = catRes?.data;
 
             if (row?.extra_config) {
                 finalPageConfig = {
@@ -72,6 +81,12 @@ export default async function V2CategoryPage({ params, searchParams }) {
     } catch (err) {
         console.error('[V2CategoryPage] error loading category config:', err?.message);
     }
+
+    // Resolve Our Process from the linked template
+    finalPageConfig = {
+        ...finalPageConfig,
+        process: resolveProcessForCategory(finalPageConfig.process, processTemplatesConfig, category.slug)
+    };
 
     return (
         <CategoryStorefront
