@@ -44,8 +44,8 @@ import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
 
 const SECTION_LABELS = {
     hero: '🎬 Top Media & Hero',
-    services: '📦 Horizontal Services Carousel',
     applianceType: '📱 Subcategories (Appliance Types)',
+    services: '📦 Horizontal Services Carousel',
     process: '🛠️ Our Process (Step-by-step)',
     technicians: '👨‍🔧 Top Technicians Card',
     brands: '🏷️ We Service All Brands',

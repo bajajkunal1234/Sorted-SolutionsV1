@@ -548,7 +548,157 @@ export default function CategoryStorefront({
 
                         <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '20px 0' }} />
 
-                        {/* ══════════════ 2. HORIZONTAL SCROLLING SERVICES CAROUSEL ══════════════ */}
+                        {/* ══════════════ 2. SELECT YOUR APPLIANCE TYPE SECTION ══════════════ */}
+                        {applianceTypeSection.enabled !== false && activeSubcategories.length > 0 && (
+                            <section style={{ marginBottom: 28 }}>
+                                <div style={{ marginBottom: 14 }}>
+                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 3px 0' }}>
+                                        {applianceTypeSection.title || 'Select your appliance type'}
+                                    </h2>
+                                    <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+                                        {applianceTypeSection.subtitle || `Choose your ${category?.name || 'appliance'} model for specialized repair and pricing`}
+                                    </p>
+                                </div>
+
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                                    gap: 12
+                                }} className="v2-appliance-types-grid">
+                                    {activeSubcategories.map(sub => {
+                                        const isSelected = selectedSubcategory === sub.slug;
+                                        const subSlides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
+                                            ? sub.thumbnailSlides
+                                            : null;
+                                        const subIcon = sub.icon || sub.thumbnailUrl || category?.icon || '/images/services/ac_3d.png';
+
+                                        return (
+                                            <button
+                                                key={sub.slug}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (isSelected) {
+                                                        setSelectedSubcategory(null);
+                                                    } else {
+                                                        setSelectedSubcategory(sub.slug);
+                                                        const el = document.getElementById('v2-services-section');
+                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }
+                                                }}
+                                                className="v2-appliance-type-card"
+                                                style={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    textAlign: 'center',
+                                                    padding: '16px 12px',
+                                                    backgroundColor: isSelected ? '#f5f3ff' : '#ffffff',
+                                                    borderRadius: 14,
+                                                    border: isSelected ? '2px solid #6338f5' : '1px solid #e2e8f0',
+                                                    color: 'inherit',
+                                                    boxShadow: isSelected ? '0 4px 14px rgba(99,56,245,0.18)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                    transition: 'all 0.18s ease',
+                                                    cursor: 'pointer',
+                                                    fontFamily: 'inherit',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                {isSelected && (
+                                                    <span style={{
+                                                        position: 'absolute',
+                                                        top: 8,
+                                                        right: 8,
+                                                        backgroundColor: '#6338f5',
+                                                        color: '#ffffff',
+                                                        borderRadius: '50%',
+                                                        width: 18,
+                                                        height: 18,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: 10,
+                                                        fontWeight: 900
+                                                    }}>
+                                                        ✓
+                                                    </span>
+                                                )}
+                                                <div style={{
+                                                    width: 68,
+                                                    height: 68,
+                                                    borderRadius: 12,
+                                                    backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    marginBottom: 10,
+                                                    overflow: 'hidden',
+                                                    position: 'relative'
+                                                }}>
+                                                    {subSlides ? (
+                                                        <SlidingThumbnail
+                                                            slides={subSlides}
+                                                            fallbackUrl={subIcon}
+                                                            alt={sub.name}
+                                                            interval={3500}
+                                                            width="100%"
+                                                            height="100%"
+                                                            objectFit="contain"
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src={subIcon}
+                                                            alt={sub.name}
+                                                            style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                            onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                <span style={{
+                                                    fontSize: 13.5,
+                                                    fontWeight: 700,
+                                                    color: isSelected ? '#6338f5' : '#0f172a',
+                                                    lineHeight: 1.25,
+                                                    marginBottom: 4
+                                                }}>
+                                                    {sub.name}
+                                                </span>
+
+                                                {sub.shortDesc && (
+                                                    <span style={{
+                                                        fontSize: 11,
+                                                        color: '#64748b',
+                                                        lineHeight: 1.3,
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    }}>
+                                                        {sub.shortDesc}
+                                                    </span>
+                                                )}
+
+                                                <span style={{
+                                                    marginTop: 8,
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    color: isSelected ? '#6338f5' : '#6338f5',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 3
+                                                }}>
+                                                    {isSelected ? 'Selected' : 'Select'} <ChevronRight size={12} />
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
+                        <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '20px 0' }} />
+
+                        {/* ══════════════ 3. HORIZONTAL SCROLLING SERVICES CAROUSEL ══════════════ */}
                         {servicesSection.enabled !== false && (
                             <section id="v2-services-section" style={{ marginBottom: 28, scrollMarginTop: 80 }}>
                                 <div style={{ marginBottom: 12 }}>
@@ -856,156 +1006,6 @@ export default function CategoryStorefront({
                                         )}
                                     </div>
                                 )}
-                            </section>
-                        )}
-
-                        {/* ══════════════ 3. SELECT YOUR APPLIANCE TYPE SECTION ══════════════ */}
-                        {applianceTypeSection.enabled !== false && activeSubcategories.length > 0 && (
-                            <section style={{ marginBottom: 32 }}>
-                                <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '20px 0' }} />
-
-                                <div style={{ marginBottom: 14 }}>
-                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 3px 0' }}>
-                                        {applianceTypeSection.title || 'Select your appliance type'}
-                                    </h2>
-                                    <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-                                        {applianceTypeSection.subtitle || `Choose your ${category?.name || 'appliance'} model for specialized repair and pricing`}
-                                    </p>
-                                </div>
-
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                                    gap: 12
-                                }} className="v2-appliance-types-grid">
-                                    {activeSubcategories.map(sub => {
-                                        const isSelected = selectedSubcategory === sub.slug;
-                                        const subSlides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
-                                            ? sub.thumbnailSlides
-                                            : null;
-                                        const subIcon = sub.icon || sub.thumbnailUrl || category?.icon || '/images/services/ac_3d.png';
-
-                                        return (
-                                            <button
-                                                key={sub.slug}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (isSelected) {
-                                                        setSelectedSubcategory(null);
-                                                    } else {
-                                                        setSelectedSubcategory(sub.slug);
-                                                        const el = document.getElementById('v2-services-section');
-                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                    }
-                                                }}
-                                                className="v2-appliance-type-card"
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    textAlign: 'center',
-                                                    padding: '16px 12px',
-                                                    backgroundColor: isSelected ? '#f5f3ff' : '#ffffff',
-                                                    borderRadius: 14,
-                                                    border: isSelected ? '2px solid #6338f5' : '1px solid #e2e8f0',
-                                                    color: 'inherit',
-                                                    boxShadow: isSelected ? '0 4px 14px rgba(99,56,245,0.18)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                    transition: 'all 0.18s ease',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                {isSelected && (
-                                                    <span style={{
-                                                        position: 'absolute',
-                                                        top: 8,
-                                                        right: 8,
-                                                        backgroundColor: '#6338f5',
-                                                        color: '#ffffff',
-                                                        borderRadius: '50%',
-                                                        width: 18,
-                                                        height: 18,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: 10,
-                                                        fontWeight: 900
-                                                    }}>
-                                                        ✓
-                                                    </span>
-                                                )}
-                                                <div style={{
-                                                    width: 68,
-                                                    height: 68,
-                                                    borderRadius: 12,
-                                                    backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: 10,
-                                                    overflow: 'hidden',
-                                                    position: 'relative'
-                                                }}>
-                                                    {subSlides ? (
-                                                        <SlidingThumbnail
-                                                            slides={subSlides}
-                                                            fallbackUrl={subIcon}
-                                                            alt={sub.name}
-                                                            interval={3500}
-                                                            width="100%"
-                                                            height="100%"
-                                                            objectFit="contain"
-                                                        />
-                                                    ) : (
-                                                        <img
-                                                            src={subIcon}
-                                                            alt={sub.name}
-                                                            style={{ width: '80%', height: '80%', objectFit: 'contain' }}
-                                                            onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                <span style={{
-                                                    fontSize: 13.5,
-                                                    fontWeight: 700,
-                                                    color: isSelected ? '#6338f5' : '#0f172a',
-                                                    lineHeight: 1.25,
-                                                    marginBottom: 4
-                                                }}>
-                                                    {sub.name}
-                                                </span>
-
-                                                {sub.shortDesc && (
-                                                    <span style={{
-                                                        fontSize: 11,
-                                                        color: '#64748b',
-                                                        lineHeight: 1.3,
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 2,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        overflow: 'hidden'
-                                                    }}>
-                                                        {sub.shortDesc}
-                                                    </span>
-                                                )}
-
-                                                <span style={{
-                                                    marginTop: 8,
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    color: isSelected ? '#6338f5' : '#6338f5',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 3
-                                                }}>
-                                                    {isSelected ? 'Selected' : 'Select'} <ChevronRight size={12} />
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
                             </section>
                         )}
 
