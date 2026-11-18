@@ -7,32 +7,40 @@ const nextConfig = {
     },
     async redirects() {
         return [
-            // 6 Main Category Pages (Urban Company UI)
-            { source: '/ac-repair', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/refrigerator-repair', destination: '/v2/services/refrigerator-repair', permanent: true },
-            { source: '/fridge-repair', destination: '/v2/services/refrigerator-repair', permanent: true },
-            { source: '/washing-machine-repair', destination: '/v2/services/washing-machine-repair', permanent: true },
-            { source: '/wm-repair', destination: '/v2/services/washing-machine-repair', permanent: true },
-            { source: '/oven-repair', destination: '/v2/services/oven-repair', permanent: true },
-            { source: '/microwave-repair', destination: '/v2/services/oven-repair', permanent: true },
-            { source: '/water-purifier-repair', destination: '/v2/services/water-purifier-repair', permanent: true },
-            { source: '/ro-repair', destination: '/v2/services/water-purifier-repair', permanent: true },
-            { source: '/hob-repair', destination: '/v2/services/hob-repair', permanent: true },
-            { source: '/gas-stove-hoobtop-repair', destination: '/v2/services/hob-repair', permanent: true },
+            // AC Repair
+            { source: '/ac-repair', destination: '/services/ac-repair', permanent: true },
+            { source: '/service-page/split-a-c-installation', destination: '/services/ac-repair/split-ac', permanent: true },
+            { source: '/service-page/foam-jet-ac-servicing', destination: '/services/ac-repair', permanent: true },
+            { source: '/service-page/ac-water-leakage-repair', destination: '/services/ac-repair', permanent: true },
+            { source: '/service-page/ac-less-no-cooling-solution', destination: '/services/ac-repair', permanent: true },
+            { source: '/service-page/ac-power-issue-repair', destination: '/services/ac-repair', permanent: true },
+            { source: '/service-page/ac-noise-smell-issue-repair', destination: '/services/ac-repair', permanent: true },
+            
+            // Refrigerator Repair
+            { source: '/refrigerator-repair', destination: '/services/refrigerator-repair', permanent: true },
+            { source: '/fridge-repair', destination: '/services/refrigerator-repair', permanent: true },
 
-            // Wix Legacy Service Pages
-            { source: '/service-page/split-a-c-installation', destination: '/v2/services/ac-repair/split-ac', permanent: true },
-            { source: '/service-page/foam-jet-ac-servicing', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/service-page/ac-water-leakage-repair', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/service-page/ac-less-no-cooling-solution', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/service-page/ac-power-issue-repair', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/service-page/ac-noise-smell-issue-repair', destination: '/v2/services/ac-repair', permanent: true },
-            { source: '/service-page/fully-automatic-check-up-top-load-1', destination: '/v2/services/washing-machine-repair/top-load', permanent: true },
-            { source: '/service-page/semi-automatic-check-up', destination: '/v2/services/washing-machine-repair/semi-automatic', permanent: true },
-            { source: '/service-page/microwave-check-up-not-heating', destination: '/v2/services/oven-repair/microwave-oven', permanent: true },
-            { source: '/service-page/water-purifier-regular-service', destination: '/v2/services/water-purifier-repair/ro-purifier', permanent: true },
-            { source: '/service-page/hob-top-check-up', destination: '/v2/services/hob-repair/built-in-hob', permanent: true },
-            { source: '/service-page/gas-stove-check-up', destination: '/v2/services/hob-repair/built-in-hob', permanent: true },
+            // Washing Machine
+            { source: '/washing-machine-repair', destination: '/services/washing-machine-repair', permanent: true },
+            { source: '/wm-repair', destination: '/services/washing-machine-repair', permanent: true },
+            { source: '/service-page/fully-automatic-check-up-top-load-1', destination: '/services/washing-machine-repair/top-load', permanent: true },
+            { source: '/service-page/semi-automatic-check-up', destination: '/services/washing-machine-repair/semi-automatic', permanent: true },
+            
+            // Oven Repair
+            { source: '/oven-repair', destination: '/services/oven-repair', permanent: true },
+            { source: '/microwave-repair', destination: '/services/oven-repair', permanent: true },
+            { source: '/service-page/microwave-check-up-not-heating', destination: '/services/oven-repair/microwave-oven', permanent: true },
+            
+            // Water Purifier Repair
+            { source: '/water-purifier-repair', destination: '/services/water-purifier-repair', permanent: true },
+            { source: '/ro-repair', destination: '/services/water-purifier-repair', permanent: true },
+            { source: '/service-page/water-purifier-regular-service', destination: '/services/water-purifier-repair/domestic-ro-water-purifier', permanent: true },
+            
+            // Hob Repair
+            { source: '/hob-repair', destination: '/services/hob-repair', permanent: true },
+            { source: '/gas-stove-hoobtop-repair', destination: '/services/hob-repair', permanent: true },
+            { source: '/service-page/hob-top-check-up', destination: '/services/hob-repair', permanent: true },
+            { source: '/service-page/gas-stove-check-up', destination: '/services/hob-repair', permanent: true },
             
             // Discontinued / Orphaned (Routed to Homepage explicitly)
             { source: '/service-page/induction-cooktop-repair-solutions', destination: '/', permanent: true },

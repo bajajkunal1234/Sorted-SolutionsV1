@@ -537,7 +537,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                         </h1>
                         <p style={{ margin: '3px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                             {activePage
-                                ? `Live URL: /v2/services/${activePage.categorySlug} (also accessible via /${activePage.categorySlug})`
+                                ? `Live URL: /v2/services/${activePage.categorySlug}`
                                 : 'Configure the 6 main category pages with hero banners, services carousel, and "Select your appliance type" section.'}
                         </p>
                     </div>
