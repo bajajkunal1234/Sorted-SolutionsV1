@@ -33,11 +33,27 @@ export async function GET(request, { params }) {
 
         const defaultConfig = getCategoryDefaultConfig(categorySlug, categoryName);
 
+        const defaultSubcategories = (catalogInfo?.subcategories || []).map(s => ({
+            slug: s.slug,
+            name: s.name,
+            shortDesc: s.shortDesc || '',
+            icon: s.icon || catalogInfo?.icon || '/images/services/ac_3d.png',
+            thumbnailSlides: Array.isArray(s.thumbnailSlides) && s.thumbnailSlides.length > 0
+                ? s.thumbnailSlides
+                : (s.icon ? [{ id: '1', url: s.icon, title: s.name }] : []),
+            enabled: s.enabled !== false
+        }));
+
+        const resolvedSubcategories = Array.isArray(savedConfig?.subcategories) && savedConfig.subcategories.length > 0
+            ? savedConfig.subcategories
+            : defaultSubcategories;
+
         // Merge saved config over default config
         const defaultTemplateId = getDefaultTemplateIdForCategory(categorySlug);
         const finalConfig = savedConfig ? {
             ...defaultConfig,
             ...savedConfig,
+            subcategories: resolvedSubcategories,
             hero: { ...defaultConfig.hero, ...(savedConfig.hero || {}) },
             servicesSection: { ...defaultConfig.servicesSection, ...(savedConfig.servicesSection || {}) },
             applianceType: { ...defaultConfig.applianceType, ...(savedConfig.applianceType || {}) },
@@ -54,6 +70,7 @@ export async function GET(request, { params }) {
             desktopStickyPromise: { ...defaultConfig.desktopStickyPromise, ...(savedConfig.desktopStickyPromise || {}) },
         } : {
             ...defaultConfig,
+            subcategories: defaultSubcategories,
             process: {
                 enabled: true,
                 templateId: defaultTemplateId

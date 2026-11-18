@@ -64,6 +64,7 @@ export default async function V2CategoryPage({ params, searchParams }) {
                 finalPageConfig = {
                     ...defaultConfig,
                     ...row.extra_config,
+                    subcategories: Array.isArray(row.extra_config.subcategories) ? row.extra_config.subcategories : (category.subcategories || []),
                     hero: { ...defaultConfig.hero, ...(row.extra_config.hero || {}) },
                     servicesSection: { ...defaultConfig.servicesSection, ...(row.extra_config.servicesSection || {}) },
                     applianceType: { ...defaultConfig.applianceType, ...(row.extra_config.applianceType || {}) },
@@ -88,10 +89,14 @@ export default async function V2CategoryPage({ params, searchParams }) {
         process: resolveProcessForCategory(finalPageConfig.process, processTemplatesConfig, category.slug)
     };
 
+    const finalSubcategories = (finalPageConfig.subcategories?.length > 0
+        ? finalPageConfig.subcategories
+        : (category.subcategories || [])).filter(s => !s.isDeleted && s.enabled !== false);
+
     return (
         <CategoryStorefront
             category={category}
-            subcategories={category.subcategories || []}
+            subcategories={finalSubcategories}
             services={data.services || []}
             categoryCounts={data.categoryCounts || {}}
             highlightId={searchParams?.highlight || null}

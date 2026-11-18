@@ -149,8 +149,31 @@ function NewProductForm({
     }, [brands]);
 
     // Derived subcategories for Web subtype
-    const matchedCategory = findCategoryForDbName(formData.category);
-    const availableSubcategories = matchedCategory?.subcategories || [];
+    const [dynamicCategories, setDynamicCategories] = useState([]);
+
+    // Fetch live categories with dynamic subcategories
+    useEffect(() => {
+        let isMounted = true;
+        fetch('/api/v2/dynamic-categories')
+            .then(res => res.json())
+            .then(data => {
+                if (isMounted && data.success && Array.isArray(data.categories)) {
+                    setDynamicCategories(data.categories);
+                }
+            })
+            .catch(err => console.error('Failed to load dynamic categories in NewProductForm:', err));
+        return () => { isMounted = false; };
+    }, []);
+
+    const activeCatalog = dynamicCategories.length > 0 ? dynamicCategories : V2_CATEGORIES;
+    const catNeedle = String(formData.category || '').trim().toLowerCase();
+    const matchedCategory = activeCatalog.find(cat =>
+        (cat.dbCategories || []).some(db => db.toLowerCase() === catNeedle) ||
+        cat.name.toLowerCase() === catNeedle ||
+        cat.slug === catNeedle
+    ) || findCategoryForDbName(formData.category);
+
+    const availableSubcategories = (matchedCategory?.subcategories || []).filter(s => !s.isDeleted && s.enabled !== false);
 
     const handleAddListItem = async () => {
         const name = newListItem.trim();

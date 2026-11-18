@@ -45,7 +45,7 @@ import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
 const SECTION_LABELS = {
     hero: '🎬 Top Media & Hero',
     services: '📦 Horizontal Services Carousel',
-    applianceType: '📱 Select Your Appliance Type',
+    applianceType: '📱 Subcategories (Appliance Types)',
     process: '🛠️ Our Process (Step-by-step)',
     technicians: '👨‍🔧 Top Technicians Card',
     brands: '🏷️ We Service All Brands',
@@ -73,6 +73,18 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [activeTab, setActiveTab] = useState('hero');
+
+    // Subcategory management states
+    const [isAddingSubcategory, setIsAddingSubcategory] = useState(false);
+    const [newSubcatForm, setNewSubcatForm] = useState({
+        name: '',
+        slug: '',
+        shortDesc: '',
+        icon: '',
+        thumbnailSlides: []
+    });
+    const subcatFileInputRef = useRef(null);
+    const [subcatUploadTarget, setSubcatUploadTarget] = useState(null); // { subIdx: number | 'new', slideIdx?: number }
 
     // Media upload
     const [uploading, setUploading] = useState(false);
@@ -135,7 +147,25 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
             const res = await fetch(`/api/v2/category-pages/${page.categorySlug}`);
             const json = await res.json();
             if (json.success && json.data) {
-                setPageConfig(json.data);
+                const catInfo = V2_CATEGORIES.find(c => c.slug === page.categorySlug);
+                const defaultSubs = (catInfo?.subcategories || []).map(s => ({
+                    slug: s.slug,
+                    name: s.name,
+                    shortDesc: s.shortDesc || '',
+                    icon: s.icon || catInfo?.icon || '/images/services/ac_3d.png',
+                    thumbnailSlides: Array.isArray(s.thumbnailSlides) && s.thumbnailSlides.length > 0
+                        ? s.thumbnailSlides
+                        : (s.icon ? [{ id: '1', url: s.icon, title: s.name }] : []),
+                    enabled: s.enabled !== false
+                }));
+                const loadedSubcats = Array.isArray(json.data.subcategories) && json.data.subcategories.length > 0
+                    ? json.data.subcategories
+                    : defaultSubs;
+
+                setPageConfig({
+                    ...json.data,
+                    subcategories: loadedSubcats
+                });
             } else {
                 setErrorMessage(json.error || 'Failed to load category page config');
             }
@@ -143,6 +173,234 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
             setErrorMessage('Network error loading category config: ' + err.message);
         } finally {
             setLoadingConfig(false);
+        }
+    };
+
+    // Subcategory Action Handlers
+    const handleAddSubcategorySubmit = () => {
+        const name = newSubcatForm.name.trim();
+        if (!name) {
+            setErrorMessage('Subcategory Name is required');
+            return;
+        }
+        const rawSlug = newSubcatForm.slug.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+        const slug = rawSlug.toLowerCase();
+
+        const currentSubs = pageConfig?.subcategories || [];
+        if (currentSubs.some(s => s.slug === slug)) {
+            setErrorMessage(`A subcategory with slug "${slug}" already exists.`);
+            return;
+        }
+
+        const fallbackIcon = activeCatData?.icon || '/images/services/ac_3d.png';
+        const finalIcon = newSubcatForm.icon || fallbackIcon;
+        const slides = Array.isArray(newSubcatForm.thumbnailSlides) && newSubcatForm.thumbnailSlides.length > 0
+            ? newSubcatForm.thumbnailSlides
+            : [{ id: '1', url: finalIcon, title: name }];
+
+        const newSub = {
+            slug,
+            name,
+            shortDesc: newSubcatForm.shortDesc || '',
+            icon: finalIcon,
+            thumbnailSlides: slides,
+            enabled: true,
+            isCustomCreated: true
+        };
+
+        setPageConfig(prev => ({
+            ...prev,
+            subcategories: [...(prev.subcategories || []), newSub]
+        }));
+
+        setIsAddingSubcategory(false);
+        setNewSubcatForm({
+            name: '',
+            slug: '',
+            shortDesc: '',
+            icon: '',
+            thumbnailSlides: []
+        });
+    };
+
+    const handleAddSlideToNewSubcat = () => {
+        setNewSubcatForm(prev => {
+            const nextSlides = [...(prev.thumbnailSlides || [])];
+            if (nextSlides.length >= 3) {
+                setErrorMessage('Maximum 3 slides allowed per subcategory thumbnail');
+                return prev;
+            }
+            nextSlides.push({
+                id: `slide-${nextSlides.length + 1}`,
+                url: prev.icon || activeCatData?.icon || '/images/services/ac_3d.png',
+                title: prev.name || 'Slide'
+            });
+            return { ...prev, thumbnailSlides: nextSlides };
+        });
+    };
+
+    const handleRemoveSlideFromNewSubcat = (slideIdx) => {
+        setNewSubcatForm(prev => {
+            const nextSlides = (prev.thumbnailSlides || []).filter((_, i) => i !== slideIdx);
+            return {
+                ...prev,
+                thumbnailSlides: nextSlides,
+                icon: slideIdx === 0 && nextSlides[0]?.url ? nextSlides[0].url : prev.icon
+            };
+        });
+    };
+
+    const handleUpdateSlideInNewSubcat = (slideIdx, url) => {
+        setNewSubcatForm(prev => {
+            const nextSlides = [...(prev.thumbnailSlides || [])];
+            if (nextSlides[slideIdx]) {
+                nextSlides[slideIdx] = { ...nextSlides[slideIdx], url };
+            }
+            return {
+                ...prev,
+                thumbnailSlides: nextSlides,
+                icon: slideIdx === 0 ? url : prev.icon
+            };
+        });
+    };
+
+    const handleUpdateSubcategory = (idx, field, value) => {
+        setPageConfig(prev => {
+            const nextSubs = [...(prev.subcategories || [])];
+            nextSubs[idx] = { ...nextSubs[idx], [field]: value };
+            return { ...prev, subcategories: nextSubs };
+        });
+    };
+
+    const handleMoveSubcategory = (idx, direction) => {
+        setPageConfig(prev => {
+            const nextSubs = [...(prev.subcategories || [])];
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= nextSubs.length) return prev;
+            const temp = nextSubs[idx];
+            nextSubs[idx] = nextSubs[targetIdx];
+            nextSubs[targetIdx] = temp;
+            return { ...prev, subcategories: nextSubs };
+        });
+    };
+
+    const handleDeleteSubcategory = (idx) => {
+        const sub = pageConfig?.subcategories?.[idx];
+        if (!window.confirm(`Delete subcategory "${sub?.name || 'this subcategory'}"? It will no longer display on the website.`)) {
+            return;
+        }
+        setPageConfig(prev => ({
+            ...prev,
+            subcategories: (prev.subcategories || []).filter((_, i) => i !== idx)
+        }));
+    };
+
+    const handleAddSlideToSubcategory = (subIdx) => {
+        setPageConfig(prev => {
+            const nextSubs = [...(prev.subcategories || [])];
+            const targetSub = { ...nextSubs[subIdx] };
+            const currentSlides = [...(targetSub.thumbnailSlides || [])];
+            if (currentSlides.length >= 3) {
+                setErrorMessage('Maximum 3 slides allowed per subcategory thumbnail');
+                return prev;
+            }
+            currentSlides.push({
+                id: `slide-${currentSlides.length + 1}`,
+                url: targetSub.icon || activeCatData?.icon || '/images/services/ac_3d.png',
+                title: targetSub.name || 'Slide'
+            });
+            targetSub.thumbnailSlides = currentSlides;
+            nextSubs[subIdx] = targetSub;
+            return { ...prev, subcategories: nextSubs };
+        });
+    };
+
+    const handleRemoveSlideFromSubcategory = (subIdx, slideIdx) => {
+        setPageConfig(prev => {
+            const nextSubs = [...(prev.subcategories || [])];
+            const targetSub = { ...nextSubs[subIdx] };
+            const currentSlides = (targetSub.thumbnailSlides || []).filter((_, i) => i !== slideIdx);
+            targetSub.thumbnailSlides = currentSlides;
+            if (slideIdx === 0 && currentSlides[0]?.url) {
+                targetSub.icon = currentSlides[0].url;
+            }
+            nextSubs[subIdx] = targetSub;
+            return { ...prev, subcategories: nextSubs };
+        });
+    };
+
+    const handleUpdateSubcategorySlide = (subIdx, slideIdx, url) => {
+        setPageConfig(prev => {
+            const nextSubs = [...(prev.subcategories || [])];
+            const targetSub = { ...nextSubs[subIdx] };
+            const nextSlides = [...(targetSub.thumbnailSlides || [])];
+            if (nextSlides[slideIdx]) {
+                nextSlides[slideIdx] = { ...nextSlides[slideIdx], url };
+            }
+            targetSub.thumbnailSlides = nextSlides;
+            if (slideIdx === 0) {
+                targetSub.icon = url;
+            }
+            nextSubs[subIdx] = targetSub;
+            return { ...prev, subcategories: nextSubs };
+        });
+    };
+
+    const handleSubcatImageSelect = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !subcatUploadTarget) return;
+
+        setUploading(true);
+        setErrorMessage('');
+        try {
+            const url = await uploadFile(file, 'ecom-v2/subcategories');
+            const { subIdx, slideIdx } = subcatUploadTarget;
+
+            if (subIdx === 'new') {
+                if (typeof slideIdx === 'number') {
+                    setNewSubcatForm(prev => {
+                        const nextSlides = [...(prev.thumbnailSlides || [])];
+                        nextSlides[slideIdx] = { id: `slide-${slideIdx + 1}`, url, title: prev.name || 'Slide' };
+                        return { ...prev, thumbnailSlides: nextSlides, icon: prev.icon || url };
+                    });
+                } else {
+                    setNewSubcatForm(prev => ({
+                        ...prev,
+                        icon: url,
+                        thumbnailSlides: prev.thumbnailSlides?.length > 0 ? prev.thumbnailSlides : [{ id: 'slide-1', url, title: prev.name || 'Slide' }]
+                    }));
+                }
+            } else {
+                setPageConfig(prev => {
+                    const nextSubs = [...(prev.subcategories || [])];
+                    const targetSub = { ...nextSubs[subIdx] };
+
+                    if (typeof slideIdx === 'number') {
+                        const nextSlides = [...(targetSub.thumbnailSlides || [])];
+                        nextSlides[slideIdx] = { id: `slide-${slideIdx + 1}`, url, title: targetSub.name || 'Slide' };
+                        targetSub.thumbnailSlides = nextSlides;
+                        if (!targetSub.icon) targetSub.icon = url;
+                    } else {
+                        targetSub.icon = url;
+                        if (!targetSub.thumbnailSlides || targetSub.thumbnailSlides.length === 0) {
+                            targetSub.thumbnailSlides = [{ id: 'slide-1', url, title: targetSub.name || 'Slide' }];
+                        } else {
+                            const nextSlides = [...targetSub.thumbnailSlides];
+                            nextSlides[0] = { ...nextSlides[0], url };
+                            targetSub.thumbnailSlides = nextSlides;
+                        }
+                    }
+
+                    nextSubs[subIdx] = targetSub;
+                    return { ...prev, subcategories: nextSubs };
+                });
+            }
+        } catch (err) {
+            setErrorMessage('Failed to upload subcategory image: ' + err.message);
+        } finally {
+            setUploading(false);
+            setSubcatUploadTarget(null);
+            if (subcatFileInputRef.current) subcatFileInputRef.current.value = '';
         }
     };
 
@@ -933,47 +1191,595 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                 </div>
                             </div>
 
-                            {/* Subcategories Preview Grid */}
+                            {/* ══════════════ Subcategories Management ══════════════ */}
                             <div>
-                                <h3 style={{ fontSize: 13, fontWeight: 800, margin: '0 0 12px 0' }}>
-                                    Subcategories under {activePage.categoryName} ({activeCatData?.subcategories?.length || 0})
-                                </h3>
-
                                 <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                                    gap: 12
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 12,
+                                    padding: '14px 18px',
+                                    borderRadius: 'var(--radius-md)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    border: '1px solid var(--border-primary)',
+                                    marginBottom: 20
                                 }}>
-                                    {(activeCatData?.subcategories || []).map(sub => (
-                                        <div
-                                            key={sub.slug}
-                                            style={{
-                                                padding: 14,
-                                                borderRadius: 12,
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--border-primary)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                textAlign: 'center'
-                                            }}
-                                        >
-                                            <div style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: activeCatData?.accent || '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                                                <img src={sub.icon || activeCatData?.icon} alt={sub.name} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-                                            </div>
-                                            <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>{sub.name}</strong>
-                                            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>/{sub.slug}</span>
-                                            <a
-                                                href={`/v2/services/${activePage.categorySlug}/${sub.slug}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ marginTop: 8, fontSize: 11, color: '#6338f5', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                                            >
-                                                Preview Subcategory <ExternalLink size={10} />
-                                            </a>
+                                    <div>
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span>Subcategories / Appliance Types</span>
+                                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, backgroundColor: '#6338f5', color: '#ffffff', fontWeight: 700 }}>
+                                                {(pageConfig.subcategories || []).length} Types
+                                            </span>
                                         </div>
-                                    ))}
+                                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                            Manage subcategories for <strong>{activePage.categoryName}</strong>. Configure up to 3 animated sliding thumbnails, rename, reorder, or add new appliance types.
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddingSubcategory(prev => !prev)}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            padding: '8px 14px',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: isAddingSubcategory ? 'var(--bg-elevated)' : '#6338f5',
+                                            color: isAddingSubcategory ? 'var(--text-primary)' : '#ffffff',
+                                            border: isAddingSubcategory ? '1px solid var(--border-primary)' : 'none',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {isAddingSubcategory ? <X size={14} /> : <Plus size={14} />}
+                                        {isAddingSubcategory ? 'Cancel' : 'Add Subcategory'}
+                                    </button>
                                 </div>
+
+                                {/* ── Add Subcategory Form ── */}
+                                {isAddingSubcategory && (
+                                    <div style={{
+                                        padding: 20,
+                                        borderRadius: 'var(--radius-lg)',
+                                        backgroundColor: 'rgba(99, 56, 245, 0.05)',
+                                        border: '2px solid #6338f5',
+                                        marginBottom: 24
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#6338f5', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <Plus size={16} /> Add New Subcategory to {activePage.categoryName}
+                                            </h3>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAddingSubcategory(false)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 16 }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                                                    Subcategory Name *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. Cassette AC, Double Door, Tower AC"
+                                                    value={newSubcatForm.name}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        const autoSlug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                                                        setNewSubcatForm(prev => ({
+                                                            ...prev,
+                                                            name: val,
+                                                            slug: prev.slug === '' || prev.slug === prev.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+                                                                ? autoSlug
+                                                                : prev.slug
+                                                        }));
+                                                    }}
+                                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                                                    Slug (Inventory Subcategory Match) *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. cassette-ac"
+                                                    value={newSubcatForm.slug}
+                                                    onChange={(e) => setNewSubcatForm(prev => ({ ...prev, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '') }))}
+                                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                                                />
+                                                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 3 }}>
+                                                    Must match the subcategory in Inventory to tag services.
+                                                </div>
+                                            </div>
+
+                                            <div style={{ gridColumn: '1 / -1' }}>
+                                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                                                    Short Description / Subtitle
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. Complete chemical wash, fan motor & gas refill"
+                                                    value={newSubcatForm.shortDesc}
+                                                    onChange={(e) => setNewSubcatForm(prev => ({ ...prev, shortDesc: e.target.value }))}
+                                                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Primary Icon / Thumbnail Upload */}
+                                        <div style={{ marginBottom: 16 }}>
+                                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>
+                                                Primary Icon / Thumbnail URL
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                                <div style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img
+                                                        src={newSubcatForm.icon || activeCatData?.icon || '/images/services/ac_3d.png'}
+                                                        alt="Preview"
+                                                        style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                    />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="https://... or /images/services/..."
+                                                    value={newSubcatForm.icon}
+                                                    onChange={(e) => setNewSubcatForm(prev => ({ ...prev, icon: e.target.value }))}
+                                                    style={{ flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSubcatUploadTarget({ subIdx: 'new' });
+                                                        if (subcatFileInputRef.current) subcatFileInputRef.current.click();
+                                                    }}
+                                                    style={{ padding: '8px 14px', borderRadius: 'var(--radius-md)', backgroundColor: '#6338f5', color: '#ffffff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                                                >
+                                                    <Upload size={13} /> Upload Image
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Up to 3 Slide Animations */}
+                                        <div style={{ padding: 14, borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                                <div>
+                                                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
+                                                        Animated 3-Slide Thumbnails (Optional)
+                                                    </div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                                        Images automatically slide in from top, bottom, left and right like homepage tiles.
+                                                    </div>
+                                                </div>
+                                                {(newSubcatForm.thumbnailSlides || []).length < 3 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleAddSlideToNewSubcat}
+                                                        style={{ padding: '5px 10px', borderRadius: 6, backgroundColor: '#6338f5', color: '#ffffff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                                    >
+                                                        <Plus size={11} /> Add Slide ({3 - (newSubcatForm.thumbnailSlides || []).length} left)
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {(newSubcatForm.thumbnailSlides || []).length === 0 ? (
+                                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', padding: '6px 0' }}>
+                                                    No extra slides added yet. The primary icon above will be used as the single thumbnail. Click "Add Slide" to enable animated sliding.
+                                                </div>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                    {newSubcatForm.thumbnailSlides.map((slide, sIdx) => (
+                                                        <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            <span style={{ fontSize: 11, fontWeight: 800, color: '#6338f5', width: 55, flexShrink: 0 }}>
+                                                                Slide #{sIdx + 1}
+                                                            </span>
+                                                            <div style={{ width: 34, height: 34, borderRadius: 6, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                                                <img src={slide.url || newSubcatForm.icon || activeCatData?.icon} alt={`Slide ${sIdx + 1}`} style={{ width: '85%', height: '85%', objectFit: 'contain' }} />
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Slide image URL"
+                                                                value={slide.url || ''}
+                                                                onChange={(e) => handleUpdateSlideInNewSubcat(sIdx, e.target.value)}
+                                                                style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 11 }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSubcatUploadTarget({ subIdx: 'new', slideIdx: sIdx });
+                                                                    if (subcatFileInputRef.current) subcatFileInputRef.current.click();
+                                                                }}
+                                                                style={{ padding: '6px 10px', borderRadius: 6, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                                            >
+                                                                <Upload size={11} /> Upload
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveSlideFromNewSubcat(sIdx)}
+                                                                style={{ padding: '6px', borderRadius: 6, backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', cursor: 'pointer' }}
+                                                                title="Remove Slide"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsAddingSubcategory(false)}
+                                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleAddSubcategorySubmit}
+                                                style={{ padding: '8px 18px', borderRadius: 'var(--radius-md)', backgroundColor: '#6338f5', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                            >
+                                                <Check size={14} /> Add Subcategory
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── Subcategories List ── */}
+                                {(!pageConfig.subcategories || pageConfig.subcategories.length === 0) ? (
+                                    <div style={{ padding: 32, textAlign: 'center', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)', color: 'var(--text-secondary)' }}>
+                                        <p style={{ margin: '0 0 12px 0', fontSize: 13 }}>No subcategories configured for this category yet.</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAddingSubcategory(true)}
+                                            style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', backgroundColor: '#6338f5', color: '#ffffff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                                        >
+                                            <Plus size={14} /> Add First Subcategory
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                        {pageConfig.subcategories.map((sub, idx) => {
+                                            const slides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
+                                                ? sub.thumbnailSlides
+                                                : (sub.icon ? [{ id: '1', url: sub.icon, title: sub.name }] : []);
+
+                                            return (
+                                                <div
+                                                    key={sub.slug || idx}
+                                                    style={{
+                                                        padding: 18,
+                                                        borderRadius: 'var(--radius-lg)',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
+                                                    }}
+                                                >
+                                                    {/* Card Top Action Bar */}
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        flexWrap: 'wrap',
+                                                        gap: 10,
+                                                        marginBottom: 14,
+                                                        paddingBottom: 10,
+                                                        borderBottom: '1px solid var(--border-primary)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            {/* Reorder Buttons */}
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={idx === 0}
+                                                                    onClick={() => handleMoveSubcategory(idx, -1)}
+                                                                    title="Move Up"
+                                                                    style={{
+                                                                        padding: 4,
+                                                                        borderRadius: 4,
+                                                                        border: '1px solid var(--border-primary)',
+                                                                        backgroundColor: 'var(--bg-elevated)',
+                                                                        color: idx === 0 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                                        cursor: idx === 0 ? 'not-allowed' : 'pointer'
+                                                                    }}
+                                                                >
+                                                                    <ArrowUp size={12} />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={idx === pageConfig.subcategories.length - 1}
+                                                                    onClick={() => handleMoveSubcategory(idx, 1)}
+                                                                    title="Move Down"
+                                                                    style={{
+                                                                        padding: 4,
+                                                                        borderRadius: 4,
+                                                                        border: '1px solid var(--border-primary)',
+                                                                        backgroundColor: 'var(--bg-elevated)',
+                                                                        color: idx === pageConfig.subcategories.length - 1 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                                        cursor: idx === pageConfig.subcategories.length - 1 ? 'not-allowed' : 'pointer'
+                                                                    }}
+                                                                >
+                                                                    <ArrowDown size={12} />
+                                                                </button>
+                                                            </div>
+
+                                                            <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 6px', borderRadius: 4, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-tertiary)' }}>
+                                                                #{idx + 1}
+                                                            </span>
+
+                                                            <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>
+                                                                {sub.name || 'Untitled Subcategory'}
+                                                            </strong>
+
+                                                            <span style={{
+                                                                fontSize: 11,
+                                                                fontFamily: 'monospace',
+                                                                padding: '2px 8px',
+                                                                borderRadius: 6,
+                                                                backgroundColor: 'rgba(99, 56, 245, 0.1)',
+                                                                color: '#8b5cf6',
+                                                                fontWeight: 700
+                                                            }}>
+                                                                /{sub.slug}
+                                                            </span>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={sub.enabled !== false}
+                                                                    onChange={(e) => handleUpdateSubcategory(idx, 'enabled', e.target.checked)}
+                                                                />
+                                                                Visible
+                                                            </label>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteSubcategory(idx)}
+                                                                style={{
+                                                                    padding: '4px 10px',
+                                                                    borderRadius: 6,
+                                                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                                                    color: '#ef4444',
+                                                                    fontSize: 11,
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}
+                                                                title="Delete Subcategory"
+                                                            >
+                                                                <Trash2 size={12} /> Delete
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Card Body Grid (Left: Details, Right: Thumbnails & 3-Slide Manager) */}
+                                                    <div style={{
+                                                        display: 'grid',
+                                                        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                                                        gap: 20
+                                                    }}>
+                                                        {/* Left: Info Inputs */}
+                                                        <div>
+                                                            <div style={{ marginBottom: 12 }}>
+                                                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                                                    Subcategory Name *
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={sub.name || ''}
+                                                                    onChange={(e) => handleUpdateSubcategory(idx, 'name', e.target.value)}
+                                                                    style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13 }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{ marginBottom: 12 }}>
+                                                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                                                    Subcategory Slug (Inventory Match) *
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={sub.slug || ''}
+                                                                    onChange={(e) => handleUpdateSubcategory(idx, 'slug', e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ''))}
+                                                                    style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12, fontFamily: 'monospace' }}
+                                                                />
+                                                            </div>
+
+                                                            <div>
+                                                                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                                                    Short Description / Subtitle
+                                                                </label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={sub.shortDesc || ''}
+                                                                    placeholder="e.g. Foam-jet deep cleaning, cooling fix & genuine parts"
+                                                                    onChange={(e) => handleUpdateSubcategory(idx, 'shortDesc', e.target.value)}
+                                                                    style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12 }}
+                                                                />
+                                                            </div>
+
+                                                            <div style={{
+                                                                marginTop: 14,
+                                                                padding: '8px 12px',
+                                                                borderRadius: 6,
+                                                                backgroundColor: 'var(--bg-elevated)',
+                                                                border: '1px solid var(--border-primary)',
+                                                                fontSize: 11,
+                                                                color: 'var(--text-secondary)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6
+                                                            }}>
+                                                                <Info size={13} color="#6338f5" style={{ flexShrink: 0 }} />
+                                                                <span>
+                                                                    Services created in <strong>Inventory</strong> with Subcategory <strong>"{sub.slug}"</strong> automatically filter under this card on the website.
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Right: Thumbnails & 3-Slide Animated Images */}
+                                                        <div style={{
+                                                            padding: 14,
+                                                            borderRadius: 8,
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            border: '1px solid var(--border-primary)'
+                                                        }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                                                <div>
+                                                                    <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                        <ImageIcon size={14} color="#6338f5" />
+                                                                        <span>Thumbnails & 3-Slide Animation</span>
+                                                                    </div>
+                                                                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                                                        Slides in from top, bottom, left & right
+                                                                    </div>
+                                                                </div>
+
+                                                                {slides.length < 3 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleAddSlideToSubcategory(idx)}
+                                                                        style={{
+                                                                            padding: '4px 10px',
+                                                                            borderRadius: 6,
+                                                                            backgroundColor: '#6338f5',
+                                                                            color: '#ffffff',
+                                                                            border: 'none',
+                                                                            fontSize: 11,
+                                                                            fontWeight: 700,
+                                                                            cursor: 'pointer',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: 4
+                                                                        }}
+                                                                    >
+                                                                        <Plus size={11} /> Add Slide ({3 - slides.length} left)
+                                                                    </button>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Animated Preview + Slides List */}
+                                                            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                                                                {/* Animated Live Preview Box */}
+                                                                <div style={{
+                                                                    width: 72,
+                                                                    height: 72,
+                                                                    borderRadius: 12,
+                                                                    backgroundColor: activeCatData?.accent || '#f8fafc',
+                                                                    border: '1px solid var(--border-primary)',
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    overflow: 'hidden',
+                                                                    flexShrink: 0,
+                                                                    position: 'relative'
+                                                                }}>
+                                                                    {slides.length > 0 ? (
+                                                                        <SlidingThumbnail
+                                                                            slides={slides}
+                                                                            fallbackUrl={sub.icon || activeCatData?.icon || '/images/services/ac_3d.png'}
+                                                                            alt={sub.name}
+                                                                            interval={2500}
+                                                                            width="100%"
+                                                                            height="100%"
+                                                                            objectFit="contain"
+                                                                        />
+                                                                    ) : (
+                                                                        <img
+                                                                            src={sub.icon || activeCatData?.icon || '/images/services/ac_3d.png'}
+                                                                            alt={sub.name}
+                                                                            style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                                        />
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Slides Inputs */}
+                                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                    {slides.map((slide, sIdx) => (
+                                                                        <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                                            <span style={{ fontSize: 10, fontWeight: 800, color: '#6338f5', width: 48, flexShrink: 0 }}>
+                                                                                #{sIdx + 1}
+                                                                            </span>
+                                                                            <input
+                                                                                type="text"
+                                                                                value={slide.url || ''}
+                                                                                onChange={(e) => handleUpdateSubcategorySlide(idx, sIdx, e.target.value)}
+                                                                                placeholder="Slide image URL"
+                                                                                style={{
+                                                                                    flex: 1,
+                                                                                    padding: '5px 8px',
+                                                                                    borderRadius: 6,
+                                                                                    border: '1px solid var(--border-primary)',
+                                                                                    backgroundColor: 'var(--bg-secondary)',
+                                                                                    color: 'var(--text-primary)',
+                                                                                    fontSize: 11
+                                                                                }}
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setSubcatUploadTarget({ subIdx: idx, slideIdx: sIdx });
+                                                                                    if (subcatFileInputRef.current) subcatFileInputRef.current.click();
+                                                                                }}
+                                                                                style={{
+                                                                                    padding: '5px 8px',
+                                                                                    borderRadius: 6,
+                                                                                    backgroundColor: 'var(--bg-secondary)',
+                                                                                    color: 'var(--text-secondary)',
+                                                                                    border: '1px solid var(--border-primary)',
+                                                                                    fontSize: 11,
+                                                                                    cursor: 'pointer',
+                                                                                    display: 'inline-flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: 4
+                                                                                }}
+                                                                                title="Upload Image"
+                                                                            >
+                                                                                <Upload size={11} />
+                                                                            </button>
+                                                                            {slides.length > 1 && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => handleRemoveSlideFromSubcategory(idx, sIdx)}
+                                                                                    style={{
+                                                                                        padding: '5px',
+                                                                                        borderRadius: 6,
+                                                                                        backgroundColor: 'rgba(239,68,68,0.1)',
+                                                                                        color: '#ef4444',
+                                                                                        border: 'none',
+                                                                                        cursor: 'pointer'
+                                                                                    }}
+                                                                                    title="Delete Slide"
+                                                                                >
+                                                                                    <Trash2 size={11} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1489,6 +2295,14 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                     }
                     e.target.value = '';
                 }}
+            />
+            {/* Hidden Subcategory Thumbnail & Slide File Input */}
+            <input
+                ref={subcatFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                style={{ display: 'none' }}
+                onChange={handleSubcatImageSelect}
             />
         </div>
     );
