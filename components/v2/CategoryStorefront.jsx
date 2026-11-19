@@ -193,10 +193,41 @@ export default function CategoryStorefront({
             el.removeEventListener('scroll', updateScrollButtons);
             window.removeEventListener('resize', updateScrollButtons);
         };
-    }, [services]);
+    }, [displayedServices]);
 
     const scrollServices = (direction) => {
         const el = servicesScrollRef.current;
+        if (!el) return;
+        const amount = direction === 'left' ? -260 : 260;
+        el.scrollBy({ left: amount, behavior: 'smooth' });
+    };
+
+    // ── Horizontal Appliance Types Carousel Scrolling ──
+    const applianceScrollRef = useRef(null);
+    const [canScrollApplianceLeft, setCanScrollApplianceLeft] = useState(false);
+    const [canScrollApplianceRight, setCanScrollApplianceRight] = useState(false);
+
+    const updateApplianceScrollButtons = () => {
+        const el = applianceScrollRef.current;
+        if (!el) return;
+        setCanScrollApplianceLeft(el.scrollLeft > 10);
+        setCanScrollApplianceRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+    };
+
+    useEffect(() => {
+        const el = applianceScrollRef.current;
+        if (!el) return;
+        updateApplianceScrollButtons();
+        el.addEventListener('scroll', updateApplianceScrollButtons, { passive: true });
+        window.addEventListener('resize', updateApplianceScrollButtons);
+        return () => {
+            el.removeEventListener('scroll', updateApplianceScrollButtons);
+            window.removeEventListener('resize', updateApplianceScrollButtons);
+        };
+    }, [activeSubcategories]);
+
+    const scrollAppliance = (direction) => {
+        const el = applianceScrollRef.current;
         if (!el) return;
         const amount = direction === 'left' ? -260 : 260;
         el.scrollBy({ left: amount, behavior: 'smooth' });
@@ -560,138 +591,223 @@ export default function CategoryStorefront({
                                     </p>
                                 </div>
 
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                                    gap: 12
-                                }} className="v2-appliance-types-grid">
-                                    {activeSubcategories.map(sub => {
-                                        const isSelected = selectedSubcategory === sub.slug;
-                                        const subSlides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
-                                            ? sub.thumbnailSlides
-                                            : null;
-                                        const subIcon = sub.icon || sub.thumbnailUrl || category?.icon || '/images/services/ac_3d.png';
+                                <div style={{ position: 'relative' }}>
+                                    {/* Desktop Left Scroll Button */}
+                                    {canScrollApplianceLeft && (
+                                        <button
+                                            type="button"
+                                            onClick={() => scrollAppliance('left')}
+                                            style={{
+                                                position: 'absolute',
+                                                left: -14,
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                width: 32,
+                                                height: 32,
+                                                borderRadius: '50%',
+                                                backgroundColor: '#ffffff',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                                border: '1px solid #e2e8f0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                zIndex: 10,
+                                                color: '#0f172a'
+                                            }}
+                                            aria-label="Scroll appliance types left"
+                                        >
+                                            <ChevronLeft size={18} />
+                                        </button>
+                                    )}
 
-                                        return (
-                                            <button
-                                                key={sub.slug}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (isSelected) {
-                                                        setSelectedSubcategory(null);
-                                                    } else {
-                                                        setSelectedSubcategory(sub.slug);
-                                                        const el = document.getElementById('v2-services-section');
-                                                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                    }
-                                                }}
-                                                className="v2-appliance-type-card"
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    textAlign: 'center',
-                                                    padding: '16px 12px',
-                                                    backgroundColor: isSelected ? '#f5f3ff' : '#ffffff',
-                                                    borderRadius: 14,
-                                                    border: isSelected ? '2px solid #6338f5' : '1px solid #e2e8f0',
-                                                    color: 'inherit',
-                                                    boxShadow: isSelected ? '0 4px 14px rgba(99,56,245,0.18)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                    transition: 'all 0.18s ease',
-                                                    cursor: 'pointer',
-                                                    fontFamily: 'inherit',
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                {isSelected && (
-                                                    <span style={{
-                                                        position: 'absolute',
-                                                        top: 8,
-                                                        right: 8,
-                                                        backgroundColor: '#6338f5',
-                                                        color: '#ffffff',
-                                                        borderRadius: '50%',
-                                                        width: 18,
-                                                        height: 18,
+                                    {/* Horizontal Scrolling Track */}
+                                    <div
+                                        ref={applianceScrollRef}
+                                        style={{
+                                            display: 'flex',
+                                            gap: 12,
+                                            overflowX: 'auto',
+                                            scrollSnapType: 'x mandatory',
+                                            paddingBottom: 8,
+                                            paddingTop: 4,
+                                            paddingLeft: 2,
+                                            paddingRight: 2,
+                                            scrollbarWidth: 'none',
+                                            msOverflowStyle: 'none',
+                                            WebkitOverflowScrolling: 'touch'
+                                        }}
+                                        className="v2-appliance-types-track"
+                                    >
+                                        {activeSubcategories.map(sub => {
+                                            const isSelected = selectedSubcategory === sub.slug;
+                                            const subSlides = Array.isArray(sub.thumbnailSlides) && sub.thumbnailSlides.length > 0
+                                                ? sub.thumbnailSlides
+                                                : null;
+                                            const subIcon = sub.icon || sub.thumbnailUrl || category?.icon || '/images/services/ac_3d.png';
+
+                                            return (
+                                                <button
+                                                    key={sub.slug}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setSelectedSubcategory(null);
+                                                        } else {
+                                                            setSelectedSubcategory(sub.slug);
+                                                            const el = document.getElementById('v2-services-section');
+                                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                        }
+                                                    }}
+                                                    className="v2-appliance-type-card"
+                                                    style={{
+                                                        flex: '0 0 145px',
+                                                        width: 145,
+                                                        minWidth: 145,
+                                                        flexShrink: 0,
+                                                        scrollSnapAlign: 'start',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        textAlign: 'center',
+                                                        padding: '16px 12px',
+                                                        backgroundColor: isSelected ? '#f5f3ff' : '#ffffff',
+                                                        borderRadius: 14,
+                                                        border: isSelected ? '2px solid #6338f5' : '1px solid #e2e8f0',
+                                                        color: 'inherit',
+                                                        boxShadow: isSelected ? '0 4px 14px rgba(99,56,245,0.18)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                        transition: 'all 0.18s ease',
+                                                        cursor: 'pointer',
+                                                        fontFamily: 'inherit',
+                                                        position: 'relative'
+                                                    }}
+                                                >
+                                                    {isSelected && (
+                                                        <span style={{
+                                                            position: 'absolute',
+                                                            top: 8,
+                                                            right: 8,
+                                                            backgroundColor: '#6338f5',
+                                                            color: '#ffffff',
+                                                            borderRadius: '50%',
+                                                            width: 18,
+                                                            height: 18,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: 10,
+                                                            fontWeight: 900
+                                                        }}>
+                                                            ✓
+                                                        </span>
+                                                    )}
+                                                    <div style={{
+                                                        width: 68,
+                                                        height: 68,
+                                                        borderRadius: 12,
+                                                        backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        fontSize: 10,
-                                                        fontWeight: 900
+                                                        marginBottom: 10,
+                                                        overflow: 'hidden',
+                                                        position: 'relative'
                                                     }}>
-                                                        ✓
-                                                    </span>
-                                                )}
-                                                <div style={{
-                                                    width: 68,
-                                                    height: 68,
-                                                    borderRadius: 12,
-                                                    backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: 10,
-                                                    overflow: 'hidden',
-                                                    position: 'relative'
-                                                }}>
-                                                    {subSlides ? (
-                                                        <SlidingThumbnail
-                                                            slides={subSlides}
-                                                            fallbackUrl={subIcon}
-                                                            alt={sub.name}
-                                                            interval={3500}
-                                                            width="100%"
-                                                            height="100%"
-                                                            objectFit="contain"
-                                                        />
-                                                    ) : (
-                                                        <img
-                                                            src={subIcon}
-                                                            alt={sub.name}
-                                                            style={{ width: '80%', height: '80%', objectFit: 'contain' }}
-                                                            onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
-                                                        />
-                                                    )}
-                                                </div>
+                                                        {subSlides ? (
+                                                            <SlidingThumbnail
+                                                                slides={subSlides}
+                                                                fallbackUrl={subIcon}
+                                                                alt={sub.name}
+                                                                interval={3500}
+                                                                width="100%"
+                                                                height="100%"
+                                                                objectFit="contain"
+                                                            />
+                                                        ) : (
+                                                            <img
+                                                                src={subIcon}
+                                                                alt={sub.name}
+                                                                style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                                onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
+                                                            />
+                                                        )}
+                                                    </div>
 
-                                                <span style={{
-                                                    fontSize: 13.5,
-                                                    fontWeight: 700,
-                                                    color: isSelected ? '#6338f5' : '#0f172a',
-                                                    lineHeight: 1.25,
-                                                    marginBottom: 4
-                                                }}>
-                                                    {sub.name}
-                                                </span>
+                                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 6 }}>
+                                                        <span style={{
+                                                            fontSize: 13,
+                                                            fontWeight: 700,
+                                                            color: isSelected ? '#6338f5' : '#0f172a',
+                                                            lineHeight: 1.25,
+                                                            marginBottom: 4,
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden'
+                                                        }}>
+                                                            {sub.name}
+                                                        </span>
 
-                                                {sub.shortDesc && (
+                                                        {sub.shortDesc && (
+                                                            <span style={{
+                                                                fontSize: 11,
+                                                                color: '#64748b',
+                                                                lineHeight: 1.3,
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden'
+                                                            }}>
+                                                                {sub.shortDesc}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
                                                     <span style={{
+                                                        marginTop: 'auto',
                                                         fontSize: 11,
-                                                        color: '#64748b',
-                                                        lineHeight: 1.3,
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 2,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        overflow: 'hidden'
+                                                        fontWeight: 700,
+                                                        color: '#6338f5',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 3
                                                     }}>
-                                                        {sub.shortDesc}
+                                                        {isSelected ? 'Selected' : 'Select'} <ChevronRight size={12} />
                                                     </span>
-                                                )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
 
-                                                <span style={{
-                                                    marginTop: 8,
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    color: isSelected ? '#6338f5' : '#6338f5',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 3
-                                                }}>
-                                                    {isSelected ? 'Selected' : 'Select'} <ChevronRight size={12} />
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                                    {/* Desktop Right Scroll Button */}
+                                    {canScrollApplianceRight && (
+                                        <button
+                                            type="button"
+                                            onClick={() => scrollAppliance('right')}
+                                            style={{
+                                                position: 'absolute',
+                                                right: -14,
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                width: 32,
+                                                height: 32,
+                                                borderRadius: '50%',
+                                                backgroundColor: '#ffffff',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                                                border: '1px solid #e2e8f0',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                zIndex: 10,
+                                                color: '#0f172a'
+                                            }}
+                                            aria-label="Scroll appliance types right"
+                                        >
+                                            <ChevronRight size={18} />
+                                        </button>
+                                    )}
                                 </div>
                             </section>
                         )}
@@ -806,8 +922,12 @@ export default function CategoryStorefront({
                                                 overflowX: 'auto',
                                                 scrollSnapType: 'x mandatory',
                                                 paddingBottom: 8,
+                                                paddingTop: 4,
+                                                paddingLeft: 2,
+                                                paddingRight: 2,
                                                 scrollbarWidth: 'none',
-                                                msOverflowStyle: 'none'
+                                                msOverflowStyle: 'none',
+                                                WebkitOverflowScrolling: 'touch'
                                             }}
                                         >
                                             {displayedServices.map(service => {
@@ -820,8 +940,10 @@ export default function CategoryStorefront({
                                                         key={service.id}
                                                         id={`svc-${service.id}`}
                                                         style={{
-                                                            flex: '0 0 135px',
-                                                            width: 135,
+                                                            flex: '0 0 145px',
+                                                            width: 145,
+                                                            minWidth: 145,
+                                                            flexShrink: 0,
                                                             scrollSnapAlign: 'start',
                                                             display: 'flex',
                                                             flexDirection: 'column',
