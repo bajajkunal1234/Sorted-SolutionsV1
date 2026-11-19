@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Grid, ShoppingBag, ShieldCheck, User } from 'lucide-react';
+import { Home, Grid, ShoppingBag, User } from 'lucide-react';
 import { useV2Cart } from './CartContext';
 
 /**
@@ -40,11 +40,6 @@ export default function FloatingBottomDock() {
                 )}
                 <span>Cart</span>
             </button>
-
-            <Link href="/v2/customer?tab=plans" className="v2-dock-item">
-                <ShieldCheck size={20} strokeWidth={1.9} />
-                <span>Care Plans</span>
-            </Link>
 
             <Link href="/v2/customer" className={`v2-dock-item ${isCustomer ? 'active' : ''}`}>
                 <User size={20} strokeWidth={isCustomer ? 2.4 : 1.9} />
