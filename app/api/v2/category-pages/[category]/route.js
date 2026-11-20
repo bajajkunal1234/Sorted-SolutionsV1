@@ -116,9 +116,9 @@ async function handleSave(request, params) {
 
         const payload = {
             section_id: sectionId,
-            page_slug: `v2/services/${categorySlug}`,
             extra_config: {
                 ...body,
+                page_slug: `v2/services/${categorySlug}`,
                 categorySlug,
                 categoryName
             },

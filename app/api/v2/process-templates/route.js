@@ -105,8 +105,10 @@ async function handleSave(request) {
 
         const payload = {
             section_id: PROCESS_TEMPLATES_SECTION_ID,
-            page_slug: 'v2/process-templates',
-            extra_config: normalized,
+            extra_config: {
+                ...normalized,
+                page_slug: 'v2/process-templates'
+            },
             updated_at: now
         };
 
@@ -143,9 +145,9 @@ async function handleSave(request) {
 
                 upserts.push({
                     section_id: sectionId,
-                    page_slug: `v2/services/${cat.slug}`,
                     extra_config: {
                         ...existingExtra,
+                        page_slug: `v2/services/${cat.slug}`,
                         categorySlug: cat.slug,
                         categoryName: cat.name,
                         process: nextProcess
