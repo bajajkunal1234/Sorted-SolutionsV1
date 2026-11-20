@@ -57,31 +57,58 @@ function saveSession(user) {
     localStorage.setItem('customerId', user.id);
 }
 
-export default function BookingWizard() {
+export default function BookingWizard({ initialMetadata = null }) {
     const searchParams = useSearchParams();
     const router = useRouter();
 
+    const categoryId = searchParams.get('category');
+    const subcategoryId = searchParams.get('subcategory');
+    const issueId = searchParams.get('issue');
+    const urlCategoryName = searchParams.get('categoryName') || '';
+    const urlSubcategoryName = searchParams.get('subcategoryName') || '';
+    const urlIssueName = searchParams.get('issueName') || '';
+    const urlPrice = searchParams.get('price') || '';
+    const urlLocality = searchParams.get('locality') || '';
+    const urlPincode = searchParams.get('pincode') || (urlLocality ? getPincodeForLocality(urlLocality) : '');
+    const brandId = searchParams.get('brand') || '';
+    const brandName = searchParams.get('brandName') || '';
+
     const [currentStep, setCurrentStep] = useState('location'); // location -> logistics -> otp -> success
-    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [bookingSuccess, setBookingSuccess] = useState(null); // { bookingId, name }
     const [locating, setLocating] = useState(false);
     const wizardRef = useRef(null);
 
-    const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
+    const [metadata, setMetadata] = useState(() => initialMetadata || { categories: [], subcategories: [], issues: [] });
     const [brands, setBrands] = useState([]);
     const [availableSlots, setAvailableSlots] = useState({});
+    const [loadingSlots, setLoadingSlots] = useState(true);
     const [slotTab, setSlotTab] = useState('');
 
-    const [formData, setFormData] = useState({
-        category: '', subcategory: '', issue: '',
-        brand: '', brandName: '',
-        pincode: '', locality: '', city: 'Mumbai', state: 'Maharashtra',
-        name: '', phone: '', email: '',
-        flat_number: '', building_name: '', address: '',
-        slotDate: '', slotTime: ''
-    });
+    const [formData, setFormData] = useState(() => ({
+        category: categoryId || '',
+        subcategory: subcategoryId || '',
+        issue: issueId || '',
+        categoryName: urlCategoryName,
+        subcategoryName: urlSubcategoryName,
+        issueName: urlIssueName,
+        price: urlPrice,
+        brand: brandId,
+        brandName: brandName,
+        pincode: urlPincode,
+        locality: urlLocality,
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        name: '',
+        phone: '',
+        email: '',
+        flat_number: '',
+        building_name: '',
+        address: '',
+        slotDate: '',
+        slotTime: ''
+    }));
 
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [confirmationResult, setConfirmationResult] = useState(null);
@@ -93,72 +120,63 @@ export default function BookingWizard() {
     const logisticsButtonText = 'Confirm Booking';
     const isLogisticsButtonDisabled = !isLogisticsAddressFilled || submitting;
 
+    // Redirect to home if category is missing
     useEffect(() => {
-        const init = async () => {
-            try {
-                setLoading(true);
-                const [bookingRes, brandsRes, slotsRes] = await Promise.all([
-                    fetch('/api/settings/quick-booking'),
-                    fetch('/api/settings/booking-brands'),
-                    fetch('/api/booking/available-slots?days=3&showAll=true')
-                ]);
-                const [bookingData, brandsData, slotsData] = await Promise.all([
-                    bookingRes.json(), brandsRes.json(), slotsRes.json()
-                ]);
+        if (!categoryId) {
+            router.push('/');
+        }
+    }, [categoryId, router]);
 
-                if (slotsData.success) {
+    // Progressive background data fetching — does NOT block Step 1 Availability form!
+    useEffect(() => {
+        // 1. Fetch available slots in background (for Step 2)
+        fetch('/api/booking/available-slots?days=3&showAll=true')
+            .then(res => res.json())
+            .then(slotsData => {
+                if (slotsData.success && slotsData.data) {
                     setAvailableSlots(slotsData.data);
                     const dates = Object.keys(slotsData.data);
                     if (dates.length > 0) setSlotTab(dates[0]);
                 }
+            })
+            .catch(err => console.error('Failed to load slots in background:', err))
+            .finally(() => setLoadingSlots(false));
 
-                if (bookingData.success) {
-                    const cats = bookingData.data.categories || [];
-                    const subs = cats.flatMap(c => c.subcategories || []);
-                    const issues = subs.flatMap(s => s.issues || []);
-                    setMetadata({ categories: cats, subcategories: subs, issues });
-                }
-                if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
+        // 2. Fetch metadata if not provided via SSR initialMetadata
+        if (!initialMetadata || !initialMetadata.categories?.length) {
+            fetch('/api/settings/quick-booking')
+                .then(res => res.json())
+                .then(bookingData => {
+                    if (bookingData.success && bookingData.data) {
+                        const cats = bookingData.data.categories || [];
+                        const subs = cats.flatMap(c => c.subcategories || []);
+                        const issues = subs.flatMap(s => s.issues || []);
+                        setMetadata({ categories: cats, subcategories: subs, issues });
+                    }
+                })
+                .catch(err => console.error('Failed to load booking metadata:', err));
+        }
 
-                // Pre-fill from URL params
-                const categoryId = searchParams.get('category');
-                const subcategoryId = searchParams.get('subcategory');
-                const issueId = searchParams.get('issue');
-                const urlLocality = searchParams.get('locality') || '';
-                const urlPincode = searchParams.get('pincode') || getPincodeForLocality(urlLocality);
-                const brandId = searchParams.get('brand');
-                const brandName = searchParams.get('brandName');
-                
-                if (categoryId) {
-                    setFormData(prev => ({
-                        ...prev,
-                        category: categoryId,
-                        subcategory: subcategoryId || '',
-                        issue: issueId || '',
-                        locality: urlLocality,
-                        pincode: urlPincode,
-                        brand: brandId || '',
-                        brandName: brandName || '',
-                    }));
-                } else {
-                    router.push('/');
-                    return;
+        // 3. Fetch booking brands in background (for brand name resolution)
+        fetch('/api/settings/booking-brands')
+            .then(res => res.json())
+            .then(brandsData => {
+                if (brandsData.success && brandsData.data) {
+                    setBrands((brandsData.data || []).filter(b => b.is_active));
                 }
-            } catch (err) {
-                console.error('Failed to initialize booking wizard', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        init();
-    }, [searchParams, router]);
+            })
+            .catch(err => console.error('Failed to load booking brands:', err));
+    }, [initialMetadata]);
 
     const getName = (type, id) => {
+        if (type === 'appliance' && formData.categoryName) return formData.categoryName;
+        if (type === 'type' && formData.subcategoryName) return formData.subcategoryName;
+        if (type === 'issue' && formData.issueName) return formData.issueName;
         if (!id) return '—';
         const list = type === 'appliance' ? metadata.categories
             : type === 'type' ? metadata.subcategories
                 : metadata.issues;
-        const found = list.find(item => item.id?.toString() === id?.toString());
+        const found = list?.find(item => item.id?.toString() === id?.toString());
         return found ? found.name : 'Selected';
     };
 
@@ -443,7 +461,7 @@ export default function BookingWizard() {
     };
 
 
-    if (loading) {
+    if (!categoryId) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
                 <Loader2 className="animate-spin" color="var(--color-primary)" size={40} />
@@ -584,58 +602,69 @@ export default function BookingWizard() {
                                 {/* Slot Selector UI */}
                                 {!formData.slotTime ? (
                                     <div style={{ margin: '24px 0' }}>
-                                        <div className="booking-date-tabs-container">
-                                            {Object.keys(availableSlots).map(dateStr => {
-                                                const d = new Date(dateStr);
-                                                const today = new Date();
-                                                const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-                                                const isToday = d.toDateString() === today.toDateString();
-                                                const isTomorrow = d.toDateString() === tomorrow.toDateString();
-                                                const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-                                                
-                                                return (
-                                                    <button
-                                                        key={dateStr}
-                                                        type="button"
-                                                        onClick={() => { setSlotTab(dateStr); setFormData({ ...formData, slotDate: dateStr, slotTime: '' }); }}
-                                                        className={`booking-date-tab ${slotTab === dateStr ? 'active' : ''}`}
-                                                    >
-                                                        {label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        
-                                        <div className="booking-time-slots-grid">
-                                            {(availableSlots[slotTab] || []).map(slot => {
-                                                const isSelected = formData.slotTime === slot.label;
-                                                const isAvailable = slot.available;
-                                                return (
-                                                    <button
-                                                        key={slot.id}
-                                                        type="button"
-                                                        disabled={!isAvailable}
-                                                        onClick={() => setFormData({ ...formData, slotDate: slotTab, slotTime: slot.label })}
-                                                        className={`booking-time-slot ${isSelected ? 'selected' : ''} ${!isAvailable ? 'disabled' : ''}`}
-                                                    >
-                                                        <span className="time-slot-label">{slot.label}</span>
-                                                        {isAvailable ? (
-                                                            <span className="time-slot-status">{slot.slotsAvailableCount} slots available</span>
-                                                        ) : (
-                                                            <span className="time-slot-status full">Slot Full</span>
-                                                        )}
-                                                    </button>
-                                                );
-                                            })}
-                                            {(!availableSlots[slotTab] || availableSlots[slotTab].length === 0) && (
-                                                <div style={{ gridColumn: '1 / -1', padding: '24px', color: 'var(--text-tertiary)', fontSize: '13px', textAlign: 'center' }}>
-                                                    No slots available for this date.
+                                        {loadingSlots ? (
+                                            <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                                                <Loader2 className="animate-spin" size={28} style={{ color: 'var(--color-primary)', margin: '0 auto 12px' }} />
+                                                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: 0 }}>
+                                                    Checking real-time slot availability...
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="booking-date-tabs-container">
+                                                    {Object.keys(availableSlots).map(dateStr => {
+                                                        const d = new Date(dateStr);
+                                                        const today = new Date();
+                                                        const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+                                                        const isToday = d.toDateString() === today.toDateString();
+                                                        const isTomorrow = d.toDateString() === tomorrow.toDateString();
+                                                        const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                                                        
+                                                        return (
+                                                            <button
+                                                                key={dateStr}
+                                                                type="button"
+                                                                onClick={() => { setSlotTab(dateStr); setFormData({ ...formData, slotDate: dateStr, slotTime: '' }); }}
+                                                                className={`booking-date-tab ${slotTab === dateStr ? 'active' : ''}`}
+                                                            >
+                                                                {label}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
-                                            )}
-                                        </div>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, margin: '16px 0', textAlign: 'center' }}>
-                                            Please select your preferred time.
-                                        </p>
+                                                
+                                                <div className="booking-time-slots-grid">
+                                                    {(availableSlots[slotTab] || []).map(slot => {
+                                                        const isSelected = formData.slotTime === slot.label;
+                                                        const isAvailable = slot.available;
+                                                        return (
+                                                            <button
+                                                                key={slot.id}
+                                                                type="button"
+                                                                disabled={!isAvailable}
+                                                                onClick={() => setFormData({ ...formData, slotDate: slotTab, slotTime: slot.label })}
+                                                                className={`booking-time-slot ${isSelected ? 'selected' : ''} ${!isAvailable ? 'disabled' : ''}`}
+                                                            >
+                                                                <span className="time-slot-label">{slot.label}</span>
+                                                                {isAvailable ? (
+                                                                    <span className="time-slot-status">{slot.slotsAvailableCount} slots available</span>
+                                                                ) : (
+                                                                    <span className="time-slot-status full">Slot Full</span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {(!availableSlots[slotTab] || availableSlots[slotTab].length === 0) && (
+                                                        <div style={{ gridColumn: '1 / -1', padding: '24px', color: 'var(--text-tertiary)', fontSize: '13px', textAlign: 'center' }}>
+                                                            No slots available for this date.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, margin: '16px 0', textAlign: 'center' }}>
+                                                    Please select your preferred time.
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 ) : null}
                             </div>
@@ -663,8 +692,8 @@ export default function BookingWizard() {
                                         <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: 700, margin: '4px 0' }}>
                                             Visit &amp; Diagnosis Fee: {(() => {
                                                 const selectedIssueObj = metadata.issues?.find(item => item.id?.toString() === formData.issue?.toString());
-                                                const issuePrice = selectedIssueObj?.price;
-                                                return issuePrice != null ? `₹${issuePrice}/-` : '₹199/-';
+                                                const issuePrice = formData.price || selectedIssueObj?.price;
+                                                return issuePrice != null && issuePrice !== '' ? `₹${issuePrice}/-` : '₹199/-';
                                             })()}, <span style={{ color: 'var(--color-primary)' }}>Pay on Visit!</span>
                                         </p>
                                         <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, margin: '8px 0 0' }}>

@@ -40,12 +40,40 @@ export async function GET(request) {
         
         const supabase = createServerSupabase();
         
-        // 1. Fetch Config
-        const { data: configData, error: configError } = await supabase
-            .from('website_section_configs')
-            .select('*')
-            .eq('section_id', SECTION_ID)
-            .single();
+        // 1. Determine Date Range (Enforce Asia/Kolkata Timezone)
+        const dates = [];
+        let baseDate;
+        if (startDateParam) {
+            // If explicit start date is provided, use it
+            baseDate = new Date(`${startDateParam}T00:00:00Z`); // Treat as UTC midnight so .getDate() remains correct in Vercel
+        } else {
+            // Get current time in India
+            const istString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+            baseDate = new Date(istString);
+            baseDate.setHours(0, 0, 0, 0); // Normalize to midnight so getDate() works perfectly on Vercel's UTC environment
+        }
+        
+        for (let i = 0; i < daysParam; i++) {
+            const d = new Date(baseDate);
+            d.setDate(baseDate.getDate() + i);
+            dates.push(d);
+        }
+
+        const dateStrings = dates.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+
+        // 2. Fetch Config & Existing Jobs in Parallel
+        const [{ data: configData }, { data: activeJobs }] = await Promise.all([
+            supabase
+                .from('website_section_configs')
+                .select('*')
+                .eq('section_id', SECTION_ID)
+                .single(),
+            supabase
+                .from('jobs')
+                .select('scheduled_date, scheduled_time')
+                .in('scheduled_date', dateStrings)
+                .not('status', 'in', '("cancelled","closed")')
+        ]);
 
         let config = configData?.extra_config || {};
         
@@ -77,35 +105,6 @@ export async function GET(request) {
         } else if (!config.templates) {
             config = { templates: [], defaultWeeklySchedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }, overrides: {} };
         }
-
-        // 2. Determine Date Range (Enforce Asia/Kolkata Timezone)
-        const dates = [];
-        let baseDate;
-        if (startDateParam) {
-            // If explicit start date is provided, use it
-            baseDate = new Date(`${startDateParam}T00:00:00Z`); // Treat as UTC midnight so .getDate() remains correct in Vercel
-        } else {
-            // Get current time in India
-            const istString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-            baseDate = new Date(istString);
-            baseDate.setHours(0, 0, 0, 0); // Normalize to midnight so getDate() works perfectly on Vercel's UTC environment
-        }
-        
-        for (let i = 0; i < daysParam; i++) {
-            const d = new Date(baseDate);
-            d.setDate(baseDate.getDate() + i);
-            dates.push(d);
-        }
-
-        const dateStrings = dates.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
-
-        // 3. Fetch Existing Jobs to calculate slot capacity
-        // Exclude only cancelled/closed — all other statuses occupy a slot
-        const { data: activeJobs } = await supabase
-            .from('jobs')
-            .select('scheduled_date, scheduled_time')
-            .in('scheduled_date', dateStrings)
-            .not('status', 'in', '("cancelled","closed")');
 
         const jobCounts = {}; // { 'YYYY-MM-DD': { 'Slot Name': count } }
         (activeJobs || []).forEach(job => {

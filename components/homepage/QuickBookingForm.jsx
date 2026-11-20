@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import './QuickBookingForm.css';
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initialData }) {
+    const router = useRouter();
+
     const categoryMapping = {
         'ac-repair': '2',
         'washing-machine-repair': '5',
@@ -66,6 +69,14 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
         return () => window.removeEventListener('bookingPreselect', handler);
     }, []);
 
+    useEffect(() => {
+        try {
+            router.prefetch('/booking');
+        } catch (e) {
+            // Ignore prefetch errors
+        }
+    }, [router]);
+
     const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm !== false);
     const selectedCategory = visibleCategories.find(c => c.id === parseInt(formData.category));
     const visibleSubcategories = (selectedCategory?.subcategories || []).filter(s => s.showOnBookingForm !== false);
@@ -88,12 +99,26 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
             return;
         }
 
+        const selectedIssue = visibleIssues.find(i => String(i.id) === String(formData.issue));
+
         const params = new URLSearchParams({
-            category: formData.category,
-            subcategory: formData.subcategory,
-            issue: formData.issue,
+            category: String(formData.category),
+            subcategory: String(formData.subcategory),
+            issue: String(formData.issue),
+            categoryName: selectedCategory?.name || '',
+            subcategoryName: selectedSubcategory?.name || '',
+            issueName: selectedIssue?.name || '',
         });
-        window.location.href = `/booking?${params.toString()}`;
+        if (selectedIssue?.price != null && selectedIssue.price !== '') {
+            params.set('price', String(selectedIssue.price));
+        }
+
+        const targetUrl = `/booking?${params.toString()}`;
+        try {
+            router.push(targetUrl);
+        } catch {
+            window.location.href = targetUrl;
+        }
     };
 
     return (
