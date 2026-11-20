@@ -254,12 +254,13 @@ export async function POST(request) {
         // ── Prevent Duplicate Account Names (Case-Insensitive & Trimmed) ──────────
         if (body.name) {
             const trimmedName = body.name.trim();
-            const { data: existingName } = await supabase
+            const { data: existingAccounts } = await supabase
                 .from('accounts')
                 .select('id, name')
                 .ilike('name', trimmedName)
-                .maybeSingle();
+                .limit(1);
 
+            const existingName = existingAccounts?.[0];
             if (existingName) {
                 return NextResponse.json({
                     success: false,
@@ -270,13 +271,14 @@ export async function POST(request) {
 
         // ── Prevent Duplicate Mobile Numbers for Customers ──────────────────────
         if (isCustomer && body.mobile) {
-            const { data: existingAccount } = await supabase
+            const { data: existingAccountsByMobile } = await supabase
                 .from('accounts')
                 .select('id, name')
                 .eq('mobile', body.mobile)
                 .neq('status', 'archived')
-                .maybeSingle();
+                .limit(1);
 
+            const existingAccount = existingAccountsByMobile?.[0];
             if (existingAccount) {
                 return NextResponse.json({
                     success: false,
@@ -284,12 +286,13 @@ export async function POST(request) {
                 }, { status: 409 });
             }
 
-            const { data: existingCustomer } = await supabase
+            const { data: existingCustomersByPhone } = await supabase
                 .from('customers')
                 .select('id, full_name, name')
                 .eq('phone', body.mobile)
-                .maybeSingle();
+                .limit(1);
 
+            const existingCustomer = existingCustomersByPhone?.[0];
             if (existingCustomer) {
                 return NextResponse.json({ 
                     success: false, 
@@ -464,13 +467,14 @@ export async function PUT(request) {
         // ── Prevent Duplicate Account Names on Update (Case-Insensitive & Trimmed) ──
         if (updates.name) {
             const trimmedName = updates.name.trim();
-            const { data: existingName } = await supabase
+            const { data: existingAccounts } = await supabase
                 .from('accounts')
                 .select('id, name')
                 .ilike('name', trimmedName)
                 .neq('id', id)
-                .maybeSingle();
+                .limit(1);
 
+            const existingName = existingAccounts?.[0];
             if (existingName) {
                 return NextResponse.json({
                     success: false,
@@ -500,14 +504,15 @@ export async function PUT(request) {
             ((before?.under || '').toLowerCase().includes('debtor'));
 
         if (isCustomerAcc && updates.mobile && updates.mobile !== before?.mobile) {
-            const { data: existingAccount } = await supabase
+            const { data: existingAccountsByMobile } = await supabase
                 .from('accounts')
                 .select('id, name')
                 .eq('mobile', updates.mobile)
                 .neq('id', id)
                 .neq('status', 'archived')
-                .maybeSingle();
+                .limit(1);
 
+            const existingAccount = existingAccountsByMobile?.[0];
             if (existingAccount) {
                 return NextResponse.json({
                     success: false,

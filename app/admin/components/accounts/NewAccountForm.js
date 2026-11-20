@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { X, Save, Upload, Trash2, Plus, AlertCircle, Calendar, UserPlus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Save, Upload, Trash2, Plus, AlertCircle, Calendar, UserPlus, Loader2 } from 'lucide-react';
 import { coaFieldMappings, sampleLedgers } from '@/lib/data/accountingData';
 import { acquisitionSources } from '@/lib/data/interactionTypes';
 import GroupCreationModal from './GroupCreationModal';
@@ -28,6 +28,10 @@ const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'),
 });
 
 function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propGroups = [], onGroupCreated, initialData = null, ledgers = [], saving = false }) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submittingRef = useRef(false);
+    const isBusy = Boolean(saving || isSubmitting);
+
     // Common fields
     const [formData, setFormData] = useState({
         sku: initialData?.sku || '',
@@ -470,8 +474,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Prevent multi-clicks / double submission
+        if (submittingRef.current || isBusy) return;
 
         // Validate (with inheritance)
         const validationErrors = validateAccountData(formData, formData.under, groups);
@@ -612,8 +619,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
             depreciation_method: formData.depreciationMethod,
             depreciation_rate: parseFloat(formData.depreciationRate) || 0,
             useful_life: parseFloat(formData.useful_life) || 0,
-            created_at: initialData?.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            // Do not inject a client timestamp on creation; let server / Postgres default it
+            ...(initialData?.created_at ? { created_at: initialData.created_at } : {}),
+            ...(initialData?.updated_at ? { updated_at: new Date().toISOString() } : {})
         };
 
         // Add properties if applicable
@@ -640,11 +648,17 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                 }));
         }
 
-        if (onSave) {
-            onSave(account);
-            // Note: onClose is called by the parent (AccountsTab.handleFormSave) on success.
-            // Do NOT call onClose() here — it creates a race condition where the form closes
-            // before the async save completes, preventing error recovery.
+        try {
+            submittingRef.current = true;
+            setIsSubmitting(true);
+            if (onSave) {
+                await onSave(account);
+            }
+        } catch (err) {
+            console.error('Error in NewAccountForm submit:', err);
+        } finally {
+            submittingRef.current = false;
+            setIsSubmitting(false);
         }
     };
 
@@ -779,7 +793,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
                     {/* Header */}
                     <div className="modal-header">
                         <h2 className="modal-title">Create New Account</h2>
-                        <button className="btn-icon" onClick={handleClose}>
+                        <button className="btn-icon" onClick={handleClose} disabled={isBusy}>
                             <X size={20} />
                         </button>
                     </div>
@@ -1742,11 +1756,19 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propG
 
                         {/* Footer */}
                         <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={saving}>
+                            <button type="button" className="btn btn-secondary" onClick={handleClose} disabled={isBusy}>
                                 Cancel
                             </button>
-                            <button type="submit" className="btn btn-primary" disabled={saving}>
-                                {saving ? 'Saving...' : (initialData ? 'Save Changes' : 'Create Account')}
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={isBusy}
+                                style={{ minWidth: '140px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                                {isBusy && <Loader2 size={16} className="animate-spin" />}
+                                {isBusy
+                                    ? (initialData ? 'Saving...' : 'Creating...')
+                                    : (initialData ? 'Save Changes' : 'Create Account')}
                             </button>
                         </div>
                     </form>
