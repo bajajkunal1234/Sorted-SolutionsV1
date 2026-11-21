@@ -2856,7 +2856,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened, initialForm, initialSub
             {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
             {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} saving={saving} />}
             {activeForm === 'journal-entry' && <JournalEntryForm existingEntry={selectedTransaction} onSave={handleFormSave} onCancel={handleFormClose} />}
-            {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} saving={saving} />}
+            {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} saving={saving} ledgers={ledgers} />}
 
             {/* AMC Subscription Form */}
             {activeForm === 'amc-subscription' && (
