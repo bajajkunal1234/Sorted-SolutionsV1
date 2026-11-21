@@ -21,6 +21,7 @@ import {
     Monitor,
     Smartphone
 } from 'lucide-react';
+import { uploadClientMedia } from '@/lib/v2/clientUpload';
 
 const COLOR_PRESETS = [
     {
@@ -217,27 +218,19 @@ export default function EcomV2HeroSettings({ onBack }) {
         setErrorMsg('');
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/hero');
-
-            setUploadProgress(50);
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            setUploadProgress(40);
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/hero',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-
-            setUploadProgress(85);
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Upload failed');
 
             // Detect media type
             let detectedType = 'image';
             if (isVideo) detectedType = 'video';
             else if (isGif) detectedType = 'gif';
 
-            updateCurrentSlide('mediaUrl', json.url);
+            updateCurrentSlide('mediaUrl', url);
             updateCurrentSlide('mediaType', detectedType);
             setUploadProgress(100);
         } catch (err) {

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
+import { uploadClientMedia } from '@/lib/v2/clientUpload';
 
 const DIRECTION_STYLES = [
     { id: 'multidirectional', label: '4-Way Cycle (Top → Right → Bottom → Left) [Recommended]', desc: 'Each transition enters from a different side sequentially' },
@@ -155,30 +156,19 @@ export default function EcomV2HomepageSettings({ onBack }) {
         }
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/logos');
-            formData.append('preserveFormat', 'true');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/logos',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-            const json = await res.json();
-            if (json.success && json.url) {
-                if (type === 'day') {
-                    setLogos(prev => ({
-                        ...prev,
-                        dayModeLogo: json.url,
-                        // If dark mode was still using default, mirror it
-                        darkModeLogo: prev.darkModeLogo === '/logo.jpg' ? json.url : prev.darkModeLogo
-                    }));
-                } else {
-                    setLogos(prev => ({ ...prev, darkModeLogo: json.url }));
-                }
+            if (type === 'day') {
+                setLogos(prev => ({
+                    ...prev,
+                    dayModeLogo: url,
+                    darkModeLogo: prev.darkModeLogo === '/logo.jpg' ? url : prev.darkModeLogo
+                }));
             } else {
-                setErrorMessage(json.error || 'Upload failed');
+                setLogos(prev => ({ ...prev, darkModeLogo: url }));
             }
         } catch (err) {
             setErrorMessage('Network error during upload: ' + err.message);
@@ -210,32 +200,23 @@ export default function EcomV2HomepageSettings({ onBack }) {
         setUploadingSlideIdx(slideIdx);
         setErrorMessage('');
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/thumbnails');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/thumbnails',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-            const json = await res.json();
-            if (json.success && json.url) {
-                updateCurrentCategoryConfig(current => {
-                    const slides = Array.isArray(current.slides) ? [...current.slides] : [];
-                    while (slides.length <= slideIdx) {
-                        slides.push({ id: `slide-${slides.length + 1}`, url: '', title: `Slide #${slides.length + 1}` });
-                    }
-                    slides[slideIdx] = {
-                        ...slides[slideIdx],
-                        url: json.url,
-                        title: slides[slideIdx]?.title || file.name.replace(/\.[^/.]+$/, '')
-                    };
-                    return { ...current, slides };
-                });
-            } else {
-                setErrorMessage(json.error || 'Upload failed');
-            }
+            updateCurrentCategoryConfig(current => {
+                const slides = Array.isArray(current.slides) ? [...current.slides] : [];
+                while (slides.length <= slideIdx) {
+                    slides.push({ id: `slide-${slides.length + 1}`, url: '', title: `Slide #${slides.length + 1}` });
+                }
+                slides[slideIdx] = {
+                    ...slides[slideIdx],
+                    url,
+                    title: slides[slideIdx]?.title || file.name.replace(/\.[^/.]+$/, '')
+                };
+                return { ...current, slides };
+            });
         } catch (err) {
             setErrorMessage('Network error during upload: ' + err.message);
         } finally {

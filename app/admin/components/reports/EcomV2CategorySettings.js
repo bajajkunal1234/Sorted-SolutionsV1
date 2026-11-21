@@ -41,6 +41,7 @@ import {
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import { getDefaultTemplateIdForCategory } from '@/lib/v2/processTemplates';
 import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
+import { uploadClientMedia } from '@/lib/v2/clientUpload';
 
 const SECTION_LABELS = {
     hero: '🎬 Top Media & Hero',
@@ -299,7 +300,9 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
         setPageConfig(prev => {
             const nextSubs = [...(prev.subcategories || [])];
             const targetSub = { ...nextSubs[subIdx] };
-            const currentSlides = [...(targetSub.thumbnailSlides || [])];
+            const currentSlides = Array.isArray(targetSub.thumbnailSlides) && targetSub.thumbnailSlides.length > 0
+                ? [...targetSub.thumbnailSlides]
+                : (targetSub.icon ? [{ id: 'slide-1', url: targetSub.icon, title: targetSub.name || 'Slide' }] : []);
             if (currentSlides.length >= 3) {
                 setErrorMessage('Maximum 3 slides allowed per subcategory thumbnail');
                 return prev;
@@ -333,10 +336,13 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
         setPageConfig(prev => {
             const nextSubs = [...(prev.subcategories || [])];
             const targetSub = { ...nextSubs[subIdx] };
-            const nextSlides = [...(targetSub.thumbnailSlides || [])];
-            if (nextSlides[slideIdx]) {
-                nextSlides[slideIdx] = { ...nextSlides[slideIdx], url };
+            const nextSlides = Array.isArray(targetSub.thumbnailSlides) && targetSub.thumbnailSlides.length > 0
+                ? [...targetSub.thumbnailSlides]
+                : (targetSub.icon ? [{ id: 'slide-1', url: targetSub.icon, title: targetSub.name || 'Slide' }] : []);
+            while (nextSlides.length <= slideIdx) {
+                nextSlides.push({ id: `slide-${nextSlides.length + 1}`, url: '', title: targetSub.name || 'Slide' });
             }
+            nextSlides[slideIdx] = { ...nextSlides[slideIdx], url };
             targetSub.thumbnailSlides = nextSlides;
             if (slideIdx === 0) {
                 targetSub.icon = url;
@@ -360,6 +366,9 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                 if (typeof slideIdx === 'number') {
                     setNewSubcatForm(prev => {
                         const nextSlides = [...(prev.thumbnailSlides || [])];
+                        while (nextSlides.length <= slideIdx) {
+                            nextSlides.push({ id: `slide-${nextSlides.length + 1}`, url: '', title: prev.name || 'Slide' });
+                        }
                         nextSlides[slideIdx] = { id: `slide-${slideIdx + 1}`, url, title: prev.name || 'Slide' };
                         return { ...prev, thumbnailSlides: nextSlides, icon: prev.icon || url };
                     });
@@ -376,10 +385,16 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                     const targetSub = { ...nextSubs[subIdx] };
 
                     if (typeof slideIdx === 'number') {
-                        const nextSlides = [...(targetSub.thumbnailSlides || [])];
+                        const nextSlides = Array.isArray(targetSub.thumbnailSlides) && targetSub.thumbnailSlides.length > 0
+                            ? [...targetSub.thumbnailSlides]
+                            : (targetSub.icon ? [{ id: 'slide-1', url: targetSub.icon, title: targetSub.name || 'Slide' }] : []);
+                        
+                        while (nextSlides.length <= slideIdx) {
+                            nextSlides.push({ id: `slide-${nextSlides.length + 1}`, url: '', title: targetSub.name || 'Slide' });
+                        }
                         nextSlides[slideIdx] = { id: `slide-${slideIdx + 1}`, url, title: targetSub.name || 'Slide' };
                         targetSub.thumbnailSlides = nextSlides;
-                        if (!targetSub.icon) targetSub.icon = url;
+                        if (!targetSub.icon || slideIdx === 0) targetSub.icon = url;
                     } else {
                         targetSub.icon = url;
                         if (!targetSub.thumbnailSlides || targetSub.thumbnailSlides.length === 0) {
@@ -445,22 +460,13 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
         }
     };
 
-    // Generic upload handler
+    // Generic upload handler with client-side compression & 413 protection
     const uploadFile = async (file, folder = 'ecom-v2/categories') => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('bucket', 'website-assets');
-        formData.append('folder', folder);
-
-        const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
+        return await uploadClientMedia(file, {
+            folder,
+            bucket: 'website-assets',
+            preserveFormat: true
         });
-        const json = await res.json();
-        if (!json.success || !json.url) {
-            throw new Error(json.error || 'Upload failed');
-        }
-        return json.url;
     };
 
     // Filter pages by search query
@@ -1394,13 +1400,19 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                             />
                                                             <button
                                                                 type="button"
+                                                                disabled={uploading}
                                                                 onClick={() => {
                                                                     setSubcatUploadTarget({ subIdx: 'new', slideIdx: sIdx });
                                                                     if (subcatFileInputRef.current) subcatFileInputRef.current.click();
                                                                 }}
-                                                                style={{ padding: '6px 10px', borderRadius: 6, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                                                style={{ padding: '6px 10px', borderRadius: 6, backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', cursor: uploading ? 'not-allowed' : 'pointer', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, opacity: uploading ? 0.7 : 1 }}
                                                             >
-                                                                <Upload size={11} /> Upload
+                                                                {uploading && subcatUploadTarget?.subIdx === 'new' && subcatUploadTarget?.slideIdx === sIdx ? (
+                                                                    <RefreshCw size={11} className="spin" />
+                                                                ) : (
+                                                                    <Upload size={11} />
+                                                                )}
+                                                                {uploading && subcatUploadTarget?.subIdx === 'new' && subcatUploadTarget?.slideIdx === sIdx ? 'Uploading...' : 'Upload'}
                                                             </button>
                                                             <button
                                                                 type="button"
@@ -1732,6 +1744,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                             />
                                                                             <button
                                                                                 type="button"
+                                                                                disabled={uploading}
                                                                                 onClick={() => {
                                                                                     setSubcatUploadTarget({ subIdx: idx, slideIdx: sIdx });
                                                                                     if (subcatFileInputRef.current) subcatFileInputRef.current.click();
@@ -1740,17 +1753,22 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                                     padding: '5px 8px',
                                                                                     borderRadius: 6,
                                                                                     backgroundColor: 'var(--bg-secondary)',
-                                                                                    color: 'var(--text-secondary)',
+                                                                                    color: uploading && subcatUploadTarget?.subIdx === idx && subcatUploadTarget?.slideIdx === sIdx ? '#6338f5' : 'var(--text-secondary)',
                                                                                     border: '1px solid var(--border-primary)',
                                                                                     fontSize: 11,
-                                                                                    cursor: 'pointer',
+                                                                                    cursor: uploading ? 'not-allowed' : 'pointer',
                                                                                     display: 'inline-flex',
                                                                                     alignItems: 'center',
-                                                                                    gap: 4
+                                                                                    gap: 4,
+                                                                                    opacity: uploading ? 0.7 : 1
                                                                                 }}
-                                                                                title="Upload Image"
+                                                                                title={uploading && subcatUploadTarget?.subIdx === idx && subcatUploadTarget?.slideIdx === sIdx ? 'Uploading...' : 'Upload Image'}
                                                                             >
-                                                                                <Upload size={11} />
+                                                                                {uploading && subcatUploadTarget?.subIdx === idx && subcatUploadTarget?.slideIdx === sIdx ? (
+                                                                                    <RefreshCw size={11} className="spin" />
+                                                                                ) : (
+                                                                                    <Upload size={11} />
+                                                                                )}
                                                                             </button>
                                                                             {slides.length > 1 && (
                                                                                 <button

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
+import { uploadClientMedia } from '@/lib/v2/clientUpload';
 
 const SECTION_LABELS = {
     hero: '🎬 Top Media & Hero',
@@ -250,34 +251,27 @@ export default function EcomV2SubcategorySettings({ onBack }) {
         if (!file || !editingSubcat) return;
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/subcategories');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/subcategories',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-            const json = await res.json();
-            if (json.success && json.url) {
-                setEditingSubcat(prev => {
-                    const slides = Array.isArray(prev.thumbnailSlides) ? [...prev.thumbnailSlides] : [];
-                    while (slides.length <= slideIdx) {
-                        slides.push({ id: `slide-${slides.length + 1}`, url: '', title: `Slide #${slides.length + 1}` });
-                    }
-                    slides[slideIdx] = {
-                        ...slides[slideIdx],
-                        url: json.url,
-                        title: slides[slideIdx]?.title || file.name.replace(/\.[^/.]+$/, '')
-                    };
-                    return {
-                        ...prev,
-                        thumbnailUrl: slideIdx === 0 ? json.url : (prev.thumbnailUrl || json.url),
-                        thumbnailSlides: slides
-                    };
-                });
-            }
+            setEditingSubcat(prev => {
+                const slides = Array.isArray(prev.thumbnailSlides) ? [...prev.thumbnailSlides] : [];
+                while (slides.length <= slideIdx) {
+                    slides.push({ id: `slide-${slides.length + 1}`, url: '', title: `Slide #${slides.length + 1}` });
+                }
+                slides[slideIdx] = {
+                    ...slides[slideIdx],
+                    url,
+                    title: slides[slideIdx]?.title || file.name.replace(/\.[^/.]+$/, '')
+                };
+                return {
+                    ...prev,
+                    thumbnailUrl: slideIdx === 0 ? url : (prev.thumbnailUrl || url),
+                    thumbnailSlides: slides
+                };
+            });
         } catch (err) {
             alert('Upload error: ' + err.message);
         } finally {
@@ -448,20 +442,14 @@ export default function EcomV2SubcategorySettings({ onBack }) {
         setUploading(true);
         setErrorMessage('');
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/subcategories');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/subcategories',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-            const json = await res.json();
-            if (json.success && json.url) {
-                const isVideo = file.type?.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i);
-                const isGif = file.type?.includes('gif') || file.name.match(/\.gif$/i);
-                const detectedType = isVideo ? 'video' : isGif ? 'gif' : 'image';
+            const isVideo = file.type?.startsWith('video/') || file.name.match(/\.(mp4|webm|mov)$/i);
+            const isGif = file.type?.includes('gif') || file.name.match(/\.gif$/i);
+            const detectedType = isVideo ? 'video' : isGif ? 'gif' : 'image';
 
                 if (target === 'slide' && slideIndex !== null) {
                     setPageConfig(prev => {
@@ -485,7 +473,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
 
                         curSlides[slideIndex] = {
                             ...curSlides[slideIndex],
-                            mediaUrl: json.url,
+                            mediaUrl: url,
                             mediaType: detectedType
                         };
 
@@ -494,7 +482,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                             hero: {
                                 ...prev.hero,
                                 slides: curSlides,
-                                ...(slideIndex === 0 ? { mediaUrl: json.url, mediaType: detectedType } : {})
+                                ...(slideIndex === 0 ? { mediaUrl: url, mediaType: detectedType } : {})
                             }
                         };
                     });
@@ -503,7 +491,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         ...prev,
                         hero: {
                             ...prev.hero,
-                            mediaUrl: json.url,
+                            mediaUrl: url,
                             mediaType: detectedType
                         }
                     }));
@@ -512,14 +500,14 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         ...prev,
                         technicians: {
                             ...prev.technicians,
-                            photoUrl: json.url
+                            photoUrl: url
                         }
                     }));
                 } else if (target === 'step' && stepIndex !== null) {
                     setPageConfig(prev => {
                         const newSteps = [...(prev.process?.steps || [])];
                         if (newSteps[stepIndex]) {
-                            newSteps[stepIndex].imageUrl = json.url;
+                            newSteps[stepIndex].imageUrl = url;
                         }
                         return {
                             ...prev,
@@ -530,9 +518,6 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                         };
                     });
                 }
-            } else {
-                setErrorMessage(json.error || 'File upload failed');
-            }
         } catch (err) {
             setErrorMessage('Upload error: ' + err.message);
         } finally {

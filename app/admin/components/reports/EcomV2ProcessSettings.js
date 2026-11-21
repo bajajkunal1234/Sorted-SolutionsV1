@@ -21,6 +21,7 @@ import {
     X
 } from 'lucide-react';
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import { uploadClientMedia } from '@/lib/v2/clientUpload';
 
 export default function EcomV2ProcessSettings({ onBack }) {
     const [activeView, setActiveView] = useState('templates'); // 'templates' | 'assignments'
@@ -194,20 +195,12 @@ export default function EcomV2ProcessSettings({ onBack }) {
         const targetIdx = uploadingStepIdx;
         setErrorMessage('');
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('bucket', 'website-assets');
-            formData.append('folder', 'ecom-v2/process');
-
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
+            const url = await uploadClientMedia(file, {
+                folder: 'ecom-v2/process',
+                bucket: 'website-assets',
+                preserveFormat: true
             });
-            const json = await res.json();
-            if (!json.success || !json.url) {
-                throw new Error(json.error || 'Image upload failed');
-            }
-            handleUpdateStep(targetIdx, 'imageUrl', json.url);
+            handleUpdateStep(targetIdx, 'imageUrl', url);
         } catch (err) {
             setErrorMessage('Upload failed: ' + err.message);
         } finally {
