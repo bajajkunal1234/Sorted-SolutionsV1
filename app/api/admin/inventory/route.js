@@ -246,6 +246,22 @@ export async function PUT(request) {
             updates.subtype = String(updates.subtype).toLowerCase().trim() === 'web' ? 'web' : 'tech';
         }
 
+        if (updates.job_type !== undefined) {
+            const JOB_TYPE_MAP = {
+                'install / uninstall':   'install_uninstall',
+                'install/uninstall':     'install_uninstall',
+                'install_uninstall':     'install_uninstall',
+                'service / maintenance': 'service_maintenance',
+                'service/maintenance':   'service_maintenance',
+                'service_maintenance':   'service_maintenance',
+                'service':               'service_maintenance',
+                'maintenance':           'service_maintenance',
+                'repair':                'repair',
+            };
+            const key = String(updates.job_type).toLowerCase().trim();
+            updates.job_type = JOB_TYPE_MAP[key] || updates.job_type || null;
+        }
+
         const { data, error } = await supabase
             .from('inventory')
             .update(updates)

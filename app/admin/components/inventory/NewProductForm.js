@@ -217,6 +217,14 @@ function NewProductForm({
 
             // 2. Build product payload
             const isWeb = formData.subtype === 'web';
+
+            // Job Type is strictly required for Web items
+            if (isWeb && !formData.jobType) {
+                alert('Please select a Job Type (Install / Uninstall, Service / Maintenance, or Repair) for this web service.');
+                setSaving(false);
+                return;
+            }
+
             const newProduct = {
                 name: formData.name,
                 sku: '',
@@ -242,7 +250,7 @@ function NewProductForm({
                 hsn_code: formData.hsnCode || null,
                 hsn_description: formData.hsnDescription || null,
                 service_terms_template: formData.serviceTermsTemplate || null,
-                job_type: isWeb ? null : (formData.jobType || null),
+                job_type: formData.jobType || null,
                 status: 'active',
                 terms_conditions: formData.termsConditions
             };
@@ -355,10 +363,10 @@ function NewProductForm({
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
 
-                            {/* Row 1: Item Type + Item Subtype + Job Type (Job Type hidden for Web items) */}
+                            {/* Row 1: Item Type + Item Subtype + Job Type */}
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: formData.subtype === 'web' ? '1fr 1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                                 gap: 'var(--spacing-md)',
                                 marginBottom: 'var(--spacing-md)'
                             }}>
@@ -388,7 +396,6 @@ function NewProductForm({
                                             setFormData({
                                                 ...formData,
                                                 subtype: newSubtype,
-                                                jobType: newSubtype === 'web' ? '' : formData.jobType,
                                                 brand: newSubtype === 'web' ? '' : formData.brand,
                                             });
                                         }}
@@ -402,24 +409,25 @@ function NewProductForm({
                                     </div>
                                 </div>
 
-                                {formData.subtype !== 'web' && (
-                                    <div className="form-group" style={{ margin: 0 }}>
-                                        <label className="form-label">Job Type</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.jobType}
-                                            onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
-                                        >
-                                            <option value="">— Select job type —</option>
-                                            <option value="install_uninstall">Install / Uninstall</option>
-                                            <option value="service_maintenance">Service / Maintenance</option>
-                                            <option value="repair">Repair</option>
-                                        </select>
-                                        <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                            Used to categorise jobs
-                                        </div>
+                                <div className="form-group" style={{ margin: 0 }}>
+                                    <label className="form-label">
+                                        Job Type {formData.subtype === 'web' ? '*' : ''}
+                                    </label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.jobType}
+                                        onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                                        required={formData.subtype === 'web'}
+                                    >
+                                        <option value="">— Select job type —</option>
+                                        <option value="install_uninstall">Install / Uninstall</option>
+                                        <option value="service_maintenance">Service / Maintenance</option>
+                                        <option value="repair">Repair</option>
+                                    </select>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        {formData.subtype === 'web' ? 'Mandatory for website services' : 'Used to categorise jobs'}
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Row 2: Product/Service Name + SKU Side-by-Side (Option A) */}

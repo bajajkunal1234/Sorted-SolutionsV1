@@ -29,7 +29,8 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         purchase_price: parseFloat(product.purchase_price) || 0,
         current_stock: parseFloat(product.current_stock) || 0,
         min_stock_level: parseInt(product.min_stock_level) || 0,
-        terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : []
+        terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : [],
+        job_type: product.job_type || ''
     });
 
     // Inline add category / brand
@@ -108,6 +109,10 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const categoryName = categories.find(c => c.name === product.category)?.name || product.category;
 
     const handleSave = () => {
+        if ((editedProduct.subtype || 'tech') === 'web' && !editedProduct.job_type) {
+            alert('Please select a Job Type (Install / Uninstall, Service / Maintenance, or Repair) for this web service/product.');
+            return;
+        }
         onUpdate(editedProduct);
         setIsEditing(false);
     };
@@ -362,6 +367,24 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                         >
                                             <option value="tech">Tech (Field / Internal)</option>
                                             <option value="web">Web (Website Booking)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            Job Type {(editedProduct.subtype || 'tech') === 'web' ? '*' : ''}
+                                        </label>
+                                        <select
+                                            className="form-select"
+                                            value={editedProduct.job_type || ''}
+                                            onChange={(e) => setEditedProduct({ ...editedProduct, job_type: e.target.value })}
+                                            disabled={!isEditing}
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
+                                        >
+                                            <option value="">— Select job type —</option>
+                                            <option value="install_uninstall">Install / Uninstall</option>
+                                            <option value="service_maintenance">Service / Maintenance</option>
+                                            <option value="repair">Repair</option>
                                         </select>
                                     </div>
 
