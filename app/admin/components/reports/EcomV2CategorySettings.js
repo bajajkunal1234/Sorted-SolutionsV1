@@ -1050,13 +1050,31 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
 
                                             <button
                                                 type="button"
+                                                disabled={uploading}
                                                 onClick={() => {
                                                     setUploadingSlideIdx(idx);
                                                     slideFileInputRef.current?.click();
                                                 }}
-                                                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                                style={{
+                                                    padding: '6px 10px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid var(--border-primary)',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    color: uploading && uploadingSlideIdx === idx ? '#6338f5' : 'var(--text-secondary)',
+                                                    cursor: uploading ? 'not-allowed' : 'pointer',
+                                                    fontSize: 11,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                    opacity: uploading ? 0.7 : 1
+                                                }}
                                             >
-                                                <Upload size={12} /> Upload
+                                                {uploading && uploadingSlideIdx === idx ? (
+                                                    <RefreshCw size={12} className="spin" />
+                                                ) : (
+                                                    <Upload size={12} />
+                                                )}
+                                                {uploading && uploadingSlideIdx === idx ? 'Uploading...' : 'Upload'}
                                             </button>
 
                                             <button
@@ -2300,15 +2318,23 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                 onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file && uploadingSlideIdx !== null && pageConfig?.hero?.slides) {
+                        setUploading(true);
+                        setErrorMessage('');
                         try {
                             const url = await uploadFile(file, 'ecom-v2/categories/hero');
-                            const isVid = file.type.startsWith('video/');
+                            const isVid = file.type.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(file.name || '');
                             const newSlides = [...pageConfig.hero.slides];
-                            newSlides[uploadingSlideIdx].mediaUrl = url;
-                            newSlides[uploadingSlideIdx].mediaType = isVid ? 'video' : 'image';
+                            newSlides[uploadingSlideIdx] = {
+                                ...newSlides[uploadingSlideIdx],
+                                mediaUrl: url,
+                                mediaType: isVid ? 'video' : 'image'
+                            };
                             setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
                         } catch (err) {
                             setErrorMessage('Slide upload failed: ' + err.message);
+                        } finally {
+                            setUploading(false);
+                            setUploadingSlideIdx(null);
                         }
                     }
                     e.target.value = '';
