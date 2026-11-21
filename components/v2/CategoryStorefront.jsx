@@ -973,6 +973,8 @@ export default function CategoryStorefront({
                                                                 <img
                                                                     src={serviceImg}
                                                                     alt={service.name}
+                                                                    loading="lazy"
+                                                                    decoding="async"
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                                     onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
                                                                 />

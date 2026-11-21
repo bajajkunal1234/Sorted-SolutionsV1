@@ -46,6 +46,9 @@ export default function SubcategoryStorefront({
     // Reviews pagination
     const [reviewsLimit, setReviewsLimit] = useState(3);
 
+    // Modal state for viewing service details
+    const [selectedServiceModal, setSelectedServiceModal] = useState(null);
+
     // Filter services by item.subcategory first, fallback to keyword matching, then category services
     const subcategoryServices = useMemo(() => {
         if (!subcategory) return services;
@@ -558,6 +561,7 @@ export default function SubcategoryStorefront({
                                     }}>
                                         {subcategoryServices.map(service => {
                                             const qty = getItemQty(service.id);
+                                            const serviceImg = service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
                                             return (
                                                 <div
                                                     key={service.id}
@@ -567,7 +571,7 @@ export default function SubcategoryStorefront({
                                                         borderRadius: 14,
                                                         border: qty > 0 ? '1.5px solid #6338f5' : '1px solid #e2e8f0',
                                                         backgroundColor: '#ffffff',
-                                                        padding: 14,
+                                                        padding: 12,
                                                         display: 'flex',
                                                         flexDirection: 'column',
                                                         justifyContent: 'space-between',
@@ -575,13 +579,40 @@ export default function SubcategoryStorefront({
                                                         transition: 'all 0.15s ease'
                                                     }}
                                                 >
-                                                    <div>
+                                                    <div
+                                                        onClick={() => setSelectedServiceModal(service)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    >
+                                                        <div style={{
+                                                            width: '100%',
+                                                            height: 95,
+                                                            borderRadius: 10,
+                                                            backgroundColor: '#f8fafc',
+                                                            overflow: 'hidden',
+                                                            marginBottom: 8,
+                                                            position: 'relative'
+                                                        }}>
+                                                            <img
+                                                                src={serviceImg}
+                                                                alt={service.name}
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
+                                                            />
+                                                        </div>
+
                                                         <h3 style={{
-                                                            fontSize: 14,
+                                                            fontSize: 13.5,
                                                             fontWeight: 700,
                                                             color: '#0f172a',
-                                                            margin: '0 0 6px 0',
-                                                            lineHeight: 1.3
+                                                            margin: '0 0 4px 0',
+                                                            lineHeight: 1.3,
+                                                            minHeight: 36,
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden'
                                                         }}>
                                                             {service.name}
                                                         </h3>
@@ -592,7 +623,7 @@ export default function SubcategoryStorefront({
                                                             gap: 4,
                                                             fontSize: 12,
                                                             color: '#64748b',
-                                                            marginBottom: 10
+                                                            marginBottom: 8
                                                         }}>
                                                             <span style={{ color: '#16a34a', fontWeight: 700 }}>★</span>
                                                             <span style={{ fontWeight: 600, color: '#334155' }}>
@@ -1146,6 +1177,101 @@ export default function SubcategoryStorefront({
                         <span>View Cart</span>
                         <ChevronRight size={16} />
                     </Link>
+                </div>
+            )}
+
+            {/* ══════════════ SERVICE DETAIL POPUP MODAL ══════════════ */}
+            {selectedServiceModal && (
+                <div
+                    onClick={() => setSelectedServiceModal(null)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                        zIndex: 9999,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 16,
+                        backdropFilter: 'blur(3px)'
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            width: '100%',
+                            maxWidth: 480,
+                            backgroundColor: '#ffffff',
+                            borderRadius: 16,
+                            overflow: 'hidden',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+                            animation: 'v2ModalPop 0.18s ease-out'
+                        }}
+                    >
+                        <div style={{ position: 'relative', width: '100%', height: 200, backgroundColor: '#f1f5f9' }}>
+                            <img
+                                src={selectedServiceModal.images?.[0] || category?.icon || '/images/services/ac_3d.png'}
+                                alt={selectedServiceModal.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setSelectedServiceModal(null)}
+                                style={{
+                                    position: 'absolute',
+                                    top: 12,
+                                    right: 12,
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: '50%',
+                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div style={{ padding: 20 }}>
+                            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
+                                {selectedServiceModal.name}
+                            </h3>
+
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 12 }}>
+                                {formatINR(selectedServiceModal.sale_price || selectedServiceModal.selling_price || selectedServiceModal.price || 299)}
+                            </div>
+
+                            <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.5, margin: '0 0 20px 0' }}>
+                                {selectedServiceModal.description || 'Professional doorstep service backed by verified experts, genuine spares, and 30-day warranty.'}
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    addItem(selectedServiceModal);
+                                    setSelectedServiceModal(null);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: 10,
+                                    backgroundColor: '#6338f5',
+                                    color: '#ffffff',
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    border: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Add to Cart • {formatINR(selectedServiceModal.sale_price || selectedServiceModal.selling_price || selectedServiceModal.price || 299)}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
