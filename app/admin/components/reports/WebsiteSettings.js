@@ -27,6 +27,7 @@ import EcomV2CategorySettings from './EcomV2CategorySettings';
 import EcomV2ProcessSettings from './EcomV2ProcessSettings';
 import EcomV2ThumbnailsSettings from './EcomV2ThumbnailsSettings';
 import EcomV2HomepageSettings from './EcomV2HomepageSettings';
+import EcomV2TestimonialsSettings from './EcomV2TestimonialsSettings';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -507,6 +508,13 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 />
             ) : activeCategory === 'ecom-v2-process' ? (
                 <EcomV2ProcessSettings
+                    onBack={() => {
+                        setActiveCategory('ecom-v2');
+                        if (setSubSection) setSubSection('ecom-v2');
+                    }}
+                />
+            ) : activeCategory === 'ecom-v2-testimonials' ? (
+                <EcomV2TestimonialsSettings
                     onBack={() => {
                         setActiveCategory('ecom-v2');
                         if (setSubSection) setSubSection('ecom-v2');
