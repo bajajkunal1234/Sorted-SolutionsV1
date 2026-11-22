@@ -1718,8 +1718,8 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                             <div className="ecom-v2-tile-slide-row">
                                                                 {/* Animated Live Preview Box */}
                                                                 <div style={{
-                                                                    width: 72,
-                                                                    height: 72,
+                                                                    width: 84,
+                                                                    height: 84,
                                                                     borderRadius: 12,
                                                                     backgroundColor: activeCatData?.accent || '#f8fafc',
                                                                     border: '1px solid var(--border-primary)',
@@ -1729,7 +1729,8 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                     justifyContent: 'center',
                                                                     overflow: 'hidden',
                                                                     flexShrink: 0,
-                                                                    position: 'relative'
+                                                                    position: 'relative',
+                                                                    padding: 4
                                                                 }}>
                                                                     {slides.length > 0 ? (
                                                                         <SlidingThumbnail
@@ -1739,13 +1740,14 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                             interval={2500}
                                                                             width="100%"
                                                                             height="100%"
+                                                                            aspectRatio="auto"
                                                                             objectFit="contain"
                                                                         />
                                                                     ) : (
                                                                         <img
                                                                             src={sub.icon || activeCatData?.icon || '/images/services/ac_3d.png'}
                                                                             alt={sub.name}
-                                                                            style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                                            style={{ width: '90%', height: '90%', objectFit: 'contain' }}
                                                                         />
                                                                     )}
                                                                 </div>

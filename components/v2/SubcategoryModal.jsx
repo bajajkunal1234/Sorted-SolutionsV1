@@ -181,15 +181,17 @@ export default function SubcategoryModal({ category = null, onClose = () => {} }
                                 }}
                             >
                                 <div style={{
-                                    width: 56,
-                                    height: 56,
+                                    width: 72,
+                                    height: 72,
                                     marginBottom: 8,
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     position: 'relative',
                                     overflow: 'hidden',
-                                    borderRadius: 10
+                                    borderRadius: 12,
+                                    backgroundColor: activeCat.accent || '#f8fafc',
+                                    padding: 4
                                 }}>
                                     <SlidingThumbnail
                                         slides={sub.thumbnailSlides}
@@ -199,6 +201,7 @@ export default function SubcategoryModal({ category = null, onClose = () => {} }
                                         directionCycle={['from-top', 'from-right', 'from-bottom', 'from-left']}
                                         width="100%"
                                         height="100%"
+                                        aspectRatio="auto"
                                         objectFit="contain"
                                     />
                                 </div>

@@ -661,9 +661,9 @@ export default function CategoryStorefront({
                                                     }}
                                                     className="v2-appliance-type-card"
                                                     style={{
-                                                        flex: '0 0 145px',
-                                                        width: 145,
-                                                        minWidth: 145,
+                                                        flex: '0 0 160px',
+                                                        width: 160,
+                                                        minWidth: 160,
                                                         flexShrink: 0,
                                                         scrollSnapAlign: 'start',
                                                         display: 'flex',
@@ -703,8 +703,8 @@ export default function CategoryStorefront({
                                                         </span>
                                                     )}
                                                     <div style={{
-                                                        width: 68,
-                                                        height: 68,
+                                                        width: '100%',
+                                                        height: 108,
                                                         borderRadius: 12,
                                                         backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
                                                         display: 'flex',
@@ -712,7 +712,8 @@ export default function CategoryStorefront({
                                                         justifyContent: 'center',
                                                         marginBottom: 10,
                                                         overflow: 'hidden',
-                                                        position: 'relative'
+                                                        position: 'relative',
+                                                        padding: 6
                                                     }}>
                                                         {subSlides ? (
                                                             <SlidingThumbnail
@@ -722,13 +723,14 @@ export default function CategoryStorefront({
                                                                 interval={3500}
                                                                 width="100%"
                                                                 height="100%"
+                                                                aspectRatio="auto"
                                                                 objectFit="contain"
                                                             />
                                                         ) : (
                                                             <img
                                                                 src={subIcon}
                                                                 alt={sub.name}
-                                                                style={{ width: '80%', height: '80%', objectFit: 'contain' }}
+                                                                style={{ width: '92%', height: '92%', objectFit: 'contain' }}
                                                                 onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
                                                             />
                                                         )}
@@ -940,9 +942,9 @@ export default function CategoryStorefront({
                                                         key={service.id}
                                                         id={`svc-${service.id}`}
                                                         style={{
-                                                            flex: '0 0 145px',
-                                                            width: 145,
-                                                            minWidth: 145,
+                                                            flex: '0 0 160px',
+                                                            width: 160,
+                                                            minWidth: 160,
                                                             flexShrink: 0,
                                                             scrollSnapAlign: 'start',
                                                             display: 'flex',
@@ -963,7 +965,7 @@ export default function CategoryStorefront({
                                                         >
                                                             <div style={{
                                                                 width: '100%',
-                                                                height: 90,
+                                                                height: 104,
                                                                 borderRadius: 8,
                                                                 backgroundColor: '#f8fafc',
                                                                 overflow: 'hidden',
