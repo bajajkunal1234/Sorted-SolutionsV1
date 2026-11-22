@@ -225,13 +225,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
             />
 
             {/* Top Navigation Bar */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 12,
-                marginBottom: 24,
+            <div className="ecom-v2-header-container" style={{
                 paddingBottom: 16,
                 borderBottom: '1px solid var(--border-primary)'
             }}>
@@ -256,12 +250,13 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                     <div>
                         <h1 style={{
                             margin: 0,
-                            fontSize: 'var(--font-size-xl)',
+                            fontSize: 'clamp(18px, 4vw, 24px)',
                             fontWeight: 800,
                             color: 'var(--text-primary)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 8
+                            gap: 8,
+                            flexWrap: 'wrap'
                         }}>
                             <span>Services Thumbnails</span>
                             <span style={{
@@ -282,7 +277,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="ecom-v2-header-actions">
                     <a
                         href="/v2"
                         target="_blank"
@@ -406,6 +401,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                                 backgroundColor: isSelected ? 'rgba(59,130,246,0.1)' : 'var(--bg-elevated)',
                                 color: isSelected ? '#3b82f6' : 'var(--text-primary)',
                                 cursor: 'pointer',
+                                flexShrink: 0,
                                 whiteSpace: 'nowrap',
                                 transition: 'all 0.15s ease',
                                 fontWeight: isSelected ? 700 : 500
@@ -440,12 +436,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
             </div>
 
             {/* Main Content Layout: Left Editor + Right Interactive Live Preview */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.85fr)',
-                gap: 24,
-                alignItems: 'start'
-            }}>
+            <div className="ecom-v2-two-col-grid">
                 {/* ── Left Column: Slide Configuration ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                     {/* Category Title & Badge */}
@@ -620,7 +611,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                                 </div>
 
                                 {/* Slide Body: Image Preview + Inputs */}
-                                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                                <div className="ecom-v2-tile-slide-row">
                                     {/* Thumbnail Preview Box */}
                                     <div style={{
                                         width: 80,
@@ -648,7 +639,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                                     </div>
 
                                     {/* Upload and URL Inputs */}
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         <div style={{ display: 'flex', gap: 8 }}>
                                             <input
                                                 type="text"
@@ -658,6 +649,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                                                 onChange={(e) => handleSlideFieldChange(idx, 'url', e.target.value)}
                                                 style={{
                                                     flex: 1,
+                                                    minWidth: 0,
                                                     padding: '8px 12px',
                                                     borderRadius: 'var(--radius-md)',
                                                     border: '1px solid var(--border-primary)',
@@ -720,7 +712,7 @@ export default function EcomV2ThumbnailsSettings({ onBack }) {
                 </div>
 
                 {/* ── Right Column: Interactive Live Sandbox Preview ── */}
-                <div style={{ position: 'sticky', top: 20 }}>
+                <div className="ecom-v2-preview-sticky">
                     <div className="card" style={{
                         padding: 24,
                         backgroundColor: '#ffffff',

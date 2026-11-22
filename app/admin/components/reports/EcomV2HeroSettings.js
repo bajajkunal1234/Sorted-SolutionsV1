@@ -256,17 +256,12 @@ export default function EcomV2HeroSettings({ onBack }) {
     return (
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             {/* Top Navigation & Action Bar */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 12,
+            <div className="ecom-v2-header-container" style={{
                 marginBottom: 24,
                 paddingBottom: 16,
                 borderBottom: '1px solid var(--border-primary)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     {onBack && (
                         <button
                             type="button"
@@ -289,9 +284,9 @@ export default function EcomV2HeroSettings({ onBack }) {
                         </button>
                     )}
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <Sparkles size={20} color="#6338f5" />
-                            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                            <h2 style={{ fontSize: 'clamp(16px, 3.5vw, 18px)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                                 Ecom V2 — Hero Section Carousel CMS
                             </h2>
                         </div>
@@ -301,7 +296,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="ecom-v2-header-actions">
                     <a
                         href="/v2"
                         target="_blank"
@@ -505,7 +500,7 @@ export default function EcomV2HeroSettings({ onBack }) {
             </div>
 
             {/* Slide Editor + Live Preview Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.15fr) minmax(0, 0.85fr)', gap: 20 }}>
+            <div className="ecom-v2-two-col-grid">
                 {/* Left Column: Form Controls */}
                 <div style={{
                     background: 'var(--bg-elevated)',
@@ -635,7 +630,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                             />
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div className="ecom-v2-form-grid-2col">
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                                     Subline / Pricing Highlight
@@ -680,7 +675,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                         </div>
 
                         {/* CTA Destination */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 12 }}>
+                        <div className="ecom-v2-form-grid-cta">
                             <div>
                                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                                     CTA Button Text
@@ -839,7 +834,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                                     <Info size={14} />
                                     <span>Upload Guidelines & Required Dimensions</span>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 6 }}>
+                                <div className="ecom-v2-form-grid-2col" style={{ marginTop: 6 }}>
                                     <div>
                                         <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>📐 Dimensions & Aspect Ratio:</span>
                                         <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--text-secondary)', fontSize: 11.5 }}>
@@ -926,7 +921,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                 </div>
 
                 {/* Right Column: Live Mockup Preview */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="ecom-v2-preview-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',

@@ -344,3 +344,138 @@
         font-size: var(--font-size-xl);
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Ecom V2 Mobile Responsiveness Styles                           */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Two-column layout (e.g. Hero settings, Thumbnails settings) */
+.ecom-v2-two-col-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.ecom-v2-preview-sticky {
+    position: sticky;
+    top: 20px;
+}
+
+@media (max-width: 960px) {
+    .ecom-v2-two-col-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 20px !important;
+    }
+    .ecom-v2-preview-sticky {
+        position: static !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* Form 2-column grids (sublines, CTA text/link) */
+.ecom-v2-form-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.ecom-v2-form-grid-cta {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 12px;
+}
+
+@media (max-width: 600px) {
+    .ecom-v2-form-grid-2col,
+    .ecom-v2-form-grid-cta {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+}
+
+/* Category & Hero Slide Editor Rows */
+.ecom-v2-hero-slide-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+}
+
+@media (max-width: 680px) {
+    .ecom-v2-hero-slide-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+}
+
+/* Thumbnail Slide Row (in Homepage & Thumbnails designer) */
+.ecom-v2-tile-slide-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+@media (max-width: 540px) {
+    .ecom-v2-tile-slide-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+}
+
+/* Responsive Action Header */
+.ecom-v2-header-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+@media (max-width: 640px) {
+    .ecom-v2-header-container {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+    .ecom-v2-header-actions {
+        display: flex !important;
+        width: 100% !important;
+        justify-content: stretch !important;
+        gap: 8px !important;
+    }
+    .ecom-v2-header-actions > * {
+        flex: 1 !important;
+        justify-content: center !important;
+        text-align: center !important;
+        padding: 9px 10px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* Subcategory Hero Slide Grid */
+.ecom-v2-grid-180-1fr-180 {
+    display: grid;
+    grid-template-columns: 180px 1fr 180px;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+    .ecom-v2-grid-180-1fr-180 {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+}
+

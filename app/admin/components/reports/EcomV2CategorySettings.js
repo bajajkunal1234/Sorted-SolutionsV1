@@ -482,17 +482,10 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
     const activeCatData = V2_CATEGORIES.find(c => c.slug === activePage?.categorySlug) || null;
 
     return (
-        <div style={{ padding: 'var(--spacing-lg)', maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ padding: 'var(--spacing-md)', maxWidth: 1280, margin: '0 auto' }}>
             {/* Top Back & Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 'var(--spacing-lg)',
-                flexWrap: 'wrap',
-                gap: 'var(--spacing-md)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+            <div className="ecom-v2-header-container">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
                     <button
                         onClick={() => {
                             if (activePage) {
@@ -521,12 +514,13 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
 
                     <div>
                         <h1 style={{
-                            fontSize: 'var(--font-size-xl)',
+                            fontSize: 'clamp(18px, 4vw, 24px)',
                             fontWeight: 800,
                             margin: 0,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 8
+                            gap: 8,
+                            flexWrap: 'wrap'
                         }}>
                             <span>{activePage ? `${activePage.categoryName} Page Designer` : 'Category Pages (Urban Company UI)'}</span>
                             <span style={{
@@ -550,7 +544,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                 </div>
 
                 {activePage && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="ecom-v2-header-actions">
                         <a
                             href={`/v2/services/${activePage.categorySlug}`}
                             target="_blank"
@@ -848,6 +842,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                         fontWeight: isSelected ? 800 : 600,
                                         cursor: 'pointer',
                                         whiteSpace: 'nowrap',
+                                        flexShrink: 0,
                                         borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
                                         marginBottom: -2
                                     }}
@@ -1001,93 +996,110 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                     {(pageConfig.hero?.slides || []).map((slide, idx) => (
                                         <div
                                             key={slide.id || idx}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 12,
-                                                padding: 12,
-                                                borderRadius: 10,
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                border: '1px solid var(--border-primary)'
-                                            }}
+                                            className="ecom-v2-hero-slide-row"
                                         >
-                                            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-tertiary)', width: 20 }}>
-                                                #{idx + 1}
-                                            </span>
+                                            {/* Sub-row 1: Badge + Thumbnail + MediaType selector */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 auto', minWidth: 0 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-tertiary)', width: 22, flexShrink: 0 }}>
+                                                    #{idx + 1}
+                                                </span>
 
-                                            <div style={{ width: 60, height: 44, borderRadius: 6, backgroundColor: '#000', overflow: 'hidden', flexShrink: 0 }}>
-                                                {slide.mediaType === 'video' ? (
-                                                    <video src={slide.mediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <img src={slide.mediaUrl} alt="Slide" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                )}
+                                                <div style={{ width: 56, height: 40, borderRadius: 6, backgroundColor: '#000', overflow: 'hidden', flexShrink: 0 }}>
+                                                    {slide.mediaType === 'video' ? (
+                                                        <video src={slide.mediaUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <img src={slide.mediaUrl} alt="Slide" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    )}
+                                                </div>
+
+                                                <select
+                                                    value={slide.mediaType || 'image'}
+                                                    onChange={(e) => {
+                                                        const newSlides = [...pageConfig.hero.slides];
+                                                        newSlides[idx].mediaType = e.target.value;
+                                                        setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
+                                                    }}
+                                                    style={{
+                                                        padding: '6px 8px',
+                                                        borderRadius: 6,
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-elevated)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: 11,
+                                                        flexShrink: 0
+                                                    }}
+                                                >
+                                                    <option value="image">Image (JPG/PNG/WebP)</option>
+                                                    <option value="video">Video (MP4/WebM)</option>
+                                                </select>
                                             </div>
 
-                                            <select
-                                                value={slide.mediaType || 'image'}
-                                                onChange={(e) => {
-                                                    const newSlides = [...pageConfig.hero.slides];
-                                                    newSlides[idx].mediaType = e.target.value;
-                                                    setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
-                                                }}
-                                                style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 11 }}
-                                            >
-                                                <option value="image">Image (JPG/PNG/WebP)</option>
-                                                <option value="video">Video (MP4/WebM)</option>
-                                            </select>
+                                            {/* Sub-row 2: URL input + Upload + Delete */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '2 1 240px', minWidth: 0, width: '100%' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Media URL"
+                                                    value={slide.mediaUrl || ''}
+                                                    onChange={(e) => {
+                                                        const newSlides = [...pageConfig.hero.slides];
+                                                        newSlides[idx].mediaUrl = e.target.value;
+                                                        setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
+                                                    }}
+                                                    style={{
+                                                        flex: 1,
+                                                        minWidth: 0,
+                                                        padding: '7px 10px',
+                                                        borderRadius: 6,
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-elevated)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: 12
+                                                    }}
+                                                />
 
-                                            <input
-                                                type="text"
-                                                placeholder="Media URL"
-                                                value={slide.mediaUrl || ''}
-                                                onChange={(e) => {
-                                                    const newSlides = [...pageConfig.hero.slides];
-                                                    newSlides[idx].mediaUrl = e.target.value;
-                                                    setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
-                                                }}
-                                                style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12 }}
-                                            />
+                                                <button
+                                                    type="button"
+                                                    disabled={uploading}
+                                                    onClick={() => {
+                                                        setUploadingSlideIdx(idx);
+                                                        slideFileInputRef.current?.click();
+                                                    }}
+                                                    style={{
+                                                        padding: '7px 12px',
+                                                        borderRadius: 6,
+                                                        border: '1px solid var(--border-primary)',
+                                                        backgroundColor: 'var(--bg-elevated)',
+                                                        color: uploading && uploadingSlideIdx === idx ? '#6338f5' : 'var(--text-secondary)',
+                                                        cursor: uploading ? 'not-allowed' : 'pointer',
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 4,
+                                                        flexShrink: 0,
+                                                        opacity: uploading ? 0.7 : 1
+                                                    }}
+                                                >
+                                                    {uploading && uploadingSlideIdx === idx ? (
+                                                        <RefreshCw size={12} className="spin" />
+                                                    ) : (
+                                                        <Upload size={12} />
+                                                    )}
+                                                    {uploading && uploadingSlideIdx === idx ? 'Uploading...' : 'Upload'}
+                                                </button>
 
-                                            <button
-                                                type="button"
-                                                disabled={uploading}
-                                                onClick={() => {
-                                                    setUploadingSlideIdx(idx);
-                                                    slideFileInputRef.current?.click();
-                                                }}
-                                                style={{
-                                                    padding: '6px 10px',
-                                                    borderRadius: 6,
-                                                    border: '1px solid var(--border-primary)',
-                                                    backgroundColor: 'var(--bg-elevated)',
-                                                    color: uploading && uploadingSlideIdx === idx ? '#6338f5' : 'var(--text-secondary)',
-                                                    cursor: uploading ? 'not-allowed' : 'pointer',
-                                                    fontSize: 11,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 4,
-                                                    opacity: uploading ? 0.7 : 1
-                                                }}
-                                            >
-                                                {uploading && uploadingSlideIdx === idx ? (
-                                                    <RefreshCw size={12} className="spin" />
-                                                ) : (
-                                                    <Upload size={12} />
-                                                )}
-                                                {uploading && uploadingSlideIdx === idx ? 'Uploading...' : 'Upload'}
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const newSlides = pageConfig.hero.slides.filter((_, i) => i !== idx);
-                                                    setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
-                                                }}
-                                                style={{ padding: '6px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
-                                                title="Delete slide"
-                                            >
-                                                <Trash2 size={15} />
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newSlides = pageConfig.hero.slides.filter((_, i) => i !== idx);
+                                                        setPageConfig(prev => ({ ...prev, hero: { ...prev.hero, slides: newSlides } }));
+                                                    }}
+                                                    style={{ padding: '6px', borderRadius: 6, border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', flexShrink: 0 }}
+                                                    title="Delete slide"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1703,7 +1715,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                             </div>
 
                                                             {/* Animated Preview + Slides List */}
-                                                            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                                                            <div className="ecom-v2-tile-slide-row">
                                                                 {/* Animated Live Preview Box */}
                                                                 <div style={{
                                                                     width: 72,
@@ -1739,7 +1751,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                 </div>
 
                                                                 {/* Slides Inputs */}
-                                                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                                     {slides.map((slide, sIdx) => (
                                                                         <div key={sIdx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                                             <span style={{ fontSize: 10, fontWeight: 800, color: '#6338f5', width: 48, flexShrink: 0 }}>
@@ -1752,6 +1764,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                                 placeholder="Slide image URL"
                                                                                 style={{
                                                                                     flex: 1,
+                                                                                    minWidth: 0,
                                                                                     padding: '5px 8px',
                                                                                     borderRadius: 6,
                                                                                     border: '1px solid var(--border-primary)',

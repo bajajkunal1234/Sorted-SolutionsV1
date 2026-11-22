@@ -2225,7 +2225,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '180px 1fr 180px', gap: 12, alignItems: 'flex-start' }}>
+                                <div className="ecom-v2-grid-180-1fr-180">
                                     {/* Media Type */}
                                     <div className="form-group" style={{ margin: 0 }}>
                                         <label className="form-label" style={{ fontSize: 11 }}>Media Type</label>
@@ -2252,7 +2252,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                     </div>
 
                                     {/* Media URL + Upload Button */}
-                                    <div className="form-group" style={{ margin: 0 }}>
+                                    <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                                         <label className="form-label" style={{ fontSize: 11 }}>Media URL or Upload</label>
                                         <div style={{ display: 'flex', gap: 6 }}>
                                             <input
@@ -2260,6 +2260,7 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                                 className="form-input"
                                                 placeholder="https://... or click Upload"
                                                 value={slide.mediaUrl || ''}
+                                                style={{ minWidth: 0 }}
                                                 onChange={(e) => {
                                                     const updated = [...heroSlides];
                                                     updated[sIdx] = { ...updated[sIdx], mediaUrl: e.target.value };
@@ -2301,13 +2302,14 @@ export default function EcomV2SubcategorySettings({ onBack }) {
                                     </div>
 
                                     {/* Slide Title / Caption */}
-                                    <div className="form-group" style={{ margin: 0 }}>
+                                    <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                                         <label className="form-label" style={{ fontSize: 11 }}>Title / Caption</label>
                                         <input
                                             type="text"
                                             className="form-input"
                                             placeholder="e.g. 90-Min Arrival"
                                             value={slide.title || ''}
+                                            style={{ minWidth: 0 }}
                                             onChange={(e) => {
                                                 const updated = [...heroSlides];
                                                 updated[sIdx] = { ...updated[sIdx], title: e.target.value };
