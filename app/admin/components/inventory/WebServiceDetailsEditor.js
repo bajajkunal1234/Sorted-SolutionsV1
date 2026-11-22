@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     CheckSquare,
     Square,
@@ -17,7 +17,12 @@ import {
     Star,
     MessageSquare,
     Sparkles,
-    RotateCcw
+    RotateCcw,
+    Search,
+    Check,
+    X,
+    Filter,
+    RefreshCw
 } from 'lucide-react';
 
 export const DEFAULT_WEB_DETAILS = {
@@ -76,11 +81,7 @@ export const DEFAULT_WEB_DETAILS = {
     },
     feedbacks: {
         title: 'Customer Feedbacks & Ratings',
-        items: [
-            { name: 'Kunal M.', rating: 5, location: 'Andheri West', comment: 'Super fast arrival within 90 minutes. Diagnosed the issue quickly and resolved it cleanly.' },
-            { name: 'Ritu S.', rating: 5, location: 'Powai', comment: 'Very polite technician, clean work and transparent rate card pricing. Highly recommended!' },
-            { name: 'Devendra P.', rating: 5, location: 'Bandra', comment: 'Prompt service and hassle-free warranty support. Best appliance repair service in Mumbai.' }
-        ]
+        items: []
     },
     faqs: {
         title: 'Frequently Asked Questions',
@@ -239,6 +240,177 @@ export default function WebServiceDetailsEditor({
         if (confirm('Reset all website service specific details to default values?')) {
             updateData(JSON.parse(JSON.stringify(DEFAULT_WEB_DETAILS)));
         }
+    };
+
+    // Google Reviews selection state
+    const [availableGoogleReviews, setAvailableGoogleReviews] = useState([]);
+    const [loadingGoogleReviews, setLoadingGoogleReviews] = useState(false);
+    const [reviewSearchQuery, setReviewSearchQuery] = useState('');
+    const [filterCategoryOnly, setFilterCategoryOnly] = useState(false);
+    const [feedbacksMode, setFeedbacksMode] = useState('google'); // 'google' | 'custom'
+
+    const fetchGoogleReviews = async () => {
+        try {
+            setLoadingGoogleReviews(true);
+            const res = await fetch('/api/settings/testimonials');
+            const json = await res.json();
+            if (json && json.success && Array.isArray(json.data)) {
+                setAvailableGoogleReviews(json.data);
+            }
+        } catch (err) {
+            console.error('Failed to load testimonials:', err);
+        } finally {
+            setLoadingGoogleReviews(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchGoogleReviews();
+    }, []);
+
+    // Only reviews marked visible by admin in Website Settings
+    const visibleGoogleReviews = useMemo(() => {
+        return (availableGoogleReviews || []).filter(r => r.show_on_website === true);
+    }, [availableGoogleReviews]);
+
+    // Keywords based on categoryName
+    const categoryKeywords = useMemo(() => {
+        if (!categoryName) return [];
+        const cat = String(categoryName).toLowerCase();
+        if (cat.includes('ac') || cat.includes('air')) return ['ac', 'air', 'cooling', 'cool', 'split', 'window', 'gas'];
+        if (cat.includes('refrigerat') || cat.includes('fridge')) return ['fridge', 'refrigerator', 'freezer', 'cooling', 'gasket'];
+        if (cat.includes('microwave') || cat.includes('oven')) return ['microwave', 'oven', 'otg', 'heating', 'heat'];
+        if (cat.includes('wash')) return ['washing', 'machine', 'washer', 'dryer'];
+        if (cat.includes('purif') || cat.includes('water') || cat.includes('ro')) return ['purifier', 'kent', 'water', 'ro', 'filter'];
+        return [cat];
+    }, [categoryName]);
+
+    // Count of category matches
+    const categoryMatchCount = useMemo(() => {
+        if (!categoryKeywords.length) return 0;
+        return visibleGoogleReviews.filter(r => {
+            const text = ((r.review_text || '') + ' ' + (r.service_type || '')).toLowerCase();
+            return categoryKeywords.some(kw => text.includes(kw));
+        }).length;
+    }, [visibleGoogleReviews, categoryKeywords]);
+
+    // Filtered visible reviews based on search & category
+    const filteredGoogleReviews = useMemo(() => {
+        let list = visibleGoogleReviews;
+
+        if (filterCategoryOnly && categoryKeywords.length > 0) {
+            list = list.filter(r => {
+                const text = ((r.review_text || '') + ' ' + (r.service_type || '')).toLowerCase();
+                return categoryKeywords.some(kw => text.includes(kw));
+            });
+        }
+
+        if (reviewSearchQuery.trim()) {
+            const q = reviewSearchQuery.toLowerCase().trim();
+            list = list.filter(r =>
+                (r.customer_name || '').toLowerCase().includes(q) ||
+                (r.review_text || '').toLowerCase().includes(q) ||
+                (r.location || '').toLowerCase().includes(q)
+            );
+        }
+
+        return list;
+    }, [visibleGoogleReviews, filterCategoryOnly, categoryKeywords, reviewSearchQuery]);
+
+    // Check if a specific review is selected
+    const isReviewSelected = (rev) => {
+        const selected = data.feedbacks?.items || [];
+        return selected.some(item =>
+            (item.id && rev.id && String(item.id) === String(rev.id)) ||
+            (item.name?.toLowerCase() === rev.customer_name?.toLowerCase() &&
+             (item.comment || '').trim() === (rev.review_text || '').trim())
+        );
+    };
+
+    // Toggle a review selection
+    const toggleReviewSelection = (rev) => {
+        if (disabled) return;
+        const current = [...(data.feedbacks?.items || [])];
+        const idx = current.findIndex(item =>
+            (item.id && rev.id && String(item.id) === String(rev.id)) ||
+            (item.name?.toLowerCase() === rev.customer_name?.toLowerCase() &&
+             (item.comment || '').trim() === (rev.review_text || '').trim())
+        );
+
+        if (idx >= 0) {
+            current.splice(idx, 1);
+        } else {
+            current.push({
+                id: rev.id,
+                name: rev.customer_name,
+                location: rev.location || 'Mumbai',
+                rating: rev.rating || 5,
+                comment: rev.review_text || '',
+                date: rev.date || '',
+                source: 'Google Reviews'
+            });
+        }
+
+        updateData(prev => ({
+            ...prev,
+            feedbacks: {
+                ...prev.feedbacks,
+                items: current
+            }
+        }));
+    };
+
+    // Quick Select Top N
+    const handleSelectTopN = (n) => {
+        if (disabled) return;
+        const listToPick = filteredGoogleReviews.length > 0 ? filteredGoogleReviews : visibleGoogleReviews;
+        const topReviews = listToPick.slice(0, n).map(rev => ({
+            id: rev.id,
+            name: rev.customer_name,
+            location: rev.location || 'Mumbai',
+            rating: rev.rating || 5,
+            comment: rev.review_text || '',
+            date: rev.date || '',
+            source: 'Google Reviews'
+        }));
+
+        updateData(prev => ({
+            ...prev,
+            feedbacks: {
+                ...prev.feedbacks,
+                items: topReviews
+            }
+        }));
+    };
+
+    // Clear all selected feedbacks
+    const handleClearSelectedFeedbacks = () => {
+        if (disabled) return;
+        updateData(prev => ({
+            ...prev,
+            feedbacks: {
+                ...prev.feedbacks,
+                items: []
+            }
+        }));
+    };
+
+    // Reorder selected feedback (move up or down)
+    const moveSelectedFeedback = (index, direction) => {
+        if (disabled) return;
+        const current = [...(data.feedbacks?.items || [])];
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= current.length) return;
+        const temp = current[index];
+        current[index] = current[targetIndex];
+        current[targetIndex] = temp;
+        updateData(prev => ({
+            ...prev,
+            feedbacks: {
+                ...prev.feedbacks,
+                items: current
+            }
+        }));
     };
 
     return (
@@ -892,13 +1064,14 @@ export default function WebServiceDetailsEditor({
                 {/* 7. FEEDBACKS / REVIEWS */}
                 {activeSectionTab === 'feedbacks' && (
                     <div>
+                        {/* Section Header */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
                             <div>
                                 <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#eab308', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <Star size={16} /> Customer Feedbacks & Reviews Content
                                 </h4>
                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    Authentic customer testimonials and star ratings for this service.
+                                    Select authentic Google Reviews made visible in Website Settings, or create custom reviews for this service.
                                 </span>
                             </div>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
@@ -913,6 +1086,7 @@ export default function WebServiceDetailsEditor({
                             </label>
                         </div>
 
+                        {/* Title input */}
                         <div style={{ marginBottom: 14 }}>
                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Section Title</label>
                             <input
@@ -925,84 +1099,593 @@ export default function WebServiceDetailsEditor({
                             />
                         </div>
 
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Customer Reviews</label>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-                            {(data.feedbacks?.items || []).map((fb, idx) => (
-                                <div
-                                    key={idx}
-                                    style={{
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 8,
-                                        padding: 12,
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 8
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, minWidth: 200 }}>
-                                            <input
-                                                type="text"
-                                                value={fb.name || ''}
-                                                onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'name', e.target.value)}
-                                                disabled={disabled}
-                                                placeholder="Customer Name (e.g. Kunal M.)"
-                                                style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700 }}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={fb.location || ''}
-                                                onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'location', e.target.value)}
-                                                disabled={disabled}
-                                                placeholder="Location (e.g. Andheri West)"
-                                                style={{ width: 140, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12 }}
-                                            />
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ fontSize: 12, fontWeight: 700 }}>Rating:</span>
-                                            <select
-                                                value={fb.rating || 5}
-                                                onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'rating', Number(e.target.value))}
-                                                disabled={disabled}
-                                                style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
-                                            >
-                                                <option value={5}>⭐ 5 Stars</option>
-                                                <option value={4}>⭐ 4 Stars</option>
-                                                <option value={3}>⭐ 3 Stars</option>
-                                            </select>
+                        {/* ── SELECTED REVIEWS SUMMARY BANNER ── */}
+                        <div style={{
+                            marginBottom: 16,
+                            padding: 12,
+                            borderRadius: 10,
+                            border: (data.feedbacks?.items || []).length > 0 ? '1px solid #eab308' : '1px dashed var(--border-primary)',
+                            backgroundColor: (data.feedbacks?.items || []).length > 0 ? 'rgba(234, 179, 8, 0.05)' : 'var(--bg-secondary)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Star size={15} fill="#eab308" color="#eab308" />
+                                    <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                                        Selected for this Service ({(data.feedbacks?.items || []).length})
+                                    </strong>
+                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                        — will appear in the website modal popup
+                                    </span>
+                                </div>
+                                {(data.feedbacks?.items || []).length > 0 && !disabled && (
+                                    <button
+                                        type="button"
+                                        onClick={handleClearSelectedFeedbacks}
+                                        style={{
+                                            border: 'none',
+                                            background: 'none',
+                                            color: '#ef4444',
+                                            fontSize: 11.5,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 4
+                                        }}
+                                    >
+                                        <X size={13} /> Clear All
+                                    </button>
+                                )}
+                            </div>
+
+                            {(data.feedbacks?.items || []).length === 0 ? (
+                                <div style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '6px 0' }}>
+                                    No reviews selected yet. Check items from the Google Reviews list below to showcase them on this service.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    {(data.feedbacks?.items || []).map((fb, idx) => (
+                                        <div
+                                            key={idx}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 10px',
+                                                borderRadius: 6,
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                border: '1px solid var(--border-primary)',
+                                                gap: 10
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 800,
+                                                    padding: '2px 6px',
+                                                    borderRadius: 4,
+                                                    backgroundColor: '#eab308',
+                                                    color: '#000000',
+                                                    flexShrink: 0
+                                                }}>
+                                                    #{idx + 1}
+                                                </span>
+                                                <span style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                                    {fb.name || 'Verified Customer'}
+                                                </span>
+                                                <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                                                    {Array.from({ length: fb.rating || 5 }).map((_, s) => (
+                                                        <Star key={s} size={11} fill="#eab308" color="#eab308" />
+                                                    ))}
+                                                </div>
+                                                {fb.source === 'Google Reviews' && (
+                                                    <span style={{
+                                                        fontSize: 9.5,
+                                                        fontWeight: 800,
+                                                        padding: '1px 5px',
+                                                        borderRadius: 4,
+                                                        backgroundColor: 'rgba(66, 133, 244, 0.12)',
+                                                        color: '#4285F4',
+                                                        border: '1px solid rgba(66, 133, 244, 0.25)',
+                                                        flexShrink: 0
+                                                    }}>
+                                                        Google
+                                                    </span>
+                                                )}
+                                                <span style={{
+                                                    fontSize: 12,
+                                                    color: 'var(--text-secondary)',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    fontStyle: 'italic',
+                                                    flex: 1
+                                                }}>
+                                                    &ldquo;{fb.comment || fb.review_text || ''}&rdquo;
+                                                </span>
+                                            </div>
+
                                             {!disabled && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeArrayItem('feedbacks', 'items', idx)}
-                                                    style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 6 }}
-                                                    title="Delete review"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveSelectedFeedback(idx, -1)}
+                                                        disabled={idx === 0}
+                                                        style={{
+                                                            border: 'none',
+                                                            background: 'none',
+                                                            color: idx === 0 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                            cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                                                            padding: 2
+                                                        }}
+                                                        title="Move Up"
+                                                    >
+                                                        <ChevronUp size={15} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveSelectedFeedback(idx, 1)}
+                                                        disabled={idx === (data.feedbacks?.items || []).length - 1}
+                                                        style={{
+                                                            border: 'none',
+                                                            background: 'none',
+                                                            color: idx === (data.feedbacks?.items || []).length - 1 ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                                                            cursor: idx === (data.feedbacks?.items || []).length - 1 ? 'not-allowed' : 'pointer',
+                                                            padding: 2
+                                                        }}
+                                                        title="Move Down"
+                                                    >
+                                                        <ChevronDown size={15} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeArrayItem('feedbacks', 'items', idx)}
+                                                        style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}
+                                                        title="Remove from this service"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
-                                    </div>
-                                    <textarea
-                                        value={fb.comment || ''}
-                                        onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'comment', e.target.value)}
-                                        disabled={disabled}
-                                        rows={2}
-                                        placeholder="Customer review comment..."
-                                        style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, lineHeight: 1.4 }}
-                                    />
+                                    ))}
                                 </div>
-                            ))}
+                            )}
                         </div>
 
-                        {!disabled && (
+                        {/* ── MODE TABS: GOOGLE REVIEWS vs MANUAL REVIEWS ── */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 12, borderBottom: '1px solid var(--border-primary)', paddingBottom: 8 }}>
                             <button
                                 type="button"
-                                onClick={() => addArrayItem('feedbacks', 'items', { name: '', rating: 5, location: 'Mumbai', comment: '' })}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid #eab308', backgroundColor: 'rgba(234,179,8,0.08)', color: '#ca8a04', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                                onClick={() => setFeedbacksMode('google')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: feedbacksMode === 'google' ? '1px solid #6338f5' : '1px solid var(--border-primary)',
+                                    backgroundColor: feedbacksMode === 'google' ? '#6338f5' : 'var(--bg-secondary)',
+                                    color: feedbacksMode === 'google' ? '#ffffff' : 'var(--text-primary)',
+                                    fontSize: 12.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6
+                                }}
                             >
-                                <Plus size={14} /> Add Customer Review
+                                <Star size={14} />
+                                Select from Google Reviews ({visibleGoogleReviews.length} Visible)
                             </button>
+                            <button
+                                type="button"
+                                onClick={() => setFeedbacksMode('custom')}
+                                style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 6,
+                                    border: feedbacksMode === 'custom' ? '1px solid #6338f5' : '1px solid var(--border-primary)',
+                                    backgroundColor: feedbacksMode === 'custom' ? '#6338f5' : 'var(--bg-secondary)',
+                                    color: feedbacksMode === 'custom' ? '#ffffff' : 'var(--text-primary)',
+                                    fontSize: 12.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6
+                                }}
+                            >
+                                ✏️ Custom / Manual Reviews
+                            </button>
+                        </div>
+
+                        {/* ── MODE 1: GOOGLE REVIEWS SELECTOR ── */}
+                        {feedbacksMode === 'google' && (
+                            <div>
+                                {/* Toolbar: Search, Filters, Quick Select */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    flexWrap: 'wrap',
+                                    gap: 8,
+                                    marginBottom: 10,
+                                    padding: 10,
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    borderRadius: 8,
+                                    border: '1px solid var(--border-primary)'
+                                }}>
+                                    {/* Search Input */}
+                                    <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+                                        <Search size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                        <input
+                                            type="text"
+                                            value={reviewSearchQuery}
+                                            onChange={(e) => setReviewSearchQuery(e.target.value)}
+                                            placeholder="Search reviews by name, keyword (e.g. Kunal, microwave, quick)..."
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px 28px 6px 30px',
+                                                borderRadius: 6,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: 12.5
+                                            }}
+                                        />
+                                        {reviewSearchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setReviewSearchQuery('')}
+                                                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: 2 }}
+                                            >
+                                                <X size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Category Match Filter Chip */}
+                                    {categoryName && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFilterCategoryOnly(prev => !prev)}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                                padding: '5px 10px',
+                                                borderRadius: 6,
+                                                border: filterCategoryOnly ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
+                                                backgroundColor: filterCategoryOnly ? 'rgba(99, 56, 245, 0.15)' : 'var(--bg-elevated)',
+                                                color: filterCategoryOnly ? '#6338f5' : 'var(--text-secondary)',
+                                                fontSize: 12,
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Filter reviews matching this service's category"
+                                        >
+                                            <Filter size={12} />
+                                            {categoryName} Matches ({categoryMatchCount})
+                                        </button>
+                                    )}
+
+                                    {/* Quick Actions */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelectTopN(3)}
+                                            disabled={disabled || filteredGoogleReviews.length === 0}
+                                            style={{
+                                                padding: '5px 9px',
+                                                borderRadius: 6,
+                                                border: '1px solid #6338f5',
+                                                backgroundColor: 'rgba(99, 56, 245, 0.08)',
+                                                color: '#6338f5',
+                                                fontSize: 11.5,
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            ⚡ Select Top 3
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelectTopN(5)}
+                                            disabled={disabled || filteredGoogleReviews.length === 0}
+                                            style={{
+                                                padding: '5px 9px',
+                                                borderRadius: 6,
+                                                border: '1px solid #6338f5',
+                                                backgroundColor: 'rgba(99, 56, 245, 0.08)',
+                                                color: '#6338f5',
+                                                fontSize: 11.5,
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            ⚡ Select Top 5
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={fetchGoogleReviews}
+                                            disabled={loadingGoogleReviews}
+                                            style={{
+                                                padding: 5,
+                                                borderRadius: 6,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-elevated)',
+                                                color: 'var(--text-secondary)',
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Refresh reviews from database"
+                                        >
+                                            <RefreshCw size={13} style={{ animation: loadingGoogleReviews ? 'spin 1s linear infinite' : 'none' }} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ fontSize: 11.5, color: 'var(--text-tertiary)', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span>
+                                        Showing {filteredGoogleReviews.length} of {visibleGoogleReviews.length} visible Google reviews (click review to toggle selection)
+                                    </span>
+                                    <span>
+                                        <strong>{(data.feedbacks?.items || []).filter(i => isReviewSelected(i) || i.source === 'Google Reviews').length}</strong> selected
+                                    </span>
+                                </div>
+
+                                {/* Reviews Scroll List */}
+                                <div style={{
+                                    maxHeight: 460,
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 8,
+                                    paddingRight: 4
+                                }}>
+                                    {loadingGoogleReviews && (
+                                        <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-secondary)', fontSize: 13 }}>
+                                            Loading Google reviews...
+                                        </div>
+                                    )}
+
+                                    {!loadingGoogleReviews && filteredGoogleReviews.length === 0 && (
+                                        <div style={{
+                                            textAlign: 'center',
+                                            padding: 30,
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderRadius: 8,
+                                            border: '1px dashed var(--border-primary)',
+                                            color: 'var(--text-secondary)',
+                                            fontSize: 13
+                                        }}>
+                                            No visible Google reviews match your filters.
+                                            {(filterCategoryOnly || reviewSearchQuery) && (
+                                                <div style={{ marginTop: 8 }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setFilterCategoryOnly(false); setReviewSearchQuery(''); }}
+                                                        style={{
+                                                            border: 'none',
+                                                            background: 'none',
+                                                            color: '#6338f5',
+                                                            fontSize: 12,
+                                                            fontWeight: 700,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Clear filters
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!loadingGoogleReviews && filteredGoogleReviews.map((rev) => {
+                                        const selected = isReviewSelected(rev);
+                                        return (
+                                            <div
+                                                key={rev.id || rev.customer_name}
+                                                onClick={() => toggleReviewSelection(rev)}
+                                                style={{
+                                                    padding: 11,
+                                                    borderRadius: 8,
+                                                    border: selected ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
+                                                    backgroundColor: selected ? 'rgba(99, 56, 245, 0.12)' : 'var(--bg-secondary)',
+                                                    cursor: disabled ? 'default' : 'pointer',
+                                                    transition: 'all 0.15s ease',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: 6
+                                                }}
+                                            >
+                                                {/* Header Row */}
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                                                        <div style={{ flexShrink: 0 }}>
+                                                            {selected ? (
+                                                                <CheckSquare size={16} color="#6338f5" />
+                                                            ) : (
+                                                                <Square size={16} color="var(--text-tertiary)" />
+                                                            )}
+                                                        </div>
+
+                                                        {/* Avatar */}
+                                                        <div style={{
+                                                            width: 24,
+                                                            height: 24,
+                                                            borderRadius: '50%',
+                                                            backgroundColor: selected ? '#6338f5' : 'var(--bg-elevated)',
+                                                            color: selected ? '#ffffff' : 'var(--text-primary)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontSize: 11,
+                                                            fontWeight: 800,
+                                                            flexShrink: 0
+                                                        }}>
+                                                            {(rev.customer_name || 'C').charAt(0).toUpperCase()}
+                                                        </div>
+
+                                                        <strong style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                                            {rev.customer_name}
+                                                        </strong>
+
+                                                        {rev.location && (
+                                                            <span style={{ fontSize: 11.5, color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                                                                • {rev.location}
+                                                            </span>
+                                                        )}
+
+                                                        <span style={{
+                                                            fontSize: 9.5,
+                                                            fontWeight: 800,
+                                                            padding: '1px 5px',
+                                                            borderRadius: 4,
+                                                            backgroundColor: 'rgba(66, 133, 244, 0.12)',
+                                                            color: '#4285F4',
+                                                            border: '1px solid rgba(66, 133, 244, 0.25)',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 2,
+                                                            flexShrink: 0
+                                                        }}>
+                                                            <span style={{ fontWeight: 900 }}>G</span> Google
+                                                        </span>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                                        <div style={{ display: 'flex', gap: 1 }}>
+                                                            {Array.from({ length: rev.rating || 5 }).map((_, s) => (
+                                                                <Star key={s} size={12} fill="#eab308" color="#eab308" />
+                                                            ))}
+                                                        </div>
+                                                        {rev.date && (
+                                                            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                                                                {rev.date}
+                                                            </span>
+                                                        )}
+                                                        <span style={{
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            padding: '2px 7px',
+                                                            borderRadius: 5,
+                                                            backgroundColor: selected ? '#6338f5' : 'var(--bg-elevated)',
+                                                            color: selected ? '#ffffff' : 'var(--text-secondary)',
+                                                            border: selected ? 'none' : '1px solid var(--border-primary)',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 3
+                                                        }}>
+                                                            {selected ? (
+                                                                <>
+                                                                    <Check size={11} /> Selected
+                                                                </>
+                                                            ) : (
+                                                                '+ Select'
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Review Comment Quote */}
+                                                <p style={{
+                                                    margin: '2px 0 0 24px',
+                                                    fontSize: 12.5,
+                                                    color: 'var(--text-secondary)',
+                                                    lineHeight: 1.45,
+                                                    fontStyle: 'italic'
+                                                }}>
+                                                    &ldquo;{rev.review_text}&rdquo;
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── MODE 2: CUSTOM / MANUAL REVIEWS ── */}
+                        {feedbacksMode === 'custom' && (
+                            <div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
+                                    Add custom testimonials manually for this service (e.g. from WhatsApp, offline clients, or specific feedback).
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                                    {(data.feedbacks?.items || []).map((fb, idx) => (
+                                        <div
+                                            key={idx}
+                                            style={{
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: 8,
+                                                padding: 12,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: 8
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, minWidth: 200 }}>
+                                                    <input
+                                                        type="text"
+                                                        value={fb.name || ''}
+                                                        onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'name', e.target.value)}
+                                                        disabled={disabled}
+                                                        placeholder="Customer Name (e.g. Kunal M.)"
+                                                        style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700 }}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={fb.location || ''}
+                                                        onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'location', e.target.value)}
+                                                        disabled={disabled}
+                                                        placeholder="Location (e.g. Andheri West)"
+                                                        style={{ width: 140, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12 }}
+                                                    />
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <span style={{ fontSize: 12, fontWeight: 700 }}>Rating:</span>
+                                                    <select
+                                                        value={fb.rating || 5}
+                                                        onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'rating', Number(e.target.value))}
+                                                        disabled={disabled}
+                                                        style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700 }}
+                                                    >
+                                                        <option value={5}>⭐ 5 Stars</option>
+                                                        <option value={4}>⭐ 4 Stars</option>
+                                                        <option value={3}>⭐ 3 Stars</option>
+                                                    </select>
+                                                    {!disabled && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeArrayItem('feedbacks', 'items', idx)}
+                                                            style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 6 }}
+                                                            title="Delete review"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <textarea
+                                                value={fb.comment || ''}
+                                                onChange={(e) => updateArrayItem('feedbacks', 'items', idx, 'comment', e.target.value)}
+                                                disabled={disabled}
+                                                rows={2}
+                                                placeholder="Customer review comment..."
+                                                style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, lineHeight: 1.4 }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {!disabled && (
+                                    <button
+                                        type="button"
+                                        onClick={() => addArrayItem('feedbacks', 'items', { name: '', rating: 5, location: 'Mumbai', comment: '', source: 'Manual' })}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid #eab308', backgroundColor: 'rgba(234,179,8,0.08)', color: '#ca8a04', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                                    >
+                                        <Plus size={14} /> Add Custom Review
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}

@@ -435,22 +435,45 @@ export default function WebServiceModal({
                                             border: '1px solid #e2e8f0'
                                         }}
                                     >
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <strong style={{ fontSize: 13, color: '#0f172a' }}>{fb.name || 'Verified Customer'}</strong>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 6 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                <strong style={{ fontSize: 13, color: '#0f172a' }}>{fb.name || fb.customer_name || 'Verified Customer'}</strong>
                                                 {fb.location && (
                                                     <span style={{ fontSize: 11.5, color: '#64748b' }}>• {fb.location}</span>
                                                 )}
+                                                {(fb.source === 'Google Reviews' || fb.source === 'google' || !fb.source) && (
+                                                    <span style={{
+                                                        fontSize: 10,
+                                                        fontWeight: 700,
+                                                        padding: '1px 6px',
+                                                        borderRadius: 4,
+                                                        backgroundColor: '#eef2ff',
+                                                        color: '#4338ca',
+                                                        border: '1px solid #e0e7ff',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 3
+                                                    }}>
+                                                        <span style={{ color: '#4285F4', fontWeight: 900 }}>G</span> Google Review
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div style={{ display: 'flex', gap: 2 }}>
-                                                {Array.from({ length: fb.rating || 5 }).map((_, si) => (
-                                                    <Star key={si} size={12} fill="#eab308" color="#eab308" />
-                                                ))}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                <div style={{ display: 'flex', gap: 2 }}>
+                                                    {Array.from({ length: fb.rating || 5 }).map((_, si) => (
+                                                        <Star key={si} size={12} fill="#eab308" color="#eab308" />
+                                                    ))}
+                                                </div>
+                                                {fb.date && (
+                                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                                        {fb.date}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
-                                        {fb.comment && (
-                                            <p style={{ fontSize: 12.5, color: '#475569', margin: 0, lineHeight: 1.45, fontStyle: 'italic' }}>
-                                                &ldquo;{fb.comment}&rdquo;
+                                        {(fb.comment || fb.review_text) && (
+                                            <p style={{ fontSize: 12.5, color: '#475569', margin: '4px 0 0 0', lineHeight: 1.45, fontStyle: 'italic' }}>
+                                                &ldquo;{fb.comment || fb.review_text}&rdquo;
                                             </p>
                                         )}
                                     </div>
