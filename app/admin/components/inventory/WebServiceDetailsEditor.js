@@ -40,8 +40,8 @@ export const DEFAULT_WEB_DETAILS = {
         what_we_need: true,
         warranty_note: true,
         all_brands: true,
-        feedbacks: true,
-        faqs: true
+        faqs: true,
+        feedbacks: true
     },
     our_process: {
         title: 'Our Process',
@@ -204,8 +204,8 @@ export default function WebServiceDetailsEditor({
         { key: 'what_we_need', label: 'What We Need From You', icon: HelpCircle, color: '#06b6d4', desc: 'Power, water access, and appliance clearance' },
         { key: 'warranty_note', label: 'Warranty Note', icon: ShieldCheck, color: '#8b5cf6', desc: '30-day service guarantee and terms' },
         { key: 'all_brands', label: 'All Brands Service', icon: Tag, color: '#ec4899', desc: 'Brands supported (LG, Samsung, Voltas, etc.)' },
-        { key: 'feedbacks', label: 'Feedbacks / Reviews', icon: Star, color: '#eab308', desc: 'Customer reviews, ratings and comments' },
-        { key: 'faqs', label: "FAQ's", icon: MessageSquare, color: '#3b82f6', desc: 'Frequently asked questions & detailed answers' }
+        { key: 'faqs', label: "FAQ's", icon: MessageSquare, color: '#3b82f6', desc: 'Frequently asked questions & detailed answers' },
+        { key: 'feedbacks', label: 'Feedbacks / Reviews', icon: Star, color: '#eab308', desc: 'Customer reviews, ratings and comments' }
     ];
 
     // Helper to update array item
@@ -1098,7 +1098,102 @@ export default function WebServiceDetailsEditor({
                     </div>
                 )}
 
-                {/* 7. FEEDBACKS / REVIEWS */}
+                {/* 7. FAQ'S */}
+                {activeSectionTab === 'faqs' && (
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <MessageSquare size={16} /> FAQ's Content
+                                </h4>
+                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    Frequently asked questions & clear answers shown as accordions.
+                                </span>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={data.visible_sections?.faqs !== false}
+                                    onChange={() => toggleSectionVisibility('faqs')}
+                                    disabled={disabled}
+                                    style={{ accentColor: '#3b82f6' }}
+                                />
+                                Show on website
+                            </label>
+                        </div>
+
+                        <div style={{ marginBottom: 14 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Section Title</label>
+                            <input
+                                type="text"
+                                value={data.faqs?.title || ''}
+                                onChange={(e) => updateData(prev => ({ ...prev, faqs: { ...prev.faqs, title: e.target.value } }))}
+                                disabled={disabled}
+                                placeholder="Frequently Asked Questions"
+                                style={{ width: '100%', maxWidth: 400, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13 }}
+                            />
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Questions & Answers</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                            {(data.faqs?.items || []).map((faq, idx) => (
+                                <div
+                                    key={idx}
+                                    style={{
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 8,
+                                        padding: 12,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 8
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                        <input
+                                            type="text"
+                                            value={faq.q || ''}
+                                            onChange={(e) => updateArrayItem('faqs', 'items', idx, 'q', e.target.value)}
+                                            disabled={disabled}
+                                            placeholder="Question: e.g. How quickly will the technician arrive?"
+                                            style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}
+                                        />
+                                        {!disabled && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeArrayItem('faqs', 'items', idx)}
+                                                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 6 }}
+                                                title="Delete FAQ"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <textarea
+                                        value={faq.a || ''}
+                                        onChange={(e) => updateArrayItem('faqs', 'items', idx, 'a', e.target.value)}
+                                        disabled={disabled}
+                                        rows={2}
+                                        placeholder="Answer: e.g. Our verified technician will arrive within 90 minutes..."
+                                        style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, lineHeight: 1.4 }}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        {!disabled && (
+                            <button
+                                type="button"
+                                onClick={() => addArrayItem('faqs', 'items', { q: '', a: '' })}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid #3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                <Plus size={14} /> Add FAQ
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* 8. FEEDBACKS / REVIEWS */}
                 {activeSectionTab === 'feedbacks' && (
                     <div>
                         {/* Section Header */}
@@ -1783,100 +1878,6 @@ export default function WebServiceDetailsEditor({
                     </div>
                 )}
 
-                {/* 8. FAQ'S */}
-                {activeSectionTab === 'faqs' && (
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <MessageSquare size={16} /> FAQ's Content
-                                </h4>
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    Frequently asked questions & clear answers shown as accordions.
-                                </span>
-                            </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={data.visible_sections?.faqs !== false}
-                                    onChange={() => toggleSectionVisibility('faqs')}
-                                    disabled={disabled}
-                                    style={{ accentColor: '#3b82f6' }}
-                                />
-                                Show on website
-                            </label>
-                        </div>
-
-                        <div style={{ marginBottom: 14 }}>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Section Title</label>
-                            <input
-                                type="text"
-                                value={data.faqs?.title || ''}
-                                onChange={(e) => updateData(prev => ({ ...prev, faqs: { ...prev.faqs, title: e.target.value } }))}
-                                disabled={disabled}
-                                placeholder="Frequently Asked Questions"
-                                style={{ width: '100%', maxWidth: 400, padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13 }}
-                            />
-                        </div>
-
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Questions & Answers</label>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-                            {(data.faqs?.items || []).map((faq, idx) => (
-                                <div
-                                    key={idx}
-                                    style={{
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 8,
-                                        padding: 12,
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: 8
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                        <input
-                                            type="text"
-                                            value={faq.q || ''}
-                                            onChange={(e) => updateArrayItem('faqs', 'items', idx, 'q', e.target.value)}
-                                            disabled={disabled}
-                                            placeholder="Question: e.g. How quickly will the technician arrive?"
-                                            style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700 }}
-                                        />
-                                        {!disabled && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeArrayItem('faqs', 'items', idx)}
-                                                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 6 }}
-                                                title="Delete FAQ"
-                                            >
-                                                <Trash2 size={15} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <textarea
-                                        value={faq.a || ''}
-                                        onChange={(e) => updateArrayItem('faqs', 'items', idx, 'a', e.target.value)}
-                                        disabled={disabled}
-                                        rows={2}
-                                        placeholder="Answer: e.g. Our verified technician will arrive within 90 minutes..."
-                                        style={{ width: '100%', padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 12.5, lineHeight: 1.4 }}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        {!disabled && (
-                            <button
-                                type="button"
-                                onClick={() => addArrayItem('faqs', 'items', { q: '', a: '' })}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid #3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', color: '#3b82f6', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}
-                            >
-                                <Plus size={14} /> Add FAQ
-                            </button>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     );

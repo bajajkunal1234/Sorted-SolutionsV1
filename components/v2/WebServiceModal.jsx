@@ -28,6 +28,7 @@ export default function WebServiceModal({
 }) {
     const { getItemQty, addItem, incrementItem, decrementItem } = useV2Cart();
     const [openFaqIndices, setOpenFaqIndices] = useState({ 0: true });
+    const [showAllReviews, setShowAllReviews] = useState(false);
 
     if (!service) return null;
 
@@ -415,76 +416,9 @@ export default function WebServiceModal({
                         </div>
                     )}
 
-                    {/* ══════════════ 7. FEEDBACKS ══════════════ */}
-                    {visibleSections.feedbacks !== false && Array.isArray(feedbacksConfig?.items) && feedbacksConfig.items.length > 0 && (
-                        <div style={{ marginBottom: 22 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-                                <Star size={16} fill="#eab308" color="#eab308" />
-                                <h3 style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                                    {feedbacksConfig.title || 'Customer Reviews & Feedback'}
-                                </h3>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                {feedbacksConfig.items.map((fb, i) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            padding: 12,
-                                            borderRadius: 12,
-                                            backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 6 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                                <strong style={{ fontSize: 13, color: '#0f172a' }}>{fb.name || fb.customer_name || 'Verified Customer'}</strong>
-                                                {fb.location && (
-                                                    <span style={{ fontSize: 11.5, color: '#64748b' }}>• {fb.location}</span>
-                                                )}
-                                                {(fb.source === 'Google Reviews' || fb.source === 'google' || !fb.source) && (
-                                                    <span style={{
-                                                        fontSize: 10,
-                                                        fontWeight: 700,
-                                                        padding: '1px 6px',
-                                                        borderRadius: 4,
-                                                        backgroundColor: '#eef2ff',
-                                                        color: '#4338ca',
-                                                        border: '1px solid #e0e7ff',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: 3
-                                                    }}>
-                                                        <span style={{ color: '#4285F4', fontWeight: 900 }}>G</span> Google Review
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <div style={{ display: 'flex', gap: 2 }}>
-                                                    {Array.from({ length: fb.rating || 5 }).map((_, si) => (
-                                                        <Star key={si} size={12} fill="#eab308" color="#eab308" />
-                                                    ))}
-                                                </div>
-                                                {fb.date && (
-                                                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                                                        {fb.date}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {(fb.comment || fb.review_text) && (
-                                            <p style={{ fontSize: 12.5, color: '#475569', margin: '4px 0 0 0', lineHeight: 1.45, fontStyle: 'italic' }}>
-                                                &ldquo;{fb.comment || fb.review_text}&rdquo;
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ══════════════ 8. FAQ'S ══════════════ */}
+                    {/* ══════════════ 7. FAQ'S ══════════════ */}
                     {visibleSections.faqs !== false && Array.isArray(faqsConfig?.items) && faqsConfig.items.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
+                        <div style={{ marginBottom: 24 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
                                 <MessageSquare size={16} color="#3b82f6" />
                                 <h3 style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', margin: 0 }}>
@@ -544,6 +478,120 @@ export default function WebServiceModal({
                             </div>
                         </div>
                     )}
+
+                    {/* ══════════════ 8. FEEDBACKS / REVIEWS (LAST SECTION) ══════════════ */}
+                    {visibleSections.feedbacks !== false && Array.isArray(feedbacksConfig?.items) && feedbacksConfig.items.length > 0 && (() => {
+                        const allReviews = feedbacksConfig.items;
+                        const displayedReviews = showAllReviews ? allReviews : allReviews.slice(0, 5);
+                        const hasMoreReviews = allReviews.length > 5;
+
+                        return (
+                            <div style={{ marginBottom: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+                                    <Star size={16} fill="#eab308" color="#eab308" />
+                                    <h3 style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                                        {feedbacksConfig.title || 'Customer Reviews & Feedback'}
+                                    </h3>
+                                    {allReviews.length > 0 && (
+                                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                                            ({allReviews.length})
+                                        </span>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {displayedReviews.map((fb, i) => (
+                                        <div
+                                            key={i}
+                                            style={{
+                                                padding: 12,
+                                                borderRadius: 12,
+                                                backgroundColor: '#f8fafc',
+                                                border: '1px solid #e2e8f0'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, flexWrap: 'wrap', gap: 6 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                    <strong style={{ fontSize: 13, color: '#0f172a' }}>{fb.name || fb.customer_name || 'Verified Customer'}</strong>
+                                                    {fb.location && (
+                                                        <span style={{ fontSize: 11.5, color: '#64748b' }}>• {fb.location}</span>
+                                                    )}
+                                                    {(fb.source === 'Google Reviews' || fb.source === 'google' || !fb.source) && (
+                                                        <span style={{
+                                                            fontSize: 10,
+                                                            fontWeight: 700,
+                                                            padding: '1px 6px',
+                                                            borderRadius: 4,
+                                                            backgroundColor: '#eef2ff',
+                                                            color: '#4338ca',
+                                                            border: '1px solid #e0e7ff',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 3
+                                                        }}>
+                                                            <span style={{ color: '#4285F4', fontWeight: 900 }}>G</span> Google Review
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ display: 'flex', gap: 2 }}>
+                                                        {Array.from({ length: fb.rating || 5 }).map((_, si) => (
+                                                            <Star key={si} size={12} fill="#eab308" color="#eab308" />
+                                                        ))}
+                                                    </div>
+                                                    {fb.date && (
+                                                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                                                            {fb.date}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {(fb.comment || fb.review_text) && (
+                                                <p style={{ fontSize: 12.5, color: '#475569', margin: '4px 0 0 0', lineHeight: 1.45, fontStyle: 'italic' }}>
+                                                    &ldquo;{fb.comment || fb.review_text}&rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {hasMoreReviews && (
+                                    <div style={{ textAlign: 'center', marginTop: 14 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllReviews(prev => !prev)}
+                                            style={{
+                                                padding: '8px 20px',
+                                                borderRadius: 9999,
+                                                border: '1.5px solid #cbd5e1',
+                                                backgroundColor: '#ffffff',
+                                                color: '#6338f5',
+                                                fontSize: 12.5,
+                                                fontWeight: 700,
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6,
+                                                transition: 'all 0.15s ease',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                                            }}
+                                        >
+                                            {showAllReviews ? (
+                                                <>
+                                                    <span>Show Less</span>
+                                                    <ChevronUp size={15} />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>Show More Reviews ({allReviews.length - 5} more)</span>
+                                                    <ChevronDown size={15} />
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* ── Fixed Bottom Bar: Add to Cart / Qty Stepper ── */}
