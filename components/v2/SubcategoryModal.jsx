@@ -190,8 +190,8 @@ export default function SubcategoryModal({ category = null, onClose = () => {} }
                                     position: 'relative',
                                     overflow: 'hidden',
                                     borderRadius: 12,
-                                    backgroundColor: activeCat.accent || '#f8fafc',
-                                    padding: 4
+                                    backgroundColor: (sub.thumbnailSlides && sub.thumbnailSlides.length > 0) ? 'transparent' : (activeCat.accent || '#f8fafc'),
+                                    padding: (sub.thumbnailSlides && sub.thumbnailSlides.length > 0) ? 0 : 4
                                 }}>
                                     <SlidingThumbnail
                                         slides={sub.thumbnailSlides}
@@ -202,7 +202,7 @@ export default function SubcategoryModal({ category = null, onClose = () => {} }
                                         width="100%"
                                         height="100%"
                                         aspectRatio="auto"
-                                        objectFit="contain"
+                                        objectFit={(sub.thumbnailSlides && sub.thumbnailSlides.length > 0) ? "cover" : "contain"}
                                     />
                                 </div>
                                 <strong style={{

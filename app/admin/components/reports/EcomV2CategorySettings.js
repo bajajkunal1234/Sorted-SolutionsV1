@@ -1721,7 +1721,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                     width: 84,
                                                                     height: 84,
                                                                     borderRadius: 12,
-                                                                    backgroundColor: activeCatData?.accent || '#f8fafc',
+                                                                    backgroundColor: slides.length > 0 ? 'transparent' : (activeCatData?.accent || '#f8fafc'),
                                                                     border: '1px solid var(--border-primary)',
                                                                     display: 'flex',
                                                                     flexDirection: 'column',
@@ -1730,7 +1730,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                     overflow: 'hidden',
                                                                     flexShrink: 0,
                                                                     position: 'relative',
-                                                                    padding: 4
+                                                                    padding: slides.length > 0 ? 0 : 4
                                                                 }}>
                                                                     {slides.length > 0 ? (
                                                                         <SlidingThumbnail
@@ -1741,7 +1741,7 @@ export default function EcomV2CategorySettings({ onBack, onOpenProcessTemplates 
                                                                             width="100%"
                                                                             height="100%"
                                                                             aspectRatio="auto"
-                                                                            objectFit="contain"
+                                                                            objectFit="cover"
                                                                         />
                                                                     ) : (
                                                                         <img

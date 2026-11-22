@@ -697,23 +697,23 @@ export default function CategoryStorefront({
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
                                                             fontSize: 10,
-                                                            fontWeight: 900
+                                                            fontWeight: 900,
+                                                            zIndex: 10
                                                         }}>
                                                             ✓
                                                         </span>
                                                     )}
                                                     <div style={{
                                                         width: '100%',
-                                                        height: 108,
-                                                        borderRadius: 12,
-                                                        backgroundColor: isSelected ? '#ede9fe' : (category?.accent || '#f8fafc'),
+                                                        height: 110,
+                                                        borderRadius: 10,
+                                                        backgroundColor: 'transparent',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
                                                         marginBottom: 10,
                                                         overflow: 'hidden',
-                                                        position: 'relative',
-                                                        padding: 6
+                                                        position: 'relative'
                                                     }}>
                                                         {subSlides ? (
                                                             <SlidingThumbnail
@@ -724,13 +724,13 @@ export default function CategoryStorefront({
                                                                 width="100%"
                                                                 height="100%"
                                                                 aspectRatio="auto"
-                                                                objectFit="contain"
+                                                                objectFit="cover"
                                                             />
                                                         ) : (
                                                             <img
                                                                 src={subIcon}
                                                                 alt={sub.name}
-                                                                style={{ width: '92%', height: '92%', objectFit: 'contain' }}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                                                 onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
                                                             />
                                                         )}
