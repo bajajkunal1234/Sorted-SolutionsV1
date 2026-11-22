@@ -624,9 +624,11 @@ function ReviewCard({ review, onToggle, onFeatured, onDelete, toggling, renderSt
                         <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>⭐ Featured</span>
                     )}
                 </div>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', opacity: 0.9, margin: '4px 0 4px', lineHeight: 1.5 }}>
-                    "{review.review?.length > 140 ? review.review.slice(0, 140) + '…' : review.review}"
-                </p>
+                {review.review && review.review.trim() ? (
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', opacity: 0.9, margin: '4px 0 4px', lineHeight: 1.5 }}>
+                        "{review.review.length > 140 ? review.review.slice(0, 140) + '…' : review.review}"
+                    </p>
+                ) : null}
                 {review.date && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{review.date}</span>}
             </div>
 

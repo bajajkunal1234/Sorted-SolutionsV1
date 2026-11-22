@@ -950,15 +950,17 @@ export default function EcomV2TestimonialsSettings({ onBack }) {
                                     </div>
 
                                     {/* Review quote */}
-                                    <p style={{
-                                        margin: '0 0 8px 0',
-                                        fontSize: 13.5,
-                                        color: 'var(--text-primary)',
-                                        lineHeight: 1.5,
-                                        fontStyle: 'italic'
-                                    }}>
-                                        &ldquo;{review.review}&rdquo;
-                                    </p>
+                                    {review.review && review.review.trim() ? (
+                                        <p style={{
+                                            margin: '0 0 8px 0',
+                                            fontSize: 13.5,
+                                            color: 'var(--text-primary)',
+                                            lineHeight: 1.5,
+                                            fontStyle: 'italic'
+                                        }}>
+                                            &ldquo;{review.review}&rdquo;
+                                        </p>
+                                    ) : null}
 
                                     {/* Meta line */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: 'var(--text-tertiary)' }}>
