@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     X,
     CheckCircle2,
@@ -11,10 +11,7 @@ import {
     Star,
     MessageSquare,
     ChevronDown,
-    ChevronUp,
     Wrench,
-    Plus,
-    Minus,
     Check
 } from 'lucide-react';
 import { useV2Cart } from './CartContext';
@@ -28,7 +25,19 @@ export default function WebServiceModal({
 }) {
     const { getItemQty, addItem, incrementItem, decrementItem } = useV2Cart();
     const [openFaqIndices, setOpenFaqIndices] = useState({ 0: true });
-    const [showAllReviews, setShowAllReviews] = useState(false);
+    const [visibleReviewCount, setVisibleReviewCount] = useState(5);
+
+    useEffect(() => {
+        setVisibleReviewCount(5);
+    }, [service?.id]);
+
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && onClose) onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
 
     if (!service) return null;
 
@@ -92,90 +101,187 @@ export default function WebServiceModal({
                     animation: 'v2ModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
             >
-                {/* ── Fixed Header Image (2:1 Widescreen Ratio) & Close Button ── */}
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 1', backgroundColor: '#f8fafc', flexShrink: 0, overflow: 'hidden' }}>
-                    <img
-                        src={heroUrl}
-                        alt={service.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
-                    />
-                    <div style={{
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.4) 100%)'
-                    }} />
-
-                    {/* Close '✕' Button */}
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close"
-                        style={{
-                            position: 'absolute',
-                            top: 14,
-                            right: 14,
-                            width: 34,
-                            height: 34,
-                            borderRadius: '50%',
-                            backgroundColor: 'rgba(0,0,0,0.65)',
-                            color: '#ffffff',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            zIndex: 10,
-                            transition: 'all 0.15s ease'
-                        }}
-                    >
-                        <X size={18} />
-                    </button>
-
-                    {/* Badge over image */}
-                    {service.subgroup && (
-                        <div style={{
-                            position: 'absolute',
-                            bottom: 12,
-                            left: 16,
-                            backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                            backdropFilter: 'blur(4px)',
-                            color: '#ffffff',
-                            fontSize: 11,
-                            fontWeight: 800,
-                            padding: '3px 10px',
-                            borderRadius: 6,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                        }}>
-                            {service.subgroup}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Scrollable Body with Details & Sections ── */}
+                {/* ── Scrollable Body containing Hero Image and Details ── */}
                 <div
                     style={{
-                        padding: '20px 22px',
                         overflowY: 'auto',
-                        flex: 1
+                        flex: 1,
+                        width: '100%',
+                        WebkitOverflowScrolling: 'touch'
                     }}
                 >
-                    {/* Title & Rating */}
-                    <div style={{ marginBottom: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                            <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6338f5', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                {service.categoryName || category?.name || 'Home Appliance Service'}
-                            </span>
-                            <span style={{ color: '#cbd5e1' }}>•</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: '#ca8a04' }}>
-                                <Star size={13} fill="#eab308" color="#eab308" /> 4.9 (Verified)
-                            </span>
-                        </div>
-                        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0', lineHeight: 1.3 }}>
-                            {service.name}
-                        </h2>
+                    {/* ── Header Image (2:1 Widescreen Ratio) & Close Button ── */}
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 1', backgroundColor: '#f8fafc', flexShrink: 0, overflow: 'hidden' }}>
+                        <img
+                            src={heroUrl}
+                            alt={service.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
+                        />
+                        <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.4) 100%)'
+                        }} />
+
+                        {/* Close '✕' Button */}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close"
+                            style={{
+                                position: 'absolute',
+                                top: 14,
+                                right: 14,
+                                width: 34,
+                                height: 34,
+                                borderRadius: '50%',
+                                backgroundColor: 'rgba(0,0,0,0.65)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255,255,255,0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                zIndex: 10,
+                                transition: 'all 0.15s ease'
+                            }}
+                        >
+                            <X size={18} />
+                        </button>
+
+                        {/* Badge over image */}
+                        {service.subgroup && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 12,
+                                left: 16,
+                                backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                                backdropFilter: 'blur(4px)',
+                                color: '#ffffff',
+                                fontSize: 11,
+                                fontWeight: 800,
+                                padding: '3px 10px',
+                                borderRadius: 6,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em'
+                            }}>
+                                {service.subgroup}
+                            </div>
+                        )}
                     </div>
+
+                    {/* ── Content Body with Details & Sections ── */}
+                    <div
+                        style={{
+                            padding: '20px 22px 28px 22px'
+                        }}
+                    >
+                        {/* Title Row with Service Name on Left and Add Button on Right */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6338f5', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                        {service.categoryName || category?.name || 'Home Appliance Service'}
+                                    </span>
+                                    <span style={{ color: '#cbd5e1' }}>•</span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: '#ca8a04' }}>
+                                        <Star size={13} fill="#eab308" color="#eab308" /> 4.9 (Verified)
+                                    </span>
+                                </div>
+                                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.3 }}>
+                                    {service.name}
+                                </h2>
+                            </div>
+
+                            {/* Add Button / Stepper beside the service title */}
+                            <div style={{ flexShrink: 0, marginTop: 4 }}>
+                                {qty === 0 ? (
+                                    <button
+                                        type="button"
+                                        className="v2-btn-add"
+                                        onClick={() => addItem && addItem(service)}
+                                        style={{
+                                            height: 36,
+                                            minWidth: 88,
+                                            padding: '0 16px',
+                                            borderRadius: 9,
+                                            border: '1.5px solid #d8ccff',
+                                            backgroundColor: '#ffffff',
+                                            color: '#6338f5',
+                                            fontSize: 13,
+                                            fontWeight: 800,
+                                            cursor: 'pointer',
+                                            boxShadow: '0 2px 10px rgba(99, 56, 245, 0.12)',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 4,
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        + ADD
+                                    </button>
+                                ) : (
+                                    <div
+                                        className="v2-qty-stepper"
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            height: 36,
+                                            borderRadius: 9,
+                                            border: '1.5px solid #6338f5',
+                                            backgroundColor: '#f5f3ff',
+                                            color: '#6338f5',
+                                            overflow: 'hidden',
+                                            boxShadow: '0 2px 10px rgba(99, 56, 245, 0.14)'
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove one ${service.name}`}
+                                            onClick={() => decrementItem && decrementItem(service.id)}
+                                            style={{
+                                                width: 30,
+                                                height: '100%',
+                                                border: 'none',
+                                                background: 'transparent',
+                                                color: '#6338f5',
+                                                fontWeight: 800,
+                                                fontSize: 16,
+                                                cursor: 'pointer',
+                                                display: 'grid',
+                                                placeItems: 'center'
+                                            }}
+                                        >
+                                            −
+                                        </button>
+                                        <span style={{ fontSize: 13.5, fontWeight: 800, color: '#0f172a', minWidth: 24, textAlign: 'center' }}>
+                                            {qty}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label={`Add one more ${service.name}`}
+                                            onClick={() => incrementItem && incrementItem(service.id)}
+                                            style={{
+                                                width: 30,
+                                                height: '100%',
+                                                border: 'none',
+                                                background: 'transparent',
+                                                color: '#6338f5',
+                                                fontWeight: 800,
+                                                fontSize: 16,
+                                                cursor: 'pointer',
+                                                display: 'grid',
+                                                placeItems: 'center'
+                                            }}
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                     {/* Price Row */}
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
@@ -482,8 +588,8 @@ export default function WebServiceModal({
                     {/* ══════════════ 8. FEEDBACKS / REVIEWS (LAST SECTION) ══════════════ */}
                     {visibleSections.feedbacks !== false && Array.isArray(feedbacksConfig?.items) && feedbacksConfig.items.length > 0 && (() => {
                         const allReviews = feedbacksConfig.items;
-                        const displayedReviews = showAllReviews ? allReviews : allReviews.slice(0, 5);
-                        const hasMoreReviews = allReviews.length > 5;
+                        const displayedReviews = allReviews.slice(0, visibleReviewCount);
+                        const hasMoreReviews = visibleReviewCount < allReviews.length;
 
                         return (
                             <div style={{ marginBottom: 16 }}>
@@ -558,9 +664,9 @@ export default function WebServiceModal({
                                     <div style={{ textAlign: 'center', marginTop: 14 }}>
                                         <button
                                             type="button"
-                                            onClick={() => setShowAllReviews(prev => !prev)}
+                                            onClick={() => setVisibleReviewCount(prev => prev + 5)}
                                             style={{
-                                                padding: '8px 20px',
+                                                padding: '8px 22px',
                                                 borderRadius: 9999,
                                                 border: '1.5px solid #cbd5e1',
                                                 backgroundColor: '#ffffff',
@@ -575,118 +681,14 @@ export default function WebServiceModal({
                                                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
                                             }}
                                         >
-                                            {showAllReviews ? (
-                                                <>
-                                                    <span>Show Less</span>
-                                                    <ChevronUp size={15} />
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span>Show More Reviews ({allReviews.length - 5} more)</span>
-                                                    <ChevronDown size={15} />
-                                                </>
-                                            )}
+                                            <span>Show More Reviews</span>
+                                            <ChevronDown size={15} />
                                         </button>
                                     </div>
                                 )}
                             </div>
                         );
                     })()}
-                </div>
-
-                {/* ── Fixed Bottom Bar: Add to Cart / Qty Stepper ── */}
-                <div style={{
-                    padding: '14px 20px',
-                    backgroundColor: '#ffffff',
-                    borderTop: '1px solid #e2e8f0',
-                    boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 16,
-                    flexShrink: 0
-                }}>
-                    <div>
-                        <div style={{ fontSize: 11.5, color: '#64748b' }}>Item Total</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>
-                            {formatINR(price * Math.max(1, qty))}
-                        </div>
-                    </div>
-
-                    <div style={{ flex: 1, maxWidth: 280, display: 'flex', justifyContent: 'flex-end' }}>
-                        {qty === 0 ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (addItem) addItem(service);
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 20px',
-                                    borderRadius: 12,
-                                    backgroundColor: '#6338f5',
-                                    color: '#ffffff',
-                                    fontSize: 14,
-                                    fontWeight: 700,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 8,
-                                    boxShadow: '0 4px 14px rgba(99, 56, 245, 0.35)',
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <Plus size={16} /> Add to Cart • {formatINR(price)}
-                            </button>
-                        ) : (
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 12,
-                                backgroundColor: '#f5f3ff',
-                                border: '1.5px solid #6338f5',
-                                borderRadius: 12,
-                                padding: '6px 14px'
-                            }}>
-                                <button
-                                    type="button"
-                                    onClick={() => decrementItem && decrementItem(service.id)}
-                                    style={{
-                                        border: 'none',
-                                        background: 'none',
-                                        fontSize: 18,
-                                        fontWeight: 800,
-                                        color: '#6338f5',
-                                        cursor: 'pointer',
-                                        padding: '0 6px'
-                                    }}
-                                    aria-label="Decrease quantity"
-                                >
-                                    −
-                                </button>
-                                <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', minWidth: 20, textAlign: 'center' }}>
-                                    {qty}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => incrementItem && incrementItem(service.id)}
-                                    style={{
-                                        border: 'none',
-                                        background: 'none',
-                                        fontSize: 18,
-                                        fontWeight: 800,
-                                        color: '#6338f5',
-                                        cursor: 'pointer',
-                                        padding: '0 6px'
-                                    }}
-                                    aria-label="Increase quantity"
-                                >
-                                    +
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>
