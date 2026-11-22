@@ -7,6 +7,7 @@ import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { lookupHSN } from '@/lib/data/hsnData';
 import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import WebServiceDetailsEditor, { DEFAULT_WEB_DETAILS } from './WebServiceDetailsEditor';
 
 
 async function uploadImage(file) {
@@ -65,7 +66,10 @@ function NewProductForm({
         retailPrice: '',
 
         // T&C Points
-        termsConditions: []
+        termsConditions: [],
+
+        // Website specific details (for subtype === 'web')
+        webDetails: DEFAULT_WEB_DETAILS
     });
 
     const [imagePreview, setImagePreview] = useState([]);
@@ -252,7 +256,8 @@ function NewProductForm({
                 service_terms_template: formData.serviceTermsTemplate || null,
                 job_type: formData.jobType || null,
                 status: 'active',
-                terms_conditions: formData.termsConditions
+                terms_conditions: formData.termsConditions,
+                web_details: isWeb ? (formData.webDetails || DEFAULT_WEB_DETAILS) : null
             };
 
             if (onSave) {
@@ -590,6 +595,16 @@ function NewProductForm({
                                     placeholder={formData.type === 'service' ? 'Service description...' : 'Product description...'}
                                 />
                             </div>
+
+                            {/* ── Website Service Specific Details (Subtype: Web) ── */}
+                            {formData.subtype === 'web' && (
+                                <WebServiceDetailsEditor
+                                    value={formData.webDetails}
+                                    onChange={(val) => setFormData(prev => ({ ...prev, webDetails: val }))}
+                                    serviceName={formData.name}
+                                    categoryName={formData.category}
+                                />
+                            )}
                         </div>
 
                         {/* ── 3. Unit & Stock — Products Only ─────────────── */}

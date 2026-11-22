@@ -4,6 +4,7 @@ import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
+import WebServiceDetailsEditor from './inventory/WebServiceDetailsEditor';
 
 function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -30,7 +31,8 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         current_stock: parseFloat(product.current_stock) || 0,
         min_stock_level: parseInt(product.min_stock_level) || 0,
         terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : [],
-        job_type: product.job_type || ''
+        job_type: product.job_type || '',
+        web_details: product.web_details || null
     });
 
     // Inline add category / brand
@@ -636,6 +638,17 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                     </div>
                                 )}
                             </div>
+
+                            {/* ── Website Service Specific Details (Subtype: Web) ── */}
+                            {((editedProduct.subtype || 'tech') === 'web' || product.subtype === 'web') && (
+                                <WebServiceDetailsEditor
+                                    value={editedProduct.web_details}
+                                    onChange={(val) => setEditedProduct(prev => ({ ...prev, web_details: val }))}
+                                    disabled={!isEditing}
+                                    serviceName={editedProduct.name}
+                                    categoryName={editedProduct.category}
+                                />
+                            )}
 
                             {/* ── Stock Adjustment — Products Only ─────────── */}
                             {product.type === 'product' && (

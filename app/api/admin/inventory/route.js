@@ -53,7 +53,7 @@ export async function POST(request) {
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
             'gst_applicable', 'gst_rate', 'hsn_code', 'hsn_description',
-            'service_terms_template', 'status', 'terms_conditions'
+            'service_terms_template', 'status', 'terms_conditions', 'web_details'
         ];
 
         // camelCase → snake_case aliases
@@ -73,6 +73,7 @@ export async function POST(request) {
             gstApplicable:     'gst_applicable',
             gstRate:           'gst_rate',
             openingBalanceQty: 'opening_balance_qty',
+            webDetails:        'web_details',
         };
 
         const aliased = { ...body };
@@ -207,7 +208,7 @@ export async function PUT(request) {
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
             'gst_applicable', 'gst_rate', 'hsn_code', 'hsn_description',
-            'service_terms_template', 'status', 'terms_conditions'
+            'service_terms_template', 'status', 'terms_conditions', 'web_details'
         ];
 
         // camelCase → snake_case aliases
@@ -227,6 +228,7 @@ export async function PUT(request) {
             gstApplicable:     'gst_applicable',
             gstRate:           'gst_rate',
             openingBalanceQty: 'opening_balance_qty',
+            webDetails:        'web_details',
         };
 
         const aliased = { ...rawUpdates };
