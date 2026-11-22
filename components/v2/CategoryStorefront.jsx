@@ -730,7 +730,11 @@ export default function CategoryStorefront({
                                                             <img
                                                                 src={subIcon}
                                                                 alt={sub.name}
-                                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    height: '100%',
+                                                                    objectFit: (subIcon && (subIcon.startsWith('http') || subIcon.includes('supabase.co'))) ? 'cover' : 'contain'
+                                                                }}
                                                                 onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}
                                                             />
                                                         )}
