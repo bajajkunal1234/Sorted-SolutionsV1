@@ -11,6 +11,7 @@ import {
     Star,
     MessageSquare,
     ChevronDown,
+    ChevronUp,
     Wrench,
     Check
 } from 'lucide-react';
