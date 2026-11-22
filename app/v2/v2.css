@@ -1039,7 +1039,8 @@
 @media (min-width: 640px) {
     .v2-service-thumb {
         width: 120px;
-        height: 116px;
+        height: 120px;
+        aspect-ratio: 1 / 1;
     }
 }
 

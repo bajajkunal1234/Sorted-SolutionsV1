@@ -5,6 +5,7 @@ import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock }
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import WebServiceDetailsEditor from './inventory/WebServiceDetailsEditor';
+import ServiceWebImageUploader from './inventory/ServiceWebImageUploader';
 
 function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -24,15 +25,27 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const [adjustmentNote, setAdjustmentNote] = useState('');
     const [savingAdjustment, setSavingAdjustment] = useState(false);
 
-    const [editedProduct, setEditedProduct] = useState({
-        ...product,
-        sale_price: parseFloat(product.sale_price) || 0,
-        purchase_price: parseFloat(product.purchase_price) || 0,
-        current_stock: parseFloat(product.current_stock) || 0,
-        min_stock_level: parseInt(product.min_stock_level) || 0,
-        terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : [],
-        job_type: product.job_type || '',
-        web_details: product.web_details || null
+    const [editedProduct, setEditedProduct] = useState(() => {
+        const initialImages = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
+        const initialWebDetails = product.web_details ? {
+            ...product.web_details,
+            thumbnail_image: product.web_details.thumbnail_image || initialImages[0] || null,
+            hero_image: product.web_details.hero_image || initialImages[1] || null
+        } : (initialImages.length > 0 ? {
+            thumbnail_image: initialImages[0] || null,
+            hero_image: initialImages[1] || null
+        } : null);
+
+        return {
+            ...product,
+            sale_price: parseFloat(product.sale_price) || 0,
+            purchase_price: parseFloat(product.purchase_price) || 0,
+            current_stock: parseFloat(product.current_stock) || 0,
+            min_stock_level: parseInt(product.min_stock_level) || 0,
+            terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : [],
+            job_type: product.job_type || '',
+            web_details: initialWebDetails
+        };
     });
 
     // Inline add category / brand
@@ -318,6 +331,43 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                             <button type="button" className="btn btn-secondary" onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}>Cancel</button>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* ── Service Images: 1:1 Thumbnail & 2:1 Hero ── */}
+                            {((editedProduct.subtype || 'tech') === 'web' || product.subtype === 'web') && (
+                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                    <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-xs)', color: 'var(--text-primary)' }}>
+                                        Service Images (Website Storefront)
+                                    </h3>
+                                    <p style={{ margin: '0 0 var(--spacing-md) 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        Upload 1:1 thumbnail for service cards and 2:1 hero for the opened service modal.
+                                    </p>
+                                    <ServiceWebImageUploader
+                                        thumbnailUrl={editedProduct.web_details?.thumbnail_image || editedProduct.images?.[0] || ''}
+                                        heroUrl={editedProduct.web_details?.hero_image || editedProduct.images?.[1] || ''}
+                                        disabled={!isEditing}
+                                        onThumbnailChange={(url) => {
+                                            const currentHero = editedProduct.web_details?.hero_image || editedProduct.images?.[1] || null;
+                                            const nextWeb = { ...(editedProduct.web_details || {}), thumbnail_image: url, hero_image: currentHero };
+                                            const nextImages = [url, currentHero].filter(Boolean);
+                                            setEditedProduct(prev => ({
+                                                ...prev,
+                                                web_details: nextWeb,
+                                                images: nextImages
+                                            }));
+                                        }}
+                                        onHeroChange={(url) => {
+                                            const currentThumb = editedProduct.web_details?.thumbnail_image || editedProduct.images?.[0] || null;
+                                            const nextWeb = { ...(editedProduct.web_details || {}), hero_image: url, thumbnail_image: currentThumb };
+                                            const nextImages = [currentThumb, url].filter(Boolean);
+                                            setEditedProduct(prev => ({
+                                                ...prev,
+                                                web_details: nextWeb,
+                                                images: nextImages
+                                            }));
+                                        }}
+                                    />
                                 </div>
                             )}
 

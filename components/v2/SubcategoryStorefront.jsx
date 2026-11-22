@@ -562,7 +562,7 @@ export default function SubcategoryStorefront({
                                     }}>
                                         {subcategoryServices.map(service => {
                                             const qty = getItemQty(service.id);
-                                            const serviceImg = service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
+                                            const serviceImg = service.web_details?.thumbnail_image || service.image || service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
                                             return (
                                                 <div
                                                     key={service.id}
@@ -586,7 +586,7 @@ export default function SubcategoryStorefront({
                                                     >
                                                         <div style={{
                                                             width: '100%',
-                                                            height: 95,
+                                                            aspectRatio: '1 / 1',
                                                             borderRadius: 10,
                                                             backgroundColor: '#f8fafc',
                                                             overflow: 'hidden',

@@ -8,6 +8,7 @@ import { lookupHSN } from '@/lib/data/hsnData';
 import SystemNumberField, { useVoucherPreview } from '@/app/admin/components/common/SystemNumberField';
 import { findCategoryForDbName, V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import WebServiceDetailsEditor, { DEFAULT_WEB_DETAILS } from './WebServiceDetailsEditor';
+import ServiceWebImageUploader from './ServiceWebImageUploader';
 
 
 async function uploadImage(file) {
@@ -211,17 +212,21 @@ function NewProductForm({
         setSaving(true);
 
         try {
-            // 1. Upload images first
+            const isWeb = formData.subtype === 'web';
+
+            // 1. Upload images
             let imageUrls = [];
-            if (formData.images.length > 0) {
+            if (isWeb) {
+                const thumb = formData.webDetails?.thumbnail_image || null;
+                const hero = formData.webDetails?.hero_image || null;
+                imageUrls = [thumb, hero].filter(Boolean);
+            } else if (formData.images.length > 0) {
                 setUploadingImages(true);
-                imageUrls = await Promise.all(formData.images.map(uploadImage));
+                imageUrls = await Promise.all(formData.images.map(img => typeof img === 'string' ? img : uploadImage(img)));
                 setUploadingImages(false);
             }
 
             // 2. Build product payload
-            const isWeb = formData.subtype === 'web';
-
             // Job Type is strictly required for Web items
             if (isWeb && !formData.jobType) {
                 alert('Please select a Job Type (Install / Uninstall, Service / Maintenance, or Repair) for this web service.');
@@ -257,7 +262,11 @@ function NewProductForm({
                 job_type: formData.jobType || null,
                 status: 'active',
                 terms_conditions: formData.termsConditions,
-                web_details: isWeb ? (formData.webDetails || DEFAULT_WEB_DETAILS) : null
+                web_details: isWeb ? {
+                    ...(formData.webDetails || DEFAULT_WEB_DETAILS),
+                    thumbnail_image: formData.webDetails?.thumbnail_image || imageUrls[0] || null,
+                    hero_image: formData.webDetails?.hero_image || imageUrls[1] || null
+                } : null
             };
 
             if (onSave) {
@@ -295,72 +304,94 @@ function NewProductForm({
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>
                                 {formData.type === 'service' ? 'Service' : 'Product'} Images
+                                {formData.subtype === 'web' && (
+                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-tertiary)', marginLeft: 8 }}>
+                                        (1:1 Card Thumbnail &amp; 2:1 Modal Hero)
+                                    </span>
+                                )}
                             </h3>
 
-                            <div className="form-group">
-                                <label className="form-label">Upload Images</label>
-                                <label style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 'var(--spacing-sm)',
-                                    padding: 'var(--spacing-md)',
-                                    border: '2px dashed var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    cursor: 'pointer',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    transition: 'border-color 0.2s'
-                                }}
-                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
-                                >
-                                    <Upload size={20} style={{ color: 'var(--text-tertiary)' }} />
-                                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        Click to upload or drag &amp; drop images
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleImageUpload}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-                            </div>
-
-                            {imagePreview.length > 0 && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
-                                    {imagePreview.map((img, index) => (
-                                        <div key={index} style={{ position: 'relative' }}>
-                                            <img
-                                                src={img.preview}
-                                                alt={`Preview ${index + 1}`}
-                                                style={{
-                                                    width: '100%',
-                                                    height: '100px',
-                                                    objectFit: 'cover',
-                                                    borderRadius: 'var(--radius-sm)'
-                                                }}
+                            {formData.subtype === 'web' ? (
+                                <ServiceWebImageUploader
+                                    thumbnailUrl={formData.webDetails?.thumbnail_image || ''}
+                                    heroUrl={formData.webDetails?.hero_image || ''}
+                                    onThumbnailChange={(url) => setFormData(prev => ({
+                                        ...prev,
+                                        webDetails: { ...(prev.webDetails || DEFAULT_WEB_DETAILS), thumbnail_image: url }
+                                    }))}
+                                    onHeroChange={(url) => setFormData(prev => ({
+                                        ...prev,
+                                        webDetails: { ...(prev.webDetails || DEFAULT_WEB_DETAILS), hero_image: url }
+                                    }))}
+                                />
+                            ) : (
+                                <>
+                                    <div className="form-group">
+                                        <label className="form-label">Upload Images</label>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 'var(--spacing-sm)',
+                                            padding: 'var(--spacing-md)',
+                                            border: '2px dashed var(--border-primary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            cursor: 'pointer',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-primary)'}
+                                            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
+                                        >
+                                            <Upload size={20} style={{ color: 'var(--text-tertiary)' }} />
+                                            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                                Click to upload or drag &amp; drop images
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleImageUpload}
+                                                style={{ display: 'none' }}
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeImage(index)}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '4px',
-                                                    right: '4px',
-                                                    padding: '4px',
-                                                    backgroundColor: 'var(--color-danger)',
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
+                                        </label>
+                                    </div>
+
+                                    {imagePreview.length > 0 && (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
+                                            {imagePreview.map((img, index) => (
+                                                <div key={index} style={{ position: 'relative' }}>
+                                                    <img
+                                                        src={img.preview}
+                                                        alt={`Preview ${index + 1}`}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100px',
+                                                            objectFit: 'cover',
+                                                            borderRadius: 'var(--radius-sm)'
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeImage(index)}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '4px',
+                                                            right: '4px',
+                                                            padding: '4px',
+                                                            backgroundColor: 'var(--color-danger)',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
+                                </>
                             )}
                         </div>
 

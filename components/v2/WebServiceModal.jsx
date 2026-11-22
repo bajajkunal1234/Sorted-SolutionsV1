@@ -53,7 +53,7 @@ export default function WebServiceModal({
         setOpenFaqIndices(prev => ({ ...prev, [idx]: !prev[idx] }));
     };
 
-    const imageUrl = service.images?.[0] || service.image || category?.icon || '/images/services/ac_3d.png';
+    const heroUrl = service.web_details?.hero_image || service.heroImage || service.images?.[1] || service.images?.[0] || service.image || category?.icon || '/images/services/ac_3d.png';
 
     return (
         <div
@@ -91,10 +91,10 @@ export default function WebServiceModal({
                     animation: 'v2ModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
                 }}
             >
-                {/* ── Fixed Header Image & Close Button ── */}
-                <div style={{ position: 'relative', width: '100%', height: 210, backgroundColor: '#f8fafc', flexShrink: 0 }}>
+                {/* ── Fixed Header Image (2:1 Widescreen Ratio) & Close Button ── */}
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '2 / 1', backgroundColor: '#f8fafc', flexShrink: 0, overflow: 'hidden' }}>
                     <img
-                        src={imageUrl}
+                        src={heroUrl}
                         alt={service.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onError={(e) => { e.currentTarget.src = category?.icon || '/images/services/ac_3d.png'; }}

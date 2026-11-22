@@ -914,7 +914,7 @@ export default function CategoryStorefront({
                                             {displayedServices.map(service => {
                                                 const qty = getItemQty(service.id);
                                                 const isHighlighted = highlightId && service.id === highlightId;
-                                                const serviceImg = service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
+                                                const serviceImg = service.web_details?.thumbnail_image || service.image || service.images?.[0] || category?.icon || '/images/services/ac_3d.png';
 
                                                 return (
                                                     <div
@@ -944,7 +944,7 @@ export default function CategoryStorefront({
                                                         >
                                                             <div style={{
                                                                 width: '100%',
-                                                                height: 104,
+                                                                aspectRatio: '1 / 1',
                                                                 borderRadius: 8,
                                                                 backgroundColor: '#f8fafc',
                                                                 overflow: 'hidden',

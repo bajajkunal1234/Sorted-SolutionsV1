@@ -65,11 +65,13 @@ export default function ServiceCard({ service, highlighted = false }) {
                 <div className="v2-service-media">
                     <div className="v2-service-thumb">
                         <img
-                            src={service.image}
+                            src={service.web_details?.thumbnail_image || service.image || service.images?.[0]}
                             alt={service.name}
                             style={{
-                                objectFit: service.images?.length ? 'cover' : 'contain',
-                                padding: service.images?.length ? 0 : 12,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: (service.web_details?.thumbnail_image || service.images?.length) ? 'cover' : 'contain',
+                                padding: (service.web_details?.thumbnail_image || service.images?.length) ? 0 : 8,
                             }}
                         />
                     </div>
