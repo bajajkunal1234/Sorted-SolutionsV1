@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Upload, Plus, Trash2, Sparkles } from 'lucide-react';
+import { X, Upload, Plus, Trash2, Sparkles, AlertTriangle, Save } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { lookupHSN } from '@/lib/data/hsnData';
@@ -76,6 +76,101 @@ function NewProductForm({
     const [imagePreview, setImagePreview] = useState([]);
     const [saving, setSaving] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
+
+    // ── Unsaved Changes & Draft Protection ───────────────────────────────────
+    const DRAFT_KEY = 'sorted_new_service_draft_v1';
+    const [showDiscardModal, setShowDiscardModal] = useState(false);
+    const [draftRestoredNotice, setDraftRestoredNotice] = useState(null);
+
+    // Check if form has user-entered data
+    const isFormDirty = () => {
+        if (formData.name?.trim()) return true;
+        if (formData.category) return true;
+        if (formData.subcategory) return true;
+        if (formData.jobType) return true;
+        if (formData.description?.trim()) return true;
+        if (formData.sellingPrice || formData.retailPrice || formData.purchasePrice) return true;
+        if (formData.gstRate || formData.hsnCode) return true;
+        if (imagePreview.length > 0 || (formData.images && formData.images.length > 0)) return true;
+        if (formData.webDetails?.thumbnail_image || formData.webDetails?.hero_image) return true;
+        if (formData.termsConditions && formData.termsConditions.length > 0) return true;
+        if (formData.subtype === 'web' && formData.webDetails) {
+            const wd = formData.webDetails;
+            if (wd.feedbacks?.items && wd.feedbacks.items.length > 0) return true;
+            if (wd.our_process?.steps?.some(s => s.title?.trim() || s.desc?.trim())) return true;
+            if (wd.faqs?.items?.some(f => f.q?.trim() || f.a?.trim())) return true;
+            if (wd.whats_included?.items?.length > 0) return true;
+        }
+        return false;
+    };
+
+    // Load draft on mount if exists
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(DRAFT_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.formData && (parsed.formData.name || parsed.formData.description || parsed.formData.category)) {
+                    setFormData(prev => ({ ...prev, ...parsed.formData }));
+                    setDraftRestoredNotice({
+                        savedAt: parsed.savedAt ? new Date(parsed.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'earlier'
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to load draft:', err);
+        }
+    }, []);
+
+    // Auto-save draft when form changes
+    useEffect(() => {
+        if (isFormDirty()) {
+            try {
+                localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                    formData,
+                    savedAt: new Date().toISOString()
+                }));
+            } catch (e) {}
+        }
+    }, [formData]);
+
+    // Warn on browser reload / tab close
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (isFormDirty()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [formData]);
+
+    const handleAttemptClose = () => {
+        if (isFormDirty()) {
+            setShowDiscardModal(true);
+        } else {
+            try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+            onClose();
+        }
+    };
+
+    const handleDiscardConfirmed = () => {
+        try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+        setShowDiscardModal(false);
+        onClose();
+    };
+
+    const handleSaveDraftAndClose = () => {
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                formData,
+                savedAt: new Date().toISOString()
+            }));
+        } catch (e) {}
+        setShowDiscardModal(false);
+        onClose();
+    };
 
     // HSN auto-fill
     const [hsnAutoFilled, setHsnAutoFilled] = useState(false); // true when desc was set by lookup
@@ -273,6 +368,7 @@ function NewProductForm({
             if (onSave) {
                 await onSave(newProduct);
             }
+            try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
             onClose();
         } catch (err) {
             console.error('Create product error:', err);
@@ -289,17 +385,57 @@ function NewProductForm({
     const saveLabel = uploadingImages ? 'Uploading images...' : saving ? 'Saving...' : `Create ${formData.type === 'product' ? 'Product' : 'Service'}`;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={handleAttemptClose}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
                         <h2 className="modal-title">Create New {formData.type === 'product' ? 'Product' : 'Service'}</h2>
-                        <button type="button" className="btn-icon" onClick={onClose}>
+                        <button type="button" className="btn-icon" onClick={handleAttemptClose}>
                             <X size={20} />
                         </button>
                     </div>
 
                     <div className="modal-body">
+                        {/* Draft Restored Banner */}
+                        {draftRestoredNotice && (
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '10px 14px',
+                                borderRadius: 8,
+                                backgroundColor: 'rgba(99, 56, 245, 0.12)',
+                                border: '1px solid #6338f5',
+                                marginBottom: 'var(--spacing-md)',
+                                fontSize: 12.5,
+                                color: '#c4b5fd'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span>📋</span>
+                                    <span>
+                                        Restored your unsaved draft (auto-saved at {draftRestoredNotice.savedAt}).
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+                                        setDraftRestoredNotice(null);
+                                    }}
+                                    style={{
+                                        border: 'none',
+                                        background: 'none',
+                                        color: '#c4b5fd',
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    Clear Draft
+                                </button>
+                            </div>
+                        )}
 
                         {/* ── 1. Images (FIRST) ───────────────────────────── */}
                         <div className="card mb-md">
@@ -991,7 +1127,7 @@ function NewProductForm({
                     </div>
 
                     <div className="modal-footer">
-                        <button type="button" className="btn btn-secondary" onClick={onClose}>
+                        <button type="button" className="btn btn-secondary" onClick={handleAttemptClose}>
                             Cancel
                         </button>
                         <button type="submit" className="btn btn-primary" disabled={isSaving}>
@@ -1001,6 +1137,119 @@ function NewProductForm({
                     </div>
                 </form>
             </div>
+
+            {/* ── Unsaved Changes Confirmation Modal ──────────────────────── */}
+            {showDiscardModal && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        zIndex: 1200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 20
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div style={{
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 14,
+                        padding: 24,
+                        maxWidth: 480,
+                        width: '100%',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
+                            <div style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 10,
+                                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                                color: '#eab308',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    Discard Unsaved {formData.type === 'service' ? 'Service' : 'Product'} Details?
+                                </h3>
+                                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                    You have unsaved changes in this form. If you discard now, your entered information, uploaded images, and section configurations will be lost.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
+                            {/* 1. Keep Editing (Default / Recommended) */}
+                            <button
+                                type="button"
+                                onClick={() => setShowDiscardModal(false)}
+                                style={{
+                                    padding: '11px 16px',
+                                    borderRadius: 8,
+                                    border: '1px solid #6338f5',
+                                    backgroundColor: '#6338f5',
+                                    color: '#ffffff',
+                                    fontSize: 13.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    textAlign: 'center'
+                                }}
+                            >
+                                Keep Editing
+                            </button>
+
+                            {/* 2. Save as Draft & Exit */}
+                            <button
+                                type="button"
+                                onClick={handleSaveDraftAndClose}
+                                style={{
+                                    padding: '10px 16px',
+                                    borderRadius: 8,
+                                    border: '1px solid var(--border-primary)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 6
+                                }}
+                            >
+                                <Save size={15} /> Save as Draft &amp; Exit
+                            </button>
+
+                            {/* 3. Discard Changes */}
+                            <button
+                                type="button"
+                                onClick={handleDiscardConfirmed}
+                                style={{
+                                    padding: '8px 16px',
+                                    border: 'none',
+                                    background: 'none',
+                                    color: '#ef4444',
+                                    fontSize: 12.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    textAlign: 'center',
+                                    marginTop: 4
+                                }}
+                            >
+                                Discard Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

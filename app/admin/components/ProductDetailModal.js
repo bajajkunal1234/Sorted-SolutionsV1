@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Package, BarChart2, MessageSquare, Edit2, Save, Trash2, RefreshCcw, Plus, Paperclip, TrendingUp, TrendingDown, ShoppingCart, FileText, ArrowUpCircle, ArrowDownCircle, Sliders } from 'lucide-react';
+import { X, Package, BarChart2, MessageSquare, Edit2, Save, Trash2, RefreshCcw, Plus, Paperclip, TrendingUp, TrendingDown, ShoppingCart, FileText, ArrowUpCircle, ArrowDownCircle, Sliders, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
@@ -10,9 +10,18 @@ import ServiceWebImageUploader from './inventory/ServiceWebImageUploader';
 function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
+    const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
     const [logs, setLogs] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
     const [movement, setMovement] = useState([]);
+
+    const handleAttemptClose = () => {
+        if (isEditing) {
+            setShowDiscardConfirm(true);
+        } else {
+            onClose();
+        }
+    };
     const [loadingMovement, setLoadingMovement] = useState(false);
     const [newNote, setNewNote] = useState('');
     const [noteFiles, setNoteFiles] = useState([]);
@@ -251,7 +260,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const availableSubcategories = matchedCategory?.subcategories || [];
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={handleAttemptClose}>
             <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh' }}>
                 {/* Header */}
                 <div className="modal-header" style={{ borderBottom: '2px solid var(--border-primary)' }}>
@@ -295,7 +304,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                         >
                             <Trash2 size={16} />
                         </button>
-                        <button className="btn-icon" onClick={onClose} style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                        <button className="btn-icon" onClick={handleAttemptClose} style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                             <X size={20} />
                         </button>
                     </div>
@@ -1108,7 +1117,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                             Last updated: {product.updated_at ? new Date(product.updated_at).toLocaleDateString('en-GB') : 'N/A'}
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                            <button className="btn btn-secondary" onClick={onClose}>
+                            <button className="btn btn-secondary" onClick={handleAttemptClose}>
                                 Close
                             </button>
                             {isEditing && (
@@ -1121,6 +1130,80 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                     </div>
                 </div>
             </div>
+
+            {/* Unsaved Changes Discard Confirmation Dialog */}
+            {showDiscardConfirm && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        zIndex: 1300,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: 20
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div style={{
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 14,
+                        padding: 24,
+                        maxWidth: 440,
+                        width: '100%',
+                        boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
+                            <div style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 10,
+                                backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                                color: '#eab308',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    Discard Unsaved Edits?
+                                </h3>
+                                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                    You are currently editing this {product.type || 'item'}. Any unsaved modifications will be discarded.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowDiscardConfirm(false)}
+                                className="btn btn-primary"
+                                style={{ padding: '8px 16px', fontWeight: 700 }}
+                            >
+                                Keep Editing
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowDiscardConfirm(false);
+                                    setIsEditing(false);
+                                    onClose();
+                                }}
+                                className="btn btn-secondary"
+                                style={{ color: '#ef4444', borderColor: '#ef4444', padding: '8px 14px' }}
+                            >
+                                Discard Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
