@@ -114,6 +114,10 @@ export default function WebServiceDetailsEditor({
         if (!value || typeof value !== 'object') return base;
 
         return {
+            ...value,
+            description: value.description || null,
+            thumbnail_image: value.thumbnail_image || null,
+            hero_image: value.hero_image || null,
             visible_sections: {
                 ...base.visible_sections,
                 ...(value.visible_sections || {})

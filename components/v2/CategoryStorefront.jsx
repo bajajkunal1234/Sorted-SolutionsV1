@@ -987,6 +987,21 @@ export default function CategoryStorefront({
                                                                 <span style={{ fontWeight: 700, color: '#0f172a' }}>★ 4.8</span>
                                                                 <span>(20K)</span>
                                                             </div>
+
+                                                            {(service.description || service.web_details?.description) && (
+                                                                <p style={{
+                                                                    fontSize: 11,
+                                                                    color: '#64748b',
+                                                                    margin: '0 0 6px 0',
+                                                                    lineHeight: 1.35,
+                                                                    display: '-webkit-box',
+                                                                    WebkitLineClamp: 2,
+                                                                    WebkitBoxOrient: 'vertical',
+                                                                    overflow: 'hidden'
+                                                                }}>
+                                                                    {service.description || service.web_details?.description}
+                                                                </p>
+                                                            )}
                                                         </div>
 
                                                         {/* Bottom: Price + ADD button */}
@@ -999,7 +1014,7 @@ export default function CategoryStorefront({
                                                             borderTop: '1px solid #f1f5f9'
                                                         }}>
                                                             <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>
-                                                                {formatPrice(service.sale_price || service.selling_price || 299)}
+                                                                {formatPrice(service.price || service.sale_price || service.selling_price || 299)}
                                                             </div>
 
                                                             {qty === 0 ? (

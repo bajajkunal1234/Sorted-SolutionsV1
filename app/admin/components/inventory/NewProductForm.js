@@ -243,7 +243,7 @@ function NewProductForm({
                 subcategory: isWeb ? (formData.subcategory || null) : null,
                 category: formData.category,
                 brand: isWeb ? null : (formData.brand || null),
-                description: formData.description || null,
+                description: formData.description?.trim() || null,
                 images: imageUrls,                          // ✅ saved to DB
                 unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
                 opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
@@ -264,6 +264,7 @@ function NewProductForm({
                 terms_conditions: formData.termsConditions,
                 web_details: isWeb ? {
                     ...(formData.webDetails || DEFAULT_WEB_DETAILS),
+                    description: formData.description?.trim() || null,
                     thumbnail_image: formData.webDetails?.thumbnail_image || imageUrls[0] || null,
                     hero_image: formData.webDetails?.hero_image || imageUrls[1] || null
                 } : null
@@ -617,14 +618,21 @@ function NewProductForm({
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Description</label>
+                                <label className="form-label">
+                                    Description {formData.subtype === 'web' ? '(Visible on /v2 Storefront)' : ''}
+                                </label>
                                 <textarea
                                     className="form-textarea"
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     rows={3}
-                                    placeholder={formData.type === 'service' ? 'Service description...' : 'Product description...'}
+                                    placeholder={formData.type === 'service' ? 'Service description (displayed under price on /v2 popup modal)...' : 'Product description...'}
                                 />
+                                {formData.subtype === 'web' && (
+                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                                        This description appears prominently under the price in the service details popup modal on the /v2 storefront.
+                                    </span>
+                                )}
                             </div>
 
                             {/* ── Website Service Specific Details (Subtype: Web) ── */}

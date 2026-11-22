@@ -38,6 +38,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
 
         return {
             ...product,
+            description: product.description || product.web_details?.description || '',
             sale_price: parseFloat(product.sale_price) || 0,
             purchase_price: parseFloat(product.purchase_price) || 0,
             current_stock: parseFloat(product.current_stock) || 0,
@@ -128,7 +129,15 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
             alert('Please select a Job Type (Install / Uninstall, Service / Maintenance, or Repair) for this web service/product.');
             return;
         }
-        onUpdate(editedProduct);
+        const updated = {
+            ...editedProduct,
+            description: editedProduct.description?.trim() || null,
+            web_details: editedProduct.web_details ? {
+                ...editedProduct.web_details,
+                description: editedProduct.description?.trim() || null
+            } : null
+        };
+        onUpdate(updated);
         setIsEditing(false);
     };
 
@@ -517,6 +526,37 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                             disabled={!isEditing || product.type === 'service'}
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
                                         />
+                                    </div>
+
+                                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                                        <label className="form-label">
+                                            Description {(editedProduct.subtype || 'tech') === 'web' ? '(Visible on /v2 Storefront)' : ''}
+                                        </label>
+                                        <textarea
+                                            className="form-textarea"
+                                            value={editedProduct.description || ''}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditedProduct(prev => ({
+                                                    ...prev,
+                                                    description: val,
+                                                    web_details: prev.web_details ? { ...prev.web_details, description: val } : prev.web_details
+                                                }));
+                                            }}
+                                            disabled={!isEditing}
+                                            rows={3}
+                                            placeholder={editedProduct.type === 'service' ? 'Service description (displayed under price on /v2 popup modal)...' : 'Product description...'}
+                                            style={{
+                                                backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)',
+                                                width: '100%',
+                                                resize: 'vertical'
+                                            }}
+                                        />
+                                        {(editedProduct.subtype || 'tech') === 'web' && (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>
+                                                This description appears prominently under the price in the service details popup modal on the /v2 storefront.
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>

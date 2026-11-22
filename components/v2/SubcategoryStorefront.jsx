@@ -634,6 +634,21 @@ export default function SubcategoryStorefront({
                                                                 ({service.reviewsCount ? `${Math.round(service.reviewsCount / 1000)}K` : '20K'})
                                                             </span>
                                                         </div>
+
+                                                        {(service.description || service.web_details?.description) && (
+                                                            <p style={{
+                                                                fontSize: 11.5,
+                                                                color: '#64748b',
+                                                                margin: '0 0 6px 0',
+                                                                lineHeight: 1.35,
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden'
+                                                            }}>
+                                                                {service.description || service.web_details?.description}
+                                                            </p>
+                                                        )}
                                                     </div>
 
                                                     <div style={{

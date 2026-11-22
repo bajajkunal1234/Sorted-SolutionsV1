@@ -49,7 +49,7 @@ export default function ServiceCard({ service, highlighted = false }) {
                         </ul>
                     ) : (
                         <p style={{ fontSize: 13, color: '#5b6476', margin: '8px 0' }}>
-                            {service.description || service.warrantyNote}
+                            {service.description || service.web_details?.description || service.warrantyNote}
                         </p>
                     )}
 

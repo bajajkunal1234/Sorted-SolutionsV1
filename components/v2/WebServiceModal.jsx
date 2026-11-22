@@ -204,8 +204,8 @@ export default function WebServiceModal({
                     </div>
 
                     {/* Description */}
-                    <p style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.55, margin: '0 0 20px 0' }}>
-                        {service.description || 'Professional doorstep service backed by verified experts, genuine spares, and 30-day warranty.'}
+                    <p style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.55, margin: '0 0 20px 0', whiteSpace: 'pre-line' }}>
+                        {service.description || service.web_details?.description || 'Professional doorstep service backed by verified experts, genuine spares, and 30-day warranty.'}
                     </p>
 
                     <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '16px 0 22px 0' }} />
