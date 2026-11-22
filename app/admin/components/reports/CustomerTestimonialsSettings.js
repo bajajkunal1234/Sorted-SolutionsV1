@@ -585,6 +585,8 @@ function CustomerTestimonialsSettings() {
 
 // ── ReviewCard sub-component ─────────────────────────────────────────────────
 function ReviewCard({ review, onToggle, onFeatured, onDelete, toggling, renderStars }) {
+    const isVisible = !!review.showOnWebsite;
+
     return (
         <div style={{
             display: 'grid',
@@ -593,8 +595,10 @@ function ReviewCard({ review, onToggle, onFeatured, onDelete, toggling, renderSt
             alignItems: 'center',
             padding: 'var(--spacing-md)',
             borderRadius: 'var(--radius-md)',
-            border: `1px solid ${review.showOnWebsite ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-            background: review.showOnWebsite ? 'var(--color-primary-bg, #f0f7ff)' : 'var(--bg-secondary)',
+            border: isVisible ? '1.5px solid var(--color-primary, #6338f5)' : '1px dashed var(--border-primary)',
+            background: 'var(--bg-elevated, var(--bg-secondary))',
+            boxShadow: isVisible ? '0 0 0 1px rgba(99, 56, 245, 0.2), 0 2px 8px rgba(0, 0, 0, 0.25)' : 'none',
+            opacity: isVisible ? 1 : 0.65,
             transition: 'all 0.2s ease',
         }}>
             {/* Left: info */}
@@ -604,12 +608,12 @@ function ReviewCard({ review, onToggle, onFeatured, onDelete, toggling, renderSt
                     {review.profilePhoto ? (
                         <img src={review.profilePhoto} alt={review.customerName} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
-                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4285f420', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#4285f4', flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#4285f420', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#4285f4', flexShrink: 0 }}>
                             {review.customerName?.charAt(0) || '?'}
                         </div>
                     )}
                     <div>
-                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{review.customerName}</span>
+                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, color: 'var(--text-primary)' }}>{review.customerName}</span>
                         {review.location && <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginLeft: 6 }}>📍 {review.location}</span>}
                     </div>
                     <span style={{ color: '#fbbf24', fontSize: 13 }}>{renderStars(review.rating)}</span>
@@ -620,8 +624,8 @@ function ReviewCard({ review, onToggle, onFeatured, onDelete, toggling, renderSt
                         <span style={{ padding: '2px 6px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: '#f59e0b15', color: '#f59e0b', border: '1px solid #f59e0b30' }}>⭐ Featured</span>
                     )}
                 </div>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 2px', lineHeight: 1.5 }}>
-                    "{review.review?.length > 120 ? review.review.slice(0, 120) + '…' : review.review}"
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)', opacity: 0.9, margin: '4px 0 4px', lineHeight: 1.5 }}>
+                    "{review.review?.length > 140 ? review.review.slice(0, 140) + '…' : review.review}"
                 </p>
                 {review.date && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{review.date}</span>}
             </div>

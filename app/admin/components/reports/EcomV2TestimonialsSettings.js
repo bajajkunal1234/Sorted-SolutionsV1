@@ -883,7 +883,8 @@ export default function EcomV2TestimonialsSettings({ onBack }) {
                                 key={review.id}
                                 style={{
                                     backgroundColor: 'var(--bg-elevated)',
-                                    border: isHidden ? '1px dashed var(--border-primary)' : '1px solid var(--border-primary)',
+                                    border: isHidden ? '1px dashed var(--border-primary)' : '1.5px solid #6338f5',
+                                    boxShadow: isHidden ? 'none' : '0 0 0 1px rgba(99, 56, 245, 0.2), 0 2px 8px rgba(0, 0, 0, 0.25)',
                                     borderRadius: 12,
                                     padding: '16px 20px',
                                     display: 'flex',
