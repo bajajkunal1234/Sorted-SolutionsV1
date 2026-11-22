@@ -305,14 +305,14 @@ export default function WebServiceDetailsEditor({
     // AI notification notice
     const [aiNotice, setAiNotice] = useState(null);
 
-    // AI Auto-Select Reviews action
+    // AI Auto-Select Reviews action (includes all category matches, generic reviews, and rating-only reviews)
     const handleAiAutoSelect = () => {
         if (disabled) return;
         const result = autoSelectReviewsForService({
             serviceName,
             categoryName,
             availableReviews: visibleGoogleReviews,
-            targetCount: 5
+            targetCount: 60
         });
 
         updateData(prev => ({
@@ -324,7 +324,7 @@ export default function WebServiceDetailsEditor({
         }));
 
         setAiNotice({
-            message: `🤖 AI Auto-Selected ${result.selectedReviews.length} reviews (${result.directMatchCount} ${result.targetCategoryLabel} + ${result.genericCount} top generic). Conflicting appliance reviews were excluded.`,
+            message: `🤖 AI Auto-Selected ${result.selectedReviews.length} reviews (${result.directMatchCount} ${result.targetCategoryLabel} + ${result.genericWithTextCount || 0} generic + ${result.ratingOnlyCount || 0} 5-star ratings without text). Conflicting appliance reviews were excluded.`,
             type: 'success'
         });
         setTimeout(() => setAiNotice(null), 8000);
@@ -1229,17 +1229,19 @@ export default function WebServiceDetailsEditor({
                                                         Google
                                                     </span>
                                                 )}
-                                                <span style={{
-                                                    fontSize: 12,
-                                                    color: 'var(--text-secondary)',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    fontStyle: 'italic',
-                                                    flex: 1
-                                                }}>
-                                                    &ldquo;{fb.comment || fb.review_text || ''}&rdquo;
-                                                </span>
+                                                {(fb.comment || fb.review_text)?.trim() && (
+                                                    <span style={{
+                                                        fontSize: 12,
+                                                        color: 'var(--text-secondary)',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        fontStyle: 'italic',
+                                                        flex: 1
+                                                    }}>
+                                                        &ldquo;{(fb.comment || fb.review_text).trim()}&rdquo;
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {!disabled && (
@@ -1673,16 +1675,18 @@ export default function WebServiceDetailsEditor({
                                                     </div>
                                                 </div>
 
-                                                {/* Review Comment Quote */}
-                                                <p style={{
-                                                    margin: '2px 0 0 24px',
-                                                    fontSize: 12.5,
-                                                    color: 'var(--text-secondary)',
-                                                    lineHeight: 1.45,
-                                                    fontStyle: 'italic'
-                                                }}>
-                                                    &ldquo;{rev.review_text}&rdquo;
-                                                </p>
+                                                {/* Review Comment Quote (only if text exists) */}
+                                                {rev.review_text && rev.review_text.trim().length > 0 && (
+                                                    <p style={{
+                                                        margin: '2px 0 0 24px',
+                                                        fontSize: 12.5,
+                                                        color: 'var(--text-secondary)',
+                                                        lineHeight: 1.45,
+                                                        fontStyle: 'italic'
+                                                    }}>
+                                                        &ldquo;{rev.review_text.trim()}&rdquo;
+                                                    </p>
+                                                )}
                                             </div>
                                         );
                                     })}
