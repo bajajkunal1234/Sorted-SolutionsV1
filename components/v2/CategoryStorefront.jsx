@@ -10,8 +10,6 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
-    ChevronDown,
-    ChevronUp,
     Wrench,
     Sparkles,
     MapPin,
@@ -41,12 +39,6 @@ export default function CategoryStorefront({
 }) {
     const router = useRouter();
     const { location, setLocationModalOpen, getItemQty, addItem, incrementItem, decrementItem, totals, items: cartItems, brandLogos } = useV2Cart();
-
-    // Accordion state for FAQs
-    const [openFaqIndex, setOpenFaqIndex] = useState(0);
-
-    // Reviews pagination
-    const [reviewsLimit, setReviewsLimit] = useState(3);
 
     // Active subcategories list
     const activeSubcategories = useMemo(() => {
@@ -85,11 +77,6 @@ export default function CategoryStorefront({
     const applianceTypeSection = pageConfig?.applianceType || {};
     const process = pageConfig?.process || { steps: [] };
     const technicians = pageConfig?.technicians || { points: [] };
-    const brands = pageConfig?.brands || { items: [] };
-    const coverPromise = pageConfig?.coverPromise || { points: [] };
-    const notIncluded = pageConfig?.notIncluded || { items: [] };
-    const faqs = pageConfig?.faqs || { items: [] };
-    const reviews = pageConfig?.reviews || { items: [] };
     const desktopStickyPromise = pageConfig?.desktopStickyPromise || {};
 
     // ── Multi-Slide Hero Carousel (Auto-scroll with Story Progress Bars) ──
@@ -235,12 +222,6 @@ export default function CategoryStorefront({
 
     // Modal state for viewing service details
     const [selectedServiceModal, setSelectedServiceModal] = useState(null);
-
-    // Smooth scroll to cover promise anchor
-    const scrollToPromise = () => {
-        const el = document.getElementById('v2-cover-promise-section');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
 
     const formatPrice = (price) => formatINR(price);
 
@@ -539,9 +520,7 @@ export default function CategoryStorefront({
                                 </div>
 
                                 {/* Rate Card / Cover Banner Pill */}
-                                <button
-                                    type="button"
-                                    onClick={scrollToPromise}
+                                <div
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -551,9 +530,7 @@ export default function CategoryStorefront({
                                         borderRadius: 12,
                                         backgroundColor: '#f8fafc',
                                         border: '1px solid #e2e8f0',
-                                        cursor: 'pointer',
-                                        textAlign: 'left',
-                                        transition: 'background-color 0.15s ease'
+                                        textAlign: 'left'
                                     }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -572,8 +549,7 @@ export default function CategoryStorefront({
                                             {hero.rateCardText || 'Standard rate card'}
                                         </span>
                                     </div>
-                                    <ChevronRight size={16} color="#64748b" />
-                                </button>
+                                </div>
                             </div>
                         </section>
 
@@ -1281,218 +1257,6 @@ export default function CategoryStorefront({
                                             </ul>
                                         )}
                                     </div>
-                                </div>
-                            </section>
-                        )}
-
-                        {/* ══════════════ 6. WE SERVICE ALL BRANDS ══════════════ */}
-                        {brands.enabled !== false && Array.isArray(brands.items) && brands.items.length > 0 && (
-                            <section style={{ marginBottom: 32 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>
-                                    {brands.title || 'We service all brands'}
-                                </h2>
-                                {brands.subtitle && (
-                                    <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px 0' }}>
-                                        {brands.subtitle}
-                                    </p>
-                                )}
-
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                    {brands.items.map((brand, i) => (
-                                        <span
-                                            key={i}
-                                            style={{
-                                                padding: '6px 14px',
-                                                borderRadius: 20,
-                                                backgroundColor: '#f1f5f9',
-                                                color: '#1e293b',
-                                                fontSize: 12.5,
-                                                fontWeight: 600,
-                                                border: '1px solid #e2e8f0'
-                                            }}
-                                        >
-                                            {brand}
-                                        </span>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '24px 0' }} />
-
-                        {/* ══════════════ 7. SORTED COVER PROMISE ══════════════ */}
-                        {coverPromise.enabled !== false && (
-                            <section id="v2-cover-promise-section" style={{ marginBottom: 32 }}>
-                                <div style={{
-                                    padding: 20,
-                                    borderRadius: 14,
-                                    backgroundColor: '#f0fdf4',
-                                    border: '1px solid #bbf7d0'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                                        <ShieldCheck size={22} color="#16a34a" />
-                                        <h2 style={{ fontSize: 17, fontWeight: 800, color: '#166534', margin: 0 }}>
-                                            {coverPromise.title || 'Sorted Cover Promise'}
-                                        </h2>
-                                    </div>
-
-                                    <div style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                                        gap: 12
-                                    }}>
-                                        {(coverPromise.points || []).map((pt, i) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#14532d', fontWeight: 600 }}>
-                                                <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
-                                                <span>{pt.text || pt}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-
-                        {/* ══════════════ 8. WHAT IS NOT INCLUDED ══════════════ */}
-                        {notIncluded.enabled !== false && Array.isArray(notIncluded.items) && notIncluded.items.length > 0 && (
-                            <section style={{ marginBottom: 32 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 12px 0' }}>
-                                    {notIncluded.title || "What's not included"}
-                                </h2>
-
-                                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
-                                    {notIncluded.items.map((item, i) => (
-                                        <li key={i}>{item}</li>
-                                    ))}
-                                </ul>
-                            </section>
-                        )}
-
-                        <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '24px 0' }} />
-
-                        {/* ══════════════ 9. FREQUENTLY ASKED QUESTIONS ══════════════ */}
-                        {faqs.enabled !== false && Array.isArray(faqs.items) && faqs.items.length > 0 && (
-                            <section style={{ marginBottom: 32 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0' }}>
-                                    {faqs.title || 'Frequently asked questions'}
-                                </h2>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                                    {faqs.items.map((faq, i) => {
-                                        const isOpen = openFaqIndex === i;
-                                        return (
-                                            <div
-                                                key={i}
-                                                style={{
-                                                    border: '1px solid #e2e8f0',
-                                                    borderRadius: 12,
-                                                    overflow: 'hidden',
-                                                    backgroundColor: '#ffffff'
-                                                }}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOpenFaqIndex(isOpen ? -1 : i)}
-                                                    style={{
-                                                        width: '100%',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        padding: '14px 16px',
-                                                        background: 'transparent',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        textAlign: 'left'
-                                                    }}
-                                                >
-                                                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
-                                                        {faq.q}
-                                                    </span>
-                                                    {isOpen ? <ChevronUp size={18} color="#64748b" /> : <ChevronDown size={18} color="#64748b" />}
-                                                </button>
-
-                                                {isOpen && (
-                                                    <div style={{
-                                                        padding: '0 16px 14px 16px',
-                                                        fontSize: 13,
-                                                        color: '#475569',
-                                                        lineHeight: 1.5,
-                                                        borderTop: '1px solid #f8fafc'
-                                                    }}>
-                                                        {faq.a}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </section>
-                        )}
-
-                        <div style={{ height: 1, backgroundColor: '#f1f5f9', margin: '24px 0' }} />
-
-                        {/* ══════════════ 10. CUSTOMER REVIEWS & RATINGS ══════════════ */}
-                        {reviews.enabled !== false && Array.isArray(reviews.items) && reviews.items.length > 0 && (
-                            <section style={{ marginBottom: 32 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                                        {reviews.title || 'Customer reviews & ratings'}
-                                    </h2>
-                                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
-                                        ★ {reviews.rating || '4.86'} ({reviews.reviewsCount || '85K'})
-                                    </span>
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    {reviews.items.slice(0, reviewsLimit).map((rev, i) => (
-                                        <div
-                                            key={i}
-                                            style={{
-                                                padding: 16,
-                                                borderRadius: 12,
-                                                border: '1px solid #e2e8f0',
-                                                backgroundColor: '#f8fafc'
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                                                <div>
-                                                    <strong style={{ fontSize: 13.5, color: '#0f172a' }}>{rev.author}</strong>
-                                                    {rev.locality && (
-                                                        <span style={{ fontSize: 11.5, color: '#64748b', marginLeft: 6 }}>
-                                                            • {rev.locality}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <span style={{ fontSize: 11, color: '#94a3b8' }}>{rev.date}</span>
-                                            </div>
-
-                                            <div style={{ color: '#eab308', fontSize: 12, marginBottom: 6 }}>
-                                                {'★'.repeat(rev.rating || 5)}
-                                            </div>
-
-                                            <p style={{ fontSize: 13, color: '#334155', lineHeight: 1.45, margin: 0 }}>
-                                                {rev.comment}
-                                            </p>
-                                        </div>
-                                    ))}
-
-                                    {reviews.items.length > reviewsLimit && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setReviewsLimit(prev => prev + 3)}
-                                            style={{
-                                                padding: '10px 16px',
-                                                borderRadius: 10,
-                                                border: '1px solid #e2e8f0',
-                                                backgroundColor: '#ffffff',
-                                                color: '#6338f5',
-                                                fontSize: 13,
-                                                fontWeight: 700,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            View More Reviews
-                                        </button>
-                                    )}
                                 </div>
                             </section>
                         )}
