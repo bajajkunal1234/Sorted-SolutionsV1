@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Loader2, ExternalLink, Eye, EyeOff, Star, Plus, Trash2, Edit2, Save, X, ListPlus } from 'lucide-react';
+import { RefreshCw, Loader2, ExternalLink, Eye, EyeOff, Star, Plus, Trash2, Edit2, Save, X, ListPlus, Sparkles } from 'lucide-react';
 
 function CustomerTestimonialsSettings() {
     const [reviews, setReviews] = useState([]);        // All reviews (Google + manual)
@@ -10,6 +10,30 @@ function CustomerTestimonialsSettings() {
     const [syncing, setSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState(null);
     const [togglingId, setTogglingId] = useState(null); // which row is currently being toggled
+    const [autoAssigning, setAutoAssigning] = useState(false);
+    const [autoAssignNotice, setAutoAssignNotice] = useState(null);
+
+    const handleAutoAssignReviews = async () => {
+        setAutoAssigning(true);
+        setAutoAssignNotice(null);
+        try {
+            const res = await fetch('/api/admin/reviews/auto-assign', { method: 'POST' });
+            const json = await res.json();
+            if (json.success) {
+                setAutoAssignNotice({
+                    type: 'success',
+                    message: `🤖 AI auto-assigned relevant reviews across ${json.updatedServicesCount} web services.`
+                });
+                setTimeout(() => setAutoAssignNotice(null), 8000);
+            } else {
+                setAutoAssignNotice({ type: 'error', message: json.error || 'Failed to auto-assign reviews' });
+            }
+        } catch (err) {
+            setAutoAssignNotice({ type: 'error', message: err.message });
+        } finally {
+            setAutoAssigning(false);
+        }
+    };
 
     const [googleSettings, setGoogleSettings] = useState({
         placeId: '',
@@ -442,7 +466,28 @@ function CustomerTestimonialsSettings() {
                                 {visibleCount} of {reviews.length} review{reviews.length !== 1 ? 's' : ''} visible on website
                             </p>
                         </div>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                            <button
+                                onClick={handleAutoAssignReviews}
+                                disabled={autoAssigning}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '6px 12px',
+                                    borderRadius: 6,
+                                    border: '1px solid #7c3aed',
+                                    background: 'linear-gradient(135deg, #6338f5 0%, #8b5cf6 100%)',
+                                    color: '#ffffff',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                }}
+                                title="AI auto-distributes reviews across all web services"
+                            >
+                                <Sparkles size={14} className={autoAssigning ? 'spin' : ''} />
+                                {autoAssigning ? 'Distributing...' : '🤖 AI Auto-Assign to Services'}
+                            </button>
                             <button
                                 onClick={() => { setShowBulkAddForm(v => !v); setShowAddForm(false); }}
                                 className="btn btn-secondary"
@@ -461,6 +506,31 @@ function CustomerTestimonialsSettings() {
                             </button>
                         </div>
                     </div>
+
+                    {autoAssignNotice && (
+                        <div style={{
+                            padding: '10px 14px',
+                            borderRadius: 8,
+                            marginBottom: 16,
+                            fontSize: 13,
+                            backgroundColor: autoAssignNotice.type === 'success' ? 'rgba(99, 56, 245, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                            color: autoAssignNotice.type === 'success' ? '#c4b5fd' : '#ef4444',
+                            border: `1px solid ${autoAssignNotice.type === 'success' ? '#6338f5' : 'rgba(239, 68, 68, 0.3)'}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 8
+                        }}>
+                            <span>{autoAssignNotice.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => setAutoAssignNotice(null)}
+                                style={{ border: 'none', background: 'none', color: 'inherit', cursor: 'pointer', padding: 2 }}
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
 
                     {/* Bulk add form */}
                     {showBulkAddForm && (

@@ -22,7 +22,9 @@ import {
     Copy,
     ListPlus,
     X,
-    Filter
+    Filter,
+    Sparkles,
+    Bot
 } from 'lucide-react';
 
 export default function EcomV2TestimonialsSettings({ onBack }) {
@@ -32,6 +34,30 @@ export default function EcomV2TestimonialsSettings({ onBack }) {
     const [syncing, setSyncing] = useState(false);
     const [syncResult, setSyncResult] = useState(null);
     const [togglingId, setTogglingId] = useState(null);
+    const [autoAssigning, setAutoAssigning] = useState(false);
+    const [autoAssignNotice, setAutoAssignNotice] = useState(null);
+
+    const handleAutoAssignReviews = async () => {
+        setAutoAssigning(true);
+        setAutoAssignNotice(null);
+        try {
+            const res = await fetch('/api/admin/reviews/auto-assign', { method: 'POST' });
+            const json = await res.json();
+            if (json.success) {
+                setAutoAssignNotice({
+                    type: 'success',
+                    message: `🤖 AI auto-assigned reviews across ${json.updatedServicesCount} web services. Product-specific reviews were targeted to matching categories, and generic reviews cover all services.`
+                });
+                setTimeout(() => setAutoAssignNotice(null), 8000);
+            } else {
+                setAutoAssignNotice({ type: 'error', message: json.error || 'Failed to auto-assign reviews' });
+            }
+        } catch (err) {
+            setAutoAssignNotice({ type: 'error', message: err.message });
+        } finally {
+            setAutoAssigning(false);
+        }
+    };
 
     // Google API connection settings
     const [googleSettings, setGoogleSettings] = useState({
@@ -734,7 +760,31 @@ export default function EcomV2TestimonialsSettings({ onBack }) {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <button
+                            type="button"
+                            onClick={handleAutoAssignReviews}
+                            disabled={autoAssigning}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '8px 14px',
+                                borderRadius: 8,
+                                border: '1px solid #7c3aed',
+                                background: 'linear-gradient(135deg, #6338f5 0%, #8b5cf6 100%)',
+                                color: '#ffffff',
+                                fontSize: 13,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(99, 56, 245, 0.25)'
+                            }}
+                            title="AI agent automatically distributes relevant reviews across all services (AC reviews to AC, Refrigerator to Refrigerator, generic to all)"
+                        >
+                            <Sparkles size={15} className={autoAssigning ? 'spin' : ''} />
+                            {autoAssigning ? 'AI Distributing...' : '🤖 AI Auto-Assign to Services'}
+                        </button>
+
                         <button
                             type="button"
                             onClick={() => setShowBulkModal(true)}
@@ -762,6 +812,32 @@ export default function EcomV2TestimonialsSettings({ onBack }) {
                         </button>
                     </div>
                 </div>
+
+                {/* AI Distribution Notice Banner */}
+                {autoAssignNotice && (
+                    <div style={{
+                        padding: '10px 14px',
+                        borderRadius: 8,
+                        marginBottom: 16,
+                        fontSize: 13,
+                        backgroundColor: autoAssignNotice.type === 'success' ? 'rgba(99, 56, 245, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                        color: autoAssignNotice.type === 'success' ? '#c4b5fd' : '#ef4444',
+                        border: `1px solid ${autoAssignNotice.type === 'success' ? '#6338f5' : 'rgba(239, 68, 68, 0.3)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8
+                    }}>
+                        <span>{autoAssignNotice.message}</span>
+                        <button
+                            type="button"
+                            onClick={() => setAutoAssignNotice(null)}
+                            style={{ border: 'none', background: 'none', color: 'inherit', cursor: 'pointer', padding: 2 }}
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
 
                 {/* Filter Tabs & Search */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, paddingTop: 12, borderTop: '1px solid var(--border-primary)' }}>

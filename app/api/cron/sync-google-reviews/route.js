@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
+import { classifyReview, autoDistributeReviewsToAllWebServices, APPLIANCE_CATEGORIES } from '@/lib/v2/reviewClassifier';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,20 +115,41 @@ async function handleSync(request) {
             existingMap.set(key, e);
         });
 
-        // 4. Determine new rows to insert
+        // 4. Determine new rows to insert with automated classification and visibility rules
         const newRowsToInsert = [];
         uniqueGoogleReviews.forEach(r => {
             const key = `${r.author_name.trim().toLowerCase()}||${r.text.trim()}`;
             if (!existingMap.has(key)) {
+                const rating = r.rating || 5;
+                const isVisible = rating >= 4; // Auto-disable visibility if rating < 4
+                const reviewText = (r.text || '').trim();
+                const classInfo = classifyReview({ review_text: reviewText });
+
+                let serviceType = 'General Appliance Service';
+                if (classInfo.matchesCategory('ac') && classInfo.matchesCategory('washing_machine')) {
+                    serviceType = 'AC & Washing Machine Service';
+                } else if (classInfo.matchesCategory('ac')) {
+                    serviceType = 'Air Conditioner Service';
+                } else if (classInfo.matchesCategory('refrigerator')) {
+                    serviceType = 'Refrigerator Repair';
+                } else if (classInfo.matchesCategory('microwave')) {
+                    serviceType = 'Microwave & Oven Repair';
+                } else if (classInfo.matchesCategory('washing_machine')) {
+                    serviceType = 'Washing Machine Repair';
+                } else if (classInfo.matchesCategory('water_purifier')) {
+                    serviceType = 'Water Purifier Service';
+                }
+
                 newRowsToInsert.push({
                     customer_name: r.author_name,
                     location: 'Mumbai',
-                    rating: r.rating || 5,
-                    review_text: r.text.trim(),
+                    rating,
+                    review_text: reviewText,
                     date: r.time ? new Date(r.time * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                     source: 'Google Reviews',
-                    show_on_website: true,
+                    show_on_website: isVisible,
                     is_verified: true,
+                    service_type: serviceType
                 });
             }
         });
@@ -139,10 +161,25 @@ async function handleSync(request) {
             if (insertError) throw insertError;
         }
 
+        // 5. Ensure all reviews below 4 stars have visibility auto-disabled
+        await supabase
+            .from('website_testimonials')
+            .update({ show_on_website: false })
+            .lt('rating', 4);
+
+        // 6. Automatically distribute relevant reviews to all web services in inventory
+        // (AC reviews -> AC services, Refrigerator reviews -> Refrigerator services, generic -> all services)
+        let distributionResult = null;
+        try {
+            distributionResult = await autoDistributeReviewsToAllWebServices(supabase);
+        } catch (distErr) {
+            console.warn('[Cron Google Reviews] Error during auto-distribution:', distErr?.message);
+        }
+
         const totalInDb = (existing?.length || 0) + newRowsToInsert.length;
         const nowIso = new Date().toISOString();
 
-        // 5. Update last_auto_sync stats in both section configs
+        // 7. Update last_auto_sync stats in section configs
         const syncStatus = {
             last_auto_sync_at: nowIso,
             last_auto_sync_status: 'success',
@@ -150,6 +187,7 @@ async function handleSync(request) {
             total_in_database: totalInDb,
             overall_rating: overallRating,
             total_ratings: totalRatings,
+            services_updated: distributionResult?.updatedServicesCount || 0
         };
 
         const updatedConfig = {
@@ -171,8 +209,9 @@ async function handleSync(request) {
             totalInDb,
             overallRating,
             totalRatings,
+            distribution: distributionResult,
             timestamp: nowIso,
-            message: `Auto-sync complete: added ${newRowsToInsert.length} new reviews. Total in database: ${totalInDb}.`
+            message: `Auto-sync complete: added ${newRowsToInsert.length} new reviews. Auto-assigned to ${distributionResult?.updatedServicesCount || 0} web services.`
         });
 
     } catch (err) {

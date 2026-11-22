@@ -22,8 +22,15 @@ import {
     Check,
     X,
     Filter,
-    RefreshCw
+    RefreshCw,
+    Bot
 } from 'lucide-react';
+import {
+    classifyReview,
+    detectTargetCategory,
+    autoSelectReviewsForService,
+    APPLIANCE_CATEGORIES
+} from '@/lib/v2/reviewClassifier';
 
 export const DEFAULT_WEB_DETAILS = {
     visible_sections: {
@@ -273,35 +280,61 @@ export default function WebServiceDetailsEditor({
         return (availableGoogleReviews || []).filter(r => r.show_on_website === true);
     }, [availableGoogleReviews]);
 
-    // Keywords based on categoryName
-    const categoryKeywords = useMemo(() => {
-        if (!categoryName) return [];
-        const cat = String(categoryName).toLowerCase();
-        if (cat.includes('ac') || cat.includes('air')) return ['ac', 'air', 'cooling', 'cool', 'split', 'window', 'gas'];
-        if (cat.includes('refrigerat') || cat.includes('fridge')) return ['fridge', 'refrigerator', 'freezer', 'cooling', 'gasket'];
-        if (cat.includes('microwave') || cat.includes('oven')) return ['microwave', 'oven', 'otg', 'heating', 'heat'];
-        if (cat.includes('wash')) return ['washing', 'machine', 'washer', 'dryer'];
-        if (cat.includes('purif') || cat.includes('water') || cat.includes('ro')) return ['purifier', 'kent', 'water', 'ro', 'filter'];
-        return [cat];
-    }, [categoryName]);
+    // Detect target appliance category for this service via AI classifier
+    const targetCatKey = useMemo(() => {
+        return detectTargetCategory(categoryName, serviceName);
+    }, [categoryName, serviceName]);
 
-    // Count of category matches
-    const categoryMatchCount = useMemo(() => {
-        if (!categoryKeywords.length) return 0;
+    const targetCatDef = targetCatKey ? APPLIANCE_CATEGORIES[targetCatKey] : null;
+
+    // Filter reviews that strictly match this target appliance category (whole-word matching, no substring leaks)
+    const categoryMatchedReviews = useMemo(() => {
+        if (!targetCatKey) return [];
         return visibleGoogleReviews.filter(r => {
-            const text = ((r.review_text || '') + ' ' + (r.service_type || '')).toLowerCase();
-            return categoryKeywords.some(kw => text.includes(kw));
-        }).length;
-    }, [visibleGoogleReviews, categoryKeywords]);
+            const info = classifyReview(r);
+            return info.matchesCategory(targetCatKey);
+        });
+    }, [visibleGoogleReviews, targetCatKey]);
+
+    const categoryMatchCount = categoryMatchedReviews.length;
+
+    // AI notification notice
+    const [aiNotice, setAiNotice] = useState(null);
+
+    // AI Auto-Select Reviews action
+    const handleAiAutoSelect = () => {
+        if (disabled) return;
+        const result = autoSelectReviewsForService({
+            serviceName,
+            categoryName,
+            availableReviews: visibleGoogleReviews,
+            targetCount: 5
+        });
+
+        updateData(prev => ({
+            ...prev,
+            feedbacks: {
+                ...prev.feedbacks,
+                items: result.selectedReviews
+            }
+        }));
+
+        setAiNotice({
+            message: `🤖 AI Auto-Selected ${result.selectedReviews.length} reviews (${result.directMatchCount} ${result.targetCategoryLabel} + ${result.genericCount} top generic). Conflicting appliance reviews were excluded.`,
+            type: 'success'
+        });
+        setTimeout(() => setAiNotice(null), 8000);
+    };
 
     // Filtered visible reviews based on search & category
     const filteredGoogleReviews = useMemo(() => {
         let list = visibleGoogleReviews;
 
-        if (filterCategoryOnly && categoryKeywords.length > 0) {
+        if (filterCategoryOnly && targetCatKey) {
+            // Strictly show reviews matching target appliance category
             list = list.filter(r => {
-                const text = ((r.review_text || '') + ' ' + (r.service_type || '')).toLowerCase();
-                return categoryKeywords.some(kw => text.includes(kw));
+                const info = classifyReview(r);
+                return info.matchesCategory(targetCatKey);
             });
         }
 
@@ -315,7 +348,7 @@ export default function WebServiceDetailsEditor({
         }
 
         return list;
-    }, [visibleGoogleReviews, filterCategoryOnly, categoryKeywords, reviewSearchQuery]);
+    }, [visibleGoogleReviews, filterCategoryOnly, targetCatKey, reviewSearchQuery]);
 
     // Check if a specific review is selected
     const isReviewSelected = (rev) => {
@@ -1299,7 +1332,34 @@ export default function WebServiceDetailsEditor({
                         {/* ── MODE 1: GOOGLE REVIEWS SELECTOR ── */}
                         {feedbacksMode === 'google' && (
                             <div>
-                                {/* Toolbar: Search, Filters, Quick Select */}
+                                {/* AI Notice Banner */}
+                                {aiNotice && (
+                                    <div style={{
+                                        marginBottom: 10,
+                                        padding: '10px 14px',
+                                        borderRadius: 8,
+                                        backgroundColor: 'rgba(99, 56, 245, 0.15)',
+                                        border: '1px solid #6338f5',
+                                        color: '#e0e7ff',
+                                        fontSize: 12.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 8,
+                                        lineHeight: 1.45
+                                    }}>
+                                        <span>{aiNotice.message}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAiNotice(null)}
+                                            style={{ border: 'none', background: 'none', color: '#c4b5fd', cursor: 'pointer', padding: 2 }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Toolbar: Search, Filters, AI Auto-Select, Quick Select */}
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1341,8 +1401,8 @@ export default function WebServiceDetailsEditor({
                                         )}
                                     </div>
 
-                                    {/* Category Match Filter Chip */}
-                                    {categoryName && (
+                                    {/* Category Match Filter Chip (Strict appliance matches only) */}
+                                    {targetCatKey && (
                                         <button
                                             type="button"
                                             onClick={() => setFilterCategoryOnly(prev => !prev)}
@@ -1353,21 +1413,46 @@ export default function WebServiceDetailsEditor({
                                                 padding: '5px 10px',
                                                 borderRadius: 6,
                                                 border: filterCategoryOnly ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
-                                                backgroundColor: filterCategoryOnly ? 'rgba(99, 56, 245, 0.15)' : 'var(--bg-elevated)',
-                                                color: filterCategoryOnly ? '#6338f5' : 'var(--text-secondary)',
+                                                backgroundColor: filterCategoryOnly ? 'rgba(99, 56, 245, 0.2)' : 'var(--bg-elevated)',
+                                                color: filterCategoryOnly ? '#a78bfa' : 'var(--text-secondary)',
                                                 fontSize: 12,
                                                 fontWeight: 700,
                                                 cursor: 'pointer'
                                             }}
-                                            title="Filter reviews matching this service's category"
+                                            title={`Show only reviews directly mentioning ${targetCatDef?.label || categoryName} (excluding other appliances)`}
                                         >
                                             <Filter size={12} />
-                                            {categoryName} Matches ({categoryMatchCount})
+                                            {targetCatDef?.label || categoryName} Matches ({categoryMatchCount})
                                         </button>
                                     )}
 
-                                    {/* Quick Actions */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    {/* Quick Actions & AI Auto-Select */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        {/* AI Auto-Select Button */}
+                                        <button
+                                            type="button"
+                                            onClick={handleAiAutoSelect}
+                                            disabled={disabled || visibleGoogleReviews.length === 0}
+                                            style={{
+                                                padding: '5px 12px',
+                                                borderRadius: 6,
+                                                border: '1px solid #7c3aed',
+                                                background: 'linear-gradient(135deg, #6338f5 0%, #8b5cf6 100%)',
+                                                color: '#ffffff',
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                                boxShadow: '0 2px 6px rgba(99, 56, 245, 0.25)'
+                                            }}
+                                            title="AI will auto-select product-specific reviews for this service + top generic reviews, excluding conflicting appliances"
+                                        >
+                                            <Sparkles size={13} />
+                                            🤖 AI Auto-Select
+                                        </button>
+
                                         <button
                                             type="button"
                                             onClick={() => handleSelectTopN(3)}
