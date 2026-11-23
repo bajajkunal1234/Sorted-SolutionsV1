@@ -141,32 +141,9 @@ export async function POST(request) {
             payload.opening_balance_qty = null;
         }
 
-        // ── 4. Auto-generate SKU ──────────────────────────────────────────────
-        if (!payload.sku || body.auto_number === true) {
-            const vType = payload.type === 'service' ? 'inventory_service' : 'inventory_product';
-            const nextSKU = await getNextVoucherNumber(vType);
-            if (nextSKU) {
-                payload.sku = nextSKU;
-            } else {
-                const prefix = payload.type === 'service' ? 'SVC' : 'PRD';
-                const { data: existing } = await supabase
-                    .from('inventory')
-                    .select('sku')
-                    .like('sku', `${prefix}%`);
-                const maxNum = (existing || []).reduce((max, r) => {
-                    const n = parseInt((r.sku || '').replace(prefix, '')) || 0;
-                    return n > max ? n : max;
-                }, 0);
-                payload.sku = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
-            }
-        }
-
-        // Defaults
-        if (!payload.status) payload.status = 'active';
-        payload.gst_applicable = true;
-
-        // ── 5. Duplicate name check ───────────────────────────────────────────
+        // ── 4. Duplicate name check ───────────────────────────────────────────
         // Only consider an item a duplicate if it exists within the SAME category and subcategory!
+        // Run BEFORE generating SKU to prevent burning voucher numbers on duplicates!
         if (payload.name) {
             let dupeQuery = supabase
                 .from('inventory')
@@ -198,6 +175,30 @@ export async function POST(request) {
                 );
             }
         }
+
+        // ── 5. Auto-generate SKU ──────────────────────────────────────────────
+        if (!payload.sku || body.auto_number === true) {
+            const vType = payload.type === 'service' ? 'inventory_service' : 'inventory_product';
+            const nextSKU = await getNextVoucherNumber(vType);
+            if (nextSKU) {
+                payload.sku = nextSKU;
+            } else {
+                const prefix = payload.type === 'service' ? 'SVC' : 'PRD';
+                const { data: existing } = await supabase
+                    .from('inventory')
+                    .select('sku')
+                    .like('sku', `${prefix}%`);
+                const maxNum = (existing || []).reduce((max, r) => {
+                    const n = parseInt((r.sku || '').replace(prefix, '')) || 0;
+                    return n > max ? n : max;
+                }, 0);
+                payload.sku = `${prefix}${String(maxNum + 1).padStart(4, '0')}`;
+            }
+        }
+
+        // Defaults
+        if (!payload.status) payload.status = 'active';
+        payload.gst_applicable = true;
 
         const { data, error } = await supabase
             .from('inventory')
