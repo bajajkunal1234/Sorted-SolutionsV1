@@ -21,25 +21,32 @@ export async function generateMetadata({ params }) {
     };
 }
 
+async function fetchCategorySectionRow(supabase, slug) {
+    if (!supabase) return null;
+    try {
+        const { data } = await supabase
+            .from('website_section_configs')
+            .select('extra_config')
+            .eq('section_id', `ecom-v2-cat-${slug}`)
+            .maybeSingle();
+        return data || null;
+    } catch (_) {
+        return null;
+    }
+}
+
 export default async function V2CategoryPage({ params, searchParams }) {
     const slug = params.category || params.slug;
     const supabase = createServerSupabase();
 
     // ── Ultra-Fast Single Parallel Fetch ─────────────────────────────────────
-    const [dynamicCats, data, catRes, tplConfig] = await Promise.all([
+    const [dynamicCats, data, catRow, tplConfig] = await Promise.all([
         fetchDynamicCatalogConfig(supabase),
         fetchPublishedWebServices({ categorySlug: slug, supabaseClient: supabase }).catch(err => {
             console.error('[V2CategoryPage] failed to fetch web services:', err?.message);
             return { services: [], categoryCounts: {} };
         }),
-        supabase
-            ? supabase
-                .from('website_section_configs')
-                .select('extra_config')
-                .eq('section_id', `ecom-v2-cat-${slug}`)
-                .maybeSingle()
-                .catch(() => null)
-            : Promise.resolve(null),
+        fetchCategorySectionRow(supabase, slug),
         fetchProcessTemplatesConfig(supabase).catch(() => null)
     ]);
 
@@ -53,7 +60,7 @@ export default async function V2CategoryPage({ params, searchParams }) {
     const defaultConfig = getCategoryDefaultConfig(category.slug, category.name);
     let finalPageConfig = defaultConfig;
     const processTemplatesConfig = tplConfig;
-    const row = catRes?.data;
+    const row = catRow;
 
     if (row?.extra_config) {
         finalPageConfig = {
