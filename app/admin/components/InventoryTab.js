@@ -523,6 +523,9 @@ function InventoryTab() {
     const handleCreateProduct = async (newProduct) => {
         // NOTE: this function re-throws on failure so callers (incl. bulk import) can detect errors.
         const result = await inventoryAPI.create(newProduct);
+        if (result?.skipped_duplicate) {
+            return result;
+        }
 
         // Create initial stock log if it's a product with stock
         if (result.type === 'product' && result.current_stock > 0) {
@@ -554,6 +557,7 @@ function InventoryTab() {
         };
         setProducts(prevProducts => [...prevProducts, normalizedResult]);
         setShowCreateForm(false);
+        return result;
     };
 
     const handleDeleteProduct = async (id) => {

@@ -401,7 +401,12 @@ function NewProductForm({
             };
 
             if (onSave) {
-                await onSave(newProduct);
+                const res = await onSave(newProduct);
+                if (res?.skipped_duplicate) {
+                    alert(`Item "${newProduct.name}" already exists (${res.sku || ''}) and was not added.`);
+                    setSaving(false);
+                    return;
+                }
             }
             try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
             onClose();

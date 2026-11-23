@@ -166,20 +166,36 @@ export async function POST(request) {
         payload.gst_applicable = true;
 
         // ── 5. Duplicate name check ───────────────────────────────────────────
+        // Only consider an item a duplicate if it exists within the SAME category and subcategory!
         if (payload.name) {
-            const { data: dupe } = await supabase
+            let dupeQuery = supabase
                 .from('inventory')
-                .select('id, name, sku')
-                .ilike('name', payload.name.trim())
-                .limit(1)
-                .single();
+                .select('id, name, sku, category, subcategory')
+                .ilike('name', payload.name.trim());
+
+            if (payload.category) {
+                dupeQuery = dupeQuery.eq('category', payload.category);
+            }
+            if (payload.subtype === 'web' && payload.subcategory) {
+                dupeQuery = dupeQuery.eq('subcategory', payload.subcategory);
+            } else if (payload.subtype === 'web') {
+                dupeQuery = dupeQuery.is('subcategory', null);
+            }
+
+            const { data: dupe } = await dupeQuery.limit(1).maybeSingle();
             if (dupe) {
-                return NextResponse.json({
-                    success: true,
-                    data: dupe,
-                    skipped_duplicate: true,
-                    message: `Skipped — "${dupe.name}" already exists (${dupe.sku})`
-                });
+                if (body.skip_duplicate === true) {
+                    return NextResponse.json({
+                        success: true,
+                        data: dupe,
+                        skipped_duplicate: true,
+                        message: `Skipped — "${dupe.name}" already exists in ${payload.subcategory || payload.category} (${dupe.sku})`
+                    });
+                }
+                return NextResponse.json(
+                    { error: `An item named "${dupe.name}" already exists in ${payload.subcategory || payload.category} (${dupe.sku}).` },
+                    { status: 409 }
+                );
             }
         }
 
