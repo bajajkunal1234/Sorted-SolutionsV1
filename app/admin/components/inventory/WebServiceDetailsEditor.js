@@ -480,6 +480,151 @@ export default function WebServiceDetailsEditor({
         }));
     };
 
+    // ── Brand Logos Library state & helpers ─────────────────────────────────
+    const [availableBrandLogos, setAvailableBrandLogos] = useState([]);
+    const [loadingBrandLogos, setLoadingBrandLogos] = useState(false);
+    const [brandSearchQuery, setBrandSearchQuery] = useState('');
+    const [brandsEditMode, setBrandsEditMode] = useState('picker'); // 'picker' | 'manual'
+
+    const fetchBrandLogos = async () => {
+        try {
+            setLoadingBrandLogos(true);
+            const res = await fetch('/api/settings/brand-logos');
+            const json = await res.json();
+            if (json && json.success && Array.isArray(json.data)) {
+                setAvailableBrandLogos(json.data);
+            }
+        } catch (err) {
+            console.error('Failed to load brand logos in WebServiceDetailsEditor:', err);
+        } finally {
+            setLoadingBrandLogos(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchBrandLogos();
+    }, []);
+
+    // Filter brands from library based on search
+    const filteredBrandLogos = useMemo(() => {
+        if (!brandSearchQuery.trim()) return availableBrandLogos;
+        const q = brandSearchQuery.trim().toLowerCase();
+        return (availableBrandLogos || []).filter(b => b.name?.toLowerCase().includes(q));
+    }, [availableBrandLogos, brandSearchQuery]);
+
+    // Check if brand is selected
+    const isBrandSelected = (brand) => {
+        const brandsList = data.all_brands?.brands || [];
+        const brandIds = data.all_brands?.brand_ids || [];
+        const selectedBrands = data.all_brands?.selected_brands || [];
+
+        if (brandIds.includes(brand.id)) return true;
+        if (selectedBrands.some(b => b.id === brand.id || String(b.name).trim().toLowerCase() === String(brand.name).trim().toLowerCase())) return true;
+        return brandsList.some(b => String(b).trim().toLowerCase() === String(brand.name).trim().toLowerCase());
+    };
+
+    // Toggle a single brand selection
+    const toggleBrandSelection = (brand) => {
+        if (disabled) return;
+        const selected = isBrandSelected(brand);
+        const currentBrands = data.all_brands?.brands || [];
+        const currentSelected = data.all_brands?.selected_brands || [];
+        const currentIds = data.all_brands?.brand_ids || [];
+
+        let nextBrands, nextSelected, nextIds;
+        if (selected) {
+            nextBrands = currentBrands.filter(b => String(b).trim().toLowerCase() !== String(brand.name).trim().toLowerCase());
+            nextSelected = currentSelected.filter(b => b.id !== brand.id && String(b.name).trim().toLowerCase() !== String(brand.name).trim().toLowerCase());
+            nextIds = currentIds.filter(id => id !== brand.id);
+        } else {
+            nextBrands = [...currentBrands, brand.name];
+            nextSelected = [...currentSelected, { id: brand.id, name: brand.name, logo_url: brand.logo_url }];
+            nextIds = [...currentIds, brand.id];
+        }
+
+        updateData(prev => ({
+            ...prev,
+            all_brands: {
+                ...prev.all_brands,
+                brands: nextBrands,
+                selected_brands: nextSelected,
+                brand_ids: nextIds
+            }
+        }));
+    };
+
+    // Select top 8 brands (Urban Company standard)
+    const handleSelectTop8Brands = () => {
+        if (disabled) return;
+        const top8 = (availableBrandLogos || []).slice(0, 8);
+        const nextBrands = top8.map(b => b.name);
+        const nextSelected = top8.map(b => ({ id: b.id, name: b.name, logo_url: b.logo_url }));
+        const nextIds = top8.map(b => b.id);
+
+        updateData(prev => ({
+            ...prev,
+            all_brands: {
+                ...prev.all_brands,
+                brands: nextBrands,
+                selected_brands: nextSelected,
+                brand_ids: nextIds
+            }
+        }));
+    };
+
+    // Select all brands
+    const handleSelectAllBrands = () => {
+        if (disabled) return;
+        const nextBrands = (availableBrandLogos || []).map(b => b.name);
+        const nextSelected = (availableBrandLogos || []).map(b => ({ id: b.id, name: b.name, logo_url: b.logo_url }));
+        const nextIds = (availableBrandLogos || []).map(b => b.id);
+
+        updateData(prev => ({
+            ...prev,
+            all_brands: {
+                ...prev.all_brands,
+                brands: nextBrands,
+                selected_brands: nextSelected,
+                brand_ids: nextIds
+            }
+        }));
+    };
+
+    // Clear all brands
+    const handleClearAllBrands = () => {
+        if (disabled) return;
+        updateData(prev => ({
+            ...prev,
+            all_brands: {
+                ...prev.all_brands,
+                brands: [],
+                selected_brands: [],
+                brand_ids: []
+            }
+        }));
+    };
+
+    // Count unmatched brands (typed text brands that have no match in availableBrandLogos)
+    const unmatchedBrands = useMemo(() => {
+        const brandsList = data.all_brands?.brands || [];
+        const libraryNames = new Set((availableBrandLogos || []).map(b => b.name?.trim().toLowerCase()));
+        return brandsList.filter(b => !libraryNames.has(String(b).trim().toLowerCase()));
+    }, [data.all_brands?.brands, availableBrandLogos]);
+
+    const handleRemoveCustomBrand = (brandName) => {
+        if (disabled) return;
+        const nextBrands = (data.all_brands?.brands || []).filter(b => String(b).trim().toLowerCase() !== String(brandName).trim().toLowerCase());
+        const nextSelected = (data.all_brands?.selected_brands || []).filter(b => String(b.name).trim().toLowerCase() !== String(brandName).trim().toLowerCase());
+        updateData(prev => ({
+            ...prev,
+            all_brands: {
+                ...prev.all_brands,
+                brands: nextBrands,
+                selected_brands: nextSelected
+            }
+        }));
+    };
+
     return (
         <div style={{
             marginTop: 20,
@@ -1084,7 +1229,7 @@ export default function WebServiceDetailsEditor({
                                     <Tag size={16} /> All Brands Service Content
                                 </h4>
                                 <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    Brands we service (shown as brand badge pills).
+                                    Select brand logos from the library to showcase on this service (Urban Company 8+1 grid).
                                 </span>
                             </div>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
@@ -1099,7 +1244,8 @@ export default function WebServiceDetailsEditor({
                             </label>
                         </div>
 
-                        <div style={{ marginBottom: 14 }}>
+                        {/* Section Title Input */}
+                        <div style={{ marginBottom: 16 }}>
                             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Section Title</label>
                             <input
                                 type="text"
@@ -1111,40 +1257,355 @@ export default function WebServiceDetailsEditor({
                             />
                         </div>
 
-                        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                            Brands List (comma-separated or edited below)
-                        </label>
-                        <textarea
-                            value={(data.all_brands?.brands || []).join(', ')}
-                            onChange={(e) => {
-                                const list = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
-                                updateData(prev => ({ ...prev, all_brands: { ...prev.all_brands, brands: list } }));
-                            }}
-                            disabled={disabled}
-                            rows={2}
-                            placeholder="Daikin, Voltas, LG, Samsung, Hitachi, Carrier, Blue Star, Panasonic, Godrej, Whirlpool..."
-                            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 10 }}
-                        />
+                        {/* Mode Switcher & Quick Actions Bar */}
+                        <div style={{
+                            padding: '12px 14px',
+                            backgroundColor: 'var(--bg-elevated)',
+                            borderRadius: 10,
+                            border: '1px solid var(--border-primary)',
+                            marginBottom: 16,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBrandsEditMode('picker')}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 6,
+                                            border: brandsEditMode === 'picker' ? '1px solid #ec4899' : '1px solid var(--border-primary)',
+                                            backgroundColor: brandsEditMode === 'picker' ? 'rgba(236, 72, 153, 0.15)' : 'var(--bg-secondary)',
+                                            color: brandsEditMode === 'picker' ? '#ec4899' : 'var(--text-secondary)',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6
+                                        }}
+                                    >
+                                        <Sparkles size={13} /> Select Brand Logos ({availableBrandLogos.length} in Library)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBrandsEditMode('manual')}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: 6,
+                                            border: brandsEditMode === 'manual' ? '1px solid #ec4899' : '1px solid var(--border-primary)',
+                                            backgroundColor: brandsEditMode === 'manual' ? 'rgba(236, 72, 153, 0.15)' : 'var(--bg-secondary)',
+                                            color: brandsEditMode === 'manual' ? '#ec4899' : 'var(--text-secondary)',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Custom / Comma-Separated Text
+                                    </button>
+                                </div>
 
-                        {/* Brand Pills Preview */}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                            {(data.all_brands?.brands || []).map((b, i) => (
-                                <span
-                                    key={i}
-                                    style={{
-                                        fontSize: 11.5,
-                                        fontWeight: 700,
-                                        padding: '4px 9px',
-                                        borderRadius: 6,
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        border: '1px solid var(--border-primary)',
-                                        color: 'var(--text-primary)'
-                                    }}
-                                >
-                                    {b}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectTop8Brands}
+                                        disabled={disabled || availableBrandLogos.length === 0}
+                                        style={{
+                                            padding: '5px 10px',
+                                            borderRadius: 6,
+                                            border: '1px solid #6338f5',
+                                            backgroundColor: 'rgba(99, 56, 245, 0.12)',
+                                            color: '#8b5cf6',
+                                            fontSize: 11.5,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 4
+                                        }}
+                                        title="Selects top 8 brands for the live 3x3 popup grid"
+                                    >
+                                        ⚡ Select Top 8 (UC Default)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectAllBrands}
+                                        disabled={disabled || availableBrandLogos.length === 0}
+                                        style={{
+                                            padding: '5px 10px',
+                                            borderRadius: 6,
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 11.5,
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleClearAllBrands}
+                                        disabled={disabled || (data.all_brands?.brands || []).length === 0}
+                                        style={{
+                                            padding: '5px 10px',
+                                            borderRadius: 6,
+                                            border: '1px solid var(--border-primary)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: '#ef4444',
+                                            fontSize: 11.5,
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Urban Company Live Grid note */}
+                            <div style={{
+                                fontSize: 12,
+                                color: 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                backgroundColor: 'rgba(236, 72, 153, 0.05)',
+                                padding: '6px 10px',
+                                borderRadius: 6,
+                                border: '1px dashed rgba(236, 72, 153, 0.25)'
+                            }}>
+                                <span>💡</span>
+                                <span>
+                                    <strong>{(data.all_brands?.brands || []).length} brands selected</strong> for this service. On the live website popup, the first 8 brand logos are displayed alongside a <strong>"&amp; more"</strong> card in a clean 3×3 grid.
                                 </span>
-                            ))}
+                            </div>
                         </div>
+
+                        {brandsEditMode === 'picker' ? (
+                            <div>
+                                {/* Search Filter */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                                    <div style={{ position: 'relative', flex: 1, maxWidth: 320 }}>
+                                        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                        <input
+                                            type="text"
+                                            value={brandSearchQuery}
+                                            onChange={(e) => setBrandSearchQuery(e.target.value)}
+                                            placeholder="Search brand logo in library..."
+                                            style={{
+                                                width: '100%',
+                                                padding: '7px 10px 7px 30px',
+                                                borderRadius: 6,
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                color: 'var(--text-primary)',
+                                                fontSize: 12.5
+                                            }}
+                                        />
+                                        {brandSearchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setBrandSearchQuery('')}
+                                                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: 0 }}
+                                            >
+                                                <X size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={fetchBrandLogos}
+                                        disabled={loadingBrandLogos}
+                                        className="btn-icon"
+                                        title="Refresh brand logos from library"
+                                        style={{ height: 32, width: 32 }}
+                                    >
+                                        <RefreshCw size={13} className={loadingBrandLogos ? 'animate-spin' : ''} />
+                                    </button>
+                                </div>
+
+                                {/* Brand Logo Cards Grid */}
+                                {loadingBrandLogos ? (
+                                    <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                                        Loading Brand Logos Library...
+                                    </div>
+                                ) : filteredBrandLogos.length === 0 ? (
+                                    <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13, border: '1px dashed var(--border-primary)', borderRadius: 8 }}>
+                                        {brandSearchQuery ? `No brand logos matching "${brandSearchQuery}"` : 'No brand logos found in library.'}
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+                                        gap: 10,
+                                        maxHeight: 380,
+                                        overflowY: 'auto',
+                                        padding: 2
+                                    }}>
+                                        {filteredBrandLogos.map((brand) => {
+                                            const selected = isBrandSelected(brand);
+                                            return (
+                                                <div
+                                                    key={brand.id}
+                                                    onClick={() => toggleBrandSelection(brand)}
+                                                    style={{
+                                                        padding: '10px 8px',
+                                                        borderRadius: 10,
+                                                        border: selected ? '2px solid #ec4899' : '1px solid var(--border-primary)',
+                                                        backgroundColor: selected ? 'rgba(236, 72, 153, 0.08)' : 'var(--bg-secondary)',
+                                                        cursor: disabled ? 'default' : 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        position: 'relative',
+                                                        minHeight: 90,
+                                                        transition: 'all 0.15s ease',
+                                                        boxShadow: selected ? '0 0 0 1px #ec4899' : 'none'
+                                                    }}
+                                                >
+                                                    {/* Selection Badge */}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        top: 6,
+                                                        right: 6,
+                                                        width: 18,
+                                                        height: 18,
+                                                        borderRadius: '50%',
+                                                        backgroundColor: selected ? '#ec4899' : 'var(--bg-tertiary)',
+                                                        color: selected ? '#ffffff' : 'var(--text-tertiary)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: 10,
+                                                        fontWeight: 800
+                                                    }}>
+                                                        {selected ? <Check size={11} strokeWidth={3} /> : '+'}
+                                                    </div>
+
+                                                    {/* Logo Preview */}
+                                                    <div style={{
+                                                        height: 44,
+                                                        width: '100%',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        padding: '2px 4px',
+                                                        marginBottom: 6
+                                                    }}>
+                                                        {brand.logo_url ? (
+                                                            <img
+                                                                src={brand.logo_url}
+                                                                alt={brand.name}
+                                                                style={{
+                                                                    maxHeight: 38,
+                                                                    maxWidth: '85%',
+                                                                    objectFit: 'contain'
+                                                                }}
+                                                                onError={(e) => { e.target.style.display = 'none'; }}
+                                                            />
+                                                        ) : (
+                                                            <Tag size={20} style={{ color: 'var(--text-tertiary)' }} />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Brand Name */}
+                                                    <div style={{
+                                                        fontSize: 11.5,
+                                                        fontWeight: 700,
+                                                        color: selected ? '#ec4899' : 'var(--text-primary)',
+                                                        textAlign: 'center',
+                                                        lineHeight: 1.2
+                                                    }}>
+                                                        {brand.name}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {/* Additional Unmatched / Custom Brands list (if any existed before) */}
+                                {unmatchedBrands.length > 0 && (
+                                    <div style={{ marginTop: 14, padding: '10px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                            Custom / Text-Only Brands ({unmatchedBrands.length}):
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {unmatchedBrands.map((b, i) => (
+                                                <span
+                                                    key={i}
+                                                    style={{
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                        padding: '3px 8px',
+                                                        borderRadius: 6,
+                                                        backgroundColor: 'var(--bg-tertiary)',
+                                                        color: 'var(--text-primary)',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: 5
+                                                    }}
+                                                >
+                                                    {b}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveCustomBrand(b)}
+                                                        disabled={disabled}
+                                                        style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}
+                                                    >
+                                                        <X size={11} />
+                                                    </button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <span style={{ fontSize: 10.5, color: 'var(--text-tertiary)', display: 'block', marginTop: 4 }}>
+                                            Tip: Add these logos to the Brand Logos Library in Ecom V2 Settings so they render with logos on the service modal.
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            /* Manual / Freeform Text Area Mode */
+                            <div>
+                                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+                                    Brands List (comma-separated)
+                                </label>
+                                <textarea
+                                    value={(data.all_brands?.brands || []).join(', ')}
+                                    onChange={(e) => {
+                                        const list = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                        updateData(prev => ({ ...prev, all_brands: { ...prev.all_brands, brands: list } }));
+                                    }}
+                                    disabled={disabled}
+                                    rows={3}
+                                    placeholder="Daikin, Voltas, LG, Samsung, Hitachi, Carrier, Blue Star, Panasonic, Godrej, Whirlpool..."
+                                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 10 }}
+                                />
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {(data.all_brands?.brands || []).map((b, i) => (
+                                        <span
+                                            key={i}
+                                            style={{
+                                                fontSize: 11.5,
+                                                fontWeight: 700,
+                                                padding: '4px 9px',
+                                                borderRadius: 6,
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)',
+                                                color: 'var(--text-primary)'
+                                            }}
+                                        >
+                                            {b}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

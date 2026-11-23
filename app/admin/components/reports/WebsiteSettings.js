@@ -450,7 +450,12 @@ function WebsiteSettings({ subSection, setSubSection }) {
             ) : activeCategory === 'homepage-brand-logos' ? (
                 <HomepageBrandLogosSettings />
             ) : activeCategory === 'brand-logos' ? (
-                <BrandLogosSettings />
+                <BrandLogosSettings
+                    onBack={() => {
+                        setActiveCategory('ecom-v2');
+                        if (setSubSection) setSubSection('ecom-v2');
+                    }}
+                />
             ) : activeCategory === 'testimonials' ? (
                 <CustomerTestimonialsSettings />
             ) : activeCategory === 'page-builder' ? (

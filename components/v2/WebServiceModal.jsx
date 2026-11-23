@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X,
     CheckCircle2,
@@ -19,6 +19,10 @@ import { useV2Cart } from './CartContext';
 import { formatINR } from '@/lib/v2/catalogConfig';
 import { DEFAULT_WEB_DETAILS } from '@/app/admin/components/inventory/WebServiceDetailsEditor';
 
+// Module-level cache for brand logos
+let brandLogosMapCache = null; // { [nameLower]: logo_url }
+let brandLogosFetchPromise = null;
+
 export default function WebServiceModal({
     service,
     category = null,
@@ -27,6 +31,37 @@ export default function WebServiceModal({
     const { getItemQty, addItem, incrementItem, decrementItem } = useV2Cart();
     const [openFaqIndices, setOpenFaqIndices] = useState({ 0: true });
     const [visibleReviewCount, setVisibleReviewCount] = useState(5);
+    const [brandLogosMap, setBrandLogosMap] = useState(() => brandLogosMapCache || {});
+
+    // Fetch brand logos if not yet cached
+    useEffect(() => {
+        if (brandLogosMapCache) {
+            setBrandLogosMap(brandLogosMapCache);
+            return;
+        }
+        if (!brandLogosFetchPromise) {
+            brandLogosFetchPromise = fetch('/api/settings/brand-logos')
+                .then(res => res.json())
+                .then(json => {
+                    if (json && json.success && Array.isArray(json.data)) {
+                        const map = {};
+                        json.data.forEach(b => {
+                            if (b.name) map[b.name.trim().toLowerCase()] = b.logo_url;
+                        });
+                        brandLogosMapCache = map;
+                        return map;
+                    }
+                    return {};
+                })
+                .catch(err => {
+                    console.error('Failed to load brand logos in WebServiceModal:', err);
+                    return {};
+                });
+        }
+        brandLogosFetchPromise.then(map => {
+            setBrandLogosMap(map);
+        });
+    }, []);
 
     useEffect(() => {
         setVisibleReviewCount(5);
@@ -59,6 +94,28 @@ export default function WebServiceModal({
     const brandsConfig = webDetails.all_brands || DEFAULT_WEB_DETAILS.all_brands;
     const feedbacksConfig = webDetails.feedbacks || DEFAULT_WEB_DETAILS.feedbacks;
     const faqsConfig = webDetails.faqs || DEFAULT_WEB_DETAILS.faqs;
+
+    // Resolve brand logos: prefer selected_brands with logo_url, or map from brandsConfig.brands via brandLogosMap
+    const resolvedBrandsList = useMemo(() => {
+        if (Array.isArray(brandsConfig?.selected_brands) && brandsConfig.selected_brands.length > 0) {
+            return brandsConfig.selected_brands.map(b => ({
+                name: b.name,
+                logo_url: b.logo_url || brandLogosMap[b.name?.trim().toLowerCase()] || null
+            }));
+        }
+        if (Array.isArray(brandsConfig?.brands) && brandsConfig.brands.length > 0) {
+            return brandsConfig.brands.map(b => {
+                const name = typeof b === 'string' ? b : (b.name || '');
+                const logo_url = (typeof b === 'object' && b.logo_url) ? b.logo_url : (brandLogosMap[name.trim().toLowerCase()] || null);
+                return { name, logo_url };
+            });
+        }
+        return [];
+    }, [brandsConfig, brandLogosMap]);
+
+    const top8Brands = useMemo(() => {
+        return resolvedBrandsList.slice(0, 8);
+    }, [resolvedBrandsList]);
 
     const toggleFaq = (idx) => {
         setOpenFaqIndices(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -493,33 +550,85 @@ export default function WebServiceModal({
                         </div>
                     )}
 
-                    {/* ══════════════ 6. ALL BRANDS SERVICE ══════════════ */}
-                    {visibleSections.all_brands !== false && Array.isArray(brandsConfig?.brands) && brandsConfig.brands.length > 0 && (
-                        <div style={{ marginBottom: 22 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-                                <Tag size={16} color="#ec4899" />
-                                <h3 style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                                    {brandsConfig.title || 'We Service All Major Brands'}
-                                </h3>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {brandsConfig.brands.map((brand, i) => (
-                                    <span
+                    {/* ══════════════ 6. ALL BRANDS SERVICE (Urban Company 8+1 Grid) ══════════════ */}
+                    {visibleSections.all_brands !== false && resolvedBrandsList.length > 0 && (
+                        <div style={{ marginBottom: 24 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', margin: '0 0 14px 0' }}>
+                                {brandsConfig.title || 'We service all brands'}
+                            </h3>
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                gap: 10,
+                                marginBottom: 10
+                            }}>
+                                {top8Brands.map((brand, i) => (
+                                    <div
                                         key={i}
                                         style={{
-                                            fontSize: 12,
-                                            fontWeight: 700,
-                                            padding: '4px 10px',
-                                            borderRadius: 999,
                                             backgroundColor: '#f8fafc',
-                                            border: '1px solid #e2e8f0',
-                                            color: '#334155'
+                                            border: '1px solid #f1f5f9',
+                                            borderRadius: 12,
+                                            height: 72,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '8px 12px',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                                         }}
                                     >
-                                        {brand}
-                                    </span>
+                                        {brand.logo_url ? (
+                                            <img
+                                                src={brand.logo_url}
+                                                alt={brand.name}
+                                                style={{
+                                                    maxHeight: 38,
+                                                    maxWidth: '85%',
+                                                    objectFit: 'contain'
+                                                }}
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'block';
+                                                }}
+                                            />
+                                        ) : null}
+                                        <span
+                                            style={{
+                                                fontSize: 12.5,
+                                                fontWeight: 700,
+                                                color: '#334155',
+                                                textAlign: 'center',
+                                                display: brand.logo_url ? 'none' : 'block'
+                                            }}
+                                        >
+                                            {brand.name}
+                                        </span>
+                                    </div>
                                 ))}
+
+                                {/* 9th Card: & more */}
+                                <div
+                                    style={{
+                                        backgroundColor: '#f8fafc',
+                                        border: '1px solid #f1f5f9',
+                                        borderRadius: 12,
+                                        height: 72,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '8px 12px',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                    }}
+                                >
+                                    <span style={{ fontSize: 13.5, fontWeight: 700, color: '#334155' }}>
+                                        &amp; more
+                                    </span>
+                                </div>
                             </div>
+
+                            <p style={{ fontSize: 11, color: '#94a3b8', margin: 0, lineHeight: 1.45 }}>
+                                These trademarks and/or logos are used for illustration purposes only and we disclaim any specific connection with the brand in this regard.
+                            </p>
                         </div>
                     )}
 

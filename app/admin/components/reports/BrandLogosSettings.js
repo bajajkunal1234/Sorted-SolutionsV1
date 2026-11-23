@@ -18,7 +18,10 @@ import {
     Search,
     RefreshCw,
     AlertCircle,
-    Globe
+    Globe,
+    ArrowLeft,
+    Info,
+    Sparkles
 } from 'lucide-react';
 
 // iOS-style animated toggle switch
@@ -73,7 +76,7 @@ function ToggleSwitch({ checked, onChange, disabled, loading }) {
     );
 }
 
-function BrandLogosSettings() {
+function BrandLogosSettings({ onBack }) {
     const [activeTab, setActiveTab] = useState('logos'); // 'logos' | 'visibility'
 
     // Brands state
@@ -376,15 +379,46 @@ function BrandLogosSettings() {
                 </div>
             )}
 
+            {/* Top Back Button (when viewed in Ecom V2 Settings) */}
+            {onBack && (
+                <div style={{ marginBottom: 16 }}>
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '8px 14px',
+                            borderRadius: 8,
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            color: 'var(--text-secondary)',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                        }}
+                    >
+                        <ArrowLeft size={16} /> Back to Ecom V2 Settings
+                    </button>
+                </div>
+            )}
+
             {/* Header */}
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                     <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, backgroundColor: 'rgba(99, 56, 245, 0.12)', color: '#8b5cf6', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                                Ecom V2 Storefront
+                            </span>
+                        </div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                             Global Brand Logos Library
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                            Manage brand logos and control where the "Brands We Serve" section appears across all pages of the website.
+                            Central library of appliance brand logos. Admins can select which brands appear on each live service modal (8 logos + 1 "&amp; more" card).
                         </p>
                     </div>
 
@@ -524,6 +558,62 @@ function BrandLogosSettings() {
                         </button>
                     </div>
 
+                    {/* Urban Company Style Brand Logo Upload Guidelines */}
+                    <div style={{
+                        padding: '16px 20px',
+                        borderRadius: 12,
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        marginBottom: 'var(--spacing-lg)',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(99, 56, 245, 0.03) 100%)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                                color: '#a78bfa',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                            }}>
+                                <Sparkles size={20} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <h4 style={{ margin: '0 0 6px 0', fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)' }}>
+                                    📐 Brand Logo Image Upload Specifications (Urban Company 8+1 Grid)
+                                </h4>
+                                <p style={{ margin: '0 0 12px 0', fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                    On the live website service popup, brand logos are rendered in a clean <strong>3×3 card grid (8 brand logos + 1 "&amp; more" card)</strong>. Follow these exact specifications for razor-sharp, uniform brand display:
+                                </p>
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                                    gap: 10
+                                }}>
+                                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Canvas Dimensions</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>300 × 150 px <span style={{ fontSize: 11, color: '#8b5cf6' }}>(2:1 Ratio)</span></div>
+                                    </div>
+                                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Orientation</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>Horizontal / Landscape <span style={{ fontSize: 11, color: '#10b981' }}>✓ Required</span></div>
+                                    </div>
+                                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>File Format</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>PNG (Transparent Background)</div>
+                                    </div>
+                                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Logo Inner Margin</div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>15% – 20% Safe Padding Inside Canvas</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {loadingBrands ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 40 }}>
                             <Loader2 className="animate-spin" size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
@@ -580,7 +670,7 @@ function BrandLogosSettings() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>PNG with transparent background, 200×80px recommended</p>
+                                            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>300×150 px (2:1 ratio) PNG with transparent background, horizontal orientation</p>
                                         </div>
                                         <div>
                                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Website URL (Optional)</label>

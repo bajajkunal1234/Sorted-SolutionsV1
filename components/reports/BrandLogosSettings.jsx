@@ -18,7 +18,10 @@ import {
     Search,
     RefreshCw,
     AlertCircle,
-    Globe
+    Globe,
+    ArrowLeft,
+    Info,
+    Sparkles
 } from 'lucide-react';
 
 // iOS-style animated toggle switch
@@ -73,7 +76,7 @@ function ToggleSwitch({ checked, onChange, disabled, loading }) {
     );
 }
 
-function BrandLogosSettings() {
+function BrandLogosSettings({ onBack }) {
     const [activeTab, setActiveTab] = useState('logos'); // 'logos' | 'visibility'
 
     // Brands state
