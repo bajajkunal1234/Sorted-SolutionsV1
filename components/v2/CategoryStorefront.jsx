@@ -57,31 +57,57 @@ export default function CategoryStorefront({
         return [];
     }, [subcategories, category]);
 
-    // Appliance type filter state (in-page subcategory filter)
-    const [selectedSubcategory, setSelectedSubcategory] = useState(initialType || null);
-
-    // Filter services based on selected appliance type
-    const displayedServices = useMemo(() => {
-        if (!selectedSubcategory) return services;
-        const targetClean = selectedSubcategory.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const targetWords = selectedSubcategory.toLowerCase().replace(/-/g, ' ');
-        const matched = services.filter(s => {
-            const subClean = (s.subcategory || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            const nameLower = (s.name || '').toLowerCase();
-            const descLower = (s.description || '').toLowerCase();
-            return subClean.includes(targetClean) ||
-                targetClean.includes(subClean) ||
-                nameLower.includes(targetWords) ||
-                descLower.includes(targetWords);
-        });
-        return matched.length > 0 ? matched : services;
-    }, [services, selectedSubcategory]);
-
     // Config sections (from admin or defaults)
     const hero = resolvedConfig?.hero || {};
     const servicesSection = resolvedConfig?.servicesSection || {};
     const applianceTypeSection = resolvedConfig?.applianceType || {};
     const desktopStickyPromise = resolvedConfig?.desktopStickyPromise || {};
+
+    const hasApplianceTypes = applianceTypeSection.enabled !== false && activeSubcategories.length > 0;
+
+    // Appliance type filter state (in-page subcategory filter)
+    const [selectedSubcategory, setSelectedSubcategory] = useState(initialType || null);
+
+    // Filter services based on selected appliance type
+    const displayedServices = useMemo(() => {
+        // When category has appliance types, keep services blank until an appliance type is selected
+        if (hasApplianceTypes && !selectedSubcategory) {
+            return [];
+        }
+        if (!selectedSubcategory) {
+            return services;
+        }
+
+        const targetClean = selectedSubcategory.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetWords = selectedSubcategory.toLowerCase().replace(/-/g, ' ');
+        const subObj = activeSubcategories.find(s => s.slug === selectedSubcategory);
+        const subNameClean = (subObj?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const subNameWords = (subObj?.name || '').toLowerCase();
+        const subIdClean = (subObj?.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const matched = services.filter(s => {
+            const subClean = (s.subcategory || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const subRaw = (s.subcategory || '').toLowerCase();
+
+            if (subClean) {
+                if (subClean === targetClean) return true;
+                if (subNameClean && subClean === subNameClean) return true;
+                if (subIdClean && subClean === subIdClean) return true;
+                if (subRaw === selectedSubcategory.toLowerCase()) return true;
+                return false;
+            }
+
+            // Fallback for services without an explicit subcategory tag
+            const nameLower = (s.name || '').toLowerCase();
+            const descLower = (s.description || '').toLowerCase();
+            if (nameLower.includes(targetWords) || (subNameWords && nameLower.includes(subNameWords))) return true;
+            if (descLower.includes(targetWords) || (subNameWords && descLower.includes(subNameWords))) return true;
+
+            return false;
+        });
+
+        return matched;
+    }, [services, selectedSubcategory, hasApplianceTypes, activeSubcategories]);
 
     // ── Multi-Slide Hero Carousel (Auto-scroll with Story Progress Bars) ──
     const heroSlides = useMemo(() => {
@@ -847,26 +873,45 @@ export default function CategoryStorefront({
                                                         cursor: 'pointer'
                                                     }}
                                                 >
-                                                    Show all
+                                                    Clear
                                                 </button>
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                {displayedServices.length === 0 ? (
+                                {hasApplianceTypes && !selectedSubcategory ? (
                                     <div style={{
-                                        padding: 24,
-                                        borderRadius: 12,
+                                        padding: '36px 20px',
+                                        borderRadius: 14,
+                                        backgroundColor: '#f8fafc',
+                                        border: '1.5px dashed #cbd5e1',
+                                        textAlign: 'center',
+                                        color: '#64748b'
+                                    }}>
+                                        <div style={{ fontSize: 26, marginBottom: 8 }}>👆</div>
+                                        <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', marginBottom: 4 }}>
+                                            Select your appliance type above
+                                        </div>
+                                        <div style={{ fontSize: 13, color: '#64748b', maxWidth: 400, margin: '0 auto', lineHeight: 1.5 }}>
+                                            Please choose an appliance model above (e.g. {activeSubcategories.slice(0, 3).map(s => s.name).join(', ')}) to view our specialized services and pricing.
+                                        </div>
+                                    </div>
+                                ) : displayedServices.length === 0 ? (
+                                    <div style={{
+                                        padding: '32px 20px',
+                                        borderRadius: 14,
                                         backgroundColor: '#f8fafc',
                                         border: '1px dashed #cbd5e1',
                                         textAlign: 'center',
                                         color: '#64748b'
                                     }}>
                                         <Wrench size={32} color="#94a3b8" style={{ marginBottom: 8 }} />
-                                        <div style={{ fontWeight: 600, fontSize: 14 }}>Services ready to be added</div>
-                                        <div style={{ fontSize: 12, marginTop: 4 }}>
-                                            Go to Admin &gt; Inventory &gt; Create Service with Subtype 'Web' and Category '{category?.name}'.
+                                        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                                            No services found for {activeSubcategories.find(s => s.slug === selectedSubcategory)?.name || 'this appliance type'} yet
+                                        </div>
+                                        <div style={{ fontSize: 13, marginTop: 4, color: '#64748b' }}>
+                                            Please select another appliance type above or contact our support team.
                                         </div>
                                     </div>
                                 ) : (
