@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Upload, Plus, Trash2, Sparkles, AlertTriangle, Save } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
@@ -242,7 +242,17 @@ function NewProductForm({
     // useState only reads the initial prop value once, so without this the
     // dropdowns stay empty when the form is opened before the fetch completes.
     useEffect(() => {
-        if (categories.length > 0) setLocalCategories(categories);
+        if (Array.isArray(categories)) {
+            // Replace any legacy 'Washing Machine Parts' with 'Washing Machine'
+            const sanitized = categories.map(c =>
+                c.name === 'Washing Machine Parts' ? { ...c, name: 'Washing Machine' } : c
+            );
+            // Ensure HOB exists
+            if (!sanitized.some(c => (c.name || '').toLowerCase() === 'hob')) {
+                sanitized.push({ id: '_hob', name: 'HOB' });
+            }
+            setLocalCategories(sanitized);
+        }
     }, [categories]);
     useEffect(() => {
         if (brands.length > 0) setLocalBrands(brands);
@@ -273,7 +283,32 @@ function NewProductForm({
         cat.slug === catNeedle
     ) || findCategoryForDbName(formData.category);
 
-    const availableSubcategories = (matchedCategory?.subcategories || []).filter(s => !s.isDeleted && s.enabled !== false);
+    const rawSubcategories = (matchedCategory?.subcategories || []).filter(s => !s.isDeleted && s.enabled !== false);
+    // For HOB, strictly show only 'Built-In Hob' as the single subcategory
+    const availableSubcategories = (catNeedle === 'hob' || catNeedle === 'built-in hob')
+        ? rawSubcategories.filter(s => s.slug === 'built-in-hob' || s.name.toLowerCase().includes('hob'))
+        : rawSubcategories;
+
+    // Prioritize the 6 primary Website Booking categories at the top of the dropdown
+    const displayCategories = useMemo(() => {
+        if (formData.subtype !== 'web') return localCategories;
+        const webPriorityNames = ['Air Conditioners', 'Washing Machine', 'Refrigerator', 'Oven', 'Water Purifier', 'HOB', 'Gas Stove'];
+        const webPriority = [];
+        const others = [];
+        localCategories.forEach(cat => {
+            if (webPriorityNames.some(w => w.toLowerCase() === (cat.name || '').toLowerCase())) {
+                webPriority.push(cat);
+            } else {
+                others.push(cat);
+            }
+        });
+        webPriority.sort((a, b) => {
+            const ai = webPriorityNames.findIndex(w => w.toLowerCase() === (a.name || '').toLowerCase());
+            const bi = webPriorityNames.findIndex(w => w.toLowerCase() === (b.name || '').toLowerCase());
+            return ai - bi;
+        });
+        return [...webPriority, ...others];
+    }, [localCategories, formData.subtype]);
 
     const handleAddListItem = async () => {
         const name = newListItem.trim();
@@ -673,12 +708,17 @@ function NewProductForm({
                                         value={formData.category}
                                         onChange={(e) => {
                                             const newCat = e.target.value;
-                                            setFormData({ ...formData, category: newCat, subcategory: '' });
+                                            const isHob = String(newCat || '').trim().toLowerCase() === 'hob';
+                                            setFormData({
+                                                ...formData,
+                                                category: newCat,
+                                                subcategory: isHob ? 'built-in-hob' : ''
+                                            });
                                         }}
                                         required
                                     >
                                         <option value="">— Select category —</option>
-                                        {localCategories.map(cat => (
+                                        {displayCategories.map(cat => (
                                             <option key={cat.id} value={cat.name}>{cat.name}</option>
                                         ))}
                                     </select>

@@ -65,6 +65,18 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const [localCategories, setLocalCategories] = useState(categories);
     const [localBrands, setLocalBrands] = useState(brands);
 
+    useEffect(() => {
+        if (Array.isArray(categories)) {
+            const sanitized = categories.map(c =>
+                c.name === 'Washing Machine Parts' ? { ...c, name: 'Washing Machine' } : c
+            );
+            if (!sanitized.some(c => (c.name || '').toLowerCase() === 'hob')) {
+                sanitized.push({ id: '_hob', name: 'HOB' });
+            }
+            setLocalCategories(sanitized);
+        }
+    }, [categories]);
+
     const handleAddListItem = async () => {
         const name = newListItem.trim();
         if (!name) return;
@@ -257,7 +269,11 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         : null;
 
     const matchedCategory = findCategoryForDbName(editedProduct.category);
-    const availableSubcategories = matchedCategory?.subcategories || [];
+    const catNeedle = String(editedProduct.category || '').toLowerCase().trim();
+    const rawSubcategories = (matchedCategory?.subcategories || []).filter(s => !s.isDeleted && s.enabled !== false);
+    const availableSubcategories = (catNeedle === 'hob' || catNeedle === 'built-in hob')
+        ? rawSubcategories.filter(s => s.slug === 'built-in-hob' || s.name.toLowerCase().includes('hob'))
+        : rawSubcategories;
 
     return (
         <div className="modal-overlay" onClick={handleAttemptClose}>
@@ -466,7 +482,15 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                         <select
                                             className="form-select"
                                             value={editedProduct.category}
-                                            onChange={(e) => setEditedProduct({ ...editedProduct, category: e.target.value })}
+                                            onChange={(e) => {
+                                                const newCat = e.target.value;
+                                                const isHob = String(newCat || '').trim().toLowerCase() === 'hob';
+                                                setEditedProduct({
+                                                    ...editedProduct,
+                                                    category: newCat,
+                                                    subcategory: isHob ? 'built-in-hob' : (editedProduct.category !== newCat ? '' : editedProduct.subcategory)
+                                                });
+                                            }}
                                             disabled={!isEditing}
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
                                         >
