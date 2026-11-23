@@ -28,8 +28,8 @@ export default function ServiceWebImageUploader({
                 const url = await uploadClientMedia(file, {
                     folder: 'inventory/thumbnails',
                     bucket: 'website-assets',
-                    maxSizeMB: 1.5,
-                    maxWidthOrHeight: 1200
+                    maxSizeMB: 0.1,
+                    maxWidthOrHeight: 800
                 });
                 if (onThumbnailChange) onThumbnailChange(url);
             } catch (err) {
@@ -45,8 +45,8 @@ export default function ServiceWebImageUploader({
                 const url = await uploadClientMedia(file, {
                     folder: 'inventory/heroes',
                     bucket: 'website-assets',
-                    maxSizeMB: 2.0,
-                    maxWidthOrHeight: 1800
+                    maxSizeMB: 0.2,
+                    maxWidthOrHeight: 1400
                 });
                 if (onHeroChange) onHeroChange(url);
             } catch (err) {

@@ -37,9 +37,8 @@ export async function POST(request) {
 
         const preserveFormatParam = formData.get('preserveFormat');
         const isLogo = folder.includes('logos') || folder.includes('brand');
-        const isSubcat = folder.includes('subcategories') || folder.includes('thumbnails');
         const isPng = (file.type && file.type.includes('png')) || (file.name && file.name.toLowerCase().endsWith('.png'));
-        const preserveFormat = preserveFormatParam === 'true' || ((isLogo || isSubcat) && isPng);
+        const preserveFormat = preserveFormatParam === 'true' || (isLogo && isPng);
 
         // Compress images; videos/PDFs/GIFs pass through unchanged; PNG logos preserved as pure PNG
         const { buffer, contentType, ext } = await compressImage(rawBuffer, file.type || (isPng ? 'image/png' : 'image/jpeg'), {
