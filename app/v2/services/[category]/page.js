@@ -7,7 +7,7 @@ import { resolveProcessForCategory } from '@/lib/v2/processTemplates';
 import { createServerSupabase } from '@/lib/supabase-server';
 import CategoryStorefront from '@/components/v2/CategoryStorefront';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }) {
     const slug = params.category || params.slug;

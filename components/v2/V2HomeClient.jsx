@@ -65,12 +65,12 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                                 <MapPin size={20} style={{ flexShrink: 0, color: '#ffffff' }} />
                                 <span style={{ minWidth: 0, display: 'block' }}>
                                     <span className="v2-mobile-loc-title" style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#ffffff' }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} suppressHydrationWarning>
                                             {primaryAddressTitle}
                                         </span>
                                         <ChevronDown size={15} style={{ flexShrink: 0, opacity: 0.85 }} />
                                     </span>
-                                    <span className="v2-mobile-loc-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
+                                    <span className="v2-mobile-loc-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }} suppressHydrationWarning>
                                         {secondaryAddressSub}
                                     </span>
                                 </span>
