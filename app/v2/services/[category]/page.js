@@ -101,6 +101,7 @@ export default async function V2CategoryPage({ params, searchParams }) {
             initialQuery={searchParams?.q || ''}
             initialType={searchParams?.type || null}
             pageConfig={finalPageConfig}
+            initialLogos={data.logos || null}
         />
     );
 }

@@ -1,7 +1,7 @@
 import './globals.css'
 import { Suspense } from 'react'
 import Script from 'next/script'
-import GoogleTagsProvider from '@/components/GoogleTagsProvider'
+import GoogleTagsProvider, { GoogleTagsBodyNoscript } from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
 import FirstPartyTracker from '@/components/common/FirstPartyTracker'
@@ -223,6 +223,10 @@ export default function RootLayout({ children }) {
                 </Suspense>
             </head>
             <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} suppressHydrationWarning>
+                {/* GTM noscript iframe fallback — placed immediately after <body> opens as per Google specification */}
+                <Suspense fallback={null}>
+                    <GoogleTagsBodyNoscript />
+                </Suspense>
                 {/* Global Print Engine injected via next/script to prevent hydration drop */}
                 <Script src="/scripts/_print_func_inject.js?v=20260516_1" strategy="beforeInteractive" />
                 {children}

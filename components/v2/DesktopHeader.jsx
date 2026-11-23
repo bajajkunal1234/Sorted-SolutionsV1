@@ -50,7 +50,7 @@ export default function DesktopHeader() {
                         onClick={() => setLocationModalOpen(true)}
                     >
                         <MapPin size={16} color="#6338f5" style={{ flexShrink: 0 }} />
-                        <span className="v2-loc-pill-text">{locText}</span>
+                        <span className="v2-loc-pill-text" suppressHydrationWarning>{locText}</span>
                         <ChevronDown size={15} color="#64748b" style={{ flexShrink: 0 }} />
                     </button>
 
@@ -77,7 +77,7 @@ export default function DesktopHeader() {
                         onClick={() => setCartOpen(true)}
                     >
                         <ShoppingCart size={16} />
-                        <span>
+                        <span suppressHydrationWarning>
                             {totals.totalCount > 0
                                 ? `${totals.totalCount} · ${formatINR(totals.grandTotal)}`
                                 : 'Cart'}
@@ -86,7 +86,7 @@ export default function DesktopHeader() {
 
                     <Link href="/v2/customer" className="v2-icon-btn">
                         <User size={16} />
-                        <span>{customerSession?.name?.split(' ')[0] || 'Account'}</span>
+                        <span suppressHydrationWarning>{customerSession?.name?.split(' ')[0] || 'Account'}</span>
                     </Link>
                 </nav>
             </div>

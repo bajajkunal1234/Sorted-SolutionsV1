@@ -36,7 +36,7 @@ export default function FloatingBottomDock() {
             >
                 <ShoppingBag size={20} strokeWidth={isCheckout ? 2.4 : 1.9} />
                 {totals.totalCount > 0 && (
-                    <span className="v2-dock-badge">{totals.totalCount}</span>
+                    <span className="v2-dock-badge" suppressHydrationWarning>{totals.totalCount}</span>
                 )}
                 <span>Cart</span>
             </button>

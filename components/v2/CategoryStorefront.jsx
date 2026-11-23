@@ -36,10 +36,13 @@ export default function CategoryStorefront({
     highlightId = null,
     initialQuery = '',
     initialType = null,
-    pageConfig = null
+    pageConfig = null,
+    initialLogos = null
 }) {
     const router = useRouter();
     const { location, setLocationModalOpen, getItemQty, addItem, incrementItem, decrementItem, totals, items: cartItems, brandLogos } = useV2Cart();
+
+    const effectiveLogos = brandLogos || initialLogos;
 
     // Active subcategories list
     const activeSubcategories = useMemo(() => {
@@ -330,7 +333,7 @@ export default function CategoryStorefront({
                             {/* Right Aligned: Brand Logo (Clean, No Pill, No Text) */}
                             <Link
                                 href="/v2"
-                                aria-label={brandLogos?.altText || "Sorted Solutions"}
+                                aria-label={effectiveLogos?.altText || "Sorted Solutions"}
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -340,8 +343,9 @@ export default function CategoryStorefront({
                                 }}
                             >
                                 <img
-                                    src={brandLogos?.darkModeLogo || brandLogos?.dayModeLogo || '/images/logos/logo-dark.png'}
-                                    alt={brandLogos?.altText || "Sorted Solutions"}
+                                    src={effectiveLogos?.darkModeLogo || effectiveLogos?.dayModeLogo || '/images/logos/logo-dark.png'}
+                                    alt={effectiveLogos?.altText || "Sorted Solutions"}
+                                    suppressHydrationWarning
                                     style={{
                                         height: 34,
                                         maxHeight: 38,
