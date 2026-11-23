@@ -176,6 +176,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                             <Link
                                 key={cat.slug}
                                 href={`/v2/services/${cat.slug}`}
+                                prefetch={true}
                                 className="v2-cat-tile"
                                 style={{
                                     textDecoration: 'none',

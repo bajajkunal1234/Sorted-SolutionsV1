@@ -1,6 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { getNextVoucherNumber } from '@/lib/voucherNumberService'
+import { invalidateServerCatalogCache } from '@/lib/v2/serverCatalog'
 
 // GET - Fetch all inventory items
 export async function GET(request) {
@@ -33,6 +34,8 @@ export async function GET(request) {
         const { data, error } = await query
 
         if (error) throw error
+
+        try { invalidateServerCatalogCache(); } catch (_) {}
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
@@ -188,6 +191,8 @@ export async function POST(request) {
 
         if (error) throw error
 
+        try { invalidateServerCatalogCache(); } catch (_) {}
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -273,6 +278,8 @@ export async function PUT(request) {
 
         if (error) throw error
 
+        try { invalidateServerCatalogCache(); } catch (_) {}
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -340,6 +347,8 @@ export async function DELETE(request) {
             .eq('id', id)
 
         if (error) throw error
+
+        try { invalidateServerCatalogCache(); } catch (_) {}
 
         return NextResponse.json({ success: true })
     } catch (error) {

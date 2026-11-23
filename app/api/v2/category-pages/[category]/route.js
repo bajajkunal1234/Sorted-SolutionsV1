@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCategoryBySlug } from '@/lib/v2/catalogConfig';
 import { getCategoryDefaultConfig } from '@/lib/v2/categoryPageDefaults';
 import { getDefaultTemplateIdForCategory } from '@/lib/v2/processTemplates';
+import { invalidateServerCatalogCache } from '@/lib/v2/serverCatalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,6 +136,8 @@ async function handleSave(request, params) {
             console.error('[API category-page] upsert error:', error);
             return NextResponse.json({ success: false, error: error.message }, { status: 500 });
         }
+
+        try { invalidateServerCatalogCache(); } catch (_) {}
 
         return NextResponse.json({
             success: true,

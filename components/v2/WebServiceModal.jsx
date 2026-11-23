@@ -67,6 +67,15 @@ export default function WebServiceModal({
         setVisibleReviewCount(5);
     }, [service?.id]);
 
+    // Lock body scroll while modal/sheet is open
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = originalOverflow;
+        };
+    }, []);
+
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Escape' && onClose) onClose();
@@ -125,42 +134,23 @@ export default function WebServiceModal({
 
     return (
         <div
+            className="v2-service-modal-overlay"
             onClick={(e) => {
                 if (e.target === e.currentTarget && onClose) onClose();
-            }}
-            style={{
-                position: 'fixed',
-                inset: 0,
-                backgroundColor: 'rgba(15, 23, 42, 0.72)',
-                backdropFilter: 'blur(6px)',
-                WebkitBackdropFilter: 'blur(6px)',
-                zIndex: 9999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16
             }}
             role="dialog"
             aria-modal="true"
             aria-label={service.name}
         >
             <div
-                style={{
-                    position: 'relative',
-                    backgroundColor: '#ffffff',
-                    borderRadius: 20,
-                    maxWidth: 580,
-                    width: '100%',
-                    maxHeight: '92vh',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    boxShadow: '0 25px 60px -15px rgba(0,0,0,0.3)',
-                    animation: 'v2ModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
+                className="v2-service-modal-container"
             >
+                {/* Drag handle indicator on mobile bottom sheet */}
+                <div className="v2-mobile-sheet-handle" aria-hidden="true" />
+
                 {/* ── Scrollable Body containing Hero Image and Details ── */}
                 <div
+                    className="v2-service-modal-body"
                     style={{
                         overflowY: 'auto',
                         flex: 1,
@@ -708,11 +698,6 @@ export default function WebServiceModal({
                                     <h3 style={{ fontSize: 14.5, fontWeight: 800, color: '#0f172a', margin: 0 }}>
                                         {feedbacksConfig.title || 'Customer Reviews & Feedback'}
                                     </h3>
-                                    {allReviews.length > 0 && (
-                                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                                            ({allReviews.length})
-                                        </span>
-                                    )}
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                     {displayedReviews.map((fb, i) => (
@@ -804,6 +789,74 @@ export default function WebServiceModal({
             </div>
 
             <style jsx global>{`
+                .v2-service-modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background-color: rgba(15, 23, 42, 0.72);
+                    backdrop-filter: blur(6px);
+                    -webkit-backdrop-filter: blur(6px);
+                    z-index: 9999;
+                    display: flex;
+                    justify-content: center;
+                    align-items: flex-end;
+                    padding: 0;
+                    animation: v2BackdropFade 0.2s ease-out;
+                }
+
+                .v2-service-modal-container {
+                    position: relative;
+                    background-color: #ffffff;
+                    width: 100%;
+                    max-width: 100%;
+                    max-height: 90vh;
+                    max-height: calc(90vh - env(safe-area-inset-bottom, 0px));
+                    border-radius: 20px 20px 0 0;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+                    animation: v2ServiceSheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+
+                .v2-mobile-sheet-handle {
+                    position: absolute;
+                    top: 8px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 38px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background-color: rgba(255, 255, 255, 0.85);
+                    z-index: 20;
+                    pointer-events: none;
+                }
+
+                @keyframes v2ServiceSheetSlideUp {
+                    from {
+                        transform: translateY(100%);
+                    }
+                    to {
+                        transform: translateY(0);
+                    }
+                }
+
+                @media (min-width: 641px) {
+                    .v2-service-modal-overlay {
+                        align-items: center;
+                        padding: 16px;
+                    }
+                    .v2-service-modal-container {
+                        max-width: 580px;
+                        max-height: 92vh;
+                        border-radius: 20px;
+                        box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.3);
+                        animation: v2ModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+                    }
+                    .v2-mobile-sheet-handle {
+                        display: none !important;
+                    }
+                }
+
                 @keyframes v2ModalIn {
                     from {
                         opacity: 0;
