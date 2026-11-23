@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     CheckSquare,
     Square,
@@ -33,6 +33,8 @@ import {
 } from '@/lib/v2/reviewClassifier';
 
 export const DEFAULT_WEB_DETAILS = {
+    subgroup: '',
+    badge: '',
     visible_sections: {
         our_process: true,
         whats_included: true,
@@ -115,6 +117,8 @@ export default function WebServiceDetailsEditor({
 
         return {
             ...value,
+            subgroup: value.subgroup || value.badge || '',
+            badge: value.badge || value.subgroup || '',
             description: value.description || null,
             thumbnail_image: value.thumbnail_image || null,
             hero_image: value.hero_image || null,
@@ -304,6 +308,32 @@ export default function WebServiceDetailsEditor({
 
     // AI notification notice
     const [aiNotice, setAiNotice] = useState(null);
+
+    // Auto-select relevant reviews on initial load if no feedbacks are currently selected
+    const autoSelectedRef = useRef(false);
+    useEffect(() => {
+        if (!disabled && !autoSelectedRef.current && visibleGoogleReviews.length > 0) {
+            const currentItems = data.feedbacks?.items || [];
+            if (currentItems.length === 0) {
+                autoSelectedRef.current = true;
+                const result = autoSelectReviewsForService({
+                    serviceName,
+                    categoryName,
+                    availableReviews: visibleGoogleReviews,
+                    targetCount: 60
+                });
+                if (result && result.selectedReviews?.length > 0) {
+                    updateData(prev => ({
+                        ...prev,
+                        feedbacks: {
+                            ...prev.feedbacks,
+                            items: result.selectedReviews
+                        }
+                    }));
+                }
+            }
+        }
+    }, [visibleGoogleReviews, serviceName, categoryName, disabled, data.feedbacks?.items]);
 
     // AI Auto-Select Reviews action (includes all category matches, generic reviews, and rating-only reviews)
     const handleAiAutoSelect = () => {
@@ -505,6 +535,26 @@ export default function WebServiceDetailsEditor({
                         <RotateCcw size={13} /> Reset Defaults
                     </button>
                 )}
+            </div>
+
+            {/* Service Card Tag / Subgroup Pill */}
+            <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 10, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' }}>
+                    Service Card Tag / Badge Pill (Optional)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <input
+                        type="text"
+                        value={data.subgroup || data.badge || ''}
+                        onChange={(e) => updateData(prev => ({ ...prev, subgroup: e.target.value, badge: e.target.value }))}
+                        disabled={disabled}
+                        placeholder="e.g. Dry Service, Foam-Jet Service, Bestseller (leave blank to auto-detect)"
+                        style={{ flex: 1, minWidth: 260, maxWidth: 450, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', fontSize: 13 }}
+                    />
+                    <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                        Shows on service card pill & image badge (leave blank to auto-detect from name e.g. &ldquo;Dry Service&rdquo;).
+                    </span>
+                </div>
             </div>
 
             {/* Selection Boxes Grid */}
@@ -1585,8 +1635,27 @@ export default function WebServiceDetailsEditor({
                                                 fontWeight: 700,
                                                 cursor: 'pointer'
                                             }}
+                                            title="Select only top 5 reviews"
                                         >
                                             ⚡ Select Top 5
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleAiAutoSelect}
+                                            disabled={disabled || visibleGoogleReviews.length === 0}
+                                            style={{
+                                                padding: '5px 10px',
+                                                borderRadius: 6,
+                                                border: '1px solid #10b981',
+                                                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                                color: '#10b981',
+                                                fontSize: 11.5,
+                                                fontWeight: 700,
+                                                cursor: 'pointer'
+                                            }}
+                                            title="Auto-select all category-eligible reviews (50+) so customers can paginate with 'Show More Reviews'"
+                                        >
+                                            ⚡ Select All Eligible (50+)
                                         </button>
                                         <button
                                             type="button"
