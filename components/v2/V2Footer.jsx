@@ -165,18 +165,18 @@ export default function V2Footer() {
                                 width: 36,
                                 height: 36,
                                 borderRadius: 10,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                background: 'linear-gradient(135deg, #6338f5 0%, #7c3aed 100%)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
                                 <Wrench size={18} color="#fff" />
                             </div>
-                            <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#fff' }}>
+                            <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#0f172a' }}>
                                 Join Our Technician Team
                             </h3>
                         </div>
-                        <p style={{ margin: 0, fontSize: 13, color: '#94a3b8' }}>
+                        <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
                             Earn steady income with on-time payouts across Mumbai with Sorted Solutions.
                         </p>
 
@@ -184,14 +184,14 @@ export default function V2Footer() {
                             <div style={{
                                 marginTop: 24,
                                 padding: '20px 16px',
-                                background: 'rgba(16, 185, 129, 0.1)',
+                                background: 'rgba(16, 185, 129, 0.08)',
                                 border: '1px solid #10b981',
                                 borderRadius: 12,
                                 textAlign: 'center'
                             }}>
                                 <CheckCircle2 size={32} color="#10b981" style={{ margin: '0 auto 8px' }} />
-                                <h4 style={{ margin: '0 0 4px', fontSize: 16, color: '#fff' }}>Application Received!</h4>
-                                <p style={{ margin: 0, fontSize: 13, color: '#cbd5e1' }}>
+                                <h4 style={{ margin: '0 0 4px', fontSize: 16, color: '#0f172a' }}>Application Received!</h4>
+                                <p style={{ margin: 0, fontSize: 13, color: '#475569' }}>
                                     Thank you, {formData.name}. Our operations head will call you within 24 hours.
                                 </p>
                             </div>

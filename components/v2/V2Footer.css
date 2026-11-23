@@ -1,12 +1,12 @@
 /* ==========================================================================
-   V2Footer.css - Modern Urban Company / V2 Footer with Dark Contrast Theme
+   V2Footer.css - Light-Themed Clean V2 Urban Company Style Footer
    ========================================================================== */
 
 .v2-footer {
-    background: #0b0f19;
-    color: #e2e8f0;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 52px 16px 32px;
+    background: #ffffff;
+    color: #334155;
+    border-top: 1px solid var(--v2-line, #e6e8ef);
+    padding: 48px 16px 28px;
     font-family: var(--v2-font, 'Outfit', sans-serif);
     position: relative;
     z-index: 10;
@@ -14,8 +14,8 @@
 
 @media (max-width: 768px) {
     .v2-footer {
-        /* Extra bottom padding to ensure the floating mobile dock never covers content */
-        padding: 40px 16px 110px;
+        /* Safe bottom padding so the mobile floating dock never obstructs footer content */
+        padding: 36px 16px 110px;
     }
 }
 
@@ -27,96 +27,103 @@
 .v2-footer-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 36px;
-    margin-bottom: 36px;
+    gap: 32px;
+    margin-bottom: 32px;
 }
 
-@media (min-width: 860px) {
+@media (min-width: 680px) {
     .v2-footer-grid {
-        grid-template-columns: 1.35fr 1fr 1fr;
-        gap: 48px;
+        grid-template-columns: 1.6fr 1fr 1.2fr;
+        gap: 36px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .v2-footer-grid {
+        grid-template-columns: 1.8fr 1fr 1.3fr;
+        gap: 52px;
     }
 }
 
 /* ── Columns ── */
 .v2-footer-col h3 {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
-    margin: 0 0 16px 0;
-    color: #ffffff;
+    margin: 0 0 14px 0;
+    color: #0f172a;
     letter-spacing: -0.01em;
 }
 
 .v2-footer-col h4 {
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     margin: 18px 0 10px 0;
-    color: #cbd5e1;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 
-/* Company Identity Column */
+/* Column 1: Company Identity */
 .v2-footer-brand-title {
     font-size: 20px;
     font-weight: 800;
-    color: #ffffff;
+    color: #0f172a;
     margin: 0 0 4px 0;
     letter-spacing: -0.02em;
 }
 
 .v2-footer-brand-unit {
     font-size: 13px;
-    color: #a5b4fc;
-    font-weight: 500;
-    margin: 0 0 16px 0;
+    color: #6338f5;
+    font-weight: 600;
+    margin: 0 0 14px 0;
 }
 
 .v2-footer-address-box {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin-bottom: 14px;
     font-size: 13.5px;
     line-height: 1.6;
-    color: #94a3b8;
+    color: #475569;
 }
 
 .v2-footer-address-icon {
     flex-shrink: 0;
     margin-top: 3px;
-    color: #818cf8;
+    color: #6338f5;
 }
 
 .v2-footer-address-box strong {
-    color: #f1f5f9;
+    color: #0f172a;
 }
 
 .v2-footer-reg-details {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
     font-size: 13px;
-    color: #94a3b8;
+    color: #64748b;
 }
 
 .v2-footer-reg-details strong {
-    color: #cbd5e1;
+    color: #334155;
 }
 
-/* Quick Links Column */
+/* Column 2: Quick Links */
 .v2-footer-links-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 11px;
 }
 
 .v2-footer-link {
-    color: #94a3b8;
+    color: #475569;
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.18s ease;
+    transition: all 0.16s ease;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -124,49 +131,50 @@
 }
 
 .v2-footer-link:hover {
-    color: #a5b4fc;
+    color: #6338f5;
     transform: translateX(3px);
 }
 
-/* Contact Column */
+/* Column 3: Contact Us */
 .v2-footer-contact-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 11px;
+    margin-bottom: 18px;
 }
 
 .v2-footer-contact-item {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    color: #cbd5e1;
+    color: #334155;
     text-decoration: none;
     font-size: 13.5px;
-    transition: color 0.18s ease;
+    font-weight: 500;
+    transition: color 0.16s ease;
 }
 
 .v2-footer-contact-item:hover {
-    color: #818cf8;
+    color: #6338f5;
 }
 
 .v2-footer-contact-item svg {
-    color: #818cf8;
+    color: #6338f5;
     flex-shrink: 0;
 }
 
 /* Join Our Team Button */
 .v2-footer-join-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #6338f5 0%, #7c3aed 100%);
     color: #ffffff;
     border: none;
-    padding: 11px 22px;
+    padding: 10px 20px;
     border-radius: 10px;
     font-size: 13.5px;
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 4px 14px rgba(99, 56, 245, 0.25);
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
@@ -175,21 +183,21 @@
 
 .v2-footer-join-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(102, 126, 234, 0.45);
+    box-shadow: 0 6px 18px rgba(99, 56, 245, 0.35);
 }
 
 /* ── Divider & Disclaimer ── */
 .v2-footer-divider {
     height: 1px;
-    background: rgba(255, 255, 255, 0.08);
-    margin: 12px 0 24px;
+    background: #e2e8f0;
+    margin: 8px 0 20px;
 }
 
 .v2-footer-disclaimer {
     font-size: 12px;
     color: #64748b;
     line-height: 1.65;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     text-align: center;
     max-width: 980px;
     margin-left: auto;
@@ -197,7 +205,7 @@
 }
 
 .v2-footer-disclaimer strong {
-    color: #94a3b8;
+    color: #334155;
 }
 
 /* ── Bottom Bar ── */
@@ -206,13 +214,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 10px;
     font-size: 13px;
     color: #64748b;
     text-align: center;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 680px) {
     .v2-footer-bottom {
         flex-direction: row;
         justify-content: space-between;
@@ -224,15 +232,15 @@
     align-items: center;
     gap: 16px;
     font-size: 12px;
-    color: #94a3b8;
+    color: #64748b;
 }
 
-/* ── Technician Modal ── */
+/* ── Technician Modal (Clean Light Theme) ── */
 .v2-footer-modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: rgba(0, 0, 0, 0.72);
+    background: rgba(15, 23, 42, 0.48);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -242,15 +250,15 @@
 }
 
 .v2-footer-modal-card {
-    background: #111827;
-    color: #f8fafc;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
     border-radius: 18px;
     width: 100%;
     max-width: 480px;
     padding: 28px 24px;
     position: relative;
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.14);
     animation: v2ScaleUp 0.22s ease;
 }
 
@@ -258,9 +266,9 @@
     position: absolute;
     top: 18px;
     right: 18px;
-    background: rgba(255, 255, 255, 0.08);
+    background: #f1f5f9;
     border: none;
-    color: #94a3b8;
+    color: #64748b;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -272,52 +280,53 @@
 }
 
 .v2-footer-modal-close:hover {
-    background: rgba(255, 255, 255, 0.18);
-    color: #ffffff;
+    background: #e2e8f0;
+    color: #0f172a;
 }
 
 .v2-footer-form {
     display: flex;
     flex-direction: column;
     gap: 14px;
-    margin-top: 20px;
+    margin-top: 18px;
 }
 
 .v2-footer-input-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 5px;
 }
 
 .v2-footer-input-group label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #cbd5e1;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
 .v2-footer-input-group input,
 .v2-footer-input-group select {
-    background: #1f2937;
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
     border-radius: 10px;
     padding: 10px 14px;
     font-size: 14px;
-    color: #ffffff;
+    color: #0f172a;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.18s ease;
+    transition: all 0.18s ease;
 }
 
 .v2-footer-input-group input:focus,
 .v2-footer-input-group select:focus {
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    background: #ffffff;
+    border-color: #6338f5;
+    box-shadow: 0 0 0 3px rgba(99, 56, 245, 0.12);
 }
 
 .v2-footer-submit-btn {
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    background: #6338f5;
     color: #ffffff;
     border: none;
     border-radius: 10px;
@@ -331,7 +340,7 @@
 }
 
 .v2-footer-submit-btn:hover {
-    filter: brightness(1.1);
+    background: #4b23d4;
 }
 
 .v2-footer-whatsapp-btn {
