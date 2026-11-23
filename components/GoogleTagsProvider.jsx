@@ -7,7 +7,7 @@ import { unstable_cache } from 'next/cache'
  * on the /booking page when the DB connection is busy from other queries.
  * The config rarely changes — 1 hour TTL is safe.
  */
-const getGoogleConfig = unstable_cache(
+export const getGoogleConfig = unstable_cache(
     async () => {
         try {
             const supabase = createServerSupabase()
@@ -30,8 +30,8 @@ const getGoogleConfig = unstable_cache(
  * Server component — fetches Google API settings from DB and injects all tags.
  * Rendered in app/layout.js. Outputs nothing if no settings configured.
  */
-export default async function GoogleTagsProvider() {
-    const cfg = await getGoogleConfig()
+export default async function GoogleTagsProvider({ config = null }) {
+    const cfg = config || (await getGoogleConfig())
 
     const {
         gtmId, ga4Id,
@@ -135,8 +135,8 @@ export default async function GoogleTagsProvider() {
 /**
  * Server component — outputs GTM fallback <noscript> iframe immediately after <body> opens.
  */
-export async function GoogleTagsBodyNoscript() {
-    const cfg = await getGoogleConfig()
+export async function GoogleTagsBodyNoscript({ config = null }) {
+    const cfg = config || (await getGoogleConfig())
     const { gtmId } = cfg
     if (!gtmId) return null
 

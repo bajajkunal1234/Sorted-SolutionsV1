@@ -10,7 +10,7 @@ import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
 import SlidingThumbnail from './SlidingThumbnail';
 
-export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null, homepageProcess = null }) {
+export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null, homepageProcess = null, initialHeroSlides = null }) {
     const { location, setLocationModalOpen, brandLogos } = useV2Cart();
 
     const activeCategories = Array.isArray(categories) && categories.length > 0
@@ -154,7 +154,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                     </div>
 
                     {/* Dynamic Auto-Sliding Hero Carousel (GIFs, Videos & Offers) */}
-                    <HeroCarousel />
+                    <HeroCarousel initialSlides={initialHeroSlides} />
                 </div>
             </section>
 

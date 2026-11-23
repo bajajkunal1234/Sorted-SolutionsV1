@@ -1,7 +1,7 @@
 import './globals.css'
 import { Suspense } from 'react'
 import Script from 'next/script'
-import GoogleTagsProvider, { GoogleTagsBodyNoscript } from '@/components/GoogleTagsProvider'
+import GoogleTagsProvider, { GoogleTagsBodyNoscript, getGoogleConfig } from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
 import FirstPartyTracker from '@/components/common/FirstPartyTracker'
@@ -45,6 +45,9 @@ export async function generateMetadata() {
             statusBarStyle: 'black-translucent',
             title: companyName,
         },
+        other: {
+            'mobile-web-app-capable': 'yes',
+        },
         openGraph: {
             title: `${companyName} - Expert Appliance Repair Services`,
             description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
@@ -68,7 +71,12 @@ export const viewport = {
     themeColor: '#090d16',
 }
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+    let googleConfig = {};
+    try {
+        googleConfig = await getGoogleConfig();
+    } catch (_) {}
+
     return (
         <html lang="en" suppressHydrationWarning>
             <head>
@@ -218,15 +226,11 @@ export default function RootLayout({ children }) {
                 {/* Manual ReCAPTCHA loading to ensure Firebase Auth identity verification */}
                 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
                 {/* Google tracking tags (GTM, GA4, Ads, Schema) — populated from Admin > Google APIs */}
-                <Suspense fallback={null}>
-                    <GoogleTagsProvider />
-                </Suspense>
+                <GoogleTagsProvider config={googleConfig} />
             </head>
             <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} suppressHydrationWarning>
                 {/* GTM noscript iframe fallback — placed immediately after <body> opens as per Google specification */}
-                <Suspense fallback={null}>
-                    <GoogleTagsBodyNoscript />
-                </Suspense>
+                <GoogleTagsBodyNoscript config={googleConfig} />
                 {/* Global Print Engine injected via next/script to prevent hydration drop */}
                 <Script src="/scripts/_print_func_inject.js?v=20260516_1" strategy="beforeInteractive" />
                 {children}

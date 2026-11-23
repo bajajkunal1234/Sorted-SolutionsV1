@@ -37,12 +37,14 @@ export default function CategoryStorefront({
     initialQuery = '',
     initialType = null,
     pageConfig = null,
+    initialConfig = null,
     initialLogos = null
 }) {
     const router = useRouter();
     const { location, setLocationModalOpen, getItemQty, addItem, incrementItem, decrementItem, totals, items: cartItems, brandLogos } = useV2Cart();
 
     const effectiveLogos = brandLogos || initialLogos;
+    const resolvedConfig = pageConfig || initialConfig || {};
 
     // Active subcategories list
     const activeSubcategories = useMemo(() => {
@@ -76,10 +78,10 @@ export default function CategoryStorefront({
     }, [services, selectedSubcategory]);
 
     // Config sections (from admin or defaults)
-    const hero = pageConfig?.hero || {};
-    const servicesSection = pageConfig?.servicesSection || {};
-    const applianceTypeSection = pageConfig?.applianceType || {};
-    const desktopStickyPromise = pageConfig?.desktopStickyPromise || {};
+    const hero = resolvedConfig?.hero || {};
+    const servicesSection = resolvedConfig?.servicesSection || {};
+    const applianceTypeSection = resolvedConfig?.applianceType || {};
+    const desktopStickyPromise = resolvedConfig?.desktopStickyPromise || {};
 
     // ── Multi-Slide Hero Carousel (Auto-scroll with Story Progress Bars) ──
     const heroSlides = useMemo(() => {
