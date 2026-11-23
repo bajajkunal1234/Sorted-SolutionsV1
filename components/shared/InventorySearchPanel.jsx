@@ -10,6 +10,7 @@ const INVENTORY_FILTER_FIELDS = [
     { key: 'category',      label: 'Category',      type: 'text' },
     { key: 'brand',         label: 'Brand',         type: 'text' },
     { key: 'type',          label: 'Item Type',     type: 'select', options: ['product', 'service'] },
+    { key: 'subtype',       label: 'Subtype',       type: 'select', options: ['tech', 'web'] },
     { key: 'job_type',      label: 'Job Type',      type: 'select', options: ['repair', 'install_uninstall', 'service_maintenance', 'general'] },
     { key: 'stock_status',  label: 'Stock Status',  type: 'select', options: ['In Stock', 'Low Stock', 'Out of Stock'] },
     { key: 'sale_price',    label: 'Sale Price',    type: 'number' },
@@ -36,6 +37,8 @@ const INVENTORY_PRESETS = [
     { id: 'out_of_stock',  label: '❌ Out of Stock',     filter: { stock_status: 'Out of Stock' } },
     { id: 'products_only', label: '🛒 Products Only',    filter: { type: 'product' } },
     { id: 'services_only', label: '🔧 Services Only',    filter: { type: 'service' } },
+    { id: 'web_products',  label: '🌐 Web Products',     filter: { subtype: 'web', type: 'product' } },
+    { id: 'web_services',  label: '🌐 Web Services',     filter: { subtype: 'web', type: 'service' } },
 ];
 
 const INVENTORY_GROUP_BY = [
@@ -43,6 +46,7 @@ const INVENTORY_GROUP_BY = [
     { value: 'category', label: 'Category' },
     { value: 'brand',    label: 'Brand' },
     { value: 'type',     label: 'Item Type' },
+    { value: 'subtype',  label: 'Subtype' },
     { value: 'job_type', label: 'Job Type' },
     { value: 'stock',    label: 'Stock Status' },
     { value: 'gst_rate', label: 'GST Rate' },
@@ -159,8 +163,31 @@ export default function InventorySearchPanel({
 
     const handlePreset = (preset) => {
         const existing = activeTags.find(t => t.id === preset.id);
-        if (existing) onRemoveTag(preset.id);
-        else onAddTag({ id: preset.id, label: preset.label, type: 'preset', filter: preset.filter });
+        if (existing) {
+            onRemoveTag(preset.id);
+            return;
+        }
+
+        // Mutual exclusivity / auto-clean conflicting presets
+        const stockPresetIds = ['in_stock', 'low_stock', 'out_of_stock'];
+        if (stockPresetIds.includes(preset.id)) {
+            stockPresetIds.forEach(id => {
+                if (id !== preset.id && activeTags.some(t => t.id === id)) {
+                    onRemoveTag(id);
+                }
+            });
+        }
+
+        const typePresetIds = ['products_only', 'services_only', 'web_products', 'web_services'];
+        if (typePresetIds.includes(preset.id)) {
+            typePresetIds.forEach(id => {
+                if (id !== preset.id && activeTags.some(t => t.id === id)) {
+                    onRemoveTag(id);
+                }
+            });
+        }
+
+        onAddTag({ id: preset.id, label: preset.label, type: 'preset', filter: preset.filter });
     };
 
     const handleSaveView = () => {

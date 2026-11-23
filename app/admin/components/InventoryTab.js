@@ -163,14 +163,24 @@ function InventoryTab() {
         let res = [...data];
         tags.forEach(tag => {
             if (tag.filter) {
-                const [k, v] = Object.entries(tag.filter)[0];
-                if (k === 'stock_status') res = res.filter(d => d.stockStatus === v);
-                else res = res.filter(d => String(d[k]) === String(v));
+                Object.entries(tag.filter).forEach(([k, v]) => {
+                    if (k === 'stock_status') {
+                        res = res.filter(d => d.stockStatus === v);
+                    } else if (k === 'subtype') {
+                        res = res.filter(d => String(d.subtype || 'tech').toLowerCase() === String(v).toLowerCase());
+                    } else if (k === 'type') {
+                        res = res.filter(d => String(d.type || '').toLowerCase() === String(v).toLowerCase());
+                    } else {
+                        res = res.filter(d => String(d[k] || '').toLowerCase() === String(v).toLowerCase());
+                    }
+                });
             }
             if (tag.conditions) {
                 tag.conditions.forEach(c => {
                     res = res.filter(d => {
-                        const val = String(d[c.field] || '').toLowerCase();
+                        let itemVal = d[c.field];
+                        if (c.field === 'subtype' && !itemVal) itemVal = 'tech';
+                        const val = String(itemVal || '').toLowerCase();
                         const filterVal = (c.value || '').toLowerCase();
                         if (c.operator === 'contains') return val.includes(filterVal);
                         if (c.operator === 'not_contains') return !val.includes(filterVal);
@@ -255,6 +265,7 @@ function InventoryTab() {
             if (groupBy === 'category') key = item.category || 'Uncategorized';
             else if (groupBy === 'brand') key = item.brand || 'No Brand';
             else if (groupBy === 'type') key = item.type || 'Unknown';
+            else if (groupBy === 'subtype') key = (item.subtype || 'tech').toUpperCase();
             else if (groupBy === 'job_type') key = item.job_type || 'Unspecified';
             else if (groupBy === 'stock') key = item.stockStatus || 'Unknown';
             else if (groupBy === 'gst_rate') key = item.gst_rate != null ? `${item.gst_rate}%` : 'Unknown';
