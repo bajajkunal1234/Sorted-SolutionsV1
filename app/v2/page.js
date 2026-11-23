@@ -3,7 +3,7 @@ import { fetchProcessTemplatesConfig } from '@/lib/v2/processTemplatesServer';
 import { resolveProcessForHomepage } from '@/lib/v2/processTemplates';
 import V2HomeClient from '@/components/v2/V2HomeClient';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function V2HomePage() {
     let services = [];

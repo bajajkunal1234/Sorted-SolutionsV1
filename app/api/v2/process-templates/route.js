@@ -7,6 +7,8 @@ import {
     normalizeProcessTemplatesPayload,
     getDefaultTemplateIdForCategory
 } from '@/lib/v2/processTemplates';
+import { invalidateProcessTemplatesCache } from '@/lib/v2/processTemplatesServer';
+import { invalidateServerCatalogCache } from '@/lib/v2/serverCatalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,6 +168,11 @@ async function handleSave(request) {
                 }
             }
         }
+
+        try {
+            invalidateProcessTemplatesCache();
+            invalidateServerCatalogCache();
+        } catch (_) {}
 
         return NextResponse.json({
             success: true,
