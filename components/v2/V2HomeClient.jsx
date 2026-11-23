@@ -49,6 +49,7 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                             type="button"
                             className="v2-mobile-loc-btn"
                             onClick={() => setLocationModalOpen(true)}
+                            suppressHydrationWarning
                             style={{
                                 flex: 1,
                                 minWidth: 0,

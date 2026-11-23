@@ -7,9 +7,9 @@ import FloatingCartBar from './FloatingCartBar';
 import CartDrawer from './CartDrawer';
 import LocationModal from './LocationModal';
 
-export default function V2Shell({ children }) {
+export default function V2Shell({ children, initialLogos = null }) {
     return (
-        <CartProvider>
+        <CartProvider initialLogos={initialLogos}>
             <div className="v2-root">
                 <DesktopHeader />
                 <main className="v2-main">{children}</main>

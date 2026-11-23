@@ -8,7 +8,7 @@ const LOCATION_STORAGE_KEY = 'sorted_v2_location';
 
 const CartContext = createContext(null);
 
-export function CartProvider({ children }) {
+export function CartProvider({ children, initialLogos = null }) {
     const [items, setItems] = useState([]);
     const [hydrated, setHydrated] = useState(false);
     const [cartOpen, setCartOpen] = useState(false);
@@ -20,23 +20,27 @@ export function CartProvider({ children }) {
         building: '',
     });
     const [customerSession, setCustomerSession] = useState(null);
-    const [brandLogos, setBrandLogos] = useState({
-        dayModeLogo: '/images/logos/logo-day.png',
-        darkModeLogo: '/images/logos/logo-dark.png',
-        altText: 'Sorted Solutions'
-    });
+    const [brandLogos, setBrandLogos] = useState(
+        initialLogos || {
+            dayModeLogo: '/images/logos/logo-day.png',
+            darkModeLogo: '/images/logos/logo-dark.png',
+            altText: 'Sorted Solutions'
+        }
+    );
 
     useEffect(() => {
-        // Fetch dynamic branding/logos from homepage config
-        fetch('/api/v2/homepage-config')
-            .then(res => res.json())
-            .then(json => {
-                if (json.success && json.data?.logos) {
-                    setBrandLogos(json.data.logos);
-                }
-            })
-            .catch(() => {});
-    }, []);
+        if (!initialLogos) {
+            // Fetch dynamic branding/logos from homepage config only if not provided by SSR
+            fetch('/api/v2/homepage-config')
+                .then(res => res.json())
+                .then(json => {
+                    if (json.success && json.data?.logos) {
+                        setBrandLogos(json.data.logos);
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [initialLogos]);
 
     useEffect(() => {
         try {

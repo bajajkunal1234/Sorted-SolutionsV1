@@ -33,6 +33,7 @@ export default function FloatingBottomDock() {
                 type="button"
                 onClick={() => setCartOpen(true)}
                 className={`v2-dock-item ${isCheckout ? 'active' : ''}`}
+                suppressHydrationWarning
             >
                 <ShoppingBag size={20} strokeWidth={isCheckout ? 2.4 : 1.9} />
                 {totals.totalCount > 0 && (

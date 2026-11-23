@@ -1,5 +1,6 @@
 import './v2.css';
 import V2Shell from '@/components/v2/V2Shell';
+import { fetchHomepageBrandLogos } from '@/lib/v2/serverCatalog';
 
 export const metadata = {
     title: 'Sorted Solutions | Appliance Repair & Home Services in Mumbai',
@@ -16,6 +17,11 @@ export const metadata = {
     },
 };
 
-export default function V2Layout({ children }) {
-    return <V2Shell>{children}</V2Shell>;
+export default async function V2Layout({ children }) {
+    let logos = null;
+    try {
+        logos = await fetchHomepageBrandLogos();
+    } catch (_) {}
+
+    return <V2Shell initialLogos={logos}>{children}</V2Shell>;
 }
