@@ -3,9 +3,9 @@
    ========================================================================== */
 
 .v2-footer {
-    background: #ffffff;
+    background: #f1f5f9;
     color: #334155;
-    border-top: 1px solid var(--v2-line, #e6e8ef);
+    border-top: 1px solid var(--v2-line, #e2e8f0);
     padding: 48px 16px 28px;
     font-family: var(--v2-font, 'Outfit', sans-serif);
     position: relative;
@@ -189,7 +189,7 @@
 /* ── Divider & Disclaimer ── */
 .v2-footer-divider {
     height: 1px;
-    background: #e2e8f0;
+    background: #cbd5e1;
     margin: 8px 0 20px;
 }
 
