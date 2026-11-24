@@ -727,6 +727,22 @@ function InventoryTab() {
                     onGroupByChange={setGroupBy}
                     sortBy={sortBy}
                     onSortByChange={setSortBy}
+                    viewType={viewType}
+                    onViewTypeChange={setViewType}
+                    statusFilter={statusFilter}
+                    onStatusFilterChange={f => { setStatusFilter(f); setCurrentPage(1); }}
+                    renderImportExport={() => (
+                        <ImportExportButtons 
+                            data={processedProducts.map(p => ({
+                                ...p,
+                                terms_conditions: Array.isArray(p.terms_conditions) ? p.terms_conditions.join(' | ') : (p.terms_conditions || '')
+                            }))} 
+                            columns={inventoryColumns.filter(c => c.id !== "image")} 
+                            exportFilename="SortedSolutions_Inventory"
+                            onImport={handleBulkImport}
+                            templateConfig={getTemplateConfig()}
+                        />
+                    )}
                     activeTags={activeTags}
                     onAddTag={t => setActiveTags(p => [...p.filter(x => x.id !== t.id), t])}
                     onRemoveTag={id => setActiveTags(p => p.filter(t => t.id !== id))}
@@ -736,7 +752,7 @@ function InventoryTab() {
                     onDeleteView={handleDeleteView}
                     onSetDefaultView={handleSetDefaultView}
                     saveStatus={saveStatus}
-                    onResetView={() => { setSearchTerm(''); setActiveTags([]); setGroupBy('none'); setSortBy('name'); }}
+                    onResetView={() => { setSearchTerm(''); setActiveTags([]); setGroupBy('none'); setSortBy('name'); setStatusFilter('active'); setViewType('table'); }}
                 />
                 <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}
                     style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
@@ -744,79 +760,51 @@ function InventoryTab() {
                 </button>
             </div>
 
-            {/* Row 2: View Type Toggles + Columns + Refresh + Count */}
-            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <select
-                    value={viewType}
-                    onChange={(e) => setViewType(e.target.value)}
-                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)', cursor: 'pointer' }}
-                >
-                    <option value="table">Table View</option>
-                    <option value="card">Card View</option>
-                    <option value="kanban">Kanban View</option>
-                    <option value="details">Details View</option>
-                </select>
-
-                {/* Status filter */}
-                <select
-                    value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: statusFilter === 'archived' ? 'rgba(239,68,68,0.08)' : 'var(--bg-primary)', color: statusFilter === 'archived' ? '#ef4444' : 'var(--text-secondary)', cursor: 'pointer' }}
-                >
-                    <option value="active">Active Items</option>
-                    <option value="archived">🗄️ Archived</option>
-                    <option value="all">All Items</option>
-                </select>
-
-                <div ref={columnPickerRef} style={{ position: 'relative' }}>
-                    <button onClick={() => setShowColumnPicker(p => !p)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
-                        <SlidersHorizontal size={13} /> Columns
-                    </button>
-                    {showColumnPicker && (
-                        <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                            <div style={{ padding: '4px 14px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
-                                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</span>
-                                <button
-                                    onClick={resetColumnsToDefault}
-                                    style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer', padding: 0 }}
-                                >
-                                    Reset Default
-                                </button>
-                            </div>
-                            {inventoryColumns.map((col) => (
-                                <div key={col.id} style={{ display: 'flex', alignItems: 'center', padding: '5px 14px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
-                                        <input type="checkbox" checked={visibleColumns.has(col.id)} onChange={() => toggleColumn(col.id)}
-                                            style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
-                                        {col.label}
-                                    </label>
+            {/* Row 2: Columns + Refresh + Pagination & Item Count (Single Row) */}
+            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'nowrap' }}>
+                {/* Left: Columns button & Refresh button */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div ref={columnPickerRef} style={{ position: 'relative' }}>
+                        <button onClick={() => setShowColumnPicker(p => !p)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
+                            <SlidersHorizontal size={13} /> Columns
+                        </button>
+                        {showColumnPicker && (
+                            <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
+                                <div style={{ padding: '4px 14px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
+                                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</span>
+                                    <button
+                                        onClick={resetColumnsToDefault}
+                                        style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+                                    >
+                                        Reset Default
+                                    </button>
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                                {inventoryColumns.map((col) => (
+                                    <div key={col.id} style={{ display: 'flex', alignItems: 'center', padding: '5px 14px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
+                                            <input type="checkbox" checked={visibleColumns.has(col.id)} onChange={() => toggleColumn(col.id)}
+                                                style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
+                                            {col.label}
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={() => { const tmp = viewType; setViewType('__reset__'); setTimeout(() => setViewType(tmp), 0); }}
+                        title="Refresh"
+                        style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                        <RefreshCw size={13} /> Refresh
+                    </button>
                 </div>
 
-                <div style={{ flex: 1 }} />
-
-                <ImportExportButtons 
-                    data={processedProducts.map(p => ({
-                        ...p,
-                        terms_conditions: Array.isArray(p.terms_conditions) ? p.terms_conditions.join(' | ') : (p.terms_conditions || '')
-                    }))} 
-                    columns={inventoryColumns.filter(c => c.id !== "image")} 
-                    exportFilename="SortedSolutions_Inventory"
-                    onImport={handleBulkImport}
-                    templateConfig={getTemplateConfig()}
-                />
-
-                <button
-                    onClick={() => { const tmp = viewType; setViewType('__reset__'); setTimeout(() => setViewType(tmp), 0); }}
-                    title="Refresh"
-                    style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
-                >
-                    <RefreshCw size={13} /> Refresh
-                </button>
+                {/* Right: Items Count & Pagination */}
                 <div style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span>Showing {processedProducts.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, processedProducts.length)} of {processedProducts.length} entries</span>
                     {totalPages > 1 && (

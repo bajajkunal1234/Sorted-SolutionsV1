@@ -124,7 +124,7 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     color: isActive ? '#818cf8' : 'var(--text-tertiary)',
-                    backgroundColor: isActive ? 'rgba(99,102,241,0.06)' : 'var(--bg-secondary)',
+                    backgroundColor: isActive ? '#243048' : 'var(--bg-secondary)',
                     borderBottom: isActive ? '2px solid #6366f1' : '2px solid var(--border-primary)',
                     whiteSpace: 'nowrap',
                     position: 'sticky',
@@ -139,7 +139,7 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                 onMouseEnter={(e) => {
                     if (!isActive) {
                         e.currentTarget.style.color = 'var(--text-primary)';
-                        e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                        e.currentTarget.style.backgroundColor = '#26334d';
                     }
                 }}
                 onMouseLeave={(e) => {

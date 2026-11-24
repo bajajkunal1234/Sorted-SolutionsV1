@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, X, Filter, Layers, ArrowUpDown, Plus, Trash2, BookmarkCheck, Star, Check } from 'lucide-react';
+import { Search, ChevronDown, X, Filter, Layers, ArrowUpDown, Plus, Trash2, BookmarkCheck, Star, Check, Table as TableIcon, Grid, Columns, List, Archive, FileSpreadsheet } from 'lucide-react';
 
 // ─── Inventory filter field definitions ═══════════════════════════════════════
 const INVENTORY_FILTER_FIELDS = [
@@ -50,6 +50,20 @@ const INVENTORY_GROUP_BY = [
     { value: 'job_type', label: 'Job Type' },
     { value: 'stock',    label: 'Stock Status' },
     { value: 'gst_rate', label: 'GST Rate' },
+];
+
+
+const INVENTORY_VIEW_TYPES = [
+    { value: 'table',   label: 'Table View',   icon: TableIcon },
+    { value: 'card',    label: 'Card View',    icon: Grid },
+    { value: 'kanban',  label: 'Kanban View',  icon: Columns },
+    { value: 'details', label: 'Details View', icon: List },
+];
+
+const INVENTORY_STATUS_FILTERS = [
+    { value: 'active',   label: 'Active Items',    icon: '✅' },
+    { value: 'archived', label: 'Archived Items',  icon: '🗄️' },
+    { value: 'all',      label: 'All Items',       icon: '📋' },
 ];
 
 const INVENTORY_SORT_BY = [
@@ -123,6 +137,9 @@ export default function InventorySearchPanel({
     searchTerm, onSearchChange,
     groupBy, onGroupByChange,
     sortBy, onSortByChange,
+    viewType = 'table', onViewTypeChange,
+    statusFilter = 'active', onStatusFilterChange,
+    renderImportExport,
     activeTags = [], onAddTag, onRemoveTag,
     savedViews = [], onSaveNamedView, onApplyView, onDeleteView, onSetDefaultView,
     saveStatus, onResetView,
@@ -202,7 +219,7 @@ export default function InventorySearchPanel({
 
     const activeGroupByLabel = INVENTORY_GROUP_BY.find(o => o.value === groupBy)?.label;
     const activeSortByLabel = INVENTORY_SORT_BY.find(o => o.value === sortBy)?.label;
-    const hasActiveState = searchTerm || activeTags.length > 0 || groupBy !== defaultGroupBy || sortBy !== defaultSortBy;
+    const hasActiveState = searchTerm || activeTags.length > 0 || groupBy !== defaultGroupBy || sortBy !== defaultSortBy || (statusFilter && statusFilter !== "active") || (viewType && viewType !== "table");
 
     return (
         <div ref={panelRef} style={{ position: 'relative', flex: 1 }}>
@@ -246,10 +263,27 @@ export default function InventorySearchPanel({
                     style={{ flex: 1, minWidth: '100px', background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: '13px', padding: '2px 0' }}
                 />
 
+                {/* View type tag */}
+                {viewType && viewType !== 'table' && onViewTypeChange && (
+                    <FilterTag label={`View: ${viewType.charAt(0).toUpperCase() + viewType.slice(1)}`} onRemove={() => onViewTypeChange('table')} />
+                )}
+
+                {/* Status filter tag */}
+                {statusFilter && statusFilter !== 'active' && onStatusFilterChange && (
+                    <FilterTag label={`Status: ${statusFilter === 'archived' ? 'Archived' : 'All Items'}`} onRemove={() => onStatusFilterChange('active')} />
+                )}
+
                 {/* Clear all */}
                 {hasActiveState && (
                     <button
-                        onClick={() => { onSearchChange(''); activeTags.forEach(t => onRemoveTag(t.id)); onGroupByChange(defaultGroupBy); onSortByChange(defaultSortBy); }}
+                        onClick={() => {
+                            onSearchChange('');
+                            activeTags.forEach(t => onRemoveTag(t.id));
+                            onGroupByChange(defaultGroupBy);
+                            onSortByChange(defaultSortBy);
+                            if (onStatusFilterChange) onStatusFilterChange('active');
+                            if (onViewTypeChange) onViewTypeChange('table');
+                        }}
                         title="Clear all filters"
                         style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#64748b', display: 'flex' }}
                     >
@@ -300,6 +334,75 @@ export default function InventorySearchPanel({
                                         </button>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── View Layout ── */}
+                    {onViewTypeChange && (
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <TableIcon size={11} /> View Layout
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '4px' }}>
+                                {INVENTORY_VIEW_TYPES.map(vt => {
+                                    const Icon = vt.icon;
+                                    const isActive = viewType === vt.value;
+                                    return (
+                                        <button
+                                            key={vt.value}
+                                            onClick={() => onViewTypeChange(vt.value)}
+                                            style={{
+                                                padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px',
+                                                cursor: 'pointer', fontSize: '13px',
+                                                backgroundColor: isActive ? 'rgba(167,139,250,0.18)' : 'transparent',
+                                                color: isActive ? '#a78bfa' : '#cbd5e1',
+                                                fontWeight: isActive ? 600 : 400,
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}
+                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
+                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        >
+                                            <Icon size={13} />
+                                            <span>{vt.label}</span>
+                                            {isActive && <Check size={11} style={{ marginLeft: 'auto' }} />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Status & Archive ── */}
+                    {onStatusFilterChange && (
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <Archive size={11} /> Item Status
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '4px' }}>
+                                {INVENTORY_STATUS_FILTERS.map(sf => {
+                                    const isActive = statusFilter === sf.value;
+                                    return (
+                                        <button
+                                            key={sf.value}
+                                            onClick={() => onStatusFilterChange(sf.value)}
+                                            style={{
+                                                padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px',
+                                                cursor: 'pointer', fontSize: '13px',
+                                                backgroundColor: isActive ? (sf.value === 'archived' ? 'rgba(239,68,68,0.18)' : 'rgba(56,189,248,0.18)') : 'transparent',
+                                                color: isActive ? (sf.value === 'archived' ? '#f87171' : '#38bdf8') : '#cbd5e1',
+                                                fontWeight: isActive ? 600 : 400,
+                                                display: 'flex', alignItems: 'center', gap: '6px'
+                                            }}
+                                            onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
+                                            onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        >
+                                            <span>{sf.icon}</span>
+                                            <span>{sf.label}</span>
+                                            {isActive && <Check size={11} style={{ marginLeft: 'auto' }} />}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -395,6 +498,18 @@ export default function InventorySearchPanel({
                             })}
                         </div>
                     </div>
+
+                    {/* ── Import, Export & Template ── */}
+                    {renderImportExport && (
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <FileSpreadsheet size={11} /> Excel Data & Template
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                {renderImportExport()}
+                            </div>
+                        </div>
+                    )}
 
                     {/* ── Footer ── */}
                     <div style={{ padding: '10px 16px' }}>
