@@ -552,6 +552,8 @@ export default function CheckoutClient() {
                             <LocalityCombobox
                                 value={locality}
                                 pincode={pincode}
+                                inputClassName="v2-input"
+                                theme="light"
                                 onChange={(loc, pin) => {
                                     setLocality(loc);
                                     setPincode(pin);

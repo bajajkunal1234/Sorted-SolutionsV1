@@ -27,12 +27,38 @@ export default function LocalityCombobox({
     inputStyle = {},
     dropdownZIndex = 999,
     showPincode = true,
+    theme = 'auto',
 }) {
     const cleanValue = (value && value !== '__other__') ? value : ''
     const [query, setQuery] = useState(cleanValue)
     const [open, setOpen] = useState(false)
+    const [detectedDark, setDetectedDark] = useState(false)
     const containerRef = useRef(null)
     const inputRef = useRef(null)
+
+    // Detect theme if set to 'auto'
+    useEffect(() => {
+        if (theme === 'dark') {
+            setDetectedDark(true)
+            return
+        }
+        if (theme === 'light') {
+            setDetectedDark(false)
+            return
+        }
+        if (typeof window !== 'undefined') {
+            const isDarkDoc = document.documentElement.getAttribute('data-theme') === 'dark'
+            const el = containerRef.current
+            const darkAncestor = el?.closest('[data-theme="dark"]') ||
+                el?.closest('.admin-layout') ||
+                el?.closest('.admin-root') ||
+                el?.closest('.tech-app-container') ||
+                el?.closest('.technician-app')
+            setDetectedDark(Boolean(isDarkDoc || darkAncestor))
+        }
+    }, [theme])
+
+    const isDark = theme === 'dark' ? true : (theme === 'light' ? false : detectedDark)
 
     // Sync display when value changes externally
     useEffect(() => {
@@ -133,6 +159,15 @@ export default function LocalityCombobox({
         boxSizing: 'border-box',
         paddingLeft: 36,
         paddingRight: query ? 32 : 12,
+        ...(!inputClassName && !inputStyle.border ? {
+            background: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+            border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid #e2e8f0',
+            borderRadius: 10,
+            height: 42,
+            fontSize: 14,
+            color: isDark ? '#f8fafc' : '#0f172a',
+            outline: 'none',
+        } : {}),
         ...inputStyle,
     }
 
@@ -184,11 +219,13 @@ export default function LocalityCombobox({
             {open && (
                 <div style={{
                     position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-                    background: '#1e293b',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: isDark ? '#1e293b' : '#ffffff',
+                    border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid #e2e8f0',
                     borderRadius: 10,
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
-                    maxHeight: 220,
+                    boxShadow: isDark
+                        ? '0 12px 32px rgba(0,0,0,0.4)'
+                        : '0 12px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.08)',
+                    maxHeight: 230,
                     overflowY: 'auto',
                     zIndex: dropdownZIndex,
                     scrollbarWidth: 'thin',
@@ -200,9 +237,10 @@ export default function LocalityCombobox({
                             style={{
                                 padding: '10px 14px',
                                 fontSize: 13,
-                                color: '#38bdf8',
+                                color: isDark ? '#38bdf8' : '#6338f5',
                                 cursor: 'pointer',
-                                background: 'rgba(56,189,248,0.08)',
+                                background: isDark ? 'rgba(56,189,248,0.08)' : '#f5f3ff',
+                                fontWeight: 600,
                             }}
                         >
                             📍 Use &ldquo;{query.trim()}&rdquo; as locality
@@ -210,29 +248,47 @@ export default function LocalityCombobox({
                     )}
 
                     {/* Matched options */}
-                    {filtered.map(loc => (
-                        <div
-                            key={loc.name}
-                            onMouseDown={e => { e.preventDefault(); handleSelect(loc) }}
-                            style={{
-                                padding: '9px 14px',
-                                fontSize: 13,
-                                cursor: 'pointer',
-                                color: loc.name === activeLocality ? '#38bdf8' : '#e2e8f0',
-                                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                background: loc.name === activeLocality ? 'rgba(56,189,248,0.1)' : 'transparent',
-                                transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
-                            onMouseLeave={e => e.currentTarget.style.background = loc.name === activeLocality ? 'rgba(56,189,248,0.1)' : 'transparent'}
-                        >
-                            <span>{loc.name}</span>
-                            <span style={{ fontSize: 11, color: '#64748b' }}>{loc.pincode}</span>
-                        </div>
-                    ))}
+                    {filtered.map(loc => {
+                        const isSelected = loc.name === activeLocality;
+                        return (
+                            <div
+                                key={loc.name}
+                                onMouseDown={e => { e.preventDefault(); handleSelect(loc) }}
+                                style={{
+                                    padding: '9px 14px',
+                                    fontSize: 13.5,
+                                    cursor: 'pointer',
+                                    color: isDark
+                                        ? (isSelected ? '#38bdf8' : '#e2e8f0')
+                                        : (isSelected ? '#6338f5' : '#0f172a'),
+                                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f1f5f9',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: isSelected
+                                        ? (isDark ? 'rgba(56,189,248,0.1)' : '#f5f3ff')
+                                        : 'transparent',
+                                    fontWeight: isSelected ? 600 : 500,
+                                    transition: 'background 0.1s ease',
+                                }}
+                                onMouseEnter={e => {
+                                    e.currentTarget.style.background = isSelected
+                                        ? (isDark ? 'rgba(56,189,248,0.15)' : '#ede9fe')
+                                        : (isDark ? 'rgba(56,189,248,0.08)' : '#f8fafc');
+                                }}
+                                onMouseLeave={e => {
+                                    e.currentTarget.style.background = isSelected
+                                        ? (isDark ? 'rgba(56,189,248,0.1)' : '#f5f3ff')
+                                        : 'transparent';
+                                }}
+                            >
+                                <span>{loc.name}</span>
+                                <span style={{ fontSize: 11.5, color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
+                                    {loc.pincode}
+                                </span>
+                            </div>
+                        );
+                    })}
 
                     {/* Custom area option if user typed something not strictly matching first option */}
                     {filtered.length > 0 && query.trim() && !MUMBAI_LOCALITIES.some(l => l.name.toLowerCase() === query.trim().toLowerCase()) && (
@@ -240,15 +296,16 @@ export default function LocalityCombobox({
                             onMouseDown={e => { e.preventDefault(); handleUseCustom(query) }}
                             style={{
                                 padding: '9px 14px',
-                                fontSize: 12,
+                                fontSize: 12.5,
                                 cursor: 'pointer',
-                                color: '#38bdf8',
-                                borderTop: '1px solid rgba(255,255,255,0.06)',
+                                color: isDark ? '#38bdf8' : '#6338f5',
+                                borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e2e8f0',
                                 fontStyle: 'italic',
-                                background: 'transparent',
+                                fontWeight: 600,
+                                background: isDark ? 'transparent' : '#faf5ff',
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(56,189,248,0.08)' : '#f3e8ff'}
+                            onMouseLeave={e => e.currentTarget.style.background = isDark ? 'transparent' : '#faf5ff'}
                         >
                             📍 Use &ldquo;{query.trim()}&rdquo; as custom area
                         </div>
@@ -266,9 +323,10 @@ export default function LocalityCombobox({
                                 padding: '9px 14px',
                                 fontSize: 12,
                                 cursor: 'pointer',
-                                color: '#64748b',
-                                borderTop: '1px solid rgba(255,255,255,0.06)',
+                                color: isDark ? '#64748b' : '#94a3b8',
+                                borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f1f5f9',
                                 fontStyle: 'italic',
+                                background: isDark ? 'transparent' : '#f8fafc',
                             }}
                         >
                             Type any area / landmark if not listed above
