@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { inventoryAPI, inventoryCategoriesAPI, inventoryBrandsAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
@@ -29,19 +29,62 @@ function InventoryTab() {
     
     // UI Utility states
     const [showColumnPicker, setShowColumnPicker] = useState(false);
-    const defaultVisibleCols = ['sku', 'name', 'type', 'subtype', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
+    const columnPickerRef = useRef(null);
+    const STORAGE_KEY_COLUMNS = 'sorted_inventory_visible_columns';
+    const defaultVisibleCols = ['image', 'sku', 'name', 'type', 'subtype', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
     const [visibleColumns, setVisibleColumns] = useState(new Set(defaultVisibleCols));
     const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
     // Dependency modal state
     const [dependencyModal, setDependencyModal] = useState(null); // { product, dependencies[] }
+
+    // Load persisted column selections from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY_COLUMNS);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setVisibleColumns(new Set(parsed));
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load saved column settings:', e);
+        }
+    }, []);
+
+    // Close column picker on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (columnPickerRef.current && !columnPickerRef.current.contains(e.target)) {
+                setShowColumnPicker(false);
+            }
+        };
+        if (showColumnPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showColumnPicker]);
 
     const toggleColumn = (colId) => {
         setVisibleColumns(prev => {
             const next = new Set(prev);
             if (next.has(colId)) next.delete(colId);
             else next.add(colId);
+            try {
+                localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(Array.from(next)));
+            } catch (e) {}
             return next;
         });
+    };
+
+    const resetColumnsToDefault = () => {
+        const next = new Set(defaultVisibleCols);
+        setVisibleColumns(next);
+        try {
+            localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(defaultVisibleCols));
+        } catch (e) {}
     };
 
     const [savedViews, setSavedViews] = useState([]);
@@ -234,6 +277,7 @@ function InventoryTab() {
         res = applyInventoryTags(res, activeTags);
         // 3. Sort
         return res.sort((a, b) => {
+            if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
             if (sortBy === 'name_desc') return (b.name || '').localeCompare(a.name || '');
             if (sortBy === 'sku') return (a.sku || '').localeCompare(b.sku || '');
             if (sortBy === 'sku_desc') return (b.sku || '').localeCompare(a.sku || '');
@@ -241,13 +285,49 @@ function InventoryTab() {
             if (sortBy === 'date_asc') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
             if (sortBy === 'updated_desc') return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
             if (sortBy === 'updated_asc') return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
-            if (sortBy === 'stock_desc') return (b.currentStock || 0) - (a.currentStock || 0);
-            if (sortBy === 'stock_asc') return (a.currentStock || 0) - (b.currentStock || 0);
-            if (sortBy === 'price_desc') return (b.salePrice || 0) - (a.salePrice || 0);
-            if (sortBy === 'price_asc') return (a.salePrice || 0) - (b.salePrice || 0);
+            if (sortBy === 'stock_desc' || sortBy === 'current_stock_desc') return (b.currentStock || 0) - (a.currentStock || 0);
+            if (sortBy === 'stock_asc' || sortBy === 'current_stock') return (a.currentStock || 0) - (b.currentStock || 0);
+            if (sortBy === 'price_desc' || sortBy === 'sale_price_desc') return (b.salePrice || 0) - (a.salePrice || 0);
+            if (sortBy === 'price_asc' || sortBy === 'sale_price') return (a.salePrice || 0) - (b.salePrice || 0);
             if (sortBy === 'purchase_price_desc') return (b.purchasePrice || 0) - (a.purchasePrice || 0);
-            if (sortBy === 'purchase_price_asc') return (a.purchasePrice || 0) - (b.purchasePrice || 0);
-            return (a.name || '').localeCompare(b.name || '');
+            if (sortBy === 'purchase_price_asc' || sortBy === 'purchase_price') return (a.purchasePrice || 0) - (b.purchasePrice || 0);
+
+            // Generic column sort
+            const isDesc = sortBy.endsWith('_desc');
+            const col = isDesc ? sortBy.slice(0, -5) : (sortBy.endsWith('_asc') ? sortBy.slice(0, -4) : sortBy);
+
+            if (col === 'min_stock_level') {
+                const diff = (a.minStockLevel || 0) - (b.minStockLevel || 0);
+                return isDesc ? -diff : diff;
+            }
+            if (col === 'dealer_price') {
+                const diff = (parseFloat(a.dealer_price) || 0) - (parseFloat(b.dealer_price) || 0);
+                return isDesc ? -diff : diff;
+            }
+            if (col === 'retail_price') {
+                const diff = (parseFloat(a.retail_price) || 0) - (parseFloat(b.retail_price) || 0);
+                return isDesc ? -diff : diff;
+            }
+            if (col === 'gst_rate') {
+                const diff = (parseFloat(a.gst_rate) || 0) - (parseFloat(b.gst_rate) || 0);
+                return isDesc ? -diff : diff;
+            }
+            if (col === 'image') {
+                const hasA = Boolean(a.web_details?.thumbnail_image || (Array.isArray(a.images) && a.images.length > 0) || a.image);
+                const hasB = Boolean(b.web_details?.thumbnail_image || (Array.isArray(b.images) && b.images.length > 0) || b.image);
+                const diff = (hasB ? 1 : 0) - (hasA ? 1 : 0);
+                return isDesc ? -diff : diff;
+            }
+            if (col === 'status') {
+                const diff = String(a.status || '').localeCompare(String(b.status || ''));
+                return isDesc ? -diff : diff;
+            }
+
+            // String comparison for category, subcategory, brand, type, subtype, job_type, unit_of_measure, hsn_code, etc.
+            const valA = String(a[col] || '');
+            const valB = String(b[col] || '');
+            const diff = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+            return isDesc ? -diff : diff;
         });
     })();
 
@@ -362,8 +442,9 @@ function InventoryTab() {
     };
 
     const inventoryColumns = [
-        { id: 'name',             label: 'Item Name' },
+        { id: 'image',            label: 'Image / Thumbnail' },
         { id: 'sku',              label: 'SKU' },
+        { id: 'name',             label: 'Item Name' },
         { id: 'type',             label: 'Type' },
         { id: 'subtype',          label: 'Subtype' },
         { id: 'job_type',         label: 'Job Type' },
@@ -687,14 +768,22 @@ function InventoryTab() {
                     <option value="all">All Items</option>
                 </select>
 
-                <div style={{ position: 'relative' }}>
+                <div ref={columnPickerRef} style={{ position: 'relative' }}>
                     <button onClick={() => setShowColumnPicker(p => !p)}
                         style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
                         <SlidersHorizontal size={13} /> Columns
                     </button>
                     {showColumnPicker && (
                         <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                            <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</div>
+                            <div style={{ padding: '4px 14px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</span>
+                                <button
+                                    onClick={resetColumnsToDefault}
+                                    style={{ background: 'none', border: 'none', color: '#6366f1', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+                                >
+                                    Reset Default
+                                </button>
+                            </div>
                             {inventoryColumns.map((col) => (
                                 <div key={col.id} style={{ display: 'flex', alignItems: 'center', padding: '5px 14px' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
@@ -715,7 +804,7 @@ function InventoryTab() {
                         ...p,
                         terms_conditions: Array.isArray(p.terms_conditions) ? p.terms_conditions.join(' | ') : (p.terms_conditions || '')
                     }))} 
-                    columns={inventoryColumns} 
+                    columns={inventoryColumns.filter(c => c.id !== "image")} 
                     exportFilename="SortedSolutions_Inventory"
                     onImport={handleBulkImport}
                     templateConfig={getTemplateConfig()}
@@ -757,7 +846,7 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={visibleProducts} groupBy={groupBy} groupedProducts={getGroupedProducts(visibleProducts)} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} onArchive={handleArchiveProduct} onRestore={handleRestoreProduct} showArchived={statusFilter === 'archived'} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} groupBy={groupBy} groupedProducts={getGroupedProducts(visibleProducts)} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} onArchive={handleArchiveProduct} onRestore={handleRestoreProduct} showArchived={statusFilter === 'archived'} sortBy={sortBy} onSortChange={setSortBy} />}
                         {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView

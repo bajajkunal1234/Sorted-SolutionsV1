@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback } from 'react';
-import { Trash2, CheckSquare, Archive, ArchiveRestore } from 'lucide-react';
+import { Trash2, CheckSquare, Archive, ArchiveRestore, ArrowUp, ArrowDown, ArrowUpDown, Image as ImageIcon } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
 
@@ -15,10 +15,150 @@ import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock }
  * onDelete(id)          — delete a single item
  * onDeleteMany(ids[])   — bulk delete
  */
-function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], onProductClick, categories = [], visibleColumns, onDelete, onDeleteMany, onArchive, onRestore, showArchived = false }) {
+
+function ThumbnailPreview({ product }) {
+    const [imgError, setImgError] = useState(false);
+
+    const imageUrl = !imgError ? (
+        product.web_details?.thumbnail_image ||
+        (Array.isArray(product.images) && product.images[0]) ||
+        (typeof product.images === 'string' && product.images) ||
+        product.image ||
+        product.image_url ||
+        null
+    ) : null;
+
+    return (
+        <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            overflow: 'hidden',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px solid var(--border-primary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            verticalAlign: 'middle',
+            flexShrink: 0
+        }}>
+            {imageUrl ? (
+                <img
+                    src={imageUrl}
+                    alt=""
+                    loading="lazy"
+                    onError={() => setImgError(true)}
+                    style={{
+                        width: '32px',
+                        height: '32px',
+                        objectFit: 'cover',
+                        display: 'block'
+                    }}
+                />
+            ) : (
+                <ImageIcon size={14} style={{ color: 'var(--text-tertiary)', opacity: 0.4 }} />
+            )}
+        </div>
+    );
+}
+
+function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], onProductClick, categories = [], visibleColumns, onDelete, onDeleteMany, onArchive, onRestore, showArchived = false, sortBy = 'name', onSortChange }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
     const isVisible = (col) => !visibleColumns || visibleColumns.has(col);
+    // Sort mapping and header click handler
+    const COLUMN_SORT_KEYS = {
+        name: { asc: 'name', desc: 'name_desc' },
+        sku: { asc: 'sku', desc: 'sku_desc' },
+        sale_price: { asc: 'price_asc', desc: 'price_desc' },
+        current_stock: { asc: 'stock_asc', desc: 'stock_desc' },
+        purchase_price: { asc: 'purchase_price_asc', desc: 'purchase_price_desc' },
+    };
+
+    const getSortInfo = useCallback((colId) => {
+        const keys = COLUMN_SORT_KEYS[colId] || { asc: colId, desc: `${colId}_desc` };
+        let currentDirection = null;
+        if (
+            sortBy === keys.asc ||
+            (colId === 'sale_price' && (sortBy === 'sale_price' || sortBy === 'price_asc')) ||
+            (colId === 'current_stock' && (sortBy === 'current_stock' || sortBy === 'stock_asc')) ||
+            (colId === 'purchase_price' && (sortBy === 'purchase_price' || sortBy === 'purchase_price_asc'))
+        ) {
+            currentDirection = 'asc';
+        } else if (
+            sortBy === keys.desc ||
+            (colId === 'sale_price' && (sortBy === 'sale_price_desc' || sortBy === 'price_desc')) ||
+            (colId === 'current_stock' && (sortBy === 'current_stock_desc' || sortBy === 'stock_desc')) ||
+            (colId === 'purchase_price' && sortBy === 'purchase_price_desc')
+        ) {
+            currentDirection = 'desc';
+        }
+        return { keys, currentDirection };
+    }, [sortBy]);
+
+    const handleHeaderClick = useCallback((colId) => {
+        if (!onSortChange) return;
+        const { keys, currentDirection } = getSortInfo(colId);
+        if (currentDirection === 'asc') {
+            onSortChange(keys.desc);
+        } else {
+            onSortChange(keys.asc);
+        }
+    }, [onSortChange, getSortInfo]);
+
+    const renderSortableHeader = (colId, label, align = 'left', width = 'auto') => {
+        const { currentDirection } = getSortInfo(colId);
+        const isActive = Boolean(currentDirection);
+        const textAlign = align === 'right' ? 'right' : (align === 'center' ? 'center' : 'left');
+        const justify = align === 'right' ? 'flex-end' : (align === 'center' ? 'center' : 'flex-start');
+
+        return (
+            <th
+                key={colId}
+                onClick={() => handleHeaderClick(colId)}
+                title={`Click to sort by ${label}`}
+                style={{
+                    padding: '8px 10px',
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: isActive ? '#818cf8' : 'var(--text-tertiary)',
+                    backgroundColor: isActive ? 'rgba(99,102,241,0.06)' : 'var(--bg-secondary)',
+                    borderBottom: isActive ? '2px solid #6366f1' : '2px solid var(--border-primary)',
+                    whiteSpace: 'nowrap',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    textAlign,
+                    width,
+                    transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => {
+                    if (!isActive) {
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    if (!isActive) {
+                        e.currentTarget.style.color = 'var(--text-tertiary)';
+                        e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                    }
+                }}
+            >
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: justify, gap: '4px', width: '100%' }}>
+                    <span>{label}</span>
+                    {currentDirection === 'asc' && <ArrowUp size={12} style={{ color: '#6366f1', flexShrink: 0 }} />}
+                    {currentDirection === 'desc' && <ArrowDown size={12} style={{ color: '#6366f1', flexShrink: 0 }} />}
+                    {!currentDirection && <ArrowUpDown size={11} style={{ opacity: 0.25, flexShrink: 0 }} />}
+                </div>
+            </th>
+        );
+    };
+
 
     const toggleSelect = useCallback((id, e) => {
         e.stopPropagation();
@@ -112,6 +252,12 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                         style={{ width: 14, height: 14, accentColor: '#6366f1', cursor: 'pointer' }}
                     />
                 </td>
+
+                {isVisible('image') && (
+                    <td style={{ padding: '3px 4px', textAlign: 'center', verticalAlign: 'middle', width: '44px', minWidth: '44px', lineHeight: 1 }}>
+                        <ThumbnailPreview product={product} />
+                    </td>
+                )}
 
                 {isVisible('sku') && (
                     <td style={td}>
@@ -401,25 +547,26 @@ function InventoryTableView({ products, groupBy = 'none', groupedProducts = [], 
                                     style={{ width: 14, height: 14, accentColor: '#6366f1', cursor: 'pointer' }}
                                 />
                             </th>
-                            {isVisible('sku')              && <th style={thBase}>SKU</th>}
-                            {isVisible('name')             && <th style={thBase}>Name</th>}
-                            {isVisible('type')             && <th style={thBase}>Type</th>}
-                            {isVisible('subtype')          && <th style={thBase}>Subtype</th>}
-                            {isVisible('job_type')         && <th style={thBase}>Job Type</th>}
-                            {isVisible('category')         && <th style={thBase}>Category</th>}
-                            {isVisible('subcategory')      && <th style={thBase}>Subcategory</th>}
-                            {isVisible('brand')            && <th style={thBase}>Brand</th>}
-                            {isVisible('current_stock')    && <th style={thRight}>Stock</th>}
-                            {isVisible('min_stock_level')  && <th style={thRight}>Min Stock</th>}
-                            {isVisible('sale_price')       && <th style={thRight}>Sale Price</th>}
-                            {isVisible('purchase_price')   && <th style={thRight}>Purchase</th>}
-                            {isVisible('dealer_price')     && <th style={thRight}>Dealer</th>}
-                            {isVisible('retail_price')     && <th style={thRight}>Retail</th>}
-                            {isVisible('unit_of_measure')  && <th style={thBase}>Unit</th>}
-                            {isVisible('hsn_code')         && <th style={thBase}>HSN / SAC</th>}
-                            {isVisible('hsn_description')  && <th style={thBase}>HSN Description</th>}
-                            {isVisible('gst_rate')         && <th style={thRight}>GST %</th>}
-                            {isVisible('status')           && <th style={thCenter}>Status</th>}
+                            {isVisible('image')            && renderSortableHeader('image', 'Image', 'center', '44px')}
+                            {isVisible('sku')              && renderSortableHeader('sku', 'SKU', 'left')}
+                            {isVisible('name')             && renderSortableHeader('name', 'Name', 'left')}
+                            {isVisible('type')             && renderSortableHeader('type', 'Type', 'left')}
+                            {isVisible('subtype')          && renderSortableHeader('subtype', 'Subtype', 'left')}
+                            {isVisible('job_type')         && renderSortableHeader('job_type', 'Job Type', 'left')}
+                            {isVisible('category')         && renderSortableHeader('category', 'Category', 'left')}
+                            {isVisible('subcategory')      && renderSortableHeader('subcategory', 'Subcategory', 'left')}
+                            {isVisible('brand')            && renderSortableHeader('brand', 'Brand', 'left')}
+                            {isVisible('current_stock')    && renderSortableHeader('current_stock', 'Stock', 'right')}
+                            {isVisible('min_stock_level')  && renderSortableHeader('min_stock_level', 'Min Stock', 'right')}
+                            {isVisible('sale_price')       && renderSortableHeader('sale_price', 'Sale Price', 'right')}
+                            {isVisible('purchase_price')   && renderSortableHeader('purchase_price', 'Purchase', 'right')}
+                            {isVisible('dealer_price')     && renderSortableHeader('dealer_price', 'Dealer', 'right')}
+                            {isVisible('retail_price')     && renderSortableHeader('retail_price', 'Retail', 'right')}
+                            {isVisible('unit_of_measure')  && renderSortableHeader('unit_of_measure', 'Unit', 'left')}
+                            {isVisible('hsn_code')         && renderSortableHeader('hsn_code', 'HSN / SAC', 'left')}
+                            {isVisible('hsn_description')  && renderSortableHeader('hsn_description', 'HSN Description', 'left')}
+                            {isVisible('gst_rate')         && renderSortableHeader('gst_rate', 'GST %', 'right')}
+                            {isVisible('status')           && renderSortableHeader('status', 'Status', 'center')}
                             {/* Delete action column */}
                             <th style={{ ...thCenter, width: '36px' }} />
                         </tr>
