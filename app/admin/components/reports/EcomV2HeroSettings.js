@@ -40,9 +40,9 @@ const LINK_SUGGESTIONS = [
 ];
 
 const PROFILE_PRESETS = [
-    { label: 'Top Right', x: 98, y: 4 },
-    { label: 'Top Left', x: 2, y: 4 },
-    { label: 'Below Search Right', x: 98, y: 48 }
+    { label: 'Below Search Right', x: 98, y: 46 },
+    { label: 'Below Search Left', x: 2, y: 46 },
+    { label: 'Bottom Right', x: 98, y: 84 }
 ];
 
 const CTA_PRESETS = [
@@ -66,7 +66,7 @@ function normalizeSlide(s = {}, idx = 0) {
         ctaLink: String(s.ctaLink || '/v2/services').trim(),
         profilePos: {
             x: clampPercent(s.profilePos?.x, 98),
-            y: clampPercent(s.profilePos?.y, 4),
+            y: clampPercent(s.profilePos?.y, 46),
             visible: s.profilePos?.visible !== false
         },
         ctaPos: {
@@ -220,7 +220,7 @@ export default function EcomV2HeroSettings({ onBack }) {
             mediaUrl: '/images/banners/banner_speed_90_mins.png',
             ctaText: '',
             ctaLink: '/v2/services',
-            profilePos: { x: 98, y: 4, visible: true },
+            profilePos: { x: 98, y: 46, visible: true },
             ctaPos: { x: 6, y: 88 },
             active: true,
             order: slides.length + 1
@@ -1158,36 +1158,45 @@ export default function EcomV2HeroSettings({ onBack }) {
                                 <div style={{
                                     position: 'relative',
                                     zIndex: 10,
-                                    padding: '12px 14px 0',
+                                    padding: '14px 16px 0',
                                     pointerEvents: 'none'
                                 }}>
-                                    <div style={{ paddingRight: 52, marginBottom: 10 }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        marginBottom: 12
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.35)', minWidth: 0, flex: 1 }}>
+                                            <MapPin size={17} style={{ flexShrink: 0 }} />
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13.5, fontWeight: 700, lineHeight: 1.2 }}>
+                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Select Mumbai Locality</span>
+                                                    <ChevronDown size={13} style={{ flexShrink: 0 }} />
+                                                </div>
+                                                <div style={{ fontSize: 11, opacity: 0.88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    Tap to choose flat, society &amp; pincode
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <img
                                             src="/images/logos/logo-dark.png"
                                             alt="Sorted"
                                             draggable={false}
                                             style={{
-                                                height: 20,
+                                                height: 34,
+                                                maxHeight: 38,
                                                 width: 'auto',
+                                                maxWidth: 130,
                                                 objectFit: 'contain',
                                                 display: 'block',
-                                                marginBottom: 5,
-                                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))'
+                                                flexShrink: 0,
+                                                filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.35))'
                                             }}
                                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                         />
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.35)' }}>
-                                            <MapPin size={15} />
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13.5, fontWeight: 700, lineHeight: 1.2 }}>
-                                                    <span>Select Mumbai Locality</span>
-                                                    <ChevronDown size={13} />
-                                                </div>
-                                                <div style={{ fontSize: 11, opacity: 0.88 }}>
-                                                    Tap to choose flat, society &amp; pincode
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div style={{
@@ -1214,7 +1223,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                             ref={overlayBoundsRef}
                             style={{
                                 position: 'absolute',
-                                inset: previewDevice === 'mobile' ? '12px 14px 16px' : '16px 20px 20px',
+                                inset: previewDevice === 'mobile' ? '14px 16px 16px' : '16px 20px 20px',
                                 pointerEvents: 'none',
                                 zIndex: 20
                             }}

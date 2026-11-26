@@ -38,26 +38,8 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                     initialSlides={initialHeroSlides}
                     floatingHeader={
                         <>
-                            {/* Top Floating Row: Brand Logo + Locality Selector (leaves corner clear for Profile button) */}
+                            {/* Top Floating Row: Locality Selector (Left) + Brand Logo (Right, matching category pages) */}
                             <div className="v2-hero-top-meta">
-                                <Link
-                                    href="/v2"
-                                    aria-label={effectiveLogos?.altText || 'Sorted Solutions'}
-                                    className="v2-hero-floating-logo"
-                                >
-                                    <img
-                                        src={heroDarkLogo}
-                                        alt={effectiveLogos?.altText || 'Sorted Solutions'}
-                                        onError={(e) => {
-                                            if (effectiveLogos?.dayModeLogo && e.currentTarget.src !== effectiveLogos.dayModeLogo) {
-                                                e.currentTarget.src = effectiveLogos.dayModeLogo;
-                                            } else {
-                                                e.currentTarget.src = '/logo.jpg';
-                                            }
-                                        }}
-                                    />
-                                </Link>
-
                                 <button
                                     type="button"
                                     className="v2-mobile-loc-btn"
@@ -65,8 +47,8 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                                     suppressHydrationWarning
                                 >
                                     <span className="v2-mobile-loc-left">
-                                        <MapPin size={17} style={{ flexShrink: 0, color: '#ffffff' }} />
-                                        <span style={{ minWidth: 0, display: 'block' }}>
+                                        <MapPin size={19} style={{ flexShrink: 0, color: '#ffffff' }} />
+                                        <span style={{ minWidth: 0, display: 'block', flex: 1 }}>
                                             <span className="v2-mobile-loc-title" suppressHydrationWarning>
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {primaryAddressTitle}
@@ -79,6 +61,25 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                                         </span>
                                     </span>
                                 </button>
+
+                                <Link
+                                    href="/v2"
+                                    aria-label={effectiveLogos?.altText || 'Sorted Solutions'}
+                                    className="v2-hero-floating-logo"
+                                >
+                                    <img
+                                        src={heroDarkLogo}
+                                        alt={effectiveLogos?.altText || 'Sorted Solutions'}
+                                        suppressHydrationWarning
+                                        onError={(e) => {
+                                            if (effectiveLogos?.dayModeLogo && e.currentTarget.src !== effectiveLogos.dayModeLogo) {
+                                                e.currentTarget.src = effectiveLogos.dayModeLogo;
+                                            } else {
+                                                e.currentTarget.src = '/images/logos/logo-dark.png';
+                                            }
+                                        }}
+                                    />
+                                </Link>
                             </div>
 
                             {/* Floating Search Bar */}

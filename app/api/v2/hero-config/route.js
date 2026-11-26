@@ -19,7 +19,7 @@ export function normalizeHeroSlide(s = {}, idx = 0) {
         ctaLink: String(s.ctaLink || '/v2/services').trim(),
         profilePos: {
             x: clampPercent(s.profilePos?.x, 98),
-            y: clampPercent(s.profilePos?.y, 4),
+            y: clampPercent(s.profilePos?.y, 46),
             visible: s.profilePos?.visible !== false
         },
         ctaPos: {
@@ -38,7 +38,7 @@ export const DEFAULT_HERO_SLIDES = [
         mediaUrl: '/images/banners/banner_speed_90_mins.png',
         ctaText: '',
         ctaLink: '/v2/services/ac-repair',
-        profilePos: { x: 98, y: 4, visible: true },
+        profilePos: { x: 98, y: 46, visible: true },
         ctaPos: { x: 6, y: 88 },
         active: true,
         order: 1
@@ -49,7 +49,7 @@ export const DEFAULT_HERO_SLIDES = [
         mediaUrl: '/images/banners/banner_30_day_warranty.png',
         ctaText: '',
         ctaLink: '/v2/services/washing-machine-repair',
-        profilePos: { x: 98, y: 4, visible: true },
+        profilePos: { x: 98, y: 46, visible: true },
         ctaPos: { x: 6, y: 88 },
         active: true,
         order: 2
@@ -60,7 +60,7 @@ export const DEFAULT_HERO_SLIDES = [
         mediaUrl: '/images/banners/banner_pan_mumbai.png',
         ctaText: '',
         ctaLink: '/v2/services/water-purifier-repair',
-        profilePos: { x: 98, y: 4, visible: true },
+        profilePos: { x: 98, y: 46, visible: true },
         ctaPos: { x: 6, y: 88 },
         active: true,
         order: 3
