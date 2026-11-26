@@ -279,73 +279,135 @@
     }
 }
 
-/* ── Mobile Urban Company Purple Hero ────────────────────────── */
+/* ── Urban Company Style Full-Bleed Hero & Floating Overlay ───── */
 .v2-hero-wrap {
-    background: linear-gradient(180deg, var(--v2-hero-top) 0%, var(--v2-hero-mid) 58%, var(--v2-hero-bottom) 100%);
+    background: #1d1042;
     color: #fff;
-    padding: 14px 16px 26px;
+    padding: 0;
     position: relative;
 }
 
-@media (min-width: 768px) {
-    .v2-hero-wrap {
-        padding: 36px 24px 44px;
-        border-radius: 0 0 28px 28px;
-    }
+.v2-hero-carousel-wrap {
+    position: relative;
+    width: 100%;
+    height: clamp(310px, 84vw, 390px);
+    margin: 0;
+}
+
+.v2-hero-media-stage {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: #1d1042;
+}
+
+.v2-hero-media-el {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    animation: v2FadeIn 0.35s ease;
+}
+
+.v2-hero-top-scrim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 145px;
+    background: linear-gradient(
+        180deg,
+        rgba(15, 23, 42, 0.44) 0%,
+        rgba(15, 23, 42, 0.16) 58%,
+        rgba(15, 23, 42, 0) 100%
+    );
+    pointer-events: none;
+    z-index: 2;
+}
+
+.v2-hero-floating-top {
+    position: relative;
+    z-index: 15;
+    padding: 12px 14px 0;
+    pointer-events: none;
+}
+
+.v2-hero-top-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    padding-right: 52px;
+    margin-bottom: 10px;
+}
+
+.v2-hero-floating-logo {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.v2-hero-floating-logo img {
+    height: 22px;
+    width: auto;
+    max-width: 130px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
 .v2-mobile-loc-btn {
+    pointer-events: auto;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    width: 100%;
+    align-items: center;
+    max-width: 100%;
     background: transparent;
     border: none;
     color: #fff;
-    padding: 0 0 12px;
+    padding: 0;
     cursor: pointer;
     text-align: left;
     font-family: inherit;
-}
-
-@media (min-width: 768px) {
-    .v2-mobile-loc-btn {
-        display: none;
-    }
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .v2-mobile-loc-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
 }
 
 .v2-mobile-loc-title {
-    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
     font-weight: 700;
     line-height: 1.2;
+    color: #ffffff;
 }
 
 .v2-mobile-loc-sub {
-    font-size: 12.5px;
-    color: rgba(255, 255, 255, 0.78);
+    display: block;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.88);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 72vw;
-    margin-top: 2px;
+    max-width: 74vw;
+    margin-top: 1px;
+}
+
+.v2-hero-floating-search {
+    pointer-events: auto;
 }
 
 .v2-hero-search-mobile {
     position: relative;
-    margin-bottom: 16px;
-}
-
-@media (min-width: 768px) {
-    .v2-hero-search-mobile {
-        display: none;
-    }
+    margin-bottom: 0;
 }
 
 .v2-hero-search-pill {
@@ -355,7 +417,7 @@
     background: #fff;
     border-radius: 12px;
     padding: 0 14px;
-    height: 46px;
+    height: 44px;
     box-shadow: 0 6px 20px rgba(13, 7, 36, 0.22);
 }
 
@@ -366,97 +428,98 @@
     font-size: 14px;
     font-family: inherit;
     color: var(--v2-ink);
+    background: transparent;
 }
 
-.v2-hero-headline {
-    display: none;
+.v2-hero-overlay-bounds {
+    position: absolute;
+    inset: 12px 14px 16px;
+    pointer-events: none;
+    z-index: 20;
 }
 
-@media (min-width: 768px) {
-    .v2-hero-headline {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 24px;
-        margin-bottom: 24px;
-    }
-    .v2-hero-headline h1 {
-        margin: 0;
-        font-size: 36px;
-        line-height: 1.15;
-        font-weight: 700;
-        letter-spacing: -0.025em;
-        max-width: 620px;
-        color: #ffffff !important;
-    }
-    .v2-hero-headline p {
-        margin: 8px 0 0;
-        font-size: 15px;
-        color: rgba(255, 255, 255, 0.82);
-    }
+.v2-hero-profile-btn {
+    position: absolute;
+    pointer-events: auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform 0.15s ease;
 }
 
-.v2-hero-mobile-banner {
+.v2-hero-profile-btn:active {
+    transform: scale(0.95);
+}
+
+.v2-hero-profile-dot {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    border: 1.5px solid #ffffff;
+}
+
+.v2-hero-cta-pill {
+    position: absolute;
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #ffffff;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.84);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.v2-hero-cta-pill:hover {
+    background: rgba(15, 23, 42, 0.96);
+}
+
+.v2-hero-dots {
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 4px;
+    z-index: 18;
 }
 
-@media (min-width: 768px) {
-    .v2-hero-mobile-banner {
-        display: none;
-    }
-}
-
-.v2-hero-kicker {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    color: #fde68a;
-    margin-bottom: 6px;
-}
-
-.v2-hero-mobile-banner h1 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1.2;
-    color: #ffffff !important;
-}
-
-/* ── Hero Carousel (Urban Company 3-Slide Auto-Sliding Banner) ── */
-.v2-hero-carousel-wrap {
-    position: relative;
-    border-radius: 18px;
-    overflow: hidden;
-    margin: 12px 0 16px 0;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-}
-
-@keyframes v2StoryProgressFill {
-    from {
-        width: 0%;
-    }
-    to {
-        width: 100%;
-    }
+.v2-hero-dot-btn {
+    border: none;
+    padding: 4px 0;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
 }
 
 @keyframes v2FadeIn {
     from {
-        opacity: 0;
-        transform: scale(0.97);
+        opacity: 0.72;
     }
     to {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
@@ -465,10 +528,10 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(15, 23, 42, 0.45);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.3);
@@ -477,32 +540,42 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
-    z-index: 6;
+    z-index: 25;
 }
 
 .v2-hero-arrow-btn:hover {
-    background: rgba(0, 0, 0, 0.65);
+    background: rgba(15, 23, 42, 0.78);
     transform: translateY(-50%) scale(1.08);
 }
 
 .v2-hero-arrow-left {
-    left: 10px;
+    left: 16px;
 }
 
 .v2-hero-arrow-right {
-    right: 10px;
+    right: 16px;
 }
 
 @media (min-width: 768px) {
     .v2-hero-carousel-wrap {
-        margin: 18px 0 24px 0;
+        height: clamp(340px, 28vw, 440px);
+    }
+    .v2-hero-floating-top,
+    .v2-hero-top-scrim,
+    .v2-hero-profile-btn {
+        display: none;
+    }
+    .v2-hero-overlay-bounds {
+        max-width: 1220px;
+        margin: 0 auto;
+        inset: 20px 24px 24px;
     }
     .v2-hero-carousel-wrap:hover .v2-hero-arrow-btn {
         display: flex;
     }
-    .v2-hero-carousel-slide {
-        padding: 24px 32px 30px 32px !important;
-        min-height: 200px !important;
+    .v2-hero-dots {
+        bottom: 14px;
+        right: 24px;
     }
 }
 

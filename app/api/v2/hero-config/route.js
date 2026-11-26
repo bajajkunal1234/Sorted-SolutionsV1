@@ -1,57 +1,73 @@
 import { createServerSupabase } from '@/lib/supabase-server';
+import { invalidateServerCatalogCache } from '@/lib/v2/serverCatalog';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+function clampPercent(val, fallback) {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+export function normalizeHeroSlide(s = {}, idx = 0) {
+    return {
+        id: s.id || `slide-${idx + 1}-${Date.now().toString(36)}`,
+        mediaType: ['image', 'gif', 'video'].includes(s.mediaType) ? s.mediaType : 'image',
+        mediaUrl: String(s.mediaUrl || '').trim(),
+        ctaText: String(s.ctaText ?? '').trim(),
+        ctaLink: String(s.ctaLink || '/v2/services').trim(),
+        profilePos: {
+            x: clampPercent(s.profilePos?.x, 98),
+            y: clampPercent(s.profilePos?.y, 4),
+            visible: s.profilePos?.visible !== false
+        },
+        ctaPos: {
+            x: clampPercent(s.ctaPos?.x, 6),
+            y: clampPercent(s.ctaPos?.y, 88)
+        },
+        active: Boolean(s.active !== false),
+        order: typeof s.order === 'number' ? s.order : idx + 1
+    };
+}
+
 export const DEFAULT_HERO_SLIDES = [
     {
         id: 'slide-1',
-        kicker: 'AC Foam-Jet Deep Clean',
-        headline: 'Beat the Mumbai Heat with 25% Off',
-        subline: 'Starts at ₹599 • 90-min doorstep arrival',
-        ctaText: 'Book now',
-        ctaLink: '/v2/services/ac-repair',
-        bgColor: '#311b6b',
-        bgGradient: 'linear-gradient(135deg, #1d1042 0%, #47288f 100%)',
         mediaType: 'image',
         mediaUrl: '/images/banners/banner_speed_90_mins.png',
-        badge: '25% OFF',
+        ctaText: '',
+        ctaLink: '/v2/services/ac-repair',
+        profilePos: { x: 98, y: 4, visible: true },
+        ctaPos: { x: 6, y: 88 },
         active: true,
         order: 1
     },
     {
         id: 'slide-2',
-        kicker: 'Certified Pros & Genuine Parts',
-        headline: 'Expert Washing Machine & Fridge Care',
-        subline: '30-Day post-repair warranty included',
-        ctaText: 'Explore services',
-        ctaLink: '/v2/services/washing-machine-repair',
-        bgColor: '#3e2723',
-        bgGradient: 'linear-gradient(135deg, #2b170c 0%, #5d3a1a 100%)',
         mediaType: 'image',
         mediaUrl: '/images/banners/banner_30_day_warranty.png',
-        badge: '30-DAY WARRANTY',
+        ctaText: '',
+        ctaLink: '/v2/services/washing-machine-repair',
+        profilePos: { x: 98, y: 4, visible: true },
+        ctaPos: { x: 6, y: 88 },
         active: true,
         order: 2
     },
     {
         id: 'slide-3',
-        kicker: 'Mumbai Hyper-Local Dispatch',
-        headline: 'Water Purifier & Chimney Servicing',
-        subline: 'Powai to Colaba • Upfront fixed pricing',
-        ctaText: 'Book service',
-        ctaLink: '/v2/services/water-purifier-repair',
-        bgColor: '#0277bd',
-        bgGradient: 'linear-gradient(135deg, #01416e 0%, #0288d1 100%)',
         mediaType: 'image',
         mediaUrl: '/images/banners/banner_pan_mumbai.png',
-        badge: 'ALL MUMBAI',
+        ctaText: '',
+        ctaLink: '/v2/services/water-purifier-repair',
+        profilePos: { x: 98, y: 4, visible: true },
+        ctaPos: { x: 6, y: 88 },
         active: true,
         order: 3
     }
 ];
 
-export async function GET(request) {
+export async function GET() {
     try {
         const supabase = createServerSupabase();
         if (!supabase) {
@@ -77,7 +93,7 @@ export async function GET(request) {
 
         const config = data?.extra_config || data?.config;
         const slides = Array.isArray(config?.slides) && config.slides.length > 0
-            ? config.slides
+            ? config.slides.map((s, idx) => normalizeHeroSlide(s, idx))
             : DEFAULT_HERO_SLIDES;
 
         return NextResponse.json({
@@ -120,22 +136,7 @@ async function handleSave(request) {
             return NextResponse.json({ success: false, error: 'At least one slide is required' }, { status: 400 });
         }
 
-        // Clean & sanitize slides
-        const sanitizedSlides = slides.map((s, idx) => ({
-            id: s.id || `slide-${idx + 1}-${Date.now().toString(36)}`,
-            kicker: String(s.kicker || '').trim(),
-            headline: String(s.headline || '').trim(),
-            subline: String(s.subline || '').trim(),
-            ctaText: String(s.ctaText || 'Book now').trim(),
-            ctaLink: String(s.ctaLink || '/v2/services').trim(),
-            bgColor: s.bgColor || '#311b6b',
-            bgGradient: s.bgGradient || 'linear-gradient(135deg, #1d1042 0%, #47288f 100%)',
-            mediaType: ['image', 'gif', 'video'].includes(s.mediaType) ? s.mediaType : 'image',
-            mediaUrl: String(s.mediaUrl || '').trim(),
-            badge: String(s.badge || '').trim(),
-            active: Boolean(s.active !== false),
-            order: typeof s.order === 'number' ? s.order : idx + 1
-        }));
+        const sanitizedSlides = slides.map((s, idx) => normalizeHeroSlide(s, idx));
 
         const extra_config = {
             slides: sanitizedSlides,
@@ -155,6 +156,8 @@ async function handleSave(request) {
             .single();
 
         if (error) throw error;
+
+        invalidateServerCatalogCache();
 
         return NextResponse.json({
             success: true,

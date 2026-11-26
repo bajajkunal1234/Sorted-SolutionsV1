@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { MapPin, ChevronDown, ArrowRight, ShieldCheck, Clock, Receipt, Sparkles, Wrench, FileText } from 'lucide-react';
-import { V2_CATEGORIES, V2_HERO_CARDS } from '@/lib/v2/catalogConfig';
+import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import { useV2Cart } from './CartContext';
 import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
@@ -32,131 +32,62 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
 
     return (
         <div>
-            {/* ── Urban Company Inspired Dark Violet Hero ── */}
+            {/* ── Urban Company Style Full-Bleed Hero with Floating Controls ── */}
             <section className="v2-hero-wrap">
-                <div className="v2-container" style={{ paddingLeft: 0, paddingRight: 0 }}>
-                    {/* Top Header Row: Locality Selector (Left) + Sorted Solutions Brand (Right) */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 12,
-                        marginBottom: 14,
-                        padding: '0 4px'
-                    }}>
-                        {/* Mobile Top Locality Selector */}
-                        <button
-                            type="button"
-                            className="v2-mobile-loc-btn"
-                            onClick={() => setLocationModalOpen(true)}
-                            suppressHydrationWarning
-                            style={{
-                                flex: 1,
-                                minWidth: 0,
-                                padding: 0,
-                                margin: 0,
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                textAlign: 'left'
-                            }}
-                        >
-                            <span className="v2-mobile-loc-left" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                <MapPin size={20} style={{ flexShrink: 0, color: '#ffffff' }} />
-                                <span style={{ minWidth: 0, display: 'block' }}>
-                                    <span className="v2-mobile-loc-title" style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#ffffff' }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} suppressHydrationWarning>
-                                            {primaryAddressTitle}
+                <HeroCarousel
+                    initialSlides={initialHeroSlides}
+                    floatingHeader={
+                        <>
+                            {/* Top Floating Row: Brand Logo + Locality Selector (leaves corner clear for Profile button) */}
+                            <div className="v2-hero-top-meta">
+                                <Link
+                                    href="/v2"
+                                    aria-label={effectiveLogos?.altText || 'Sorted Solutions'}
+                                    className="v2-hero-floating-logo"
+                                >
+                                    <img
+                                        src={heroDarkLogo}
+                                        alt={effectiveLogos?.altText || 'Sorted Solutions'}
+                                        onError={(e) => {
+                                            if (effectiveLogos?.dayModeLogo && e.currentTarget.src !== effectiveLogos.dayModeLogo) {
+                                                e.currentTarget.src = effectiveLogos.dayModeLogo;
+                                            } else {
+                                                e.currentTarget.src = '/logo.jpg';
+                                            }
+                                        }}
+                                    />
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    className="v2-mobile-loc-btn"
+                                    onClick={() => setLocationModalOpen(true)}
+                                    suppressHydrationWarning
+                                >
+                                    <span className="v2-mobile-loc-left">
+                                        <MapPin size={17} style={{ flexShrink: 0, color: '#ffffff' }} />
+                                        <span style={{ minWidth: 0, display: 'block' }}>
+                                            <span className="v2-mobile-loc-title" suppressHydrationWarning>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {primaryAddressTitle}
+                                                </span>
+                                                <ChevronDown size={14} style={{ flexShrink: 0, opacity: 0.9 }} />
+                                            </span>
+                                            <span className="v2-mobile-loc-sub" suppressHydrationWarning>
+                                                {secondaryAddressSub}
+                                            </span>
                                         </span>
-                                        <ChevronDown size={15} style={{ flexShrink: 0, opacity: 0.85 }} />
                                     </span>
-                                    <span className="v2-mobile-loc-sub" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }} suppressHydrationWarning>
-                                        {secondaryAddressSub}
-                                    </span>
-                                </span>
-                            </span>
-                        </button>
+                                </button>
+                            </div>
 
-                        {/* Top Right Brand Logo (Clean, No Pill, No Text) */}
-                        <Link
-                            href="/v2"
-                            aria-label={effectiveLogos?.altText || "Sorted Solutions"}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
-                                flexShrink: 0,
-                                textDecoration: 'none',
-                                padding: '2px 0',
-                                transition: 'opacity 0.15s ease'
-                            }}
-                        >
-                            <img
-                                src={heroDarkLogo}
-                                alt={effectiveLogos?.altText || "Sorted Solutions"}
-                                style={{
-                                    height: 38,
-                                    maxHeight: 44,
-                                    width: 'auto',
-                                    maxWidth: 140,
-                                    objectFit: 'contain',
-                                    display: 'block'
-                                }}
-                                onError={(e) => {
-                                    if (effectiveLogos?.dayModeLogo && e.currentTarget.src !== effectiveLogos.dayModeLogo) {
-                                        e.currentTarget.src = effectiveLogos.dayModeLogo;
-                                    } else {
-                                        e.currentTarget.src = '/logo.jpg';
-                                    }
-                                }}
-                            />
-                        </Link>
-                    </div>
-
-                    {/* Mobile Search Pill */}
-                    <ServiceSearchBox variant="mobile-hero" />
-
-                    {/* Mobile Compact Headline */}
-                    <div className="v2-hero-mobile-banner">
-                        <div>
-                            <h1 style={{ color: '#ffffff' }}>Appliance care, sorted in 90 mins</h1>
-                        </div>
-                    </div>
-
-                    {/* Desktop Rich Headline */}
-                    <div className="v2-hero-headline">
-                        <div>
-                            <span className="v2-hero-kicker">Mumbai Hyper-Local Dispatch</span>
-                            <h1>Home appliance services, priced upfront & delivered on time.</h1>
-                            <p>
-                                Add verified repairs & foam-jet services straight to your cart across 6 Mumbai appliance specialties.
-                            </p>
-                        </div>
-                        <Link
-                            href="/v2/services"
-                            style={{
-                                color: '#fff',
-                                textDecoration: 'none',
-                                fontSize: 13.5,
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '10px 16px',
-                                borderRadius: 12,
-                                background: 'rgba(255,255,255,0.14)',
-                                border: '1px solid rgba(255,255,255,0.22)',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            Browse all services <ArrowRight size={15} />
-                        </Link>
-                    </div>
-
-                    {/* Dynamic Auto-Sliding Hero Carousel (GIFs, Videos & Offers) */}
-                    <HeroCarousel initialSlides={initialHeroSlides} />
-                </div>
+                            {/* Floating Search Bar */}
+                            <div className="v2-hero-floating-search">
+                                <ServiceSearchBox variant="mobile-hero" placeholder="Search for a service" />
+                            </div>
+                        </>
+                    }
+                />
             </section>
 
             {/* ── White 4-Col (Mobile) / 6-Col (Desktop) Category Grid ── */}

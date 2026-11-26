@@ -19,42 +19,14 @@ import {
     ArrowRight,
     Sliders,
     Monitor,
-    Smartphone
+    Smartphone,
+    MapPin,
+    ChevronDown,
+    Search,
+    User,
+    Move
 } from 'lucide-react';
 import { uploadClientMedia } from '@/lib/v2/clientUpload';
-
-const COLOR_PRESETS = [
-    {
-        name: 'Royal Violet (Default)',
-        bgColor: '#311b6b',
-        bgGradient: 'linear-gradient(135deg, #1d1042 0%, #47288f 100%)'
-    },
-    {
-        name: 'Festive Pink (UC Style)',
-        bgColor: '#e91e63',
-        bgGradient: 'linear-gradient(135deg, #880e4f 0%, #e91e63 100%)'
-    },
-    {
-        name: 'Warm Bronze (UC Style)',
-        bgColor: '#3e2723',
-        bgGradient: 'linear-gradient(135deg, #2b170c 0%, #5d3a1a 100%)'
-    },
-    {
-        name: 'Ocean Blue (UC Style)',
-        bgColor: '#0288d1',
-        bgGradient: 'linear-gradient(135deg, #01416e 0%, #0288d1 100%)'
-    },
-    {
-        name: 'Emerald Pro',
-        bgColor: '#059669',
-        bgGradient: 'linear-gradient(135deg, #064e3b 0%, #059669 100%)'
-    },
-    {
-        name: 'Midnight Slate',
-        bgColor: '#1e293b',
-        bgGradient: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)'
-    }
-];
 
 const LINK_SUGGESTIONS = [
     { label: 'All Services', url: '/v2/services' },
@@ -66,6 +38,45 @@ const LINK_SUGGESTIONS = [
     { label: 'Hob & Chimney Service', url: '/v2/services/hob-repair' },
     { label: 'AMC & Care Plans', url: '/v2/customer?tab=plans' }
 ];
+
+const PROFILE_PRESETS = [
+    { label: 'Top Right', x: 98, y: 4 },
+    { label: 'Top Left', x: 2, y: 4 },
+    { label: 'Below Search Right', x: 98, y: 48 }
+];
+
+const CTA_PRESETS = [
+    { label: 'Bottom Left', x: 6, y: 88 },
+    { label: 'Bottom Center', x: 50, y: 88 },
+    { label: 'Bottom Right', x: 94, y: 82 },
+    { label: 'Middle Left', x: 6, y: 66 }
+];
+
+function clampPercent(val, fallback) {
+    const n = Number(val);
+    return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : fallback;
+}
+
+function normalizeSlide(s = {}, idx = 0) {
+    return {
+        id: s.id || `slide-${idx + 1}-${Date.now().toString(36)}`,
+        mediaType: ['image', 'gif', 'video'].includes(s.mediaType) ? s.mediaType : 'image',
+        mediaUrl: String(s.mediaUrl || '').trim(),
+        ctaText: String(s.ctaText ?? '').trim(),
+        ctaLink: String(s.ctaLink || '/v2/services').trim(),
+        profilePos: {
+            x: clampPercent(s.profilePos?.x, 98),
+            y: clampPercent(s.profilePos?.y, 4),
+            visible: s.profilePos?.visible !== false
+        },
+        ctaPos: {
+            x: clampPercent(s.ctaPos?.x, 6),
+            y: clampPercent(s.ctaPos?.y, 88)
+        },
+        active: s.active !== false,
+        order: typeof s.order === 'number' ? s.order : idx + 1
+    };
+}
 
 export default function EcomV2HeroSettings({ onBack }) {
     const [slides, setSlides] = useState([]);
@@ -80,10 +91,11 @@ export default function EcomV2HeroSettings({ onBack }) {
     const [previewDevice, setPreviewDevice] = useState('mobile'); // 'mobile' | 'desktop'
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [draggingTarget, setDraggingTarget] = useState(null); // 'profile' | 'cta' | null
 
     const fileInputRef = useRef(null);
+    const overlayBoundsRef = useRef(null);
 
-    // Fetch existing settings
     useEffect(() => {
         fetchConfig();
     }, []);
@@ -95,7 +107,8 @@ export default function EcomV2HeroSettings({ onBack }) {
             const res = await fetch('/api/v2/hero-config');
             const json = await res.json();
             if (json.success && json.data) {
-                setSlides(json.data.slides || []);
+                const normalized = (json.data.slides || []).map((s, idx) => normalizeSlide(s, idx));
+                setSlides(normalized);
                 setAutoSlideSeconds(json.data.autoSlideSeconds || 7);
                 setEnableVideoAdvance(json.data.enableVideoAdvance ?? true);
             }
@@ -122,7 +135,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    slides,
+                    slides: slides.map((s, idx) => normalizeSlide(s, idx)),
                     autoSlideSeconds: Number(autoSlideSeconds) || 7,
                     enableVideoAdvance
                 })
@@ -151,26 +164,67 @@ export default function EcomV2HeroSettings({ onBack }) {
         });
     };
 
+    const updateNestedPos = (key, patch) => {
+        setSlides(prev => {
+            const next = [...prev];
+            if (next[activeSlideIndex]) {
+                next[activeSlideIndex] = {
+                    ...next[activeSlideIndex],
+                    [key]: { ...(next[activeSlideIndex][key] || {}), ...patch }
+                };
+            }
+            return next;
+        });
+    };
+
+    // Drag-to-position handler on Live Preview
+    useEffect(() => {
+        if (!draggingTarget) return;
+
+        const handlePointerMove = (e) => {
+            const boundsEl = overlayBoundsRef.current;
+            if (!boundsEl) return;
+            const rect = boundsEl.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            const x = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+            const y = Math.round(Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)));
+
+            if (draggingTarget === 'profile') {
+                updateNestedPos('profilePos', { x, y });
+            } else if (draggingTarget === 'cta') {
+                updateNestedPos('ctaPos', { x, y });
+            }
+        };
+
+        const handlePointerUp = () => {
+            setDraggingTarget(null);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+        };
+    }, [draggingTarget, activeSlideIndex]);
+
     const handleAddSlide = () => {
         if (slides.length >= 6) {
             alert('Maximum 6 slides recommended for hero carousel.');
             return;
         }
-        const newSlide = {
+        const newSlide = normalizeSlide({
             id: `slide-${Date.now().toString(36)}`,
-            kicker: 'Mumbai Doorstep Care',
-            headline: 'Special Discount on Appliance Care',
-            subline: 'Starts at ₹499 • 90-min arrival',
-            ctaText: 'Book now',
-            ctaLink: '/v2/services',
-            bgColor: '#311b6b',
-            bgGradient: 'linear-gradient(135deg, #1d1042 0%, #47288f 100%)',
             mediaType: 'image',
             mediaUrl: '/images/banners/banner_speed_90_mins.png',
-            badge: 'SPECIAL',
+            ctaText: '',
+            ctaLink: '/v2/services',
+            profilePos: { x: 98, y: 4, visible: true },
+            ctaPos: { x: 6, y: 88 },
             active: true,
             order: slides.length + 1
-        };
+        }, slides.length);
         setSlides(prev => [...prev, newSlide]);
         setActiveSlideIndex(slides.length);
     };
@@ -198,12 +252,10 @@ export default function EcomV2HeroSettings({ onBack }) {
         setActiveSlideIndex(toIndex);
     };
 
-    // File upload handler
     const handleFileUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Size check
         const isVideo = file.type.startsWith('video/');
         const isGif = file.type === 'image/gif';
         const maxSizeBytes = isVideo ? 15 * 1024 * 1024 : 8 * 1024 * 1024;
@@ -225,7 +277,6 @@ export default function EcomV2HeroSettings({ onBack }) {
                 preserveFormat: true
             });
 
-            // Detect media type
             let detectedType = 'image';
             if (isVideo) detectedType = 'video';
             else if (isGif) detectedType = 'gif';
@@ -242,7 +293,7 @@ export default function EcomV2HeroSettings({ onBack }) {
         }
     };
 
-    const currentSlide = slides[activeSlideIndex] || slides[0] || {};
+    const currentSlide = normalizeSlide(slides[activeSlideIndex] || slides[0] || {}, activeSlideIndex);
 
     if (loading) {
         return (
@@ -291,7 +342,7 @@ export default function EcomV2HeroSettings({ onBack }) {
                             </h2>
                         </div>
                         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                            Configure seasonal 3-slide auto-sliding hero banners (GIFs, images, or looping videos) for the <code>/v2</code> storefront.
+                            Upload full-bleed hero banners (GIFs, videos, or images) that slide beneath floating Logo, Location, Search, Profile &amp; CTA controls on <code>/v2</code>.
                         </p>
                     </div>
                 </div>
@@ -459,16 +510,19 @@ export default function EcomV2HeroSettings({ onBack }) {
                             transition: 'all 0.15s'
                         }}
                     >
+                        <span>Slide {idx + 1}</span>
                         <span style={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: '50%',
-                            backgroundColor: slide.bgColor || '#6338f5',
-                            display: 'inline-block',
-                            border: '1px solid rgba(255,255,255,0.4)'
-                        }} />
-                        <span>Slide {idx + 1}: {slide.kicker || 'Untitled'}</span>
-                        {!slide.active && (
+                            fontSize: 10,
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            background: 'rgba(99,56,245,0.12)',
+                            color: '#6338f5',
+                            fontWeight: 700,
+                            textTransform: 'uppercase'
+                        }}>
+                            {slide.mediaType || 'image'}
+                        </span>
+                        {slide.active === false && (
                             <span style={{ fontSize: 10, padding: '2px 5px', borderRadius: 4, background: '#fee2e2', color: '#991b1b' }}>
                                 OFF
                             </span>
@@ -506,7 +560,10 @@ export default function EcomV2HeroSettings({ onBack }) {
                     background: 'var(--bg-elevated)',
                     border: '1px solid var(--border-primary)',
                     borderRadius: 14,
-                    padding: 20
+                    padding: 20,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 16
                 }}>
                     {/* Slide Header Toolbar */}
                     <div style={{
@@ -514,7 +571,6 @@ export default function EcomV2HeroSettings({ onBack }) {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         paddingBottom: 14,
-                        marginBottom: 16,
                         borderBottom: '1px solid var(--border-primary)'
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -585,17 +641,154 @@ export default function EcomV2HeroSettings({ onBack }) {
                         </div>
                     </div>
 
-                    {/* Copywriting Inputs */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {/* 1. Hero Slide Media (GIF / Video / Image) */}
+                    <div style={{
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 12,
+                        padding: 14,
+                        background: 'var(--bg-primary)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Film size={16} color="#6338f5" />
+                                <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>Hero Slide Media (GIF / Video / Image)</strong>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                {['image', 'gif', 'video'].map(type => (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        onClick={() => updateCurrentSlide('mediaType', type)}
+                                        style={{
+                                            padding: '4px 8px',
+                                            borderRadius: 6,
+                                            border: currentSlide.mediaType === type ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
+                                            backgroundColor: currentSlide.mediaType === type ? 'rgba(99,56,245,0.1)' : 'transparent',
+                                            color: currentSlide.mediaType === type ? '#6338f5' : 'var(--text-secondary)',
+                                            fontSize: 11.5,
+                                            fontWeight: 600,
+                                            textTransform: 'uppercase',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {type}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Full-Bleed Upload Guidance Box */}
+                        <div style={{
+                            padding: '11px 13px',
+                            borderRadius: 10,
+                            backgroundColor: 'rgba(99, 56, 245, 0.05)',
+                            border: '1px solid rgba(99, 56, 245, 0.2)',
+                            marginBottom: 12,
+                            fontSize: 12,
+                            color: 'var(--text-primary)',
+                            lineHeight: 1.5
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#6338f5', marginBottom: 4 }}>
+                                <Info size={14} />
+                                <span>Full-Bleed Hero Banner Guidelines</span>
+                            </div>
+                            <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--text-secondary)', fontSize: 11.5 }}>
+                                <li><strong>Recommended Canvas:</strong> 1200 × 960 px (5:4) or 1080 × 900 px full artwork with baked-in text/offers.</li>
+                                <li><strong>Top Safe Zone:</strong> Keep the top ~32% clean/solid color so the floating Logo, Location &amp; Search Bar stay crisp.</li>
+                                <li><strong>Max Sizes:</strong> PNG/WebP/GIF up to 8 MB • MP4/WebM video up to 15 MB (muted).</li>
+                            </ul>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
+                                onChange={handleFileUpload}
+                                style={{ display: 'none' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '9px 16px',
+                                    borderRadius: 8,
+                                    border: '1px solid #6338f5',
+                                    backgroundColor: '#6338f5',
+                                    color: '#ffffff',
+                                    fontSize: 12.5,
+                                    fontWeight: 600,
+                                    cursor: uploading ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {uploading ? (
+                                    <>
+                                        <RefreshCw size={14} className="animate-spin" /> Uploading ({uploadProgress}%)...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload size={14} /> Upload GIF, Video or Image
+                                    </>
+                                )}
+                            </button>
+
+                            <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                or enter URL below
+                            </span>
+                        </div>
+
+                        <input
+                            type="text"
+                            value={currentSlide.mediaUrl || ''}
+                            onChange={(e) => updateCurrentSlide('mediaUrl', e.target.value)}
+                            placeholder="https://.../hero-slide.mp4 or /images/banners/banner.png"
+                            style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                borderRadius: 8,
+                                border: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                color: 'var(--text-primary)',
+                                fontSize: 12,
+                                fontFamily: 'monospace'
+                            }}
+                        />
+                    </div>
+
+                    {/* 2. Optional CTA Button Text + CTA Destination Link */}
+                    <div className="ecom-v2-form-grid-cta">
                         <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                Kicker / Category Pill (e.g. "AC Foam-Jet Clean", "Salon at home")
-                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                    CTA Button Text (Optional)
+                                </label>
+                                {currentSlide.ctaText && (
+                                    <button
+                                        type="button"
+                                        onClick={() => updateCurrentSlide('ctaText', '')}
+                                        style={{
+                                            border: 'none',
+                                            background: 'transparent',
+                                            color: '#6338f5',
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            padding: 0
+                                        }}
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
                             <input
                                 type="text"
-                                value={currentSlide.kicker || ''}
-                                onChange={(e) => updateCurrentSlide('kicker', e.target.value)}
-                                placeholder="AC Foam-Jet Care"
+                                value={currentSlide.ctaText || ''}
+                                onChange={(e) => updateCurrentSlide('ctaText', e.target.value)}
+                                placeholder="Leave blank to hide CTA button"
                                 style={{
                                     width: '100%',
                                     padding: '8px 12px',
@@ -610,317 +803,224 @@ export default function EcomV2HeroSettings({ onBack }) {
 
                         <div>
                             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                Main Headline (Bold offer copy)
+                                CTA Destination Link
                             </label>
-                            <input
-                                type="text"
-                                value={currentSlide.headline || ''}
-                                onChange={(e) => updateCurrentSlide('headline', e.target.value)}
-                                placeholder="Beat the Mumbai Heat with 25% Off"
-                                style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-primary)',
-                                    backgroundColor: 'var(--bg-primary)',
-                                    color: 'var(--text-primary)',
-                                    fontSize: 13,
-                                    fontWeight: 600
-                                }}
-                            />
-                        </div>
-
-                        <div className="ecom-v2-form-grid-2col">
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                    Subline / Pricing Highlight
-                                </label>
+                            <div style={{ display: 'flex', gap: 6 }}>
                                 <input
                                     type="text"
-                                    value={currentSlide.subline || ''}
-                                    onChange={(e) => updateCurrentSlide('subline', e.target.value)}
-                                    placeholder="Starts at ₹599 • 90-min arrival"
+                                    value={currentSlide.ctaLink || ''}
+                                    onChange={(e) => updateCurrentSlide('ctaLink', e.target.value)}
+                                    placeholder="/v2/services/ac-repair"
                                     style={{
-                                        width: '100%',
+                                        flex: 1,
                                         padding: '8px 12px',
                                         borderRadius: 8,
                                         border: '1px solid var(--border-primary)',
                                         backgroundColor: 'var(--bg-primary)',
                                         color: 'var(--text-primary)',
-                                        fontSize: 13
+                                        fontSize: 12.5,
+                                        fontFamily: 'monospace'
                                     }}
                                 />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                    Corner Badge (Optional)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={currentSlide.badge || ''}
-                                    onChange={(e) => updateCurrentSlide('badge', e.target.value)}
-                                    placeholder="25% OFF"
+                                <select
+                                    onChange={(e) => {
+                                        if (e.target.value) updateCurrentSlide('ctaLink', e.target.value);
+                                    }}
+                                    value=""
                                     style={{
-                                        width: '100%',
-                                        padding: '8px 12px',
+                                        padding: '8px',
                                         borderRadius: 8,
                                         border: '1px solid var(--border-primary)',
-                                        backgroundColor: 'var(--bg-primary)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: 13
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: 12,
+                                        cursor: 'pointer'
                                     }}
-                                />
+                                >
+                                    <option value="" disabled>Presets</option>
+                                    {LINK_SUGGESTIONS.map(l => (
+                                        <option key={l.url} value={l.url}>{l.label}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
+                    </div>
 
-                        {/* CTA Destination */}
-                        <div className="ecom-v2-form-grid-cta">
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                    CTA Button Text
-                                </label>
-                                <input
-                                    type="text"
-                                    value={currentSlide.ctaText || ''}
-                                    onChange={(e) => updateCurrentSlide('ctaText', e.target.value)}
-                                    placeholder="Book now"
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 12px',
-                                        borderRadius: 8,
-                                        border: '1px solid var(--border-primary)',
-                                        backgroundColor: 'var(--bg-primary)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: 13
-                                    }}
-                                />
+                    {/* 3. Per-Slide Floating Placement: Profile Button & CTA Button */}
+                    <div style={{
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 12,
+                        padding: 14,
+                        background: 'var(--bg-primary)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Move size={15} color="#6338f5" />
+                                <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>
+                                    Button Placement on Slide {activeSlideIndex + 1}
+                                </strong>
                             </div>
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                Use sliders, presets, or drag directly on Live Preview →
+                            </span>
+                        </div>
 
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                    CTA Destination Link
-                                </label>
-                                <div style={{ display: 'flex', gap: 6 }}>
+                        {/* Profile Button Placement */}
+                        <div style={{
+                            padding: 12,
+                            borderRadius: 10,
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <User size={14} color="#6338f5" />
+                                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        Profile Button (Mobile Hero)
+                                    </span>
+                                </div>
+                                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
                                     <input
-                                        type="text"
-                                        value={currentSlide.ctaLink || ''}
-                                        onChange={(e) => updateCurrentSlide('ctaLink', e.target.value)}
-                                        placeholder="/v2/services/ac-repair"
-                                        style={{
-                                            flex: 1,
-                                            padding: '8px 12px',
-                                            borderRadius: 8,
-                                            border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-primary)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: 12.5,
-                                            fontFamily: 'monospace'
-                                        }}
+                                        type="checkbox"
+                                        checked={currentSlide.profilePos.visible !== false}
+                                        onChange={(e) => updateNestedPos('profilePos', { visible: e.target.checked })}
+                                        style={{ accentColor: '#6338f5' }}
                                     />
-                                    <select
-                                        onChange={(e) => {
-                                            if (e.target.value) updateCurrentSlide('ctaLink', e.target.value);
-                                        }}
-                                        defaultValue=""
+                                    <span>Visible on this slide</span>
+                                </label>
+                            </div>
+
+                            {currentSlide.profilePos.visible !== false && (
+                                <>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                                        {PROFILE_PRESETS.map(p => (
+                                            <button
+                                                key={p.label}
+                                                type="button"
+                                                onClick={() => updateNestedPos('profilePos', { x: p.x, y: p.y })}
+                                                style={{
+                                                    padding: '4px 9px',
+                                                    borderRadius: 6,
+                                                    border: '1px solid var(--border-primary)',
+                                                    background: (currentSlide.profilePos.x === p.x && currentSlide.profilePos.y === p.y)
+                                                        ? 'rgba(99,56,245,0.12)' : 'var(--bg-primary)',
+                                                    color: (currentSlide.profilePos.x === p.x && currentSlide.profilePos.y === p.y)
+                                                        ? '#6338f5' : 'var(--text-secondary)',
+                                                    fontSize: 11,
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="ecom-v2-form-grid-2col">
+                                        <label style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                            Horizontal X: <strong>{currentSlide.profilePos.x}%</strong>
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={100}
+                                                value={currentSlide.profilePos.x}
+                                                onChange={(e) => updateNestedPos('profilePos', { x: Number(e.target.value) })}
+                                                style={{ width: '100%', accentColor: '#6338f5', marginTop: 4 }}
+                                            />
+                                        </label>
+                                        <label style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                            Vertical Y: <strong>{currentSlide.profilePos.y}%</strong>
+                                            <input
+                                                type="range"
+                                                min={0}
+                                                max={100}
+                                                value={currentSlide.profilePos.y}
+                                                onChange={(e) => updateNestedPos('profilePos', { y: Number(e.target.value) })}
+                                                style={{ width: '100%', accentColor: '#6338f5', marginTop: 4 }}
+                                            />
+                                        </label>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* CTA Button Placement */}
+                        <div style={{
+                            padding: 12,
+                            borderRadius: 10,
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            opacity: currentSlide.ctaText ? 1 : 0.65
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <ArrowRight size={14} color="#6338f5" />
+                                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        CTA Button Placement
+                                    </span>
+                                </div>
+                                {!currentSlide.ctaText && (
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                        Add CTA Button Text above to display
+                                    </span>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                                {CTA_PRESETS.map(p => (
+                                    <button
+                                        key={p.label}
+                                        type="button"
+                                        onClick={() => updateNestedPos('ctaPos', { x: p.x, y: p.y })}
                                         style={{
-                                            padding: '8px',
-                                            borderRadius: 8,
+                                            padding: '4px 9px',
+                                            borderRadius: 6,
                                             border: '1px solid var(--border-primary)',
-                                            backgroundColor: 'var(--bg-elevated)',
-                                            color: 'var(--text-secondary)',
-                                            fontSize: 12,
+                                            background: (currentSlide.ctaPos.x === p.x && currentSlide.ctaPos.y === p.y)
+                                                ? 'rgba(99,56,245,0.12)' : 'var(--bg-primary)',
+                                            color: (currentSlide.ctaPos.x === p.x && currentSlide.ctaPos.y === p.y)
+                                                ? '#6338f5' : 'var(--text-secondary)',
+                                            fontSize: 11,
+                                            fontWeight: 600,
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        <option value="" disabled>Presets</option>
-                                        {LINK_SUGGESTIONS.map(l => (
-                                            <option key={l.url} value={l.url}>{l.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Theme Preset Selector */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                                Theme Color / Gradient Presets (Matches Urban Company styling)
-                            </label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
-                                {COLOR_PRESETS.map(preset => {
-                                    const isSelected = currentSlide.bgColor === preset.bgColor;
-                                    return (
-                                        <button
-                                            key={preset.name}
-                                            type="button"
-                                            onClick={() => {
-                                                updateCurrentSlide('bgColor', preset.bgColor);
-                                                updateCurrentSlide('bgGradient', preset.bgGradient);
-                                            }}
-                                            style={{
-                                                padding: '8px',
-                                                borderRadius: 8,
-                                                border: isSelected ? '2px solid #6338f5' : '1px solid var(--border-primary)',
-                                                background: preset.bgGradient,
-                                                color: '#ffffff',
-                                                fontSize: 11,
-                                                fontWeight: 700,
-                                                textAlign: 'left',
-                                                cursor: 'pointer',
-                                                position: 'relative',
-                                                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between'
-                                            }}
-                                        >
-                                            <span>{preset.name.split(' (')[0]}</span>
-                                            {isSelected && <Check size={12} color="#fff" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Media Upload & Specifications Section */}
-                        <div style={{
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 12,
-                            padding: 14,
-                            background: 'var(--bg-primary)'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <Film size={16} color="#6338f5" />
-                                    <strong style={{ fontSize: 13, color: 'var(--text-primary)' }}>Hero Slide Media (GIF / Video / Image)</strong>
-                                </div>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                    {['image', 'gif', 'video'].map(type => (
-                                        <button
-                                            key={type}
-                                            type="button"
-                                            onClick={() => updateCurrentSlide('mediaType', type)}
-                                            style={{
-                                                padding: '4px 8px',
-                                                borderRadius: 6,
-                                                border: currentSlide.mediaType === type ? '1.5px solid #6338f5' : '1px solid var(--border-primary)',
-                                                backgroundColor: currentSlide.mediaType === type ? 'rgba(99,56,245,0.1)' : 'transparent',
-                                                color: currentSlide.mediaType === type ? '#6338f5' : 'var(--text-secondary)',
-                                                fontSize: 11.5,
-                                                fontWeight: 600,
-                                                textTransform: 'uppercase',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
-                                </div>
+                                        {p.label}
+                                    </button>
+                                ))}
                             </div>
 
-                            {/* UPLOAD SPECS / GUIDANCE BOX (MANDATORY REQUIREMENT) */}
-                            <div style={{
-                                padding: '12px 14px',
-                                borderRadius: 10,
-                                backgroundColor: 'rgba(99, 56, 245, 0.05)',
-                                border: '1px solid rgba(99, 56, 245, 0.2)',
-                                marginBottom: 12,
-                                fontSize: 12,
-                                color: 'var(--text-primary)',
-                                lineHeight: 1.5
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#6338f5', marginBottom: 4 }}>
-                                    <Info size={14} />
-                                    <span>Upload Guidelines & Required Dimensions</span>
-                                </div>
-                                <div className="ecom-v2-form-grid-2col" style={{ marginTop: 6 }}>
-                                    <div>
-                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>📐 Dimensions & Aspect Ratio:</span>
-                                        <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--text-secondary)', fontSize: 11.5 }}>
-                                            <li><strong>Cutout Model (Recommended):</strong> 800 × 600 px (4:3) or 600 × 600 px (1:1 square)</li>
-                                            <li><strong>Full Banner Visual:</strong> 1200 × 600 px (2:1 wide)</li>
-                                        </ul>
-                                    </div>
-                                    <div>
-                                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>📦 File Formats & Max Limits:</span>
-                                        <ul style={{ margin: '4px 0 0 16px', padding: 0, color: 'var(--text-secondary)', fontSize: 11.5 }}>
-                                            <li><strong>PNG / WebP:</strong> Max 5 MB (Transparent cutout looks best)</li>
-                                            <li><strong>Looping GIF:</strong> Max 8 MB (24–30 FPS, continuous loop)</li>
-                                            <li><strong>Video (MP4 / WebM):</strong> Max 15 MB (5–12s duration, H.264, muted)</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: 11, color: '#6338f5', margin: '8px 0 0 0', fontWeight: 500 }}>
-                                    💡 <em>Pro Tip:</em> As seen in the Urban Company app, placing a transparent cutout image/GIF/video of an appliance or expert technician on the right side provides the cleanest luxury aesthetic.
-                                </p>
+                            <div className="ecom-v2-form-grid-2col">
+                                <label style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                    Horizontal X: <strong>{currentSlide.ctaPos.x}%</strong>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={currentSlide.ctaPos.x}
+                                        onChange={(e) => updateNestedPos('ctaPos', { x: Number(e.target.value) })}
+                                        style={{ width: '100%', accentColor: '#6338f5', marginTop: 4 }}
+                                    />
+                                </label>
+                                <label style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                    Vertical Y: <strong>{currentSlide.ctaPos.y}%</strong>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={100}
+                                        value={currentSlide.ctaPos.y}
+                                        onChange={(e) => updateNestedPos('ctaPos', { y: Number(e.target.value) })}
+                                        style={{ width: '100%', accentColor: '#6338f5', marginTop: 4 }}
+                                    />
+                                </label>
                             </div>
-
-                            {/* Direct File Picker */}
-                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"
-                                    onChange={handleFileUpload}
-                                    style={{ display: 'none' }}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={uploading}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                        padding: '9px 16px',
-                                        borderRadius: 8,
-                                        border: '1px solid #6338f5',
-                                        backgroundColor: '#6338f5',
-                                        color: '#ffffff',
-                                        fontSize: 12.5,
-                                        fontWeight: 600,
-                                        cursor: uploading ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {uploading ? (
-                                        <>
-                                            <RefreshCw size={14} className="animate-spin" /> Uploading ({uploadProgress}%)...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload size={14} /> Upload GIF, Video or Image
-                                        </>
-                                    )}
-                                </button>
-
-                                <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                                    or enter URL below
-                                </span>
-                            </div>
-
-                            {/* URL Input */}
-                            <input
-                                type="text"
-                                value={currentSlide.mediaUrl || ''}
-                                onChange={(e) => updateCurrentSlide('mediaUrl', e.target.value)}
-                                placeholder="https://.../video.mp4 or /images/banners/banner.png"
-                                style={{
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    borderRadius: 8,
-                                    border: '1px solid var(--border-primary)',
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    color: 'var(--text-primary)',
-                                    fontSize: 12,
-                                    fontFamily: 'monospace'
-                                }}
-                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Right Column: Live Mockup Preview */}
+                {/* Right Column: Interactive Live Mockup Preview */}
                 <div className="ecom-v2-preview-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div style={{
                         display: 'flex',
@@ -976,180 +1076,264 @@ export default function EcomV2HeroSettings({ onBack }) {
                         </div>
                     </div>
 
-                    {/* Preview Screen Card */}
+                    {/* Preview Frame matching /v2 */}
                     <div style={{
                         maxWidth: previewDevice === 'mobile' ? 380 : '100%',
                         margin: previewDevice === 'mobile' ? '0 auto' : '0',
                         width: '100%',
-                        borderRadius: 18,
+                        borderRadius: 16,
                         overflow: 'hidden',
                         boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
                         border: '1px solid var(--border-primary)',
-                        backgroundColor: currentSlide.bgColor || '#311b6b',
-                        background: currentSlide.bgGradient || currentSlide.bgColor || '#311b6b',
+                        backgroundColor: '#1d1042',
                         position: 'relative',
-                        minHeight: 220,
-                        padding: previewDevice === 'mobile' ? '18px 16px' : '26px 28px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        transition: 'background 0.3s ease'
+                        height: previewDevice === 'mobile' ? 325 : 260,
+                        userSelect: 'none'
                     }}>
-                        {/* Slide Content Layout */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                            {/* Left Text Column */}
-                            <div style={{ flex: 1, minWidth: 0, zIndex: 2 }}>
-                                {currentSlide.kicker && (
-                                    <div style={{
-                                        fontSize: 11,
-                                        fontWeight: 600,
-                                        color: 'rgba(255,255,255,0.85)',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.04em',
-                                        marginBottom: 4
-                                    }}>
-                                        {currentSlide.kicker}
-                                    </div>
-                                )}
-
-                                <h3 style={{
-                                    fontSize: previewDevice === 'mobile' ? 16 : 20,
-                                    fontWeight: 800,
-                                    color: '#ffffff',
-                                    lineHeight: 1.25,
-                                    margin: '0 0 6px 0',
-                                    textShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                                }}>
-                                    {currentSlide.headline || 'Your Headline Here'}
-                                </h3>
-
-                                {currentSlide.subline && (
-                                    <p style={{
-                                        fontSize: previewDevice === 'mobile' ? 12 : 13.5,
-                                        color: 'rgba(255,255,255,0.9)',
-                                        margin: '0 0 14px 0',
-                                        lineHeight: 1.3
-                                    }}>
-                                        {currentSlide.subline}
-                                    </p>
-                                )}
-
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                    fontSize: 12.5,
-                                    fontWeight: 700,
-                                    color: '#ffffff',
-                                    padding: '6px 14px',
-                                    borderRadius: 999,
-                                    background: 'rgba(255,255,255,0.22)',
-                                    backdropFilter: 'blur(8px)',
-                                    border: '1px solid rgba(255,255,255,0.35)',
-                                    cursor: 'pointer'
-                                }}>
-                                    <span>{currentSlide.ctaText || 'Book now'}</span>
-                                    <ArrowRight size={13} />
-                                </div>
-                            </div>
-
-                            {/* Right Media Column */}
-                            <div style={{
-                                width: previewDevice === 'mobile' ? 140 : 190,
-                                height: previewDevice === 'mobile' ? 140 : 170,
-                                position: 'relative',
-                                flexShrink: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                {currentSlide.mediaUrl ? (
-                                    currentSlide.mediaType === 'video' ? (
-                                        <video
-                                            src={currentSlide.mediaUrl}
-                                            autoPlay
-                                            loop
-                                            muted
-                                            playsInline
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'contain',
-                                                borderRadius: 8
-                                            }}
-                                        />
-                                    ) : (
-                                        <img
-                                            src={currentSlide.mediaUrl}
-                                            alt={currentSlide.headline || 'Hero media'}
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '100%',
-                                                objectFit: 'contain',
-                                                filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.3))'
-                                            }}
-                                        />
-                                    )
-                                ) : (
-                                    <div style={{
+                        {/* Full-Bleed Slide Media */}
+                        {currentSlide.mediaUrl ? (
+                            currentSlide.mediaType === 'video' ? (
+                                <video
+                                    key={currentSlide.mediaUrl}
+                                    src={currentSlide.mediaUrl}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
                                         width: '100%',
                                         height: '100%',
-                                        borderRadius: 12,
-                                        border: '2px dashed rgba(255,255,255,0.35)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'rgba(255,255,255,0.7)',
-                                        fontSize: 11
-                                    }}>
-                                        <ImageIcon size={28} style={{ opacity: 0.6, marginBottom: 4 }} />
-                                        <span>No Media</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Pagination Indicator (Urban Company 3-dash style) */}
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            alignItems: 'center',
-                            gap: 5,
-                            marginTop: 10,
-                            zIndex: 3
-                        }}>
-                            {slides.map((_, idx) => (
-                                <span
-                                    key={idx}
-                                    style={{
-                                        display: 'inline-block',
-                                        height: 4,
-                                        width: idx === activeSlideIndex ? 22 : 8,
-                                        borderRadius: 2,
-                                        backgroundColor: idx === activeSlideIndex ? '#ffffff' : 'rgba(255,255,255,0.4)',
-                                        transition: 'all 0.25s ease'
+                                        objectFit: 'cover',
+                                        display: 'block'
                                     }}
                                 />
-                            ))}
+                            ) : (
+                                <img
+                                    key={currentSlide.mediaUrl}
+                                    src={currentSlide.mediaUrl}
+                                    alt="Hero slide preview"
+                                    draggable={false}
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        display: 'block'
+                                    }}
+                                />
+                            )
+                        ) : (
+                            <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'rgba(255,255,255,0.7)',
+                                fontSize: 12
+                            }}>
+                                <ImageIcon size={32} style={{ opacity: 0.6, marginBottom: 6 }} />
+                                <span>No Slide Media Uploaded</span>
+                            </div>
+                        )}
+
+                        {/* Subtle Top Scrim & Fixed Floating Header in Mobile Mode */}
+                        {previewDevice === 'mobile' && (
+                            <>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: 140,
+                                    background: 'linear-gradient(180deg, rgba(15,23,42,0.44) 0%, rgba(15,23,42,0.16) 58%, rgba(15,23,42,0) 100%)',
+                                    pointerEvents: 'none',
+                                    zIndex: 2
+                                }} />
+
+                                <div style={{
+                                    position: 'relative',
+                                    zIndex: 10,
+                                    padding: '12px 14px 0',
+                                    pointerEvents: 'none'
+                                }}>
+                                    <div style={{ paddingRight: 52, marginBottom: 10 }}>
+                                        <img
+                                            src="/images/logos/logo-dark.png"
+                                            alt="Sorted"
+                                            draggable={false}
+                                            style={{
+                                                height: 20,
+                                                width: 'auto',
+                                                objectFit: 'contain',
+                                                display: 'block',
+                                                marginBottom: 5,
+                                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))'
+                                            }}
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.35)' }}>
+                                            <MapPin size={15} />
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13.5, fontWeight: 700, lineHeight: 1.2 }}>
+                                                    <span>Select Mumbai Locality</span>
+                                                    <ChevronDown size={13} />
+                                                </div>
+                                                <div style={{ fontSize: 11, opacity: 0.88 }}>
+                                                    Tap to choose flat, society &amp; pincode
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        background: '#fff',
+                                        borderRadius: 11,
+                                        padding: '0 12px',
+                                        height: 40,
+                                        boxShadow: '0 6px 18px rgba(13,7,36,0.22)',
+                                        color: '#64748b',
+                                        fontSize: 12.5
+                                    }}>
+                                        <Search size={15} />
+                                        <span>Search for a service</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Draggable Per-Slide Overlay Bounds */}
+                        <div
+                            ref={overlayBoundsRef}
+                            style={{
+                                position: 'absolute',
+                                inset: previewDevice === 'mobile' ? '12px 14px 16px' : '16px 20px 20px',
+                                pointerEvents: 'none',
+                                zIndex: 20
+                            }}
+                        >
+                            {/* Draggable Profile Button (Mobile Preview) */}
+                            {previewDevice === 'mobile' && currentSlide.profilePos.visible !== false && (
+                                <div
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        setDraggingTarget('profile');
+                                    }}
+                                    title="Drag to move Profile Button"
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${currentSlide.profilePos.x}%`,
+                                        top: `${currentSlide.profilePos.y}%`,
+                                        transform: `translate(-${currentSlide.profilePos.x}%, -${currentSlide.profilePos.y}%)`,
+                                        pointerEvents: 'auto',
+                                        cursor: draggingTarget === 'profile' ? 'grabbing' : 'grab',
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: '50%',
+                                        background: '#ffffff',
+                                        color: '#1e293b',
+                                        border: draggingTarget === 'profile' ? '2px solid #6338f5' : '1.5px dashed #6338f5',
+                                        boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        touchAction: 'none'
+                                    }}
+                                >
+                                    <User size={18} />
+                                </div>
+                            )}
+
+                            {/* Draggable CTA Button (When ctaText is provided) */}
+                            {Boolean(currentSlide.ctaText) && (
+                                <div
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        setDraggingTarget('cta');
+                                    }}
+                                    title="Drag to move CTA Button"
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${currentSlide.ctaPos.x}%`,
+                                        top: `${currentSlide.ctaPos.y}%`,
+                                        transform: `translate(-${currentSlide.ctaPos.x}%, -${currentSlide.ctaPos.y}%)`,
+                                        pointerEvents: 'auto',
+                                        cursor: draggingTarget === 'cta' ? 'grabbing' : 'grab',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        color: '#ffffff',
+                                        padding: '7px 14px',
+                                        borderRadius: 999,
+                                        background: 'rgba(15, 23, 42, 0.85)',
+                                        backdropFilter: 'blur(8px)',
+                                        border: draggingTarget === 'cta' ? '2px solid #a78bfa' : '1.5px dashed rgba(255,255,255,0.7)',
+                                        boxShadow: '0 6px 18px rgba(0,0,0,0.28)',
+                                        whiteSpace: 'nowrap',
+                                        touchAction: 'none'
+                                    }}
+                                >
+                                    <span>{currentSlide.ctaText}</span>
+                                    <ArrowRight size={13} />
+                                </div>
+                            )}
                         </div>
+
+                        {/* Pagination Dashes */}
+                        {slides.length > 1 && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: 10,
+                                right: 14,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                zIndex: 18
+                            }}>
+                                {slides.map((_, idx) => (
+                                    <span
+                                        key={idx}
+                                        style={{
+                                            display: 'inline-block',
+                                            height: 3.5,
+                                            width: idx === activeSlideIndex ? 22 : 7,
+                                            borderRadius: 2,
+                                            backgroundColor: idx === activeSlideIndex ? '#ffffff' : 'rgba(255,255,255,0.48)',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.35)'
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div style={{
-                        padding: '12px 14px',
+                        padding: '11px 14px',
                         borderRadius: 10,
                         backgroundColor: 'var(--bg-elevated)',
                         border: '1px solid var(--border-primary)',
                         fontSize: 12,
-                        color: 'var(--text-secondary)'
+                        color: 'var(--text-secondary)',
+                        lineHeight: 1.45
                     }}>
-                        <strong style={{ color: 'var(--text-primary)' }}>Hero Slide Indicator Guide:</strong>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0 0 0' }}>
-                            <span style={{ display: 'inline-block', height: 4, width: 20, borderRadius: 2, background: '#6338f5' }} />
-                            <span>Active expanded pill</span>
-                            <span style={{ display: 'inline-block', height: 4, width: 8, borderRadius: 2, background: '#cbd5e1', marginLeft: 8 }} />
-                            <span>Inactive dash</span>
-                        </div>
+                        {previewDevice === 'mobile' ? (
+                            <span>
+                                💡 <strong style={{ color: 'var(--text-primary)' }}>Tip:</strong> Drag the dashed <strong style={{ color: '#6338f5' }}>Profile</strong> or <strong style={{ color: '#6338f5' }}>CTA</strong> button directly on the preview above to adjust its placement for Slide {activeSlideIndex + 1}.
+                            </span>
+                        ) : (
+                            <span>
+                                🖥️ <strong style={{ color: 'var(--text-primary)' }}>Desktop view:</strong> Logo, Location, Search &amp; Account appear in the sticky top header bar; you can drag the <strong style={{ color: '#6338f5' }}>CTA button</strong> on the slide banner.
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
