@@ -448,29 +448,27 @@ export default function EcomV2HomepageSectionsBuilder({ sections = [], onChange 
                 }}
             />
 
-            {/* Top Add-Section Action Bar */}
+            {/* Compact Top Add-Section Action Bar */}
             <div style={{
-                padding: 18,
-                borderRadius: 14,
+                padding: '12px 14px',
+                borderRadius: 12,
                 background: 'var(--bg-elevated)',
                 border: '1px solid var(--border-primary)',
                 display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 14
+                flexDirection: 'column',
+                gap: 10
             }}>
-                <div>
-                    <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Layers size={18} color="#6338f5" />
-                        <span>Homepage Sections Builder</span>
-                    </h2>
-                    <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                        Design your <code>/v2</code> homepage stack section by section (Horizontal Carousels, Vertical Carousels, Image/GIF Banners &amp; Video Sections). Remember to click <strong>Save Changes</strong> above when done.
-                    </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Layers size={15} color="#6338f5" />
+                        <span>Add Homepage Section</span>
+                    </span>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                        Click Save Changes above after editing
+                    </span>
                 </div>
 
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
                     {HOMEPAGE_SECTION_TYPES.map(st => (
                         <button
                             key={st.id}
@@ -479,18 +477,20 @@ export default function EcomV2HomepageSectionsBuilder({ sections = [], onChange 
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 6,
-                                padding: '8px 13px',
-                                borderRadius: 9,
+                                justifyContent: 'center',
+                                gap: 5,
+                                padding: '8px 10px',
+                                borderRadius: 8,
                                 border: '1px solid rgba(99,56,245,0.35)',
                                 backgroundColor: 'rgba(99,56,245,0.08)',
                                 color: '#6338f5',
-                                fontSize: 12.5,
+                                fontSize: 12,
                                 fontWeight: 700,
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap'
                             }}
                         >
-                            <Plus size={14} /> {st.shortLabel}
+                            <Plus size={13} /> {st.shortLabel}
                         </button>
                     ))}
                 </div>
@@ -756,7 +756,7 @@ export default function EcomV2HomepageSectionsBuilder({ sections = [], onChange 
                                         <Layout size={15} color="#6338f5" />
                                         <span>Choose Layout Style ({availableLayouts.length} options available)</span>
                                     </label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))', gap: 8 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: 8 }}>
                                         {availableLayouts.map(lay => {
                                             const selected = currentSection.layout === lay.id;
                                             return (

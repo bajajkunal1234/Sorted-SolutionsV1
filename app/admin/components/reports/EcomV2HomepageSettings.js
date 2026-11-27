@@ -284,7 +284,7 @@ export default function EcomV2HomepageSettings({ onBack }) {
     const slidesToPreview = (currentCatConfig.slides || []).filter(s => s && s.url);
 
     return (
-        <div style={{ padding: 'var(--spacing-lg)', maxWidth: 1280, margin: '0 auto' }}>
+        <div style={{ padding: '0 0 20px', maxWidth: 1280, margin: '0 auto' }}>
             {/* Hidden Logo File Input (Supports PNG with transparency, SVG, WebP, JPG) */}
             <input
                 ref={logoFileInputRef}
@@ -315,60 +315,38 @@ export default function EcomV2HomepageSettings({ onBack }) {
                 }}
             />
 
-            {/* Top Navigation Bar */}
-            <div className="ecom-v2-header-container" style={{
-                paddingBottom: 16,
-                borderBottom: '1px solid var(--border-primary)'
+            {/* Compact Single-Row Action Bar */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 8,
+                paddingBottom: 10,
+                marginBottom: 10,
+                borderBottom: '1px solid var(--border-primary)',
+                flexWrap: 'wrap'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <button
-                        onClick={onBack}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            padding: '8px 14px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            color: 'var(--text-secondary)',
-                            fontSize: 'var(--font-size-sm)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <ArrowLeft size={16} /> Back to Website Settings
-                    </button>
-                    <div>
-                        <h1 style={{
-                            margin: 0,
-                            fontSize: 'clamp(18px, 4vw, 24px)',
-                            fontWeight: 800,
-                            color: 'var(--text-primary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            flexWrap: 'wrap'
-                        }}>
-                            <span>Homepage Settings</span>
-                            <span style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                textTransform: 'uppercase',
-                                padding: '3px 8px',
-                                borderRadius: 6,
-                                backgroundColor: 'rgba(59,130,246,0.15)',
-                                color: '#3b82f6'
-                            }}>
-                                Ecom V2
-                            </span>
-                        </h1>
-                        <p style={{ margin: '3px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                            Manage official website logos (Day & Dark Mode) and category 3-image sliding thumbnails
-                        </p>
-                    </div>
-                </div>
+                <button
+                    type="button"
+                    onClick={onBack}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '6px 11px',
+                        borderRadius: 8,
+                        backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)',
+                        color: 'var(--text-secondary)',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                    }}
+                >
+                    <ArrowLeft size={14} /> Back
+                </button>
 
-                <div className="ecom-v2-header-actions">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <a
                         href="/v2"
                         target="_blank"
@@ -376,50 +354,52 @@ export default function EcomV2HomepageSettings({ onBack }) {
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 6,
-                            padding: '9px 15px',
-                            borderRadius: 'var(--radius-md)',
+                            gap: 5,
+                            padding: '6px 11px',
+                            borderRadius: 8,
                             border: '1px solid var(--border-primary)',
                             backgroundColor: 'var(--bg-elevated)',
                             color: 'var(--text-secondary)',
-                            fontSize: 'var(--font-size-sm)',
+                            fontSize: 12.5,
                             fontWeight: 600,
-                            textDecoration: 'none'
+                            textDecoration: 'none',
+                            whiteSpace: 'nowrap'
                         }}
                     >
-                        <Eye size={15} /> Preview Live /v2
+                        <Eye size={14} /> Preview /v2
                     </a>
 
                     <button
+                        type="button"
                         onClick={handleSaveAll}
                         disabled={saving || loading}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 8,
-                            padding: '9px 20px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: '#3b82f6',
+                            gap: 6,
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            backgroundColor: saveSuccess ? '#10b981' : '#3b82f6',
                             color: '#ffffff',
-                            fontSize: 'var(--font-size-sm)',
+                            fontSize: 12.5,
                             fontWeight: 700,
                             border: 'none',
                             cursor: (saving || loading) ? 'not-allowed' : 'pointer',
-                            boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
-                            opacity: (saving || loading) ? 0.7 : 1
+                            opacity: (saving || loading) ? 0.7 : 1,
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         {saving ? (
                             <>
-                                <RefreshCw size={15} className="spin" /> Saving...
+                                <RefreshCw size={14} className="spin" /> Saving...
                             </>
                         ) : saveSuccess ? (
                             <>
-                                <Check size={16} /> Saved Successfully!
+                                <Check size={14} /> Saved!
                             </>
                         ) : (
                             <>
-                                <Check size={16} /> Save Changes
+                                <Check size={14} /> Save Changes
                             </>
                         )}
                     </button>
@@ -429,46 +409,48 @@ export default function EcomV2HomepageSettings({ onBack }) {
             {/* Error & Success Alerts */}
             {errorMessage && (
                 <div style={{
-                    padding: '12px 16px',
-                    borderRadius: 'var(--radius-md)',
+                    padding: '10px 12px',
+                    borderRadius: 8,
                     backgroundColor: 'rgba(239,68,68,0.12)',
                     border: '1px solid #ef4444',
                     color: '#ef4444',
-                    fontSize: 'var(--font-size-sm)',
-                    marginBottom: 20,
+                    fontSize: 12.5,
+                    marginBottom: 10,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8
                 }}>
-                    <AlertCircle size={18} /> {errorMessage}
+                    <AlertCircle size={16} /> {errorMessage}
                 </div>
             )}
 
             {saveSuccess && (
                 <div style={{
-                    padding: '12px 16px',
-                    borderRadius: 'var(--radius-md)',
+                    padding: '10px 12px',
+                    borderRadius: 8,
                     backgroundColor: 'rgba(16,185,129,0.12)',
                     border: '1px solid #10b981',
                     color: '#10b981',
-                    fontSize: 'var(--font-size-sm)',
-                    marginBottom: 20,
+                    fontSize: 12.5,
+                    marginBottom: 10,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8
                 }}>
-                    <CheckCircle2 size={18} /> Homepage settings saved! Changes are live on /v2 storefront.
+                    <CheckCircle2 size={16} /> Homepage settings saved! Changes are live on /v2.
                 </div>
             )}
 
-            {/* Homepage Section Navigation Tabs */}
+            {/* Full-Width Mobile-Fit Segmented Tabs (Zero Horizontal Scrollbar) */}
             <div style={{
-                display: 'flex',
-                gap: 8,
-                marginBottom: 24,
-                borderBottom: '2px solid var(--border-primary)',
-                paddingBottom: 0,
-                overflowX: 'auto'
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 6,
+                marginBottom: 14,
+                padding: 4,
+                borderRadius: 10,
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border-primary)'
             }}>
                 <button
                     type="button"
@@ -476,21 +458,24 @@ export default function EcomV2HomepageSettings({ onBack }) {
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 8,
-                        padding: '12px 20px',
+                        justifyContent: 'center',
+                        gap: 5,
+                        padding: '8px 6px',
                         border: 'none',
-                        borderBottom: activeSection === 'sections' ? '3px solid #3b82f6' : '3px solid transparent',
-                        backgroundColor: 'transparent',
-                        color: activeSection === 'sections' ? '#3b82f6' : 'var(--text-secondary)',
-                        fontSize: 'var(--font-size-sm)',
-                        fontWeight: activeSection === 'sections' ? 800 : 600,
+                        borderRadius: 7,
+                        backgroundColor: activeSection === 'sections' ? '#3b82f6' : 'transparent',
+                        color: activeSection === 'sections' ? '#ffffff' : 'var(--text-secondary)',
+                        fontSize: 12,
+                        fontWeight: activeSection === 'sections' ? 700 : 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        marginBottom: -2,
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                     }}
                 >
-                    <Layers size={17} /> Homepage Sections Builder ({sections.length})
+                    <Layers size={14} style={{ flexShrink: 0 }} />
+                    <span>Sections ({sections.length})</span>
                 </button>
 
                 <button
@@ -499,21 +484,24 @@ export default function EcomV2HomepageSettings({ onBack }) {
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 8,
-                        padding: '12px 20px',
+                        justifyContent: 'center',
+                        gap: 5,
+                        padding: '8px 6px',
                         border: 'none',
-                        borderBottom: activeSection === 'logos' ? '3px solid #3b82f6' : '3px solid transparent',
-                        backgroundColor: 'transparent',
-                        color: activeSection === 'logos' ? '#3b82f6' : 'var(--text-secondary)',
-                        fontSize: 'var(--font-size-sm)',
-                        fontWeight: activeSection === 'logos' ? 800 : 600,
+                        borderRadius: 7,
+                        backgroundColor: activeSection === 'logos' ? '#3b82f6' : 'transparent',
+                        color: activeSection === 'logos' ? '#ffffff' : 'var(--text-secondary)',
+                        fontSize: 12,
+                        fontWeight: activeSection === 'logos' ? 700 : 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        marginBottom: -2,
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                     }}
                 >
-                    <Sun size={17} /> Website Brand Logos (Day & Dark Mode)
+                    <Sun size={14} style={{ flexShrink: 0 }} />
+                    <span>Brand Logos</span>
                 </button>
 
                 <button
@@ -522,21 +510,24 @@ export default function EcomV2HomepageSettings({ onBack }) {
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 8,
-                        padding: '12px 20px',
+                        justifyContent: 'center',
+                        gap: 5,
+                        padding: '8px 6px',
                         border: 'none',
-                        borderBottom: activeSection === 'thumbnails' ? '3px solid #3b82f6' : '3px solid transparent',
-                        backgroundColor: 'transparent',
-                        color: activeSection === 'thumbnails' ? '#3b82f6' : 'var(--text-secondary)',
-                        fontSize: 'var(--font-size-sm)',
-                        fontWeight: activeSection === 'thumbnails' ? 800 : 600,
+                        borderRadius: 7,
+                        backgroundColor: activeSection === 'thumbnails' ? '#3b82f6' : 'transparent',
+                        color: activeSection === 'thumbnails' ? '#ffffff' : 'var(--text-secondary)',
+                        fontSize: 12,
+                        fontWeight: activeSection === 'thumbnails' ? 700 : 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        marginBottom: -2,
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                     }}
                 >
-                    <ImageIcon size={17} /> Services Thumbnails (Category Tiles)
+                    <ImageIcon size={14} style={{ flexShrink: 0 }} />
+                    <span>Thumbnails</span>
                 </button>
             </div>
 
