@@ -9,8 +9,9 @@ import ServiceSearchBox from './ServiceSearchBox';
 import ServiceCard from './ServiceCard';
 import HeroCarousel from './HeroCarousel';
 import SlidingThumbnail from './SlidingThumbnail';
+import HomepageSections from './HomepageSections';
 
-export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null, homepageProcess = null, initialHeroSlides = null }) {
+export default function V2HomeClient({ services = [], categoryCounts = {}, categories = [], initialLogos = null, homepageProcess = null, initialHeroSlides = null, homepageSections = [] }) {
     const { location, setLocationModalOpen, brandLogos } = useV2Cart();
 
     const activeCategories = Array.isArray(categories) && categories.length > 0
@@ -167,82 +168,86 @@ export default function V2HomeClient({ services = [], categoryCounts = {}, categ
                 </div>
             </section>
 
-            {/* ── Live Published Web Services OR Catalog Readiness Notice ── */}
-            <section style={{ padding: '24px 0' }}>
-                <div className="v2-container">
-                    <div className="v2-section-head">
-                        <h2>Most Booked Packages</h2>
-                        <Link
-                            href="/v2/services"
-                            style={{ fontSize: 13, fontWeight: 700, color: '#6338f5', textDecoration: 'none' }}
-                        >
-                            View catalog
-                        </Link>
-                    </div>
-
-                    {popularServices.length > 0 ? (
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                                gap: 14,
-                            }}
-                        >
-                            {popularServices.map(svc => (
-                                <ServiceCard key={svc.id} service={svc} />
-                            ))}
+            {/* ── Admin-Designed Homepage Sections OR Default Most Booked Fallback ── */}
+            {Array.isArray(homepageSections) && homepageSections.length > 0 ? (
+                <HomepageSections sections={homepageSections} services={services} />
+            ) : (
+                <section style={{ padding: '24px 0' }}>
+                    <div className="v2-container">
+                        <div className="v2-section-head">
+                            <h2>Most Booked Packages</h2>
+                            <Link
+                                href="/v2/services"
+                                style={{ fontSize: 13, fontWeight: 700, color: '#6338f5', textDecoration: 'none' }}
+                            >
+                                View catalog
+                            </Link>
                         </div>
-                    ) : (
-                        <div
-                            className="v2-card"
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 10,
-                                background: '#fff',
-                                borderColor: '#ddd6fe',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div
-                                    style={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 10,
-                                        background: '#f5f3ff',
-                                        color: '#6338f5',
-                                        display: 'grid',
-                                        placeItems: 'center',
-                                        flexShrink: 0,
-                                    }}
-                                >
-                                    <Sparkles size={20} />
-                                </div>
-                                <div>
-                                    <strong style={{ display: 'block', fontSize: 15 }}>
-                                        Storefront Ready for Web Services
-                                    </strong>
-                                    <span style={{ fontSize: 13, color: '#64748b' }}>
-                                        No items are marked <code>subtype = &apos;web&apos;</code> in Admin Inventory yet, so internal technician pricing stays hidden.
-                                    </span>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
-                                {V2_CATEGORIES.map(cat => (
-                                    <Link
-                                        key={cat.slug}
-                                        href={`/v2/services/${cat.slug}`}
-                                        className="v2-cat-pill"
-                                    >
-                                        <Wrench size={13} />
-                                        {cat.name}
-                                    </Link>
+
+                        {popularServices.length > 0 ? (
+                            <div
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                                    gap: 14,
+                                }}
+                            >
+                                {popularServices.map(svc => (
+                                    <ServiceCard key={svc.id} service={svc} />
                                 ))}
                             </div>
-                        </div>
-                    )}
-                </div>
-            </section>
+                        ) : (
+                            <div
+                                className="v2-card"
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 10,
+                                    background: '#fff',
+                                    borderColor: '#ddd6fe',
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div
+                                        style={{
+                                            width: 40,
+                                            height: 40,
+                                            borderRadius: 10,
+                                            background: '#f5f3ff',
+                                            color: '#6338f5',
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <Sparkles size={20} />
+                                    </div>
+                                    <div>
+                                        <strong style={{ display: 'block', fontSize: 15 }}>
+                                            Storefront Ready for Web Services
+                                        </strong>
+                                        <span style={{ fontSize: 13, color: '#64748b' }}>
+                                            No items are marked <code>subtype = &apos;web&apos;</code> in Admin Inventory yet, so internal technician pricing stays hidden.
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+                                    {V2_CATEGORIES.map(cat => (
+                                        <Link
+                                            key={cat.slug}
+                                            href={`/v2/services/${cat.slug}`}
+                                            className="v2-cat-pill"
+                                        >
+                                            <Wrench size={13} />
+                                            {cat.name}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
 
             {/* ── Dynamic Our Process Section (Linked from Admin Our Process Templates) ── */}
             {homepageProcess?.enabled !== false && Array.isArray(homepageProcess?.steps) && homepageProcess.steps.length > 0 && (

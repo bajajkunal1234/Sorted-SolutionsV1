@@ -1,4 +1,4 @@
-import { fetchPublishedWebServices, fetchHeroSlidesConfig } from '@/lib/v2/serverCatalog';
+import { fetchPublishedWebServices, fetchHeroSlidesConfig, fetchHomepageSectionsConfig } from '@/lib/v2/serverCatalog';
 import { fetchProcessTemplatesConfig } from '@/lib/v2/processTemplatesServer';
 import { resolveProcessForHomepage } from '@/lib/v2/processTemplates';
 import V2HomeClient from '@/components/v2/V2HomeClient';
@@ -12,12 +12,14 @@ export default async function V2HomePage() {
     let logos = null;
     let homepageProcess = null;
     let heroSlides = null;
+    let homepageSections = [];
 
     try {
-        const [data, processConfig, loadedHeroSlides] = await Promise.all([
+        const [data, processConfig, loadedHeroSlides, loadedSections] = await Promise.all([
             fetchPublishedWebServices(),
             fetchProcessTemplatesConfig(),
-            fetchHeroSlidesConfig()
+            fetchHeroSlidesConfig(),
+            fetchHomepageSectionsConfig()
         ]);
         services = data.services;
         categoryCounts = data.categoryCounts;
@@ -25,6 +27,7 @@ export default async function V2HomePage() {
         logos = data.logos || null;
         homepageProcess = resolveProcessForHomepage(processConfig);
         heroSlides = loadedHeroSlides;
+        homepageSections = loadedSections || [];
     } catch (err) {
         console.error('[V2HomePage] Failed to load web services:', err?.message);
     }
@@ -37,6 +40,7 @@ export default async function V2HomePage() {
             initialLogos={logos}
             homepageProcess={homepageProcess}
             initialHeroSlides={heroSlides}
+            homepageSections={homepageSections}
         />
     );
 }

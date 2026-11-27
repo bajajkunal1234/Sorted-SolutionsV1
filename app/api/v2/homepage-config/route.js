@@ -1,6 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 import { DEFAULT_CATEGORY_THUMBNAILS } from '../thumbnails-config/route';
+import { sanitizeHomepageSection } from '@/lib/v2/homepageSectionsConfig';
+import { invalidateServerCatalogCache } from '@/lib/v2/serverCatalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +12,7 @@ export const DEFAULT_LOGOS = {
     altText: 'Sorted Solutions'
 };
 
-export async function GET(request) {
+export async function GET() {
     try {
         const supabase = createServerSupabase();
         if (!supabase) {
@@ -18,7 +20,8 @@ export async function GET(request) {
                 success: true,
                 data: {
                     logos: DEFAULT_LOGOS,
-                    categories: DEFAULT_CATEGORY_THUMBNAILS
+                    categories: DEFAULT_CATEGORY_THUMBNAILS,
+                    sections: []
                 },
                 isFallback: true
             });
@@ -36,7 +39,8 @@ export async function GET(request) {
                 success: true,
                 data: {
                     logos: DEFAULT_LOGOS,
-                    categories: DEFAULT_CATEGORY_THUMBNAILS
+                    categories: DEFAULT_CATEGORY_THUMBNAILS,
+                    sections: []
                 },
                 isFallback: true
             });
@@ -47,6 +51,10 @@ export async function GET(request) {
 
         const savedLogos = homepageRow?.extra_config?.logos || DEFAULT_LOGOS;
         const savedCategories = homepageRow?.extra_config?.categories || thumbnailsRow?.extra_config?.categories || {};
+        const rawSections = Array.isArray(homepageRow?.extra_config?.sections)
+            ? homepageRow.extra_config.sections
+            : [];
+        const sanitizedSections = rawSections.map((s, idx) => sanitizeHomepageSection(s, idx));
 
         // Merge saved categories with defaults
         const mergedCategories = { ...DEFAULT_CATEGORY_THUMBNAILS };
@@ -70,7 +78,8 @@ export async function GET(request) {
                     darkModeLogo: savedLogos.darkModeLogo || savedLogos.dayModeLogo || DEFAULT_LOGOS.darkModeLogo,
                     altText: savedLogos.altText || DEFAULT_LOGOS.altText
                 },
-                categories: mergedCategories
+                categories: mergedCategories,
+                sections: sanitizedSections
             },
             updatedAt: homepageRow?.updated_at || thumbnailsRow?.updated_at || null
         });
@@ -80,7 +89,8 @@ export async function GET(request) {
             success: true,
             data: {
                 logos: DEFAULT_LOGOS,
-                categories: DEFAULT_CATEGORY_THUMBNAILS
+                categories: DEFAULT_CATEGORY_THUMBNAILS,
+                sections: []
             },
             isFallback: true
         });
@@ -95,14 +105,25 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const incomingLogos = body.logos || {};
-        const incomingCategories = body.categories || {};
+        const incomingLogos = body.logos || null;
+        const incomingCategories = body.categories || null;
+        const hasIncomingSections = Array.isArray(body.sections);
 
-        // Clean & sanitize logos
+        // Fetch existing homepage config so we preserve untouched keys
+        const { data: existingRow } = await supabase
+            .from('website_section_configs')
+            .select('*')
+            .eq('section_id', 'ecom-v2-homepage')
+            .maybeSingle();
+
+        const currentConfig = existingRow?.extra_config || {};
+
+        // Clean & sanitize logos (or preserve existing)
+        const baseLogos = incomingLogos || currentConfig.logos || DEFAULT_LOGOS;
         const sanitizedLogos = {
-            dayModeLogo: String(incomingLogos.dayModeLogo || DEFAULT_LOGOS.dayModeLogo).trim(),
-            darkModeLogo: String(incomingLogos.darkModeLogo || incomingLogos.dayModeLogo || DEFAULT_LOGOS.darkModeLogo).trim(),
-            altText: String(incomingLogos.altText || DEFAULT_LOGOS.altText).trim()
+            dayModeLogo: String(baseLogos.dayModeLogo || DEFAULT_LOGOS.dayModeLogo).trim(),
+            darkModeLogo: String(baseLogos.darkModeLogo || baseLogos.dayModeLogo || DEFAULT_LOGOS.darkModeLogo).trim(),
+            altText: String(baseLogos.altText || DEFAULT_LOGOS.altText).trim()
         };
 
         // Clean & sanitize categories if passed
@@ -133,19 +154,16 @@ export async function POST(request) {
             });
         }
 
-        // Fetch existing homepage config so we preserve existing sections
-        const { data: existingRow } = await supabase
-            .from('website_section_configs')
-            .select('*')
-            .eq('section_id', 'ecom-v2-homepage')
-            .maybeSingle();
-
-        const currentConfig = existingRow?.extra_config || {};
+        // Clean & sanitize homepage sections if passed
+        const sanitizedSections = hasIncomingSections
+            ? body.sections.map((s, idx) => sanitizeHomepageSection(s, idx))
+            : (Array.isArray(currentConfig.sections) ? currentConfig.sections : []);
 
         const payload = {
             ...currentConfig,
             logos: sanitizedLogos,
             ...(sanitizedCategories ? { categories: sanitizedCategories } : {}),
+            sections: sanitizedSections,
             updated_at: new Date().toISOString()
         };
 
@@ -172,12 +190,15 @@ export async function POST(request) {
                 }, { onConflict: 'section_id' });
         }
 
+        invalidateServerCatalogCache();
+
         return NextResponse.json({
             success: true,
             message: 'Homepage settings saved successfully',
             data: {
                 logos: sanitizedLogos,
-                categories: sanitizedCategories || currentConfig.categories || DEFAULT_CATEGORY_THUMBNAILS
+                categories: sanitizedCategories || currentConfig.categories || DEFAULT_CATEGORY_THUMBNAILS,
+                sections: sanitizedSections
             },
             updatedAt: data?.updated_at
         });

@@ -479,3 +479,16 @@
     }
 }
 
+
+.ecom-v2-sidebar-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+@media (max-width: 960px) {
+    .ecom-v2-sidebar-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

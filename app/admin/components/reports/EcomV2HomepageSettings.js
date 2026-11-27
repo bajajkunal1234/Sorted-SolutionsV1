@@ -28,6 +28,7 @@ import {
 import { V2_CATEGORIES } from '@/lib/v2/catalogConfig';
 import SlidingThumbnail from '@/components/v2/SlidingThumbnail';
 import { uploadClientMedia } from '@/lib/v2/clientUpload';
+import EcomV2HomepageSectionsBuilder from './EcomV2HomepageSectionsBuilder';
 
 const DIRECTION_STYLES = [
     { id: 'multidirectional', label: '4-Way Cycle (Top → Right → Bottom → Left) [Recommended]', desc: 'Each transition enters from a different side sequentially' },
@@ -40,8 +41,11 @@ const DIRECTION_STYLES = [
 ];
 
 export default function EcomV2HomepageSettings({ onBack }) {
-    // Main Section Tab: 'logos' | 'thumbnails'
-    const [activeSection, setActiveSection] = useState('logos');
+    // Main Section Tab: 'sections' | 'logos' | 'thumbnails'
+    const [activeSection, setActiveSection] = useState('sections');
+
+    // Homepage Sections Builder State
+    const [sections, setSections] = useState([]);
 
     // Logos State
     const [logos, setLogos] = useState({
@@ -89,6 +93,9 @@ export default function EcomV2HomepageSettings({ onBack }) {
                 if (json.data.categories) {
                     setConfigs(json.data.categories);
                 }
+                if (Array.isArray(json.data.sections)) {
+                    setSections(json.data.sections);
+                }
             } else {
                 setErrorMessage(json.error || 'Failed to load homepage config');
             }
@@ -120,7 +127,8 @@ export default function EcomV2HomepageSettings({ onBack }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     logos,
-                    categories: configs
+                    categories: configs,
+                    sections
                 })
             });
             const json = await res.json();
@@ -459,8 +467,32 @@ export default function EcomV2HomepageSettings({ onBack }) {
                 gap: 8,
                 marginBottom: 24,
                 borderBottom: '2px solid var(--border-primary)',
-                paddingBottom: 0
+                paddingBottom: 0,
+                overflowX: 'auto'
             }}>
+                <button
+                    type="button"
+                    onClick={() => setActiveSection('sections')}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '12px 20px',
+                        border: 'none',
+                        borderBottom: activeSection === 'sections' ? '3px solid #3b82f6' : '3px solid transparent',
+                        backgroundColor: 'transparent',
+                        color: activeSection === 'sections' ? '#3b82f6' : 'var(--text-secondary)',
+                        fontSize: 'var(--font-size-sm)',
+                        fontWeight: activeSection === 'sections' ? 800 : 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        marginBottom: -2,
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    <Layers size={17} /> Homepage Sections Builder ({sections.length})
+                </button>
+
                 <button
                     type="button"
                     onClick={() => setActiveSection('logos')}
@@ -477,7 +509,8 @@ export default function EcomV2HomepageSettings({ onBack }) {
                         fontWeight: activeSection === 'logos' ? 800 : 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        marginBottom: -2
+                        marginBottom: -2,
+                        whiteSpace: 'nowrap'
                     }}
                 >
                     <Sun size={17} /> Website Brand Logos (Day & Dark Mode)
@@ -499,12 +532,20 @@ export default function EcomV2HomepageSettings({ onBack }) {
                         fontWeight: activeSection === 'thumbnails' ? 800 : 600,
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
-                        marginBottom: -2
+                        marginBottom: -2,
+                        whiteSpace: 'nowrap'
                     }}
                 >
                     <ImageIcon size={17} /> Services Thumbnails (Category Tiles)
                 </button>
             </div>
+
+            {activeSection === 'sections' && (
+                <EcomV2HomepageSectionsBuilder
+                    sections={sections}
+                    onChange={setSections}
+                />
+            )}
 
             {/* ══════════════════════════════════════════════════════════════════════════════ */}
             {/* SECTION 1: WEBSITE BRAND LOGOS (DAY MODE & DARK MODE)                        */}
